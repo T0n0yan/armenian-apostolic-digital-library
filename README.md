@@ -8,7 +8,7 @@ Telegram Mini App-first թվային գրադարան՝ խմբի նյութեր�
 - React 19
 - React Router 8՝ server-side rendering-ով
 - Cloudflare Workers
-- Cloudflare D1՝ հաջորդ փուլում
+- Cloudflare D1
 - pnpm
 
 ## Տեղական աշխատանք
@@ -34,6 +34,9 @@ pnpm build
 ## Անվտանգության սկզբունքներ
 
 - Հավելվածը Telegram խմբում չի հրապարակում, չի խմբագրում և չի ջնջում հաղորդագրություններ։
+- `/admin` ուղին production build-ում փակ է և պահանջում է Cloudflare Access-ի վավեր ստորագրված JWT։
+- Admin մուտքի համար Worker-ի միջավայրում պետք է սահմանվեն `CF_ACCESS_TEAM_DOMAIN` և `CF_ACCESS_AUD` արժեքները։ Առանց դրանց admin-ը վերադարձնում է `403`։
+- Միայն development build-ում `localhost`, `127.0.0.1` և `::1` հասցեներից `/admin` մուտքը թույլատրված է տեղային աշխատանքի համար։
 - Գաղտնի տվյալները չեն պահվում Git repository-ում։
 - Staging և production միջավայրերը մշակվելու են առանձին։
 - Production փոփոխությունները կատարվելու են միայն հստակ հաստատումից հետո։

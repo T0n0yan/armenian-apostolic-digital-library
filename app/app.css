@@ -146,3 +146,73 @@ body {
     min-height: 104px;
   }
 }
+
+.admin-page {
+  min-height: 100svh;
+  width: min(100%, 680px);
+  margin: 0 auto;
+  padding: clamp(32px, 8vw, 72px) 20px 48px;
+}
+
+.admin-header {
+  padding: 0 4px clamp(28px, 7vw, 48px);
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 3.75rem);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.admin-header > p:last-child {
+  margin: 20px 0 0;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+  line-height: 1.6;
+}
+
+.admin-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, #3c7a4d 30%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, #3c7a4d 8%, Canvas);
+}
+
+.admin-status-mark {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 999px;
+  background: #3c7a4d;
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.admin-status h2,
+.admin-status p {
+  margin: 0;
+}
+
+.admin-status h2 {
+  font-size: 1rem;
+}
+
+.admin-status p {
+  margin-top: 5px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  font-size: 0.875rem;
+}
+
+.admin-back-link {
+  display: inline-flex;
+  margin: 28px 4px 0;
+  color: inherit;
+  font-weight: 650;
+  text-underline-offset: 4px;
+}
