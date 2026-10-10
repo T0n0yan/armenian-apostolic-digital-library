@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
+import { Link } from "react-router";
 
 import type { Route } from "./+types/home";
+import { hasAdminNavigationCookie } from "../auth/admin.server";
 import { listActiveCategories } from "../data/categories.server";
 
 export function meta({}: Route.MetaArgs) {
@@ -15,14 +17,22 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export async function loader() {
-  return { categories: await listActiveCategories(env.DB) };
+export async function loader({ request }: Route.LoaderArgs) {
+  return {
+    categories: await listActiveCategories(env.DB),
+    showAdminLink: hasAdminNavigationCookie(request),
+  };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <main className="library-page">
       <header className="library-header">
+        {loaderData.showAdminLink ? (
+          <Link className="library-admin-link" to="/admin">
+            Կառավարում
+          </Link>
+        ) : null}
         <p className="library-kicker">Թվային գրադարան</p>
         <h1>Հայ Առաքելական Սուրբ Եկեղեցի</h1>
         <p className="library-intro">
@@ -38,18 +48,23 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 
         <ol className="categories-list">
           {loaderData.categories.map((category, index) => (
-            <li className="category-card" key={category.id}>
-              <span className="category-number" aria-hidden="true">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <span className="category-content">
-                <strong>{category.name}</strong>
-                <span>
-                  {category.materialCount === 0
-                    ? "Դեռ նյութ չկա"
-                    : `${category.materialCount} նյութ`}
+            <li key={category.id}>
+              <Link className="category-card" to={`/categories/${category.slug}`}>
+                <span className="category-number" aria-hidden="true">
+                  {String(index + 1).padStart(2, "0")}
                 </span>
-              </span>
+                <span className="category-content">
+                  <strong>{category.name}</strong>
+                  <span>
+                    {category.materialCount === 0
+                      ? "Դեռ նյութ չկա"
+                      : `${category.materialCount} նյութ`}
+                  </span>
+                </span>
+                <span className="category-arrow" aria-hidden="true">
+                  →
+                </span>
+              </Link>
             </li>
           ))}
         </ol>

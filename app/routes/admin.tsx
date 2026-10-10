@@ -1,15 +1,21 @@
 import { env } from "cloudflare:workers";
+import { useState } from "react";
 import {
   data,
   Form,
   isRouteErrorResponse,
+  Link,
   redirect,
   useFetcher,
   useNavigation,
 } from "react-router";
 
 import type { Route } from "./+types/admin";
-import { requireAdmin, requireSameOrigin } from "../auth/admin.server";
+import {
+  createAdminNavigationCookie,
+  requireAdmin,
+  requireSameOrigin,
+} from "../auth/admin.server";
 import { listActiveCategories } from "../data/categories.server";
 import {
   countAdminMaterials,
@@ -27,6 +33,8 @@ type FormValues = {
   title: string;
   categoryId: string;
   telegramUrl: string;
+  numberValue: string;
+  dateValue: string;
 };
 
 type FormErrors = Partial<Record<keyof FormValues | "form", string>>;
@@ -35,6 +43,44 @@ const emptyFormValues: FormValues = {
   title: "",
   categoryId: "",
   telegramUrl: "",
+  numberValue: "",
+  dateValue: "",
+};
+
+const categoryTitleFields: Record<
+  string,
+  { label: string; placeholder: string; optional?: boolean }
+> = {
+  category_psalms: {
+    label: "Սաղմոսի խորագիր",
+    placeholder: "Օրինակ՝ Առավոտյան աղոթք օգնության համար",
+    optional: true,
+  },
+  category_daily_readings: {
+    label: "Օրվա թեման կամ տոնը",
+    placeholder: "Օրինակ՝ Սուրբ Գևորգ զորավարի հիշատակության օր",
+    optional: true,
+  },
+  category_bible_questions: {
+    label: "Հարց",
+    placeholder: "Գրիր հրապարակված հարցը",
+  },
+  category_gospel_teachings: {
+    label: "Ուսուցման թեման",
+    placeholder: "Օրինակ՝ Սերմնացանի առակը",
+  },
+  category_saints_lives: {
+    label: "Սրբի անունը կամ նյութի վերնագիրը",
+    placeholder: "Օրինակ՝ Սուրբ Սեթ նախահայր",
+  },
+  category_prayers: {
+    label: "Աղոթքի անունը",
+    placeholder: "Օրինակ՝ Առավոտյան աղոթք",
+  },
+  category_holy_sites_armenia: {
+    label: "Սրբավայրի անունը",
+    placeholder: "Օրինակ՝ Գեղարդի վանք",
+  },
 };
 
 export function meta({}: Route.MetaArgs) {
@@ -101,10 +147,42 @@ function normalizeTelegramPostUrl(value: string) {
 
 function validateForm(values: FormValues) {
   const errors: FormErrors = {};
-  const title = normalizeTitle(values.title);
+  let title = normalizeTitle(values.title);
   const telegramUrl = normalizeTelegramPostUrl(values.telegramUrl);
+  const isPsalm = values.categoryId === "category_psalms";
+  const isDailyReading = values.categoryId === "category_daily_readings";
+  const parsedNumber = Number(values.numberValue);
+  const numberValue =
+    isPsalm && Number.isInteger(parsedNumber) && parsedNumber > 0
+      ? parsedNumber
+      : null;
+  const dateValue = /^\d{4}-\d{2}-\d{2}$/.test(values.dateValue)
+    ? values.dateValue
+    : null;
 
-  if (!title) {
+  if (isPsalm) {
+    if (numberValue === null || numberValue > 150) {
+      errors.numberValue = "Նշիր Սաղմոսի համարը՝ 1-ից 150։";
+    } else if (!/^Սաղմոս\s+\d+/iu.test(title)) {
+      title = title ? `Սաղմոս ${numberValue} — ${title}` : `Սաղմոս ${numberValue}`;
+    }
+  }
+
+  if (isDailyReading) {
+    if (!dateValue || Number.isNaN(new Date(`${dateValue}T00:00:00Z`).getTime())) {
+      errors.dateValue = "Ընտրիր օրվա ընթերցման ամսաթիվը։";
+    }
+    if (!title && dateValue) {
+      title = new Intl.DateTimeFormat("hy-AM", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(`${dateValue}T00:00:00Z`));
+    }
+  }
+
+  if (!title && !isPsalm && !isDailyReading) {
     errors.title = "Գրիր նյութի վերնագիրը։";
   } else if (title.length > 240) {
     errors.title = "Վերնագիրը չի կարող գերազանցել 240 նիշը։";
@@ -124,6 +202,8 @@ function validateForm(values: FormValues) {
       title,
       categoryId: values.categoryId,
       telegramUrl: telegramUrl ?? "",
+      numberValue,
+      dateValue,
     },
   };
 }
@@ -174,13 +254,16 @@ export async function loader({ request }: Route.LoaderArgs) {
     countAdminMaterials(env.DB),
   ]);
 
-  return {
-    admin,
-    categories,
-    materials,
-    materialCount,
-    wasCreated: new URL(request.url).searchParams.get("created") === "1",
-  };
+  return data(
+    {
+      admin,
+      categories,
+      materials,
+      materialCount,
+      wasCreated: new URL(request.url).searchParams.get("created") === "1",
+    },
+    { headers: { "Set-Cookie": createAdminNavigationCookie(request) } },
+  );
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -234,6 +317,8 @@ export async function action({ request }: Route.ActionArgs) {
     title: readText(formData, "title"),
     categoryId: readText(formData, "categoryId"),
     telegramUrl: readText(formData, "telegramUrl"),
+    numberValue: readText(formData, "numberValue"),
+    dateValue: readText(formData, "dateValue"),
   };
   const { errors, normalized } = validateForm(values);
 
@@ -280,10 +365,18 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   const values = manualActionData?.values ?? emptyFormValues;
   const errors = manualActionData?.errors ?? {};
   const importData = importFetcher.data;
+  const [selectedCategoryId, setSelectedCategoryId] = useState(values.categoryId);
+  const titleField = categoryTitleFields[selectedCategoryId] ?? {
+    label: "Վերնագիր",
+    placeholder: "Օրինակ՝ Առավոտյան աղոթք",
+  };
 
   return (
     <main className="admin-page">
       <header className="admin-header">
+        <Link className="admin-menu-link" to="/">
+          ← Գլխավոր մենյու
+        </Link>
         <p className="library-kicker">Կառավարման էջ</p>
         <h1>Telegram բովանդակության ինդեքս</h1>
         <p>
@@ -463,32 +556,13 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
           ) : null}
 
           <div className="form-field">
-            <label htmlFor="material-title">Վերնագիր</label>
-            <input
-              id="material-title"
-              name="title"
-              type="text"
-              required
-              maxLength={240}
-              defaultValue={values.title}
-              aria-invalid={Boolean(errors.title)}
-              aria-describedby={errors.title ? "material-title-error" : undefined}
-              placeholder="Օրինակ՝ Առավոտյան աղոթք"
-            />
-            {errors.title ? (
-              <p id="material-title-error" className="field-error">
-                {errors.title}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="form-field">
             <label htmlFor="material-category">Բաժին</label>
             <select
               id="material-category"
               name="categoryId"
               required
               defaultValue={values.categoryId}
+              onChange={(event) => setSelectedCategoryId(event.currentTarget.value)}
               aria-invalid={Boolean(errors.categoryId)}
               aria-describedby={
                 errors.categoryId ? "material-category-error" : undefined
@@ -509,6 +583,85 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
               </p>
             ) : null}
           </div>
+
+          {selectedCategoryId === "category_psalms" ? (
+            <div className="form-field">
+              <label htmlFor="material-number">Սաղմոսի համար</label>
+              <input
+                id="material-number"
+                name="numberValue"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={150}
+                required
+                defaultValue={values.numberValue}
+                aria-invalid={Boolean(errors.numberValue)}
+                aria-describedby={
+                  errors.numberValue ? "material-number-error" : undefined
+                }
+                placeholder="Օրինակ՝ 35"
+              />
+              {errors.numberValue ? (
+                <p id="material-number-error" className="field-error">
+                  {errors.numberValue}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {selectedCategoryId === "category_daily_readings" ? (
+            <div className="form-field">
+              <label htmlFor="material-date">Ընթերցման օր</label>
+              <input
+                id="material-date"
+                name="dateValue"
+                type="date"
+                required
+                defaultValue={values.dateValue}
+                aria-invalid={Boolean(errors.dateValue)}
+                aria-describedby={
+                  errors.dateValue ? "material-date-error" : undefined
+                }
+              />
+              {errors.dateValue ? (
+                <p id="material-date-error" className="field-error">
+                  {errors.dateValue}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {selectedCategoryId ? (
+            <div className="form-field">
+              <label htmlFor="material-title">
+                {titleField.label}
+                {titleField.optional ? " (ոչ պարտադիր)" : ""}
+              </label>
+              <input
+                id="material-title"
+                name="title"
+                type="text"
+                required={!titleField.optional}
+                maxLength={240}
+                defaultValue={values.title}
+                aria-invalid={Boolean(errors.title)}
+                aria-describedby={
+                  errors.title ? "material-title-error" : undefined
+                }
+                placeholder={titleField.placeholder}
+              />
+              {errors.title ? (
+                <p id="material-title-error" className="field-error">
+                  {errors.title}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="adaptive-form-prompt">
+              Ընտրիր բաժինը, և անհրաժեշտ դաշտերը կբացվեն այստեղ։
+            </p>
+          )}
 
           <div className="form-field">
             <label htmlFor="material-telegram-url">Telegram հղում</label>
@@ -575,9 +728,6 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         )}
       </section>
 
-      <a className="admin-back-link" href="/">
-        Վերադառնալ գրադարան
-      </a>
     </main>
   );
 }
@@ -597,9 +747,9 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         </p>
       </header>
 
-      <a className="admin-back-link" href="/">
+      <Link className="admin-back-link" to="/">
         Վերադառնալ գրադարան
-      </a>
+      </Link>
     </main>
   );
 }

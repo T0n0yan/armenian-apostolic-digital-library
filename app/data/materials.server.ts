@@ -7,6 +7,26 @@ export type AdminMaterial = {
   createdAt: string;
 };
 
+export type PublicMaterial = {
+  id: string;
+  title: string;
+  telegramUrl: string;
+  numberValue: number | null;
+  dateValue: string | null;
+  publishedAt: string | null;
+  mediaTypes: string[];
+};
+
+type PublicMaterialRow = {
+  id: string;
+  title: string;
+  telegram_url: string;
+  number_value: number | null;
+  date_value: string | null;
+  published_at: string | null;
+  media_types: string;
+};
+
 type AdminMaterialRow = {
   id: string;
   title: string;
@@ -20,6 +40,8 @@ export type CreateMaterialInput = {
   title: string;
   categoryId: string;
   telegramUrl: string;
+  numberValue?: number | null;
+  dateValue?: string | null;
 };
 
 export class MaterialWriteError extends Error {
@@ -69,6 +91,61 @@ export async function countAdminMaterials(database: D1Database) {
   return Number(row?.material_count ?? 0);
 }
 
+export async function listPublicMaterialsByCategory(
+  database: D1Database,
+  categoryId: string,
+  defaultSort: "title-asc" | "manual" | "number-asc" | "date-desc",
+): Promise<PublicMaterial[]> {
+  const orderBy = {
+    "title-asc": "materials.title COLLATE NOCASE ASC, materials.id ASC",
+    manual:
+      "materials.sort_order ASC, COALESCE(materials.published_at, materials.created_at) DESC",
+    "number-asc":
+      "materials.number_value IS NULL ASC, materials.number_value ASC, materials.title COLLATE NOCASE ASC",
+    "date-desc":
+      "materials.date_value DESC, COALESCE(materials.published_at, materials.created_at) DESC",
+  }[defaultSort];
+
+  const { results } = await database
+    .prepare(
+      `SELECT
+         id,
+         title,
+         telegram_url,
+         number_value,
+         date_value,
+         published_at,
+         media_types
+       FROM materials
+       WHERE category_id = ? AND visibility = 'visible'
+       ORDER BY ${orderBy}`,
+    )
+    .bind(categoryId)
+    .all<PublicMaterialRow>();
+
+  return results.map((material) => {
+    let mediaTypes: string[] = [];
+    try {
+      const parsed = JSON.parse(material.media_types);
+      if (Array.isArray(parsed)) {
+        mediaTypes = parsed.filter((value): value is string => typeof value === "string");
+      }
+    } catch {
+      mediaTypes = [];
+    }
+
+    return {
+      id: material.id,
+      title: material.title,
+      telegramUrl: material.telegram_url,
+      numberValue: material.number_value,
+      dateValue: material.date_value,
+      publishedAt: material.published_at,
+      mediaTypes,
+    };
+  });
+}
+
 export async function createMaterial(
   database: D1Database,
   input: CreateMaterialInput,
@@ -89,13 +166,15 @@ export async function createMaterial(
     await database
       .prepare(
         `INSERT INTO materials (
-           id,
-           title,
-           search_title,
-           category_id,
-           telegram_url,
-           telegram_url_key
-         ) VALUES (?, ?, ?, ?, ?, ?)`,
+         id,
+         title,
+         search_title,
+         category_id,
+         telegram_url,
+         telegram_url_key,
+         number_value,
+         date_value
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -104,6 +183,8 @@ export async function createMaterial(
         input.categoryId,
         input.telegramUrl,
         input.telegramUrl,
+        input.numberValue ?? null,
+        input.dateValue ?? null,
       )
       .run();
   } catch (error) {

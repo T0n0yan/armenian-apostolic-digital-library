@@ -6,6 +6,8 @@ type AdminEnvironment = Env & {
   CF_ACCESS_TEAM_DOMAIN?: string;
 };
 
+const ADMIN_NAVIGATION_COOKIE = "library_admin_navigation";
+
 export type AdminIdentity = {
   email: string;
   source: "cloudflare-access" | "local-development";
@@ -119,4 +121,17 @@ export function requireSameOrigin(request: Request) {
       statusText: "Forbidden",
     });
   }
+}
+
+export function createAdminNavigationCookie(request: Request) {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `${ADMIN_NAVIGATION_COOKIE}=1; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax${secure}`;
+}
+
+export function hasAdminNavigationCookie(request: Request) {
+  const cookies = request.headers.get("cookie") ?? "";
+  return cookies
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .some((cookie) => cookie === `${ADMIN_NAVIGATION_COOKIE}=1`);
 }
