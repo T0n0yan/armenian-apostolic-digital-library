@@ -108,3 +108,15 @@ export async function requireAdmin(request: Request): Promise<AdminIdentity> {
     });
   }
 }
+
+export function requireSameOrigin(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
+  const submittedOrigin = request.headers.get("origin");
+
+  if (submittedOrigin !== requestOrigin) {
+    throw new Response("Cross-origin admin request is not allowed.", {
+      status: 403,
+      statusText: "Forbidden",
+    });
+  }
+}
