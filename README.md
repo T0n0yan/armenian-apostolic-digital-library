@@ -18,6 +18,12 @@ pnpm install
 pnpm dev
 ```
 
+Տեղական D1 migration-ները կիրառելու համար՝
+
+```bash
+pnpm db:migrate:local
+```
+
 ## Ստուգումներ
 
 ```bash
