@@ -1,4 +1,7 @@
+import { env } from "cloudflare:workers";
+
 import type { Route } from "./+types/home";
+import { listActiveCategories } from "../data/categories.server";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -7,16 +10,49 @@ export function meta({}: Route.MetaArgs) {
       name: "description",
       content: "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված թվային գրադարան։",
     },
+    { name: "robots", content: "noindex, nofollow" },
+    { name: "theme-color", content: "#f6f2e9" },
   ];
 }
 
-export default function Home() {
+export async function loader() {
+  return { categories: await listActiveCategories(env.DB) };
+}
+
+export default function Home({ loaderData }: Route.ComponentProps) {
   return (
-    <main className="foundation-page">
-      <section className="foundation-card" aria-labelledby="page-title">
-        <p className="foundation-kicker">Նախագծի հիմք</p>
-        <h1 id="page-title">Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան</h1>
-        <p>Առաջին տեխնիկական քայլը պատրաստ է։</p>
+    <main className="library-page">
+      <header className="library-header">
+        <p className="library-kicker">Թվային գրադարան</p>
+        <h1>Հայ Առաքելական Սուրբ Եկեղեցի</h1>
+        <p className="library-intro">
+          Գտեք խմբում հրապարակված նյութերը՝ ըստ բաժինների։
+        </p>
+      </header>
+
+      <section className="categories-section" aria-labelledby="categories-title">
+        <div className="section-heading">
+          <h2 id="categories-title">Բաժիններ</h2>
+          <span>{loaderData.categories.length}</span>
+        </div>
+
+        <ol className="categories-list">
+          {loaderData.categories.map((category, index) => (
+            <li className="category-card" key={category.id}>
+              <span className="category-number" aria-hidden="true">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="category-content">
+                <strong>{category.name}</strong>
+                <span>
+                  {category.materialCount === 0
+                    ? "Դեռ նյութ չկա"
+                    : `${category.materialCount} նյութ`}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
       </section>
     </main>
   );
