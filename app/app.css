@@ -240,6 +240,13 @@ body {
   margin-bottom: 24px;
 }
 
+.admin-panel-description {
+  margin: 10px 0 0;
+  color: color-mix(in srgb, currentColor 66%, transparent);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
 .admin-panel-heading-row {
   display: flex;
   align-items: center;
@@ -333,6 +340,133 @@ body {
   opacity: 0.68;
 }
 
+.import-result {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, #3c7a4d 24%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, #3c7a4d 6%, Canvas);
+}
+
+.import-result-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.import-result-heading h3,
+.import-result-heading p {
+  margin: 0;
+}
+
+.import-result-heading h3 {
+  font-size: 1rem;
+}
+
+.import-result-file {
+  overflow: hidden;
+  color: color-mix(in srgb, currentColor 56%, transparent);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.import-stat {
+  margin: 0;
+}
+
+.import-stats > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, Canvas 84%, transparent);
+}
+
+.import-stats dt {
+  color: color-mix(in srgb, currentColor 58%, transparent);
+  font-size: 0.75rem;
+}
+
+.import-stats dd {
+  margin: 0;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.import-stat-new dd {
+  color: #3c7a4d;
+}
+
+.import-meta {
+  display: grid;
+  gap: 6px;
+  color: color-mix(in srgb, currentColor 64%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.import-topics-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.import-topics-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 9%, transparent);
+  font-size: 0.85rem;
+}
+
+.import-topics-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.import-topics-list strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.import-warning,
+.import-all-current {
+  margin: 0;
+  padding: 12px;
+  border-radius: 11px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.import-warning {
+  background: color-mix(in srgb, #b47722 11%, Canvas);
+  color: color-mix(in srgb, currentColor 84%, #8b642f);
+}
+
+.import-all-current {
+  background: color-mix(in srgb, #3c7a4d 10%, Canvas);
+  color: color-mix(in srgb, currentColor 82%, #3c7a4d);
+  font-weight: 650;
+}
+
+.admin-submit-confirm {
+  background: #3c7a4d;
+}
+
 .admin-count {
   display: grid;
   min-width: 36px;
@@ -390,6 +524,15 @@ body {
 }
 
 @media (min-width: 560px) {
+  .import-result-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .import-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .admin-material-card {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;

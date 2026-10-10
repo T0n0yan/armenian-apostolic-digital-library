@@ -4,6 +4,7 @@ import {
   Form,
   isRouteErrorResponse,
   redirect,
+  useFetcher,
   useNavigation,
 } from "react-router";
 
@@ -11,10 +12,16 @@ import type { Route } from "./+types/admin";
 import { requireAdmin, requireSameOrigin } from "../auth/admin.server";
 import { listActiveCategories } from "../data/categories.server";
 import {
+  countAdminMaterials,
   createMaterial,
   listAdminMaterials,
   MaterialWriteError,
 } from "../data/materials.server";
+import {
+  importTelegramExport,
+  previewTelegramExport,
+  TelegramImportError,
+} from "../data/telegram-import.server";
 
 type FormValues = {
   title: string;
@@ -126,20 +133,52 @@ function formErrorResponse(
   values: FormValues,
   status: 400 | 409 = 400,
 ) {
-  return data({ errors, values }, { status });
+  return data({ kind: "manual-error" as const, errors, values }, { status });
+}
+
+function telegramImportErrorMessage(error: TelegramImportError) {
+  switch (error.code) {
+    case "file-too-large":
+      return "JSON ֆայլը չափազանց մեծ է։ Այս փուլում առավելագույն չափը 8 MB է։";
+    case "invalid-file":
+      return "Ընտրիր Telegram-ից արտահանված result.json ֆայլը։";
+    case "missing-username":
+      return "Չհաջողվեց գտնել խմբի public username-ը։ Առաջին ներմուծման համար export-ը պետք է պարունակի խմբի ամբողջ պատմությունը։";
+    case "no-messages":
+      return "Այս export-ի մեջ հրապարակումներ չկան։";
+    case "invalid-export":
+      return "Ֆայլը Telegram-ի վավեր JSON export չէ կամ վնասված է։";
+  }
+}
+
+function formatImportDate(value: string | null) {
+  if (!value) return "անհայտ";
+  return new Intl.DateTimeFormat("hy-AM", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+function formatBytes(value: number) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
   const admin = await requireAdmin(request);
-  const [categories, materials] = await Promise.all([
+  const [categories, materials, materialCount] = await Promise.all([
     listActiveCategories(env.DB),
     listAdminMaterials(env.DB),
+    countAdminMaterials(env.DB),
   ]);
 
   return {
     admin,
     categories,
     materials,
+    materialCount,
     wasCreated: new URL(request.url).searchParams.get("created") === "1",
   };
 }
@@ -149,6 +188,48 @@ export async function action({ request }: Route.ActionArgs) {
   requireSameOrigin(request);
 
   const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "telegram-preview" || intent === "telegram-import") {
+    const file = formData.get("telegramExport");
+
+    if (!(file instanceof File)) {
+      return data(
+        {
+          kind: "telegram-error" as const,
+          message: "Ընտրիր Telegram-ից արտահանված result.json ֆայլը։",
+        },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const preview =
+        intent === "telegram-preview"
+          ? await previewTelegramExport(env.DB, file)
+          : await importTelegramExport(env.DB, file);
+
+      return data({
+        kind:
+          intent === "telegram-preview"
+            ? ("telegram-preview" as const)
+            : ("telegram-imported" as const),
+        preview,
+      });
+    } catch (error) {
+      if (error instanceof TelegramImportError) {
+        return data(
+          {
+            kind: "telegram-error" as const,
+            message: telegramImportErrorMessage(error),
+          },
+          { status: 400 },
+        );
+      }
+      throw error;
+    }
+  }
+
   const values: FormValues = {
     title: readText(formData, "title"),
     categoryId: readText(formData, "categoryId"),
@@ -190,19 +271,24 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
+  const importFetcher = useFetcher<typeof action>();
   const isSubmitting = navigation.state === "submitting";
+  const isImportSubmitting = importFetcher.state !== "idle";
   const isLocalDevelopment = loaderData.admin.source === "local-development";
-  const values = actionData?.values ?? emptyFormValues;
-  const errors = actionData?.errors ?? {};
+  const manualActionData =
+    actionData?.kind === "manual-error" ? actionData : undefined;
+  const values = manualActionData?.values ?? emptyFormValues;
+  const errors = manualActionData?.errors ?? {};
+  const importData = importFetcher.data;
 
   return (
     <main className="admin-page">
       <header className="admin-header">
         <p className="library-kicker">Կառավարման էջ</p>
-        <h1>Telegram հղումների ինդեքս</h1>
+        <h1>Telegram բովանդակության ինդեքս</h1>
         <p>
-          Այստեղ գրանցվում է արդեն հրապարակված նյութի հասցեն։ Telegram-ի
-          հրապարակումը չի պատճենվում և չի փոփոխվում։
+          JSON export-ը համեմատվում է արդեն պահված տվյալների հետ։ Telegram-ի
+          հրապարակումները չեն փոփոխվում, իսկ media ֆայլերը չեն ներբեռնվում։
         </p>
       </header>
 
@@ -226,13 +312,150 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         </p>
       ) : null}
 
+      <section className="admin-panel" aria-labelledby="telegram-import-title">
+        <div className="admin-panel-heading">
+          <p className="admin-panel-kicker">Հիմնական ճանապարհ</p>
+          <h2 id="telegram-import-title">Ներմուծել Telegram JSON</h2>
+          <p className="admin-panel-description">
+            Կարող ես կրկին ներմուծել ամբողջ կամ ամսական export։ Նույն message
+            ID-ն երկրորդ անգամ չի ստեղծվի, իսկ փոփոխված նյութը կթարմացվի։
+          </p>
+        </div>
+
+        <importFetcher.Form
+          method="post"
+          encType="multipart/form-data"
+          className="admin-form"
+        >
+          <div className="form-field">
+            <label htmlFor="telegram-export">Telegram result.json</label>
+            <input
+              id="telegram-export"
+              name="telegramExport"
+              type="file"
+              accept="application/json,.json"
+              required
+            />
+            <p className="field-hint">
+              Նկարները, աուդիոները և վիդեոները ներբեռնելու կարիք չկա։
+            </p>
+          </div>
+
+          <button
+            className="admin-submit"
+            type="submit"
+            name="intent"
+            value="telegram-preview"
+            disabled={isImportSubmitting}
+          >
+            {isImportSubmitting ? "Ստուգվում է…" : "Ստուգել ֆայլը"}
+          </button>
+
+          {importData?.kind === "telegram-error" ? (
+            <p className="field-error" role="alert">
+              {importData.message}
+            </p>
+          ) : null}
+
+          {importData?.kind === "telegram-preview" ||
+          importData?.kind === "telegram-imported" ? (
+            <div className="import-result" aria-live="polite">
+              <div className="import-result-heading">
+                <div>
+                  <p className="admin-panel-kicker">
+                    {importData.kind === "telegram-imported"
+                      ? "Ներմուծումն ավարտված է"
+                      : "Ստուգման արդյունք"}
+                  </p>
+                  <h3>{importData.preview.chatTitle}</h3>
+                </div>
+                <span className="import-result-file">
+                  {importData.preview.fileName}
+                </span>
+              </div>
+
+              <dl className="import-stats">
+                <div className="import-stat import-stat-new">
+                  <dt>Նոր</dt>
+                  <dd>{importData.preview.addedCount}</dd>
+                </div>
+                <div>
+                  <dt>Փոփոխված</dt>
+                  <dd>{importData.preview.updatedCount}</dd>
+                </div>
+                <div>
+                  <dt>Արդեն կար</dt>
+                  <dd>{importData.preview.unchangedCount}</dd>
+                </div>
+                <div>
+                  <dt>Բաց թողնված</dt>
+                  <dd>
+                    {importData.preview.skippedCount +
+                      importData.preview.conflictCount}
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="import-meta">
+                <span>
+                  Ժամանակահատված՝ {formatImportDate(importData.preview.dateFrom)} —{" "}
+                  {formatImportDate(importData.preview.dateTo)}
+                </span>
+                <span>
+                  Տվյալների մոտավոր ծավալը՝{" "}
+                  {formatBytes(importData.preview.estimatedBytes)}
+                </span>
+              </div>
+
+              <ul className="import-topics-list">
+                {importData.preview.topics.map((topic) => (
+                  <li key={topic.topicId}>
+                    <span>{topic.title}</span>
+                    <strong>{topic.messageCount}</strong>
+                  </li>
+                ))}
+              </ul>
+
+              {importData.preview.warnings.map((warning) => (
+                <p className="import-warning" key={warning}>
+                  {warning}
+                </p>
+              ))}
+
+              {importData.kind === "telegram-preview" &&
+              (importData.preview.addedCount > 0 ||
+                importData.preview.updatedCount > 0) ? (
+                <button
+                  className="admin-submit admin-submit-confirm"
+                  type="submit"
+                  name="intent"
+                  value="telegram-import"
+                  disabled={isImportSubmitting}
+                >
+                  Ներմուծել նոր ու փոփոխված նյութերը
+                </button>
+              ) : null}
+
+              {importData.kind === "telegram-preview" &&
+              importData.preview.addedCount === 0 &&
+              importData.preview.updatedCount === 0 ? (
+                <p className="import-all-current">
+                  Բոլոր նյութերն արդեն ինդեքսում կան։
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </importFetcher.Form>
+      </section>
+
       <section className="admin-panel" aria-labelledby="add-material-title">
         <div className="admin-panel-heading">
-          <p className="admin-panel-kicker">Նոր գրառում</p>
-          <h2 id="add-material-title">Ավելացնել Telegram հղում</h2>
+          <p className="admin-panel-kicker">Պահուստային տարբերակ</p>
+          <h2 id="add-material-title">Ձեռքով ավելացնել մեկ հղում</h2>
         </div>
 
         <Form method="post" className="admin-form">
+          <input type="hidden" name="intent" value="manual-create" />
           {errors.form ? (
             <p className="field-error" role="alert">
               {errors.form}
@@ -326,7 +549,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             <p className="admin-panel-kicker">Ինդեքս</p>
             <h2 id="materials-title">Գրանցված հղումներ</h2>
           </div>
-          <span className="admin-count">{loaderData.materials.length}</span>
+          <span className="admin-count">{loaderData.materialCount}</span>
         </div>
 
         {loaderData.materials.length === 0 ? (

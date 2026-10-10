@@ -45,7 +45,9 @@ export async function listAdminMaterials(
          materials.created_at
        FROM materials
        INNER JOIN categories ON categories.id = materials.category_id
-       ORDER BY materials.created_at DESC, materials.id DESC
+       ORDER BY
+         COALESCE(materials.published_at, materials.created_at) DESC,
+         materials.id DESC
        LIMIT 100`,
     )
     .all<AdminMaterialRow>();
@@ -58,6 +60,13 @@ export async function listAdminMaterials(
     visibility: material.visibility,
     createdAt: material.created_at,
   }));
+}
+
+export async function countAdminMaterials(database: D1Database) {
+  const row = await database
+    .prepare("SELECT COUNT(*) AS material_count FROM materials")
+    .first<{ material_count: number }>();
+  return Number(row?.material_count ?? 0);
 }
 
 export async function createMaterial(
