@@ -234,6 +234,19 @@ export async function createMaterial(
   const contentText = normalizeContentText(input.contentText ?? "");
   const searchBody = normalizeSearchText(contentText);
   const contentFingerprint = await createContentFingerprint(contentText);
+  let sortOrder = 0;
+
+  if (input.categoryId === "category_saints_lives") {
+    const row = await database
+      .prepare(
+        `SELECT COALESCE(MAX(sort_order), 40) AS max_sort_order
+         FROM materials
+         WHERE category_id = 'category_saints_lives'
+           AND visibility = 'visible'`,
+      )
+      .first<{ max_sort_order: number }>();
+    sortOrder = Math.max(Number(row?.max_sort_order ?? 40), 40) + 10;
+  }
 
   if (input.categoryId === "category_psalms") {
     const row = await database
@@ -298,11 +311,12 @@ export async function createMaterial(
          telegram_url_key,
          number_value,
          date_value,
+         sort_order,
          content_kind,
          content_text,
          search_body,
          content_fingerprint
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -313,6 +327,7 @@ export async function createMaterial(
         input.telegramUrl,
         input.numberValue ?? null,
         input.dateValue ?? null,
+        sortOrder,
         contentText ? "text" : null,
         contentText,
         searchBody,

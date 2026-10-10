@@ -29,6 +29,7 @@ import {
   previewTelegramExport,
   TelegramImportError,
 } from "../data/telegram-import.server";
+import { formatArmenianDate } from "../utils/armenian-date";
 
 type FormValues = {
   title: string;
@@ -170,8 +171,8 @@ function validateForm(values: FormValues) {
     : null;
 
   if (isPsalm) {
-    if (numberValue === null || numberValue > 150) {
-      errors.numberValue = "Նշիր Սաղմոսի համարը՝ 1-ից 150։";
+    if (numberValue === null || numberValue > 151) {
+      errors.numberValue = "Նշիր Սաղմոսի համարը՝ 1-ից 151։";
     } else if (!/^Սաղմոս\s+\d+/iu.test(title)) {
       title = title ? `Սաղմոս ${numberValue} — ${title}` : `Սաղմոս ${numberValue}`;
     }
@@ -182,12 +183,7 @@ function validateForm(values: FormValues) {
       errors.dateValue = "Ընտրիր օրվա ընթերցման ամսաթիվը։";
     }
     if (!title && dateValue) {
-      title = new Intl.DateTimeFormat("hy-AM", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        timeZone: "UTC",
-      }).format(new Date(`${dateValue}T00:00:00Z`));
+      title = formatArmenianDate(dateValue) ?? dateValue;
     }
   }
 
@@ -247,12 +243,7 @@ function telegramImportErrorMessage(error: TelegramImportError) {
 }
 
 function formatImportDate(value: string | null) {
-  if (!value) return "անհայտ";
-  return new Intl.DateTimeFormat("hy-AM", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value));
+  return formatArmenianDate(value) ?? "անհայտ";
 }
 
 function formatBytes(value: number) {
@@ -657,7 +648,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                 type="number"
                 inputMode="numeric"
                 min={loaderData.manualConstraints.nextPsalmNumber}
-                max={150}
+                max={151}
                 required
                 defaultValue={values.numberValue}
                 aria-invalid={Boolean(errors.numberValue)}

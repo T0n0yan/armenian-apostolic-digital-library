@@ -1,9 +1,48 @@
 import { env } from "cloudflare:workers";
+import { memo } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/home";
 import { hasAdminNavigationCookie } from "../auth/admin.server";
+import type { CategorySummary } from "../data/categories.server";
 import { listActiveCategories } from "../data/categories.server";
+
+const CATEGORY_ICONS: Record<string, string> = {
+  category_saints_lives: "🕊️",
+  category_gospel_teachings: "📚",
+  category_psalms: "🪉",
+  category_daily_readings: "📅",
+  category_bible_questions: "❓",
+  category_prayers: "🙏",
+  category_holy_sites_armenia: "⛪",
+};
+
+const CategoryCard = memo(function CategoryCard({
+  category,
+}: {
+  category: CategorySummary;
+}) {
+  return (
+    <li>
+      <Link className="category-card" to={`/categories/${category.slug}`}>
+        <span className="category-symbol" aria-hidden="true">
+          {CATEGORY_ICONS[category.id] ?? "•"}
+        </span>
+        <span className="category-content">
+          <strong>{category.name}</strong>
+          <span>
+            {category.materialCount === 0
+              ? "Դեռ նյութ չկա"
+              : `${category.materialCount} նյութ`}
+          </span>
+        </span>
+        <span className="category-arrow" aria-hidden="true">
+          →
+        </span>
+      </Link>
+    </li>
+  );
+});
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -47,25 +86,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </div>
 
         <ol className="categories-list">
-          {loaderData.categories.map((category, index) => (
-            <li key={category.id}>
-              <Link className="category-card" to={`/categories/${category.slug}`}>
-                <span className="category-number" aria-hidden="true">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span className="category-content">
-                  <strong>{category.name}</strong>
-                  <span>
-                    {category.materialCount === 0
-                      ? "Դեռ նյութ չկա"
-                      : `${category.materialCount} նյութ`}
-                  </span>
-                </span>
-                <span className="category-arrow" aria-hidden="true">
-                  →
-                </span>
-              </Link>
-            </li>
+          {loaderData.categories.map((category) => (
+            <CategoryCard key={category.id} category={category} />
           ))}
         </ol>
       </section>

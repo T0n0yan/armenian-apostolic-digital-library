@@ -144,7 +144,7 @@ body {
   outline-offset: 3px;
 }
 
-.category-number {
+.category-symbol {
   display: grid;
   flex: 0 0 48px;
   width: 48px;
@@ -153,9 +153,8 @@ body {
   border-radius: 14px;
   background: #8b642f;
   color: #fffaf2;
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .category-content {
@@ -644,6 +643,40 @@ body {
 .materials-list > li {
   content-visibility: auto;
   contain-intrinsic-size: 82px;
+}
+
+.psalms-grid {
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 8px;
+}
+
+.psalms-grid > li {
+  contain-intrinsic-size: 54px;
+}
+
+.psalm-tile {
+  display: grid;
+  min-height: 52px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 13%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, Canvas 91%, transparent);
+  box-shadow: 0 5px 18px rgb(48 37 24 / 5%);
+  color: inherit;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.psalm-tile:hover {
+  border-color: color-mix(in srgb, #8b642f 42%, transparent);
+  color: #8b642f;
+}
+
+.psalm-tile:focus-visible {
+  outline: 3px solid color-mix(in srgb, #8b642f 26%, transparent);
+  outline-offset: 2px;
 }
 
 .material-card {

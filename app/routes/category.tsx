@@ -1,9 +1,12 @@
 import { env } from "cloudflare:workers";
+import { memo, type MouseEvent } from "react";
 import { isRouteErrorResponse, Link } from "react-router";
 
 import type { Route } from "./+types/category";
 import { getActiveCategoryBySlug } from "../data/categories.server";
+import type { PublicMaterial } from "../data/materials.server";
 import { listPublicMaterialsByCategory } from "../data/materials.server";
+import { formatArmenianDate } from "../utils/armenian-date";
 
 const mediaLabels: Record<string, string> = {
   audio: "Աուդիո",
@@ -11,6 +14,23 @@ const mediaLabels: Record<string, string> = {
   photo: "Նկար",
   poll: "Հարցում",
 };
+
+type TelegramWindow = Window & {
+  Telegram?: {
+    WebApp?: {
+      openTelegramLink?: (url: string) => void;
+      platform?: string;
+    };
+  };
+};
+
+function openTelegramPost(event: MouseEvent<HTMLAnchorElement>) {
+  const webApp = (window as TelegramWindow).Telegram?.WebApp;
+  if (!webApp?.openTelegramLink || webApp.platform === "unknown") return;
+
+  event.preventDefault();
+  webApp.openTelegramLink(event.currentTarget.href);
+}
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.category.name ?? "Բաժին";
@@ -41,20 +61,66 @@ export async function loader({ params }: Route.LoaderArgs) {
   };
 }
 
-function formatMaterialDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("hy-AM", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(date);
-}
+const MaterialCard = memo(function MaterialCard({
+  material,
+}: {
+  material: PublicMaterial;
+}) {
+  const date = formatArmenianDate(material.dateValue);
+
+  return (
+    <li>
+      <a
+        className="material-card"
+        href={material.telegramUrl}
+        target="_blank"
+        rel="noreferrer"
+        onClick={openTelegramPost}
+      >
+        <span className="material-card-content">
+          {date ? <span className="material-date">{date}</span> : null}
+          <strong>{material.title}</strong>
+          {material.mediaTypes.length > 0 ? (
+            <span className="material-media-list">
+              {material.mediaTypes.map((mediaType) => (
+                <span key={mediaType}>{mediaLabels[mediaType] ?? mediaType}</span>
+              ))}
+            </span>
+          ) : null}
+        </span>
+        <span className="material-open" aria-hidden="true">
+          ↗
+        </span>
+      </a>
+    </li>
+  );
+});
+
+const PsalmTile = memo(function PsalmTile({
+  material,
+}: {
+  material: PublicMaterial;
+}) {
+  return (
+    <li>
+      <a
+        className="psalm-tile"
+        href={material.telegramUrl}
+        target="_blank"
+        rel="noreferrer"
+        title={material.title}
+        aria-label={`${material.title} — բացել Telegram-ում`}
+        onClick={openTelegramPost}
+      >
+        {material.numberValue}
+      </a>
+    </li>
+  );
+});
 
 export default function Category({ loaderData }: Route.ComponentProps) {
   const { category, materials } = loaderData;
+  const isPsalms = category.id === "category_psalms";
 
   return (
     <main className="category-page">
@@ -74,37 +140,14 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           <p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p>
         </section>
       ) : (
-        <ol className="materials-list">
-          {materials.map((material) => {
-            const date = formatMaterialDate(material.dateValue);
-            return (
-              <li key={material.id}>
-                <a
-                  className="material-card"
-                  href={material.telegramUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <span className="material-card-content">
-                    {date ? <span className="material-date">{date}</span> : null}
-                    <strong>{material.title}</strong>
-                    {material.mediaTypes.length > 0 ? (
-                      <span className="material-media-list">
-                        {material.mediaTypes.map((mediaType) => (
-                          <span key={mediaType}>
-                            {mediaLabels[mediaType] ?? mediaType}
-                          </span>
-                        ))}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="material-open" aria-hidden="true">
-                    ↗
-                  </span>
-                </a>
-              </li>
-            );
-          })}
+        <ol className={`materials-list${isPsalms ? " psalms-grid" : ""}`}>
+          {materials.map((material) =>
+            isPsalms ? (
+              <PsalmTile key={material.id} material={material} />
+            ) : (
+              <MaterialCard key={material.id} material={material} />
+            ),
+          )}
         </ol>
       )}
     </main>

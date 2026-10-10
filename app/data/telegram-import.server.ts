@@ -67,6 +67,7 @@ type PreparedMaterial = {
   telegramUrl: string;
   numberValue: number | null;
   dateValue: string | null;
+  sortOrder: number;
   publishedAt: string;
   editedAt: string | null;
   contentKind: string;
@@ -271,6 +272,11 @@ function deriveTitle(
     }
   }
 
+  const firstLine = firstMeaningfulLine(contentText);
+  if (categoryId === "category_saints_lives" && firstLine) {
+    return truncateTitle(firstLine);
+  }
+
   const headings = collectRichHeadings(record);
   const preferredHeading =
     categoryId === "category_daily_readings"
@@ -281,7 +287,6 @@ function deriveTitle(
     return truncateTitle(preferredHeading);
   }
 
-  const firstLine = firstMeaningfulLine(contentText);
   const mediaTitle = readString(record, "title");
 
   if (categoryId === "category_psalms" && mediaTitle) {
@@ -292,6 +297,32 @@ function deriveTitle(
   }
 
   return truncateTitle(firstLine || mediaTitle || `Telegram նյութ #${messageId}`);
+}
+
+const SAINT_SORT_ORDERS: Record<string, number> = {
+  "սուրբ մարիամ աստվածածին": 10,
+  "սուրբ ադամ նախահայր": 20,
+  "սուրբ աբել արդար": 30,
+  "սուրբ սեթ նախահայր": 40,
+};
+
+function getSortOrder(categoryId: string, title: string, messageId: number) {
+  if (categoryId !== "category_saints_lives") return 0;
+  return SAINT_SORT_ORDERS[normalizeSearchText(title)] ?? 10000 + messageId;
+}
+
+function isCategoryIntroduction(
+  categoryId: string,
+  contentText: string,
+  numberValue: number | null,
+) {
+  if (categoryId === "category_psalms") return numberValue === null;
+  if (categoryId !== "category_saints_lives") return false;
+
+  const firstLine = normalizeSearchText(firstMeaningfulLine(contentText))
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .trim();
+  return firstLine === "սրբերի կյանքը";
 }
 
 function getMediaTypes(record: UnknownRecord) {
@@ -580,6 +611,7 @@ async function prepareTelegramImport(
   const warnings: string[] = [];
   const seenMessageIds = new Set<number>();
   const skippedMessageIds: number[] = [];
+  const ignoredIntroductionMessageIds: number[] = [];
   const duplicateMessageIds: number[] = [];
   const preparedMaterials = (
     await Promise.all(
@@ -623,7 +655,12 @@ async function prepareTelegramImport(
           topic.categoryId === "category_psalms"
             ? getPsalmNumber(title, contentText)
             : null;
+        if (isCategoryIntroduction(topic.categoryId, contentText, numberValue)) {
+          ignoredIntroductionMessageIds.push(messageId);
+          return null;
+        }
         const dateValue = getDateValue(topic.categoryId, contentText, publishedAt);
+        const sortOrder = getSortOrder(topic.categoryId, title, messageId);
         const searchTitle = normalizeSearchText(title);
         const contentFingerprint = await createContentFingerprint(contentText);
         const hashInput = JSON.stringify({
@@ -633,6 +670,7 @@ async function prepareTelegramImport(
           telegramUrl,
           numberValue,
           dateValue,
+          sortOrder,
           publishedAt,
           editedAt,
           contentKind,
@@ -682,6 +720,7 @@ async function prepareTelegramImport(
           telegramUrl,
           numberValue,
           dateValue,
+          sortOrder,
           publishedAt,
           editedAt,
           contentKind,
@@ -719,6 +758,11 @@ async function prepareTelegramImport(
   }
   if (duplicateMessageIds.length > 0) {
     warnings.push(`${duplicateMessageIds.length} կրկնվող message ID բաց է թողնվել։`);
+  }
+  if (ignoredIntroductionMessageIds.length > 0) {
+    warnings.push(
+      `${ignoredIntroductionMessageIds.length} բաժնի ներածական գրառում չի ավելացվել հանրային ինդեքսում։`,
+    );
   }
   const duplicateMaterialCount = preparedMaterials.filter(
     (material) => material.state === "duplicate",
@@ -862,6 +906,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
                telegram_url_key = ?,
                number_value = ?,
                date_value = ?,
+               sort_order = ?,
                telegram_source_id = ?,
                telegram_message_id = ?,
                telegram_topic_id = ?,
@@ -885,6 +930,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
             material.telegramUrl,
             material.numberValue,
             material.dateValue,
+            material.sortOrder,
             prepared.sourceId,
             material.messageId,
             material.topicId,
@@ -913,6 +959,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
              telegram_url_key,
              number_value,
              date_value,
+             sort_order,
              telegram_source_id,
              telegram_message_id,
              telegram_topic_id,
@@ -925,7 +972,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
              content_fingerprint,
              content_hash,
              source_payload
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           material.id,
@@ -936,6 +983,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
           material.telegramUrl,
           material.numberValue,
           material.dateValue,
+          material.sortOrder,
           prepared.sourceId,
           material.messageId,
           material.topicId,
