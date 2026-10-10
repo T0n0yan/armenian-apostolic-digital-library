@@ -1,3 +1,9 @@
+import {
+  createContentFingerprint,
+  normalizeContentText,
+  normalizeSearchText,
+} from "./material-content.server";
+
 export type AdminMaterial = {
   id: string;
   title: string;
@@ -42,15 +48,79 @@ export type CreateMaterialInput = {
   telegramUrl: string;
   numberValue?: number | null;
   dateValue?: string | null;
+  contentText?: string;
 };
+
+export type ManualMaterialConstraints = {
+  nextPsalmNumber: number;
+  usedDailyDates: string[];
+  usedTitlesByCategory: Record<string, string[]>;
+};
+
+const UNIQUE_TITLE_CATEGORY_IDS = [
+  "category_saints_lives",
+  "category_gospel_teachings",
+  "category_bible_questions",
+  "category_holy_sites_armenia",
+] as const;
 
 export class MaterialWriteError extends Error {
   constructor(
-    public readonly code: "category-not-found" | "duplicate-telegram-url",
+    public readonly code:
+      | "category-not-found"
+      | "duplicate-telegram-url"
+      | "psalm-out-of-sequence"
+      | "duplicate-psalm-number"
+      | "duplicate-date"
+      | "duplicate-title"
+      | "duplicate-content",
   ) {
     super(code);
     this.name = "MaterialWriteError";
   }
+}
+
+export async function getManualMaterialConstraints(
+  database: D1Database,
+): Promise<ManualMaterialConstraints> {
+  const [psalmRow, dailyRows, titleRows] = await Promise.all([
+    database
+      .prepare(
+        `SELECT COALESCE(MAX(number_value), 0) AS max_number
+         FROM materials
+         WHERE category_id = 'category_psalms'`,
+      )
+      .first<{ max_number: number }>(),
+    database
+      .prepare(
+        `SELECT date_value
+         FROM materials
+         WHERE category_id = 'category_daily_readings'
+           AND date_value IS NOT NULL
+         ORDER BY date_value`,
+      )
+      .all<{ date_value: string }>(),
+    database
+      .prepare(
+        `SELECT category_id, search_title
+         FROM materials
+         WHERE category_id IN (?, ?, ?, ?)
+         ORDER BY category_id, search_title`,
+      )
+      .bind(...UNIQUE_TITLE_CATEGORY_IDS)
+      .all<{ category_id: string; search_title: string }>(),
+  ]);
+
+  const usedTitlesByCategory: Record<string, string[]> = {};
+  for (const row of titleRows.results) {
+    (usedTitlesByCategory[row.category_id] ??= []).push(row.search_title);
+  }
+
+  return {
+    nextPsalmNumber: Number(psalmRow?.max_number ?? 0) + 1,
+    usedDailyDates: dailyRows.results.map((row) => row.date_value),
+    usedTitlesByCategory,
+  };
 }
 
 export async function listAdminMaterials(
@@ -160,7 +230,61 @@ export async function createMaterial(
   }
 
   const id = `material_${crypto.randomUUID()}`;
-  const searchTitle = input.title.toLocaleLowerCase("hy-AM");
+  const searchTitle = normalizeSearchText(input.title);
+  const contentText = normalizeContentText(input.contentText ?? "");
+  const searchBody = normalizeSearchText(contentText);
+  const contentFingerprint = await createContentFingerprint(contentText);
+
+  if (input.categoryId === "category_psalms") {
+    const row = await database
+      .prepare(
+        `SELECT COALESCE(MAX(number_value), 0) AS max_number
+         FROM materials
+         WHERE category_id = 'category_psalms'`,
+      )
+      .first<{ max_number: number }>();
+    const nextPsalmNumber = Number(row?.max_number ?? 0) + 1;
+    if ((input.numberValue ?? 0) < nextPsalmNumber) {
+      throw new MaterialWriteError("psalm-out-of-sequence");
+    }
+  }
+
+  if (input.categoryId === "category_daily_readings" && input.dateValue) {
+    const existing = await database
+      .prepare(
+        `SELECT id FROM materials
+         WHERE category_id = 'category_daily_readings' AND date_value = ?`,
+      )
+      .bind(input.dateValue)
+      .first<{ id: string }>();
+    if (existing) throw new MaterialWriteError("duplicate-date");
+  }
+
+  if (
+    UNIQUE_TITLE_CATEGORY_IDS.includes(
+      input.categoryId as (typeof UNIQUE_TITLE_CATEGORY_IDS)[number],
+    )
+  ) {
+    const existing = await database
+      .prepare(
+        `SELECT id FROM materials
+         WHERE category_id = ? AND search_title = ?`,
+      )
+      .bind(input.categoryId, searchTitle)
+      .first<{ id: string }>();
+    if (existing) throw new MaterialWriteError("duplicate-title");
+  }
+
+  if (input.categoryId === "category_prayers" && contentFingerprint) {
+    const existing = await database
+      .prepare(
+        `SELECT id FROM materials
+         WHERE category_id = 'category_prayers' AND content_fingerprint = ?`,
+      )
+      .bind(contentFingerprint)
+      .first<{ id: string }>();
+    if (existing) throw new MaterialWriteError("duplicate-content");
+  }
 
   try {
     await database
@@ -173,8 +297,12 @@ export async function createMaterial(
          telegram_url,
          telegram_url_key,
          number_value,
-         date_value
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         date_value,
+         content_kind,
+         content_text,
+         search_body,
+         content_fingerprint
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         id,
@@ -185,6 +313,10 @@ export async function createMaterial(
         input.telegramUrl,
         input.numberValue ?? null,
         input.dateValue ?? null,
+        contentText ? "text" : null,
+        contentText,
+        searchBody,
+        contentFingerprint,
       )
       .run();
   } catch (error) {
@@ -193,6 +325,33 @@ export async function createMaterial(
       error.message.includes("materials.telegram_url_key")
     ) {
       throw new MaterialWriteError("duplicate-telegram-url");
+    }
+
+    if (error instanceof Error) {
+      if (
+        error.message.includes("idx_materials_unique_psalm_number") ||
+        error.message.includes("materials.category_id, materials.number_value")
+      ) {
+        throw new MaterialWriteError("duplicate-psalm-number");
+      }
+      if (
+        error.message.includes("idx_materials_unique_daily_date") ||
+        error.message.includes("materials.category_id, materials.date_value")
+      ) {
+        throw new MaterialWriteError("duplicate-date");
+      }
+      if (
+        error.message.includes("idx_materials_unique_named_category_title") ||
+        error.message.includes("materials.category_id, materials.search_title")
+      ) {
+        throw new MaterialWriteError("duplicate-title");
+      }
+      if (
+        error.message.includes("idx_materials_unique_prayer_content") ||
+        error.message.includes("materials.category_id, materials.content_fingerprint")
+      ) {
+        throw new MaterialWriteError("duplicate-content");
+      }
     }
 
     throw error;

@@ -20,6 +20,7 @@ import { listActiveCategories } from "../data/categories.server";
 import {
   countAdminMaterials,
   createMaterial,
+  getManualMaterialConstraints,
   listAdminMaterials,
   MaterialWriteError,
 } from "../data/materials.server";
@@ -35,6 +36,7 @@ type FormValues = {
   telegramUrl: string;
   numberValue: string;
   dateValue: string;
+  contentText: string;
 };
 
 type FormErrors = Partial<Record<keyof FormValues | "form", string>>;
@@ -45,6 +47,7 @@ const emptyFormValues: FormValues = {
   telegramUrl: "",
   numberValue: "",
   dateValue: "",
+  contentText: "",
 };
 
 const categoryTitleFields: Record<
@@ -100,6 +103,10 @@ function normalizeTitle(value: string) {
   return value.normalize("NFC").replace(/\s+/g, " ").trim();
 }
 
+function normalizeComparableText(value: string) {
+  return normalizeTitle(value).toLocaleLowerCase("hy-AM");
+}
+
 function normalizeTelegramPostUrl(value: string) {
   try {
     const url = new URL(value.trim());
@@ -151,6 +158,8 @@ function validateForm(values: FormValues) {
   const telegramUrl = normalizeTelegramPostUrl(values.telegramUrl);
   const isPsalm = values.categoryId === "category_psalms";
   const isDailyReading = values.categoryId === "category_daily_readings";
+  const isPrayer = values.categoryId === "category_prayers";
+  const contentText = values.contentText.normalize("NFC").trim();
   const parsedNumber = Number(values.numberValue);
   const numberValue =
     isPsalm && Number.isInteger(parsedNumber) && parsedNumber > 0
@@ -188,6 +197,11 @@ function validateForm(values: FormValues) {
     errors.title = "Վերնագիրը չի կարող գերազանցել 240 նիշը։";
   }
 
+  if (isPrayer && !contentText) {
+    errors.contentText =
+      "Տեղադրիր աղոթքի տեքստը, որպեսզի նույն բովանդակությունը երկրորդ անգամ չգրանցվի։";
+  }
+
   if (!values.categoryId) {
     errors.categoryId = "Ընտրիր բաժինը։";
   }
@@ -204,6 +218,7 @@ function validateForm(values: FormValues) {
       telegramUrl: telegramUrl ?? "",
       numberValue,
       dateValue,
+      contentText,
     },
   };
 }
@@ -248,10 +263,11 @@ function formatBytes(value: number) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const admin = await requireAdmin(request);
-  const [categories, materials, materialCount] = await Promise.all([
+  const [categories, materials, materialCount, manualConstraints] = await Promise.all([
     listActiveCategories(env.DB),
     listAdminMaterials(env.DB),
     countAdminMaterials(env.DB),
+    getManualMaterialConstraints(env.DB),
   ]);
 
   return data(
@@ -260,6 +276,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       categories,
       materials,
       materialCount,
+      manualConstraints,
       wasCreated: new URL(request.url).searchParams.get("created") === "1",
     },
     { headers: { "Set-Cookie": createAdminNavigationCookie(request) } },
@@ -319,6 +336,7 @@ export async function action({ request }: Route.ActionArgs) {
     telegramUrl: readText(formData, "telegramUrl"),
     numberValue: readText(formData, "numberValue"),
     dateValue: readText(formData, "dateValue"),
+    contentText: readText(formData, "contentText"),
   };
   const { errors, normalized } = validateForm(values);
 
@@ -332,18 +350,48 @@ export async function action({ request }: Route.ActionArgs) {
     if (error instanceof MaterialWriteError) {
       if (error.code === "duplicate-telegram-url") {
         return formErrorResponse(
+          { telegramUrl: "Այս Telegram հղումն արդեն գրանցված է։" },
+          values,
+          409,
+        );
+      }
+      if (
+        error.code === "psalm-out-of-sequence" ||
+        error.code === "duplicate-psalm-number"
+      ) {
+        const constraints = await getManualMaterialConstraints(env.DB);
+        return formErrorResponse(
           {
-            telegramUrl: "Այս Telegram հղումն արդեն գրանցված է։",
+            numberValue: `Արդեն գրանցված են մինչև ${constraints.nextPsalmNumber - 1}-րդ Սաղմոսը։ Ընտրիր ${constraints.nextPsalmNumber} կամ ավելի բարձր համար։`,
           },
+          values,
+          409,
+        );
+      }
+      if (error.code === "duplicate-date") {
+        return formErrorResponse(
+          { dateValue: "Այս օրվա ընթերցումն արդեն գրանցված է։" },
+          values,
+          409,
+        );
+      }
+      if (error.code === "duplicate-title") {
+        return formErrorResponse(
+          { title: "Այս բաժնում նույն վերնագրով նյութ արդեն կա։" },
+          values,
+          409,
+        );
+      }
+      if (error.code === "duplicate-content") {
+        return formErrorResponse(
+          { contentText: "Այս աղոթքի բովանդակությունն արդեն գրանցված է։" },
           values,
           409,
         );
       }
 
       return formErrorResponse(
-        {
-          categoryId: "Ընտրված բաժինը հասանելի չէ։",
-        },
+        { categoryId: "Ընտրված բաժինը հասանելի չէ։" },
         values,
       );
     }
@@ -366,6 +414,21 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   const errors = manualActionData?.errors ?? {};
   const importData = importFetcher.data;
   const [selectedCategoryId, setSelectedCategoryId] = useState(values.categoryId);
+  const [selectedDateValue, setSelectedDateValue] = useState(values.dateValue);
+  const [selectedTitleValue, setSelectedTitleValue] = useState(values.title);
+  const usedDailyDates = new Set(loaderData.manualConstraints.usedDailyDates);
+  const usedTitles = new Set(
+    loaderData.manualConstraints.usedTitlesByCategory[selectedCategoryId] ?? [],
+  );
+  const hasDuplicateDate = Boolean(
+    selectedCategoryId === "category_daily_readings" &&
+      selectedDateValue &&
+      usedDailyDates.has(selectedDateValue),
+  );
+  const hasDuplicateTitle = Boolean(
+    selectedTitleValue &&
+      usedTitles.has(normalizeComparableText(selectedTitleValue)),
+  );
   const titleField = categoryTitleFields[selectedCategoryId] ?? {
     label: "Վերնագիր",
     placeholder: "Օրինակ՝ Առավոտյան աղոթք",
@@ -484,7 +547,8 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                   <dt>Բաց թողնված</dt>
                   <dd>
                     {importData.preview.skippedCount +
-                      importData.preview.conflictCount}
+                      importData.preview.conflictCount +
+                      importData.preview.duplicateCount}
                   </dd>
                 </div>
               </dl>
@@ -592,7 +656,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                 name="numberValue"
                 type="number"
                 inputMode="numeric"
-                min={1}
+                min={loaderData.manualConstraints.nextPsalmNumber}
                 max={150}
                 required
                 defaultValue={values.numberValue}
@@ -600,11 +664,17 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                 aria-describedby={
                   errors.numberValue ? "material-number-error" : undefined
                 }
-                placeholder="Օրինակ՝ 35"
+                placeholder={`Օրինակ՝ ${loaderData.manualConstraints.nextPsalmNumber}`}
               />
               {errors.numberValue ? (
                 <p id="material-number-error" className="field-error">
                   {errors.numberValue}
+                </p>
+              ) : null}
+              {!errors.numberValue ? (
+                <p className="field-hint">
+                  Արդեն գրանցված են մինչև {loaderData.manualConstraints.nextPsalmNumber - 1}-րդը։
+                  Կարող ես ավելացնել {loaderData.manualConstraints.nextPsalmNumber}-ից սկսած։
                 </p>
               ) : null}
             </div>
@@ -619,14 +689,17 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                 type="date"
                 required
                 defaultValue={values.dateValue}
-                aria-invalid={Boolean(errors.dateValue)}
+                onInput={(event) => setSelectedDateValue(event.currentTarget.value)}
+                aria-invalid={Boolean(errors.dateValue) || hasDuplicateDate}
                 aria-describedby={
-                  errors.dateValue ? "material-date-error" : undefined
+                  errors.dateValue || hasDuplicateDate
+                    ? "material-date-error"
+                    : undefined
                 }
               />
-              {errors.dateValue ? (
+              {errors.dateValue || hasDuplicateDate ? (
                 <p id="material-date-error" className="field-error">
-                  {errors.dateValue}
+                  {errors.dateValue ?? "Այս օրվա ընթերցումն արդեն գրանցված է։"}
                 </p>
               ) : null}
             </div>
@@ -645,15 +718,18 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
                 required={!titleField.optional}
                 maxLength={240}
                 defaultValue={values.title}
-                aria-invalid={Boolean(errors.title)}
+                onInput={(event) => setSelectedTitleValue(event.currentTarget.value)}
+                aria-invalid={Boolean(errors.title) || hasDuplicateTitle}
                 aria-describedby={
-                  errors.title ? "material-title-error" : undefined
+                  errors.title || hasDuplicateTitle
+                    ? "material-title-error"
+                    : undefined
                 }
                 placeholder={titleField.placeholder}
               />
-              {errors.title ? (
+              {errors.title || hasDuplicateTitle ? (
                 <p id="material-title-error" className="field-error">
-                  {errors.title}
+                  {errors.title ?? "Այս բաժնում նույն վերնագրով նյութ արդեն կա։"}
                 </p>
               ) : null}
             </div>
@@ -662,6 +738,37 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
               Ընտրիր բաժինը, և անհրաժեշտ դաշտերը կբացվեն այստեղ։
             </p>
           )}
+
+          {selectedCategoryId === "category_prayers" ? (
+            <div className="form-field">
+              <label htmlFor="material-content">Աղոթքի տեքստը</label>
+              <textarea
+                id="material-content"
+                name="contentText"
+                required
+                maxLength={100000}
+                rows={7}
+                defaultValue={values.contentText}
+                aria-invalid={Boolean(errors.contentText)}
+                aria-describedby={
+                  errors.contentText
+                    ? "material-content-error"
+                    : "material-content-hint"
+                }
+                placeholder="Տեղադրիր Telegram հրապարակման աղոթքի տեքստը"
+              />
+              {errors.contentText ? (
+                <p id="material-content-error" className="field-error">
+                  {errors.contentText}
+                </p>
+              ) : (
+                <p id="material-content-hint" className="field-hint">
+                  Սա rich-text խմբագիր չէ․ տեքստը պետք է միայն որոնման և նույն
+                  աղոթքը երկրորդ անգամ չգրանցելու համար։
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <div className="form-field">
             <label htmlFor="material-telegram-url">Telegram հղում</label>
@@ -690,7 +797,11 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             )}
           </div>
 
-          <button className="admin-submit" type="submit" disabled={isSubmitting}>
+          <button
+            className="admin-submit"
+            type="submit"
+            disabled={isSubmitting || hasDuplicateDate || hasDuplicateTitle}
+          >
             {isSubmitting ? "Պահպանվում է…" : "Պահպանել հղումը"}
           </button>
         </Form>

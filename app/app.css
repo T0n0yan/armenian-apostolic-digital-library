@@ -332,7 +332,8 @@ body {
 }
 
 .form-field input,
-.form-field select {
+.form-field select,
+.form-field textarea {
   width: 100%;
   min-height: 48px;
   padding: 11px 13px;
@@ -344,14 +345,21 @@ body {
   outline: none;
 }
 
+.form-field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
 .form-field input:focus,
-.form-field select:focus {
+.form-field select:focus,
+.form-field textarea:focus {
   border-color: #8b642f;
   box-shadow: 0 0 0 3px color-mix(in srgb, #8b642f 16%, transparent);
 }
 
 .form-field input[aria-invalid="true"],
-.form-field select[aria-invalid="true"] {
+.form-field select[aria-invalid="true"],
+.form-field textarea[aria-invalid="true"] {
   border-color: #a13f36;
 }
 

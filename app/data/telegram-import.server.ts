@@ -1,3 +1,9 @@
+import {
+  createContentFingerprint,
+  normalizeContentText,
+  normalizeSearchText,
+} from "./material-content.server";
+
 const MAX_EXPORT_SIZE_BYTES = 8 * 1024 * 1024;
 const TELEGRAM_PUBLIC_URL_PATTERN =
   /https:\/\/t\.me\/([a-zA-Z0-9_]+)\/(\d+)\/(\d+)/g;
@@ -43,6 +49,11 @@ type ExistingMaterialRow = {
   telegram_source_id: string | null;
   telegram_message_id: number | null;
   telegram_url_key: string;
+  category_id: string;
+  number_value: number | null;
+  date_value: string | null;
+  search_title: string;
+  content_fingerprint: string | null;
   content_hash: string | null;
 };
 
@@ -62,11 +73,21 @@ type PreparedMaterial = {
   contentText: string;
   searchBody: string;
   mediaTypes: string;
+  contentFingerprint: string | null;
   contentHash: string;
   sourcePayload: string;
-  state: "added" | "updated" | "unchanged" | "conflict";
+  state: "added" | "updated" | "unchanged" | "conflict" | "duplicate";
   existingId: string | null;
 };
+
+type MaterialUniquenessFields = Pick<
+  PreparedMaterial,
+  | "categoryId"
+  | "numberValue"
+  | "dateValue"
+  | "searchTitle"
+  | "contentFingerprint"
+>;
 
 type PreparedImport = {
   sourceId: string;
@@ -92,6 +113,7 @@ export type TelegramImportPreview = {
   unchangedCount: number;
   skippedCount: number;
   conflictCount: number;
+  duplicateCount: number;
   estimatedBytes: number;
   topics: Array<{
     topicId: number;
@@ -131,20 +153,6 @@ function readInteger(record: UnknownRecord, key: string) {
 
 function normalizeTopicTitle(value: string) {
   return value.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("hy-AM");
-}
-
-function normalizeContentText(value: string) {
-  return value
-    .normalize("NFC")
-    .replace(/\r\n?/g, "\n")
-    .replace(/[\u200B-\u200D\uFEFF]/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function normalizeSearchText(value: string) {
-  return normalizeContentText(value).replace(/\s+/g, " ").toLocaleLowerCase("hy-AM");
 }
 
 function flattenTextNode(value: unknown): string {
@@ -329,6 +337,45 @@ function getIsoDate(value: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+function getDateValue(
+  categoryId: string,
+  contentText: string,
+  publishedAt: string,
+) {
+  if (categoryId !== "category_daily_readings") {
+    return publishedAt.slice(0, 10);
+  }
+
+  return /^\d{1,2}\s+\p{L}/u.test(contentText) ? publishedAt.slice(0, 10) : null;
+}
+
+function getUniquenessKey(material: MaterialUniquenessFields) {
+  if (material.categoryId === "category_psalms" && material.numberValue !== null) {
+    return `psalm:${material.numberValue}`;
+  }
+  if (
+    material.categoryId === "category_daily_readings" &&
+    material.dateValue !== null
+  ) {
+    return `daily:${material.dateValue}`;
+  }
+  if (
+    material.categoryId === "category_prayers" &&
+    material.contentFingerprint
+  ) {
+    return `prayer:${material.contentFingerprint}`;
+  }
+  if (
+    material.categoryId === "category_saints_lives" ||
+    material.categoryId === "category_gospel_teachings" ||
+    material.categoryId === "category_bible_questions" ||
+    material.categoryId === "category_holy_sites_armenia"
+  ) {
+    return `title:${material.categoryId}:${material.searchTitle}`;
+  }
+  return null;
+}
+
 async function sha256(value: string) {
   const bytes = new TextEncoder().encode(value);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -434,7 +481,7 @@ async function loadExistingTopics(database: D1Database, sourceId: string) {
   return results;
 }
 
-async function loadExistingMaterials(database: D1Database, sourceId: string, username: string) {
+async function loadExistingMaterials(database: D1Database) {
   const { results } = await database
     .prepare(
       `SELECT
@@ -442,12 +489,14 @@ async function loadExistingMaterials(database: D1Database, sourceId: string, use
          telegram_source_id,
          telegram_message_id,
          telegram_url_key,
+         category_id,
+         number_value,
+         date_value,
+         search_title,
+         content_fingerprint,
          content_hash
-       FROM materials
-       WHERE telegram_source_id = ?
-          OR telegram_url_key LIKE ?`,
+       FROM materials`,
     )
-    .bind(sourceId, `https://t.me/${username}/%`)
     .all<ExistingMaterialRow>();
   return results;
 }
@@ -500,11 +549,12 @@ async function prepareTelegramImport(
 
   const [existingTopics, existingMaterials] = await Promise.all([
     loadExistingTopics(database, sourceId),
-    loadExistingMaterials(database, sourceId, username),
+    loadExistingMaterials(database),
   ]);
   const topicsById = createTopicDefinitions(getExportTopics(document), existingTopics);
   const existingByIdentity = new Map<string, ExistingMaterialRow>();
   const existingByUrl = new Map<string, ExistingMaterialRow>();
+  const existingByUniqueKey = new Map<string, ExistingMaterialRow>();
 
   for (const material of existingMaterials) {
     if (material.telegram_source_id && material.telegram_message_id !== null) {
@@ -514,6 +564,17 @@ async function prepareTelegramImport(
       );
     }
     existingByUrl.set(material.telegram_url_key, material);
+
+    const uniquenessKey = getUniquenessKey({
+      categoryId: material.category_id,
+      numberValue: material.number_value,
+      dateValue: material.date_value,
+      searchTitle: material.search_title,
+      contentFingerprint: material.content_fingerprint,
+    });
+    if (uniquenessKey && !existingByUniqueKey.has(uniquenessKey)) {
+      existingByUniqueKey.set(uniquenessKey, material);
+    }
   }
 
   const warnings: string[] = [];
@@ -562,7 +623,9 @@ async function prepareTelegramImport(
           topic.categoryId === "category_psalms"
             ? getPsalmNumber(title, contentText)
             : null;
-        const dateValue = publishedAt.slice(0, 10);
+        const dateValue = getDateValue(topic.categoryId, contentText, publishedAt);
+        const searchTitle = normalizeSearchText(title);
+        const contentFingerprint = await createContentFingerprint(contentText);
         const hashInput = JSON.stringify({
           topicId,
           categoryId: topic.categoryId,
@@ -583,11 +646,27 @@ async function prepareTelegramImport(
           identityMatch && urlMatch && identityMatch.id !== urlMatch.id,
         );
         const existing = identityMatch ?? urlMatch;
+        const uniquenessKey = getUniquenessKey({
+          categoryId: topic.categoryId,
+          numberValue,
+          dateValue,
+          searchTitle,
+          contentFingerprint,
+        });
+        const uniquenessMatch = uniquenessKey
+          ? existingByUniqueKey.get(uniquenessKey) ?? null
+          : null;
+        const isDuplicate = Boolean(
+          uniquenessMatch && (!existing || uniquenessMatch.id !== existing.id),
+        );
         const state: PreparedMaterial["state"] = isConflict
           ? "conflict"
+          : isDuplicate
+            ? "duplicate"
           : !existing
             ? "added"
             : existing.content_hash === contentHash &&
+                existing.content_fingerprint === contentFingerprint &&
                 existing.telegram_source_id === sourceId &&
                 existing.telegram_message_id === messageId
               ? "unchanged"
@@ -599,7 +678,7 @@ async function prepareTelegramImport(
           topicId,
           categoryId: topic.categoryId,
           title,
-          searchTitle: normalizeSearchText(title),
+          searchTitle,
           telegramUrl,
           numberValue,
           dateValue,
@@ -609,6 +688,7 @@ async function prepareTelegramImport(
           contentText,
           searchBody: normalizeSearchText(contentText),
           mediaTypes,
+          contentFingerprint,
           contentHash,
           sourcePayload,
           state,
@@ -618,6 +698,20 @@ async function prepareTelegramImport(
     )
   ).filter((material): material is PreparedMaterial => material !== null);
 
+  const seenUniqueKeys = new Map<string, PreparedMaterial>();
+  for (const material of preparedMaterials) {
+    if (material.state === "conflict" || material.state === "duplicate") continue;
+    const uniquenessKey = getUniquenessKey(material);
+    if (!uniquenessKey) continue;
+
+    const earlierMaterial = seenUniqueKeys.get(uniquenessKey);
+    if (earlierMaterial && earlierMaterial.id !== material.id) {
+      material.state = "duplicate";
+      continue;
+    }
+    seenUniqueKeys.set(uniquenessKey, material);
+  }
+
   if (skippedMessageIds.length > 0) {
     warnings.push(
       `${skippedMessageIds.length} նյութ չի ճանաչվել կամ կապված է դեռ չգրանցված թեմայի հետ։`,
@@ -625,6 +719,14 @@ async function prepareTelegramImport(
   }
   if (duplicateMessageIds.length > 0) {
     warnings.push(`${duplicateMessageIds.length} կրկնվող message ID բաց է թողնվել։`);
+  }
+  const duplicateMaterialCount = preparedMaterials.filter(
+    (material) => material.state === "duplicate",
+  ).length;
+  if (duplicateMaterialCount > 0) {
+    warnings.push(
+      `${duplicateMaterialCount} նյութ բաց է թողնվել, քանի որ նույն համարը, օրը, վերնագիրը կամ աղոթքի բովանդակությունն արդեն կա։`,
+    );
   }
 
   const topicCounts = new Map<number, number>();
@@ -645,6 +747,7 @@ async function prepareTelegramImport(
     unchangedCount: preparedMaterials.filter((material) => material.state === "unchanged").length,
     skippedCount: contentMessages.length - preparedMaterials.length,
     conflictCount: preparedMaterials.filter((material) => material.state === "conflict").length,
+    duplicateCount: duplicateMaterialCount,
     estimatedBytes: preparedMaterials.reduce(
       (total, material) =>
         total +
@@ -768,6 +871,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
                content_text = ?,
                search_body = ?,
                media_types = ?,
+               content_fingerprint = ?,
                content_hash = ?,
                source_payload = ?,
                updated_at = ?
@@ -790,6 +894,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
             material.contentText,
             material.searchBody,
             material.mediaTypes,
+            material.contentFingerprint,
             material.contentHash,
             material.sourcePayload,
             now,
@@ -817,9 +922,10 @@ export async function importTelegramExport(database: D1Database, file: File) {
              content_text,
              search_body,
              media_types,
+             content_fingerprint,
              content_hash,
              source_payload
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           material.id,
@@ -839,6 +945,7 @@ export async function importTelegramExport(database: D1Database, file: File) {
           material.contentText,
           material.searchBody,
           material.mediaTypes,
+          material.contentFingerprint,
           material.contentHash,
           material.sourcePayload,
         );
@@ -870,7 +977,9 @@ export async function importTelegramExport(database: D1Database, file: File) {
       prepared.summary.addedCount,
       prepared.summary.updatedCount,
       prepared.summary.unchangedCount,
-      prepared.summary.skippedCount + prepared.summary.conflictCount,
+      prepared.summary.skippedCount +
+        prepared.summary.conflictCount +
+        prepared.summary.duplicateCount,
     )
     .run();
 
