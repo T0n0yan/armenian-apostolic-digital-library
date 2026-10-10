@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -16,7 +17,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <script src="https://telegram.org/js/telegram-web-app.js?64" />
         <Meta />
         <Links />
       </head>
@@ -30,6 +30,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    const source = "https://telegram.org/js/telegram-web-app.js?64";
+    if (window.document.querySelector(`script[src="${source}"]`)) return;
+
+    const script = window.document.createElement("script");
+    script.src = source;
+    script.async = true;
+    window.document.head.appendChild(script);
+  }, []);
+
   return <Outlet />;
 }
 

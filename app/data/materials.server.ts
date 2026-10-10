@@ -140,7 +140,7 @@ export async function listAdminMaterials(
        ORDER BY
          COALESCE(materials.published_at, materials.created_at) DESC,
          materials.id DESC
-       LIMIT 100`,
+       LIMIT 8`,
     )
     .all<AdminMaterialRow>();
 

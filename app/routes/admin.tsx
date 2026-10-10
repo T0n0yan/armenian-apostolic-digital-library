@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { useState } from "react";
+import { memo, useMemo, useState, type CSSProperties } from "react";
 import {
   data,
   Form,
@@ -16,8 +16,11 @@ import {
   requireAdmin,
   requireSameOrigin,
 } from "../auth/admin.server";
+import { SiteNav } from "../components/site-nav";
+import type { CategorySummary } from "../data/categories.server";
 import { listActiveCategories } from "../data/categories.server";
 import {
+  type AdminMaterial,
   countAdminMaterials,
   createMaterial,
   getManualMaterialConstraints,
@@ -30,6 +33,7 @@ import {
   TelegramImportError,
 } from "../data/telegram-import.server";
 import { formatArmenianDate } from "../utils/armenian-date";
+import { getCategoryIcon } from "../utils/category-presentation";
 
 type FormValues = {
   title: string;
@@ -81,17 +85,103 @@ const categoryTitleFields: Record<
     label: "Աղոթքի անունը",
     placeholder: "Օրինակ՝ Առավոտյան աղոթք",
   },
-  category_holy_sites_armenia: {
-    label: "Սրբավայրի անունը",
-    placeholder: "Օրինակ՝ Գեղարդի վանք",
-  },
 };
+
+const IndexOverview = memo(function IndexOverview({
+  categories,
+  total,
+}: {
+  categories: CategorySummary[];
+  total: number;
+}) {
+  const largestCategory = categories.reduce(
+    (largest, category) => Math.max(largest, category.materialCount),
+    1,
+  );
+
+  return (
+    <section className="admin-index-overview" aria-labelledby="index-title">
+      <div className="admin-total-card">
+        <span className="admin-panel-kicker">Ինդեքս</span>
+        <strong>{total}</strong>
+        <span>գրանցված Telegram հղում</span>
+      </div>
+      <div className="admin-distribution-card">
+        <div className="admin-panel-heading">
+          <p className="admin-panel-kicker">Բաշխում</p>
+          <h2 id="index-title">Նյութերն ըստ բաժինների</h2>
+        </div>
+        <ul className="admin-distribution-list">
+          {categories.map((category) => {
+            const percentage = Math.max(
+              4,
+              Math.round((category.materialCount / largestCategory) * 100),
+            );
+            return (
+              <li key={category.id}>
+                <span className="admin-distribution-icon" aria-hidden="true">
+                  {getCategoryIcon(category.id)}
+                </span>
+                <span className="admin-distribution-content">
+                  <span className="admin-distribution-label">
+                    <span>{category.name}</span>
+                    <strong>{category.materialCount}</strong>
+                  </span>
+                  <span
+                    className="admin-distribution-track"
+                    style={{ "--bar-size": `${percentage}%` } as CSSProperties}
+                    aria-hidden="true"
+                  />
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+});
+
+const RecentMaterials = memo(function RecentMaterials({
+  materials,
+}: {
+  materials: AdminMaterial[];
+}) {
+  if (materials.length === 0) return null;
+
+  return (
+    <details className="admin-recent-materials">
+      <summary>
+        <span>
+          <strong>Վերջին {materials.length} նյութերը</strong>
+          <small>Արագ ստուգման համար</small>
+        </span>
+        <span className="admin-details-mark" aria-hidden="true">
+          +
+        </span>
+      </summary>
+      <ol className="admin-materials-list">
+        {materials.map((material) => (
+          <li key={material.id} className="admin-material-card">
+            <div>
+              <p className="admin-material-category">{material.categoryName}</p>
+              <h3>{material.title}</h3>
+            </div>
+            <a href={material.telegramUrl} target="_blank" rel="noreferrer">
+              Բացել ↗
+            </a>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+});
 
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Կառավարում — Թվային գրադարան" },
     { name: "robots", content: "noindex, nofollow, noarchive" },
-    { name: "theme-color", content: "#f6f2e9" },
+    { name: "theme-color", content: "#100817" },
   ];
 }
 
@@ -254,12 +344,13 @@ function formatBytes(value: number) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const admin = await requireAdmin(request);
-  const [categories, materials, materialCount, manualConstraints] = await Promise.all([
-    listActiveCategories(env.DB),
-    listAdminMaterials(env.DB),
-    countAdminMaterials(env.DB),
-    getManualMaterialConstraints(env.DB),
-  ]);
+  const [categories, materials, materialCount, manualConstraints] =
+    await Promise.all([
+      listActiveCategories(env.DB),
+      listAdminMaterials(env.DB),
+      countAdminMaterials(env.DB),
+      getManualMaterialConstraints(env.DB),
+    ]);
 
   return data(
     {
@@ -407,9 +498,16 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   const [selectedCategoryId, setSelectedCategoryId] = useState(values.categoryId);
   const [selectedDateValue, setSelectedDateValue] = useState(values.dateValue);
   const [selectedTitleValue, setSelectedTitleValue] = useState(values.title);
-  const usedDailyDates = new Set(loaderData.manualConstraints.usedDailyDates);
-  const usedTitles = new Set(
-    loaderData.manualConstraints.usedTitlesByCategory[selectedCategoryId] ?? [],
+  const usedDailyDates = useMemo(
+    () => new Set(loaderData.manualConstraints.usedDailyDates),
+    [loaderData.manualConstraints.usedDailyDates],
+  );
+  const usedTitles = useMemo(
+    () =>
+      new Set(
+        loaderData.manualConstraints.usedTitlesByCategory[selectedCategoryId] ?? [],
+      ),
+    [loaderData.manualConstraints.usedTitlesByCategory, selectedCategoryId],
   );
   const hasDuplicateDate = Boolean(
     selectedCategoryId === "category_daily_readings" &&
@@ -427,10 +525,8 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
 
   return (
     <main className="admin-page">
+      <SiteNav actionHref="/" actionLabel="← Գրադարան" />
       <header className="admin-header">
-        <Link className="admin-menu-link" to="/">
-          ← Գլխավոր մենյու
-        </Link>
         <p className="library-kicker">Կառավարման էջ</p>
         <h1>Telegram բովանդակության ինդեքս</h1>
         <p>
@@ -459,7 +555,15 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         </p>
       ) : null}
 
-      <section className="admin-panel" aria-labelledby="telegram-import-title">
+      <IndexOverview
+        categories={loaderData.categories}
+        total={loaderData.materialCount}
+      />
+
+      <RecentMaterials materials={loaderData.materials} />
+
+      <div className="admin-workspace-grid">
+        <section className="admin-panel" aria-labelledby="telegram-import-title">
         <div className="admin-panel-heading">
           <p className="admin-panel-kicker">Հիմնական ճանապարհ</p>
           <h2 id="telegram-import-title">Ներմուծել Telegram JSON</h2>
@@ -594,9 +698,9 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             </div>
           ) : null}
         </importFetcher.Form>
-      </section>
+        </section>
 
-      <section className="admin-panel" aria-labelledby="add-material-title">
+        <section className="admin-panel" aria-labelledby="add-material-title">
         <div className="admin-panel-heading">
           <p className="admin-panel-kicker">Պահուստային տարբերակ</p>
           <h2 id="add-material-title">Ձեռքով ավելացնել մեկ հղում</h2>
@@ -796,39 +900,8 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             {isSubmitting ? "Պահպանվում է…" : "Պահպանել հղումը"}
           </button>
         </Form>
-      </section>
-
-      <section className="admin-panel" aria-labelledby="materials-title">
-        <div className="admin-panel-heading admin-panel-heading-row">
-          <div>
-            <p className="admin-panel-kicker">Ինդեքս</p>
-            <h2 id="materials-title">Գրանցված հղումներ</h2>
-          </div>
-          <span className="admin-count">{loaderData.materialCount}</span>
-        </div>
-
-        {loaderData.materials.length === 0 ? (
-          <p className="admin-empty">Դեռ որևէ հղում գրանցված չէ։</p>
-        ) : (
-          <ol className="admin-materials-list">
-            {loaderData.materials.map((material) => (
-              <li key={material.id} className="admin-material-card">
-                <div>
-                  <p className="admin-material-category">{material.categoryName}</p>
-                  <h3>{material.title}</h3>
-                </div>
-                <a
-                  href={material.telegramUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Բացել Telegram-ում
-                </a>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+        </section>
+      </div>
 
     </main>
   );

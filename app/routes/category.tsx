@@ -1,8 +1,9 @@
 import { env } from "cloudflare:workers";
 import { memo, type MouseEvent } from "react";
-import { isRouteErrorResponse, Link } from "react-router";
+import { isRouteErrorResponse } from "react-router";
 
 import type { Route } from "./+types/category";
+import { SiteNav } from "../components/site-nav";
 import { getActiveCategoryBySlug } from "../data/categories.server";
 import type { PublicMaterial } from "../data/materials.server";
 import { listPublicMaterialsByCategory } from "../data/materials.server";
@@ -37,7 +38,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [
     { title: `${title} — Թվային գրադարան` },
     { name: "robots", content: "noindex, nofollow" },
-    { name: "theme-color", content: "#f6f2e9" },
+    { name: "theme-color", content: "#100817" },
   ];
 }
 
@@ -118,16 +119,34 @@ const PsalmTile = memo(function PsalmTile({
   );
 });
 
+const MaterialsList = memo(function MaterialsList({
+  isPsalms,
+  materials,
+}: {
+  isPsalms: boolean;
+  materials: PublicMaterial[];
+}) {
+  return (
+    <ol className={`materials-list${isPsalms ? " psalms-grid" : ""}`}>
+      {materials.map((material) =>
+        isPsalms ? (
+          <PsalmTile key={material.id} material={material} />
+        ) : (
+          <MaterialCard key={material.id} material={material} />
+        ),
+      )}
+    </ol>
+  );
+});
+
 export default function Category({ loaderData }: Route.ComponentProps) {
   const { category, materials } = loaderData;
   const isPsalms = category.id === "category_psalms";
 
   return (
     <main className="category-page">
+      <SiteNav actionHref="/" actionLabel="← Բաժիններ" />
       <header className="category-page-header">
-        <Link className="category-back-link" to="/">
-          ← Բոլոր բաժինները
-        </Link>
         <p className="library-kicker">Թվային գրադարան</p>
         <h1>{category.name}</h1>
         <p className="category-page-count">
@@ -140,15 +159,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           <p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p>
         </section>
       ) : (
-        <ol className={`materials-list${isPsalms ? " psalms-grid" : ""}`}>
-          {materials.map((material) =>
-            isPsalms ? (
-              <PsalmTile key={material.id} material={material} />
-            ) : (
-              <MaterialCard key={material.id} material={material} />
-            ),
-          )}
-        </ol>
+        <MaterialsList isPsalms={isPsalms} materials={materials} />
       )}
     </main>
   );
@@ -158,10 +169,8 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const isNotFound = isRouteErrorResponse(error) && error.status === 404;
   return (
     <main className="category-page">
+      <SiteNav actionHref="/" actionLabel="← Բաժիններ" />
       <header className="category-page-header">
-        <Link className="category-back-link" to="/">
-          ← Բոլոր բաժինները
-        </Link>
         <p className="library-kicker">Թվային գրադարան</p>
         <h1>{isNotFound ? "Բաժինը չի գտնվել" : "Սխալ"}</h1>
         <p className="category-page-count">

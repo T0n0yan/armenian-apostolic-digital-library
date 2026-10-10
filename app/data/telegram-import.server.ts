@@ -299,16 +299,9 @@ function deriveTitle(
   return truncateTitle(firstLine || mediaTitle || `Telegram նյութ #${messageId}`);
 }
 
-const SAINT_SORT_ORDERS: Record<string, number> = {
-  "սուրբ մարիամ աստվածածին": 10,
-  "սուրբ ադամ նախահայր": 20,
-  "սուրբ աբել արդար": 30,
-  "սուրբ սեթ նախահայր": 40,
-};
-
-function getSortOrder(categoryId: string, title: string, messageId: number) {
+function getSortOrder(categoryId: string, messageId: number) {
   if (categoryId !== "category_saints_lives") return 0;
-  return SAINT_SORT_ORDERS[normalizeSearchText(title)] ?? 10000 + messageId;
+  return messageId;
 }
 
 function isCategoryIntroduction(
@@ -660,7 +653,7 @@ async function prepareTelegramImport(
           return null;
         }
         const dateValue = getDateValue(topic.categoryId, contentText, publishedAt);
-        const sortOrder = getSortOrder(topic.categoryId, title, messageId);
+        const sortOrder = getSortOrder(topic.categoryId, messageId);
         const searchTitle = normalizeSearchText(title);
         const contentFingerprint = await createContentFingerprint(contentText);
         const hashInput = JSON.stringify({
