@@ -28,6 +28,7 @@
   --glass-strong: rgb(255 255 255 / 76%);
   --card-glass: rgb(255 255 255 / 54%);
   --nav-glass: rgb(255 255 255 / 62%);
+  --nav-surface: rgb(250 246 251 / 88%);
   --glass-border: rgb(255 255 255 / 72%);
   --glass-highlight: rgb(255 255 255 / 74%);
   --control-bg: rgb(255 255 255 / 48%);
@@ -60,6 +61,7 @@
   --glass-strong: rgb(43 26 53 / 76%);
   --card-glass: rgb(35 22 43 / 62%);
   --nav-glass: rgb(28 16 36 / 62%);
+  --nav-surface: rgb(27 15 35 / 88%);
   --glass-border: rgb(255 255 255 / 12%);
   --glass-highlight: rgb(255 255 255 / 9%);
   --control-bg: rgb(8 4 13 / 48%);
@@ -93,6 +95,7 @@
     --glass-strong: rgb(43 26 53 / 76%);
     --card-glass: rgb(35 22 43 / 62%);
     --nav-glass: rgb(28 16 36 / 62%);
+    --nav-surface: rgb(27 15 35 / 88%);
     --glass-border: rgb(255 255 255 / 12%);
     --glass-highlight: rgb(255 255 255 / 9%);
     --control-bg: rgb(8 4 13 / 48%);
@@ -218,13 +221,13 @@ textarea {
   padding: 8px 9px 8px 12px;
   border-radius: 18px;
   background:
-    linear-gradient(130deg, rgb(255 255 255 / 9%), transparent 44%),
-    var(--nav-glass);
+    linear-gradient(130deg, rgb(255 255 255 / 18%), transparent 48%),
+    var(--nav-surface);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 18%),
     0 16px 44px rgb(2 0 7 / 18%);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: blur(20px) saturate(145%);
+  backdrop-filter: blur(20px) saturate(145%);
 }
 
 .site-nav-brand,
@@ -565,6 +568,14 @@ textarea {
   position: relative;
 }
 
+.material-card-shell.has-note-composer {
+  min-height: 174px;
+}
+
+.material-card-shell.has-note-composer .material-card {
+  pointer-events: none;
+}
+
 .material-card {
   position: relative;
   display: flex;
@@ -691,15 +702,18 @@ textarea {
 }
 
 .material-note-composer {
+  position: absolute;
+  z-index: 6;
+  inset: 8px;
   display: grid;
+  align-content: center;
   gap: 8px;
-  margin-top: 8px;
   padding: 12px;
   border: 1px solid rgb(217 181 111 / 24%);
   border-radius: 15px;
   background:
     linear-gradient(145deg, rgb(255 255 255 / 9%), transparent 50%),
-    var(--nav-glass);
+    var(--nav-surface);
   box-shadow: var(--card-shadow);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -720,10 +734,10 @@ textarea {
 .material-note-composer input {
   width: 100%;
   min-width: 0;
-  min-height: 40px;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 9px 12px;
   border: 1px solid var(--glass-border);
-  border-radius: 11px;
+  border-radius: 13px;
   outline: 0;
   background: var(--control-bg);
   color: var(--ink);
@@ -736,11 +750,11 @@ textarea {
 .material-note-composer button {
   display: grid;
   width: 38px;
-  height: 40px;
+  height: 44px;
   padding: 0;
   place-items: center;
   border: 1px solid var(--glass-border);
-  border-radius: 11px;
+  border-radius: 13px;
   background: var(--subtle-bg);
   color: var(--muted);
   cursor: pointer;
@@ -1047,27 +1061,37 @@ textarea {
 .saved-category-groups {
   display: grid;
   gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.search-category-groups a {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto 20px;
-  min-height: 74px;
-  align-items: center;
-  gap: 11px;
-  padding: 12px 14px;
+.search-category-group {
+  overflow: hidden;
   border: 1px solid var(--glass-border);
   border-radius: 18px;
   background:
     linear-gradient(145deg, rgb(255 255 255 / 8%), transparent 48%),
     var(--card-glass);
   box-shadow: var(--card-shadow);
-  color: inherit;
-  text-decoration: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  transition: border-color 160ms ease, transform 160ms ease;
   contain: paint;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.search-category-group > summary {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto 20px;
+  min-height: 74px;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  color: inherit;
+  cursor: pointer;
+  list-style: none;
+}
+
+.search-category-group > summary::-webkit-details-marker {
+  display: none;
 }
 
 @keyframes glass-enter {
@@ -1089,9 +1113,9 @@ textarea {
   animation: glass-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.search-category-groups a:hover {
+.search-category-group:hover,
+.search-category-group[open] {
   border-color: rgb(217 181 111 / 32%);
-  transform: translateY(-1px);
 }
 
 .search-category-icon {
@@ -1105,7 +1129,7 @@ textarea {
   color: var(--icon-ink);
 }
 
-.search-category-groups a > span:nth-child(2) {
+.search-category-copy {
   display: grid;
   gap: 3px;
 }
@@ -1117,6 +1141,35 @@ textarea {
 .search-category-groups small {
   color: var(--faint);
   font-size: 0.68rem;
+}
+
+.search-category-chevron {
+  color: var(--gold);
+  transition: transform 180ms ease;
+}
+
+.search-category-group[open] .search-category-chevron {
+  transform: rotate(180deg);
+}
+
+.search-category-group-results {
+  padding: 10px;
+  border-top: 1px solid var(--glass-border);
+  background: var(--subtle-bg);
+}
+
+.search-category-group-results .search-results-list {
+  margin: 0;
+}
+
+.search-category-loading {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .search-category-count,
@@ -1549,6 +1602,27 @@ textarea {
   transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
+.form-field select,
+.search-filter-grid select {
+  appearance: none;
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238c8092' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea,
+.search-filter-grid input,
+.search-filter-grid select,
+.material-note-composer input {
+  border-color: var(--glass-border);
+  background-color: var(--control-bg);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%);
+}
+
 .form-field input[type="file"] {
   padding: 10px;
   color: var(--muted);
@@ -1916,7 +1990,7 @@ textarea {
   .material-card,
   .material-action,
   .material-note-composer,
-  .search-category-groups a,
+  .search-category-group,
   .saved-category-group,
   .psalm-tile,
   .material-save {
@@ -1955,7 +2029,7 @@ textarea {
 
   .category-card,
   .material-card,
-  .search-category-groups a,
+  .search-category-group,
   .psalm-tile {
     background: var(--card-glass);
   }

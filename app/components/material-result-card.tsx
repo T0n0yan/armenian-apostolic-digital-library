@@ -154,15 +154,25 @@ export const MaterialResultCard = memo(function MaterialResultCard({
       ? `${material.title}\n\n${material.excerpt}`
       : material.title;
     const text = `${shareText}\n\n${material.telegramUrl}`;
+    const shareData = {
+      title: material.title,
+      text,
+    };
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: material.title,
-          text: shareText,
-          url: material.telegramUrl,
-        });
+      if (
+        navigator.share &&
+        (!navigator.canShare || navigator.canShare(shareData))
+      ) {
+        await navigator.share(shareData);
         return;
       }
+      const shareWindow = window.open(
+        `https://t.me/share/url?url=${encodeURIComponent(material.telegramUrl)}&text=${encodeURIComponent(shareText)}`,
+        "_blank",
+        "noopener,noreferrer",
+      );
+      if (shareWindow) return;
+
       await navigator.clipboard.writeText(text);
       setShareStatus("copied");
       if (shareResetRef.current) clearTimeout(shareResetRef.current);
@@ -185,6 +195,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         target="_blank"
         rel="noreferrer"
         onClick={openTelegramPost}
+        tabIndex={isNoteOpen ? -1 : undefined}
+        aria-hidden={isNoteOpen ? true : undefined}
       >
         <span className="material-card-content">
           {material.categoryName ? (
@@ -205,51 +217,60 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           ) : null}
         </span>
       </a>
-      <span className="material-actions">
-        {canSave ? (
+      {!isNoteOpen ? (
+        <span className="material-actions">
+          {canSave ? (
+            <button
+              className={`material-action material-save${isSaved ? " is-saved" : ""}`}
+              type="button"
+              disabled={isSaving}
+              onClick={handleBookmark}
+              aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+              title={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+            >
+              <Bookmark
+                aria-hidden="true"
+                size={17}
+                strokeWidth={1.9}
+                fill={isSaved ? "currentColor" : "none"}
+              />
+            </button>
+          ) : null}
+          {allowNoteEditing && isSaved ? (
+            <button
+              className="material-action material-note-edit"
+              type="button"
+              onClick={openNoteComposer}
+              aria-label="Խմբագրել անձնական նշումը"
+              title="Խմբագրել անձնական նշումը"
+            >
+              <Pencil aria-hidden="true" size={16} strokeWidth={1.9} />
+            </button>
+          ) : null}
           <button
-            className={`material-action material-save${isSaved ? " is-saved" : ""}`}
+            className="material-action material-share"
             type="button"
-            disabled={isSaving}
-            onClick={handleBookmark}
-            aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-            title={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+            onClick={handleShare}
+            aria-label={
+              shareStatus === "copied" ? "Հղումը պատճենված է" : "Կիսվել նյութով"
+            }
+            title={shareStatus === "copied" ? "Պատճենվեց" : "Կիսվել"}
           >
-            <Bookmark
-              aria-hidden="true"
-              size={17}
-              strokeWidth={1.9}
-              fill={isSaved ? "currentColor" : "none"}
-            />
+            {shareStatus === "copied" ? (
+              <Check aria-hidden="true" size={17} strokeWidth={2} />
+            ) : (
+              <Share2 aria-hidden="true" size={17} strokeWidth={1.9} />
+            )}
           </button>
-        ) : null}
-        {allowNoteEditing && isSaved ? (
-          <button
-            className="material-action material-note-edit"
-            type="button"
-            onClick={openNoteComposer}
-            aria-label="Խմբագրել անձնական նշումը"
-            title="Խմբագրել անձնական նշումը"
-          >
-            <Pencil aria-hidden="true" size={16} strokeWidth={1.9} />
-          </button>
-        ) : null}
-        <button
-          className="material-action material-share"
-          type="button"
-          onClick={handleShare}
-          aria-label={shareStatus === "copied" ? "Հղումը պատճենված է" : "Կիսվել նյութով"}
-          title={shareStatus === "copied" ? "Պատճենվեց" : "Կիսվել"}
-        >
-          {shareStatus === "copied" ? (
-            <Check aria-hidden="true" size={17} strokeWidth={2} />
-          ) : (
-            <Share2 aria-hidden="true" size={17} strokeWidth={1.9} />
-          )}
-        </button>
-      </span>
+        </span>
+      ) : null}
       {isNoteOpen ? (
-        <form className="material-note-composer" onSubmit={handleNoteSubmit}>
+        <form
+          className="material-note-composer"
+          onSubmit={handleNoteSubmit}
+          role="dialog"
+          aria-label={`${material.title} — անձնական հուշում`}
+        >
           <label htmlFor={`note-${material.id}`}>Անձնական հուշում</label>
           <div>
             <input

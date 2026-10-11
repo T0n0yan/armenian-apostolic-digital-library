@@ -23,12 +23,13 @@ function HarpIcon({ size = 22, strokeWidth = 2, ...props }: LucideProps) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M6 3v14.5a3.5 3.5 0 0 0 7 0V7" />
-      <path d="M6 4c5.2 0 8.4 1.5 11 4.5" />
-      <path d="M8.8 5.1v11.6" />
-      <path d="M11.6 5.9v10" />
-      <path d="M14.3 7v7.1" />
-      <path d="M17 8.5v3.7" />
+      <path d="M7 3.5c0 3-2 4.4-2 8.3C5 16.4 8 19 12 19s7-2.6 7-7.2c0-3.9-2-5.3-2-8.3" />
+      <path d="M7 4.5c1.5 1.2 3.2 1.8 5 1.8s3.5-.6 5-1.8" />
+      <path d="M6 10h12" />
+      <path d="M9 10v7.7" />
+      <path d="M12 10v9" />
+      <path d="M15 10v7.7" />
+      <path d="M8.5 21h7" />
     </svg>
   );
 }

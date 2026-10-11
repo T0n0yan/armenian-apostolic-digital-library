@@ -8,8 +8,13 @@ import {
   RotateCcw,
   Search as SearchIcon,
 } from "lucide-react";
-import { memo, useCallback, type FormEvent } from "react";
-import { Form, Link, useNavigation } from "react-router";
+import {
+  memo,
+  useCallback,
+  type FormEvent,
+  type SyntheticEvent,
+} from "react";
+import { Form, Link, useFetcher, useNavigation } from "react-router";
 
 import type { Route } from "./+types/search";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
@@ -164,38 +169,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
-const SearchCategoryGroups = memo(function SearchCategoryGroups({
-  filters,
-  groups,
-}: {
-  filters: SearchFilters;
-  groups: SearchCategoryGroup[];
-}) {
-  return (
-    <ol className="search-category-groups">
-      {groups.map((group) => (
-        <li key={group.id}>
-          <Link to={getCategoryHref(filters, group)}>
-            <span className="search-category-icon" aria-hidden="true">
-              {group.isPersonal ? (
-                <Bookmark size={22} strokeWidth={1.8} />
-              ) : (
-                <CategoryIcon categoryId={group.id} size={22} strokeWidth={1.8} />
-              )}
-            </span>
-            <span>
-              <strong>{group.name}</strong>
-              <small>{group.materialCount} արդյունք</small>
-            </span>
-            <span className="search-category-count">{group.materialCount}</span>
-            <ArrowRight aria-hidden="true" size={18} strokeWidth={1.9} />
-          </Link>
-        </li>
-      ))}
-    </ol>
-  );
-});
-
 const SearchForm = memo(function SearchForm({
   categories,
   filters,
@@ -339,6 +312,95 @@ const SearchResults = memo(function SearchResults({
           isSaved={savedIds.has(material.id)}
           isSaving={isSaving && pendingMaterialId === material.id}
           onSavedChange={handleSavedChange}
+        />
+      ))}
+    </ol>
+  );
+});
+
+const SearchCategoryGroupItem = memo(function SearchCategoryGroupItem({
+  filters,
+  group,
+}: {
+  filters: SearchFilters;
+  group: SearchCategoryGroup;
+}) {
+  const fetcher = useFetcher<typeof loader>();
+  const handleToggle = useCallback(
+    (event: SyntheticEvent<HTMLDetailsElement>) => {
+      if (
+        event.currentTarget.open &&
+        fetcher.state === "idle" &&
+        !fetcher.data
+      ) {
+        void fetcher.load(getCategoryHref(filters, group));
+      }
+    },
+    [fetcher, filters, group],
+  );
+
+  return (
+    <li>
+      <details className="search-category-group" onToggle={handleToggle}>
+        <summary>
+          <span className="search-category-icon" aria-hidden="true">
+            {group.isPersonal ? (
+              <Bookmark size={22} strokeWidth={1.8} />
+            ) : (
+              <CategoryIcon categoryId={group.id} size={22} strokeWidth={1.8} />
+            )}
+          </span>
+          <span className="search-category-copy">
+            <strong>{group.name}</strong>
+            <small>{group.materialCount} արդյունք</small>
+          </span>
+          <span className="search-category-count">{group.materialCount}</span>
+          <ChevronDown
+            className="search-category-chevron"
+            aria-hidden="true"
+            size={18}
+            strokeWidth={1.9}
+          />
+        </summary>
+        <div className="search-category-group-results">
+          {fetcher.data ? (
+            <SearchResults
+              canSave={fetcher.data.canSave}
+              allowNoteEditing={group.isPersonal}
+              highlightQuery={fetcher.data.highlightQuery}
+              materials={fetcher.data.materials}
+              savedMaterialIds={fetcher.data.savedMaterialIds}
+            />
+          ) : (
+            <span className="search-category-loading" role="status">
+              <LoaderCircle
+                className="search-loading-icon"
+                aria-hidden="true"
+                size={18}
+              />
+              Բացվում է…
+            </span>
+          )}
+        </div>
+      </details>
+    </li>
+  );
+});
+
+const SearchCategoryGroups = memo(function SearchCategoryGroups({
+  filters,
+  groups,
+}: {
+  filters: SearchFilters;
+  groups: SearchCategoryGroup[];
+}) {
+  return (
+    <ol className="search-category-groups">
+      {groups.map((group) => (
+        <SearchCategoryGroupItem
+          key={group.id}
+          filters={filters}
+          group={group}
         />
       ))}
     </ol>
