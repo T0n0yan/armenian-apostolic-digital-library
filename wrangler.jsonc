@@ -18,7 +18,31 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"env": {
+		"staging": {
+			"name": "armenian-apostolic-digital-library-staging",
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "armenian-apostolic-digital-library-staging",
+					"database_id": "cdd921dc-f70c-494a-a7f4-6e0b18c3fd14",
+					"migrations_dir": "migrations"
+				}
+			]
+		},
+		"production": {
+			"name": "armenian-apostolic-digital-library",
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "armenian-apostolic-digital-library-production",
+					"database_id": "a6141d10-fdf4-4fca-85a2-11d7c8628958",
+					"migrations_dir": "migrations"
+				}
+			]
+		}
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
