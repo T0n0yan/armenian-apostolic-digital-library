@@ -65,9 +65,9 @@ const PsalmTile = memo(function PsalmTile({
   onSavedChange: (materialId: string, saved: boolean) => void;
 }) {
   return (
-    <li className="psalm-tile-shell">
+    <li className="relative animate-glass-enter">
       <a
-        className="psalm-tile"
+        className="grid min-h-[50px] place-items-center rounded-[15px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_46%),var(--card-glass)] text-[0.9rem] font-[750] text-ink no-underline shadow-card transition-[border-color,color,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
         href={material.telegramUrl}
         target="_blank"
         rel="noreferrer"
@@ -79,7 +79,7 @@ const PsalmTile = memo(function PsalmTile({
       </a>
       {canSave ? (
         <button
-          className={`psalm-save${isSaved ? " is-saved" : ""}`}
+          className={`absolute top-[3px] right-[3px] grid size-5 cursor-pointer place-items-center rounded-[7px] border-0 bg-transparent p-0 disabled:cursor-wait disabled:opacity-60 ${isSaved ? "text-gold-bright" : "text-faint"}`}
           type="button"
           disabled={isSaving}
           onClick={() => onSavedChange(material.id, !isSaved)}
@@ -118,7 +118,7 @@ const MaterialsList = memo(function MaterialsList({
   );
 
   return (
-    <ol className={`materials-list${isPsalms ? " psalms-grid" : ""}`}>
+    <ol className={`m-0 grid list-none p-0 ${isPsalms ? "grid-cols-[repeat(auto-fill,minmax(50px,1fr))] gap-2 min-[560px]:grid-cols-[repeat(auto-fill,minmax(58px,1fr))]" : "gap-2.5"}`}>
       {materials.map((material) =>
         isPsalms ? (
           <PsalmTile
@@ -149,19 +149,19 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   const isPsalms = category.id === "category_psalms";
 
   return (
-    <main className="category-page">
+    <main className="mx-auto min-h-svh w-[min(100%,940px)] pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+clamp(14px,3vw,32px))] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+clamp(44px,7vw,88px))] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+clamp(14px,3vw,32px))] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)]">
       <SiteNav actionHref="/" actionLabel="← Բաժիններ" />
-      <header className="category-page-header">
-        <p className="library-kicker">Թվային գրադարան</p>
-        <h1>{category.name}</h1>
-        <p className="category-page-count">
+      <header className="px-[clamp(2px,1vw,10px)] pt-[clamp(48px,8vw,92px)] pb-[clamp(34px,6vw,64px)] min-[1440px]:pt-[82px]">
+        <p className="m-0 text-[clamp(0.7rem,1.3vw,0.78rem)] font-extrabold tracking-[0.1em] text-gold uppercase">Թվային գրադարան</p>
+        <h1 className="mt-[13px] mb-0 max-w-[860px] text-[clamp(1.85rem,4.5vw,3.65rem)] leading-[1.06] font-[740] tracking-[-0.035em] text-balance">{category.name}</h1>
+        <p className="mt-[18px] mb-0 max-w-[650px] text-[clamp(0.92rem,1.5vw,1.05rem)] leading-[1.65] text-muted">
           {materials.length === 0 ? "Դեռ նյութ չկա" : `${materials.length} նյութ`}
         </p>
       </header>
 
       {materials.length === 0 ? (
-        <section className="category-empty">
-          <p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p>
+        <section className="rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-[22px] shadow-glass">
+          <p className="m-0 text-muted">Այս բաժնում դեռ հրապարակված նյութ չկա։</p>
         </section>
       ) : (
         <MaterialsList
@@ -178,12 +178,12 @@ export default function Category({ loaderData }: Route.ComponentProps) {
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const isNotFound = isRouteErrorResponse(error) && error.status === 404;
   return (
-    <main className="category-page">
+    <main className="mx-auto min-h-svh w-[min(100%,940px)] pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+clamp(14px,3vw,32px))] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+clamp(44px,7vw,88px))] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+clamp(14px,3vw,32px))] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)]">
       <SiteNav actionHref="/" actionLabel="← Բաժիններ" />
-      <header className="category-page-header">
-        <p className="library-kicker">Թվային գրադարան</p>
-        <h1>{isNotFound ? "Բաժինը չի գտնվել" : "Սխալ"}</h1>
-        <p className="category-page-count">
+      <header className="px-[clamp(2px,1vw,10px)] pt-[clamp(48px,8vw,92px)] pb-[clamp(34px,6vw,64px)] min-[1440px]:pt-[82px]">
+        <p className="m-0 text-[clamp(0.7rem,1.3vw,0.78rem)] font-extrabold tracking-[0.1em] text-gold uppercase">Թվային գրադարան</p>
+        <h1 className="mt-[13px] mb-0 max-w-[860px] text-[clamp(1.85rem,4.5vw,3.65rem)] leading-[1.06] font-[740] tracking-[-0.035em] text-balance">{isNotFound ? "Բաժինը չի գտնվել" : "Սխալ"}</h1>
+        <p className="mt-[18px] mb-0 max-w-[650px] text-[clamp(0.92rem,1.5vw,1.05rem)] leading-[1.65] text-muted">
           {isNotFound
             ? "Այս բաժինը գոյություն չունի կամ հասանելի չէ։"
             : "Էջը բացելիս անսպասելի սխալ է տեղի ունեցել։"}

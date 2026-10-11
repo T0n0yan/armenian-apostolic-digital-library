@@ -66,7 +66,7 @@ export const ThemeToggle = memo(function ThemeToggle() {
 
   return (
     <button
-      className="site-nav-icon-button"
+      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-glass-border bg-subtle p-0 text-muted transition-[color,transform,background] duration-[160ms] outline-none hover:-translate-y-px hover:bg-glass-highlight hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/42%)] focus-visible:ring-offset-3"
       type="button"
       onClick={cycleTheme}
       aria-label={`${themeLabels[preference]}։ Փոխել՝ ${themeLabels[nextPreference]}`}
