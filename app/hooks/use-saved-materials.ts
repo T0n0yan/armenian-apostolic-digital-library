@@ -16,9 +16,13 @@ export function useSavedMaterials(savedMaterialIds: string[]) {
   }, [pendingIntent, pendingMaterialId, savedMaterialIds]);
 
   const setSaved = useCallback(
-    (materialId: string, saved: boolean) => {
+    (materialId: string, saved: boolean, personalNote = "") => {
       void fetcher.submit(
-        { intent: saved ? "save" : "remove", materialId },
+        {
+          intent: saved ? "save" : "remove",
+          materialId,
+          personalNote,
+        },
         { method: "post", action: "/saved" },
       );
     },

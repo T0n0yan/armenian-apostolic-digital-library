@@ -112,7 +112,8 @@ const MaterialsList = memo(function MaterialsList({
   const { isSaving, pendingMaterialId, savedIds, setSaved } =
     useSavedMaterials(savedMaterialIds);
   const handleSavedChange = useCallback(
-    (materialId: string, saved: boolean) => setSaved(materialId, saved),
+    (materialId: string, saved: boolean, personalNote = "") =>
+      setSaved(materialId, saved, personalNote),
     [setSaved],
   );
 

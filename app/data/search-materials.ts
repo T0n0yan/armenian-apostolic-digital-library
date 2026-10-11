@@ -34,3 +34,10 @@ export type SearchMaterialPage = {
   materials: SearchMaterial[];
   total: number;
 };
+
+export type SearchCategoryGroup = {
+  id: string;
+  slug: string;
+  name: string;
+  materialCount: number;
+};

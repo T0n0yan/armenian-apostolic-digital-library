@@ -1,5 +1,6 @@
 import { normalizeSearchText } from "./material-content.server";
 import type {
+  SearchCategoryGroup,
   SearchFilters,
   SearchMaterialPage,
 } from "./search-materials";
@@ -41,14 +42,9 @@ function createExcerpt(value: string) {
     : compact;
 }
 
-export async function searchMaterials(
-  database: D1Database,
-  filters: SearchFilters,
-  page: number,
-  pageSize = 30,
-): Promise<SearchMaterialPage> {
+function createSearchWhere(filters: SearchFilters, includeCategory: boolean) {
   const clauses = ["materials.visibility = 'visible'", "categories.is_active = 1"];
-  const whereValues: Array<string> = [];
+  const values: string[] = [];
   const normalizedQuery = normalizeSearchText(filters.query).slice(0, 120);
   const terms = normalizedQuery.split(" ").filter(Boolean).slice(0, 8);
 
@@ -57,29 +53,79 @@ export async function searchMaterials(
     clauses.push(
       "(materials.search_title LIKE ? ESCAPE '\\' OR materials.search_body LIKE ? ESCAPE '\\')",
     );
-    whereValues.push(pattern, pattern);
+    values.push(pattern, pattern);
   }
 
-  if (filters.categoryId) {
+  if (includeCategory && filters.categoryId) {
     clauses.push("materials.category_id = ?");
-    whereValues.push(filters.categoryId);
+    values.push(filters.categoryId);
   }
 
   if (filters.mediaType === "text") {
     clauses.push("length(trim(materials.content_text)) > 0");
   } else if (filters.mediaType !== "all") {
     clauses.push("materials.media_types LIKE ?");
-    whereValues.push(`%\"${filters.mediaType}\"%`);
+    values.push(`%\"${filters.mediaType}\"%`);
   }
 
   if (filters.dateFrom) {
     clauses.push("COALESCE(materials.date_value, substr(materials.published_at, 1, 10)) >= ?");
-    whereValues.push(filters.dateFrom);
+    values.push(filters.dateFrom);
   }
   if (filters.dateTo) {
     clauses.push("COALESCE(materials.date_value, substr(materials.published_at, 1, 10)) <= ?");
-    whereValues.push(filters.dateTo);
+    values.push(filters.dateTo);
   }
+
+  return { clauses, normalizedQuery, values };
+}
+
+export async function searchMaterialGroups(
+  database: D1Database,
+  filters: SearchFilters,
+): Promise<SearchCategoryGroup[]> {
+  const { clauses, values } = createSearchWhere(filters, false);
+  const { results } = await database
+    .prepare(
+      `SELECT
+         categories.id,
+         categories.slug,
+         categories.name,
+         COUNT(materials.id) AS material_count
+       FROM materials
+       INNER JOIN categories ON categories.id = materials.category_id
+       WHERE ${clauses.join(" AND ")}
+       GROUP BY categories.id, categories.slug, categories.name, categories.sort_order
+       HAVING COUNT(materials.id) > 0
+       ORDER BY categories.sort_order ASC`,
+    )
+    .bind(...values)
+    .all<{
+      id: string;
+      slug: string;
+      name: string;
+      material_count: number;
+    }>();
+
+  return results.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    materialCount: Number(row.material_count),
+  }));
+}
+
+export async function searchMaterials(
+  database: D1Database,
+  filters: SearchFilters,
+  page: number,
+  pageSize = 30,
+): Promise<SearchMaterialPage> {
+  const {
+    clauses,
+    normalizedQuery,
+    values: whereValues,
+  } = createSearchWhere(filters, true);
 
   const rankValues: string[] = [];
   let relevance = "0";
