@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
+import { getOptionalTelegramUser } from "./telegram-user.server";
+
 type AdminEnvironment = Env & {
   CF_ACCESS_AUD?: string;
   CF_ACCESS_TEAM_DOMAIN?: string;
@@ -10,7 +12,7 @@ const ADMIN_NAVIGATION_COOKIE = "library_admin_navigation";
 
 export type AdminIdentity = {
   email: string;
-  source: "cloudflare-access" | "local-development";
+  source: "cloudflare-access" | "telegram" | "local-development";
 };
 
 const jwksByIssuer = new Map<
@@ -70,13 +72,38 @@ function getJwks(issuer: string) {
   return jwks;
 }
 
-export async function requireAdmin(request: Request): Promise<AdminIdentity> {
-  if (isLocalDevelopmentRequest(request)) {
+export async function getOptionalTelegramAdmin(
+  request: Request,
+  database: D1Database,
+): Promise<AdminIdentity | null> {
+  const user = await getOptionalTelegramUser(request);
+  if (!user) return null;
+
+  if (user.source === "local-development") {
     return {
       email: "local-development",
       source: "local-development",
     };
   }
+
+  const record = await database
+    .prepare("SELECT role FROM app_users WHERE id = ? LIMIT 1")
+    .bind(user.id)
+    .first<{ role: string }>();
+  if (record?.role !== "admin") return null;
+
+  return {
+    email: user.username ? `@${user.username}` : user.displayName,
+    source: "telegram",
+  };
+}
+
+export async function requireAdmin(
+  request: Request,
+  database: D1Database,
+): Promise<AdminIdentity> {
+  const telegramAdmin = await getOptionalTelegramAdmin(request, database);
+  if (telegramAdmin) return telegramAdmin;
 
   const configuration = getAccessConfiguration();
   const token = request.headers.get("cf-access-jwt-assertion");

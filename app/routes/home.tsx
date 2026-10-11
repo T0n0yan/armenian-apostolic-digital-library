@@ -4,7 +4,10 @@ import { memo } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
 import type { Route } from "./+types/home";
-import { hasAdminNavigationCookie } from "../auth/admin.server";
+import {
+  getOptionalTelegramAdmin,
+  hasAdminNavigationCookie,
+} from "../auth/admin.server";
 import { CategoryIcon } from "../components/category-icon";
 import { SiteNav } from "../components/site-nav";
 import type { CategorySummary } from "../data/categories.server";
@@ -104,9 +107,16 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  const [categories, telegramAdmin] = await Promise.all([
+    listActiveCategories(env.DB),
+    getOptionalTelegramAdmin(request, env.DB),
+  ]);
+
   return {
-    categories: await listActiveCategories(env.DB),
-    showAdminLink: hasAdminNavigationCookie(request),
+    categories,
+    showAdminLink: Boolean(
+      telegramAdmin || hasAdminNavigationCookie(request),
+    ),
   };
 }
 

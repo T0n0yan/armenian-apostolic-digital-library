@@ -348,7 +348,7 @@ function formatBytes(value: number) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const admin = await requireAdmin(request);
+  const admin = await requireAdmin(request, env.DB);
   const [categories, materials, materialCount, manualConstraints] =
     await Promise.all([
       listActiveCategories(env.DB),
@@ -371,7 +371,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  await requireAdmin(request);
+  await requireAdmin(request, env.DB);
   requireSameOrigin(request);
 
   const formData = await request.formData();
@@ -495,6 +495,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   const isSubmitting = navigation.state === "submitting";
   const isImportSubmitting = importFetcher.state !== "idle";
   const isLocalDevelopment = loaderData.admin.source === "local-development";
+  const isTelegramAdmin = loaderData.admin.source === "telegram";
   const manualActionData =
     actionData?.kind === "manual-error" ? actionData : undefined;
   const values = manualActionData?.values ?? emptyFormValues;
@@ -549,6 +550,8 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
           <p>
             {isLocalDevelopment
               ? "Local development ռեժիմ"
+              : isTelegramAdmin
+                ? `Telegram · ${loaderData.admin.email}`
               : `Cloudflare Access · ${loaderData.admin.email}`}
           </p>
         </div>
