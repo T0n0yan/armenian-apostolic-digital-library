@@ -34,6 +34,10 @@ import {
   previewTelegramExport,
   TelegramImportError,
 } from "../data/telegram-import.server";
+import {
+  configureTelegramWebhook,
+  TelegramBotError,
+} from "../data/telegram-bot.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 
 type FormValues = {
@@ -377,6 +381,27 @@ export async function action({ request }: Route.ActionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
+  if (intent === "telegram-webhook-configure") {
+    try {
+      const integration = await configureTelegramWebhook(request);
+      return data({
+        kind: "telegram-webhook-ready" as const,
+        integration,
+      });
+    } catch (error) {
+      return data(
+        {
+          kind: "telegram-webhook-error" as const,
+          message:
+            error instanceof TelegramBotError
+              ? error.message
+              : "Telegram կապը չհաջողվեց կարգավորել։",
+        },
+        { status: 502 },
+      );
+    }
+  }
+
   if (intent === "telegram-preview" || intent === "telegram-import") {
     const file = formData.get("telegramExport");
 
@@ -492,6 +517,7 @@ export async function action({ request }: Route.ActionArgs) {
 export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
   const navigation = useNavigation();
   const importFetcher = useFetcher<typeof action>();
+  const botFetcher = useFetcher<typeof action>();
   const isSubmitting = navigation.state === "submitting";
   const isImportSubmitting = importFetcher.state !== "idle";
   const isLocalDevelopment = loaderData.admin.source === "local-development";
@@ -501,6 +527,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   const values = manualActionData?.values ?? emptyFormValues;
   const errors = manualActionData?.errors ?? {};
   const importData = importFetcher.data;
+  const botData = botFetcher.data;
   const [selectedCategoryId, setSelectedCategoryId] = useState(values.categoryId);
   const [selectedDateValue, setSelectedDateValue] = useState(values.dateValue);
   const [selectedTitleValue, setSelectedTitleValue] = useState(values.title);
@@ -567,6 +594,37 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         categories={loaderData.categories}
         total={loaderData.materialCount}
       />
+
+      <section className="admin-panel admin-bot-integration" aria-labelledby="bot-integration-title">
+        <div className="admin-panel-heading">
+          <p className="admin-panel-kicker">Խմբի ինտեգրում</p>
+          <h2 id="bot-integration-title">Միացնել Telegram bot-ը</h2>
+          <p className="admin-panel-description">
+            Մեկ անգամ միացրու webhook-ը, հետո խմբում ուղարկիր <code>/library</code>։
+            Միայն գրադարանի ադմինի հրամանը կստեղծի ու կպինի բացման կոճակը։
+          </p>
+        </div>
+        <botFetcher.Form method="post">
+          <button
+            className="admin-submit"
+            type="submit"
+            name="intent"
+            value="telegram-webhook-configure"
+            disabled={botFetcher.state !== "idle"}
+          >
+            {botFetcher.state !== "idle" ? "Միացվում է…" : "Միացնել bot-ը խմբերին"}
+          </button>
+        </botFetcher.Form>
+        {botData?.kind === "telegram-webhook-ready" ? (
+          <p className="admin-notice" role="status">
+            Bot-ը միացված է{botData.integration.username ? `՝ @${botData.integration.username}` : ""}։
+            Հիմա խմբում ուղարկիր <code>/library</code>։
+          </p>
+        ) : null}
+        {botData?.kind === "telegram-webhook-error" ? (
+          <p className="field-error" role="alert">{botData.message}</p>
+        ) : null}
+      </section>
 
       <RecentMaterials materials={loaderData.materials} />
 
