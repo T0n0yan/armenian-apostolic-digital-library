@@ -273,10 +273,12 @@ const SearchForm = memo(function SearchForm({
 
 const SearchResults = memo(function SearchResults({
   canSave,
+  highlightQuery,
   materials,
   savedMaterialIds,
 }: {
   canSave: boolean;
+  highlightQuery: string;
   materials: SearchMaterial[];
   savedMaterialIds: string[];
 }) {
@@ -295,6 +297,7 @@ const SearchResults = memo(function SearchResults({
           key={material.id}
           material={material}
           canSave={canSave}
+          highlightQuery={highlightQuery}
           isSaved={savedIds.has(material.id)}
           isSaving={isSaving && pendingMaterialId === material.id}
           onSavedChange={handleSavedChange}
@@ -355,15 +358,26 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ) : (
           <SearchResults
             canSave={loaderData.canSave}
+            highlightQuery={filters.query}
             materials={materials}
             savedMaterialIds={loaderData.savedMaterialIds}
           />
         )}
         {hasCriteria && filters.categoryId && totalPages > 1 ? (
           <nav className="search-pagination" aria-label="Որոնման էջեր">
-            {page > 1 ? <Link to={getPageHref(filters, page - 1)}>← Նախորդ</Link> : <span />}
-            <span>{page} / {totalPages}</span>
-            {page < totalPages ? <Link to={getPageHref(filters, page + 1)}>Հաջորդ →</Link> : <span />}
+            {page > 1 ? (
+              <Link to={getPageHref(filters, page - 1)}>← Նախորդ</Link>
+            ) : (
+              <span />
+            )}
+            <span>
+              {page} / {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link to={getPageHref(filters, page + 1)}>Հաջորդ →</Link>
+            ) : (
+              <span />
+            )}
           </nav>
         ) : null}
       </section>

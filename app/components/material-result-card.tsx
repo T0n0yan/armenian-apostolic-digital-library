@@ -10,6 +10,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -37,6 +38,7 @@ type MaterialResultCardProps = {
     personalNote?: string;
   };
   canSave: boolean;
+  highlightQuery?: string;
   isSaved: boolean;
   isSaving?: boolean;
   allowNoteEditing?: boolean;
@@ -46,6 +48,49 @@ type MaterialResultCardProps = {
     personalNote?: string,
   ) => void;
 };
+
+function escapeRegularExpression(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+type HighlightPattern = {
+  exactMatch: RegExp;
+  parts: RegExp;
+};
+
+function createHighlightPattern(query: string): HighlightPattern | null {
+  const terms = Array.from(
+    new Set(
+      query
+        .normalize("NFC")
+        .trim()
+        .split(/\s+/u)
+        .filter((term) => Array.from(term).length >= 2),
+    ),
+  ).sort((first, second) => second.length - first.length);
+  if (terms.length === 0) return null;
+
+  const pattern = terms.map(escapeRegularExpression).join("|");
+  return {
+    exactMatch: new RegExp(`^(?:${pattern})$`, "iu"),
+    parts: new RegExp(`(${pattern})`, "giu"),
+  };
+}
+
+function highlightText(value: string, pattern: HighlightPattern | null) {
+  if (!pattern) return value;
+  const parts = value.split(pattern.parts);
+
+  return parts.map((part, index) =>
+    pattern.exactMatch.test(part) ? (
+      <mark className="material-search-highlight" key={`${part}-${index}`}>
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
 
 type TelegramWindow = Window & {
   Telegram?: {
@@ -66,6 +111,7 @@ export function openTelegramPost(event: MouseEvent<HTMLAnchorElement>) {
 export const MaterialResultCard = memo(function MaterialResultCard({
   material,
   canSave,
+  highlightQuery = "",
   isSaved,
   isSaving = false,
   allowNoteEditing = false,
@@ -76,6 +122,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const shareResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightPattern = useMemo(
+    () => createHighlightPattern(highlightQuery),
+    [highlightQuery],
+  );
 
   useEffect(
     () => () => {
@@ -148,9 +198,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="material-category-name">{material.categoryName}</span>
           ) : null}
           {date ? <span className="material-date">{date}</span> : null}
-          <strong>{material.title}</strong>
+          <strong>{highlightText(material.title, highlightPattern)}</strong>
           {material.excerpt ? (
-            <span className="material-excerpt">{material.excerpt}</span>
+            <span className="material-excerpt">
+              {highlightText(material.excerpt, highlightPattern)}
+            </span>
           ) : null}
           {material.mediaTypes.length > 0 ? (
             <span className="material-media-list">

@@ -634,6 +634,16 @@ textarea {
   -webkit-line-clamp: 2;
 }
 
+.material-search-highlight {
+  padding: 0.04em 0.14em;
+  border-radius: 0.28em;
+  background: rgb(240 196 88 / 38%);
+  box-shadow: 0 0 0 1px rgb(240 196 88 / 16%);
+  color: inherit;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .material-card-content strong {
   overflow-wrap: anywhere;
   font-size: clamp(0.92rem, 1.55vw, 1.02rem);
