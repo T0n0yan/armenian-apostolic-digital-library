@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Bookmark, ChevronDown, Search, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { Form, Link, useSubmit } from "react-router";
+import { memo, useCallback, useMemo } from "react";
+import { Form, Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -20,6 +20,7 @@ import {
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
+import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -119,34 +120,23 @@ const SavedGroup = memo(function SavedGroup({ group, open }: {
 });
 
 const SavedSearch = memo(function SavedSearch({ query }: { query: string }) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const submit = useSubmit();
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
-  const handleInput = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      if (formRef.current) {
-        void submit(formRef.current, { preventScrollReset: true, replace: true });
-      }
-    }, 650);
-  }, [submit]);
+  const { cancelPending, formRef, scheduleSubmit } =
+    useDebouncedFormSubmit(650);
 
   return (
-    <Form ref={formRef} className="saved-search" role="search" method="get">
+    <Form
+      ref={formRef}
+      className="saved-search"
+      role="search"
+      method="get"
+      onSubmit={cancelPending}
+    >
       <Search aria-hidden="true" size={18} strokeWidth={1.9} />
       <input
         type="search"
         name="q"
         defaultValue={query}
-        onInput={handleInput}
+        onInput={scheduleSubmit}
         placeholder="Փնտրել պահվածներում կամ իմ նշումներում…"
         aria-label="Փնտրել պահված նյութերում"
       />
@@ -198,10 +188,15 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             <span>{loaderData.total}</span>
           </div>
           {loaderData.groups.length === 0 ? (
-            <div className="saved-empty-state saved-no-results">
-              <Search aria-hidden="true" size={25} strokeWidth={1.7} />
-              <h2>Համապատասխան պահված նյութ չկա</h2>
-              <p>Փորձիր վերնագրից կամ քո անձնական նշումից ուրիշ բառ։</p>
+            <div className="saved-no-results">
+              <span className="saved-no-results-icon" aria-hidden="true">
+                <Search size={22} strokeWidth={1.7} />
+              </span>
+              <div>
+                <h2>«{loaderData.query}» բառով նյութ չկա</h2>
+                <p>Փորձիր վերնագրից, նյութի տեքստից կամ քո նշումից ուրիշ բառ։</p>
+              </div>
+              <Link to="/saved">Ցույց տալ բոլոր պահվածները</Link>
             </div>
           ) : (
             <div className="saved-category-groups">

@@ -6,8 +6,8 @@ import {
   RotateCcw,
   Search as SearchIcon,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, type FormEvent } from "react";
-import { Form, Link, useNavigation, useSubmit } from "react-router";
+import { memo, useCallback, type FormEvent } from "react";
+import { Form, Link, useNavigation } from "react-router";
 
 import type { Route } from "./+types/search";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
@@ -27,6 +27,7 @@ import {
   searchMaterials,
 } from "../data/search-materials.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
+import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
 
 const mediaLabels = {
   all: "Բոլոր տեսակները",
@@ -160,38 +161,15 @@ const SearchForm = memo(function SearchForm({
   categories: Route.ComponentProps["loaderData"]["categories"];
   filters: SearchFilters;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const submit = useSubmit();
+  const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
+    useDebouncedFormSubmit(1_000);
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === "/search";
 
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    [],
-  );
-
-  const submitForm = useCallback(() => {
-    if (!formRef.current) return;
-    void submit(formRef.current, { preventScrollReset: true, replace: true });
-  }, [submit]);
-
-  const handleQueryInput = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(submitForm, 1_000);
-  }, [submitForm]);
-
-  const handleImmediateChange = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    submitForm();
-  }, [submitForm]);
-
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    cancelPending();
     if (!event.currentTarget.checkValidity()) event.preventDefault();
-  }, []);
+  }, [cancelPending]);
 
   return (
     <Form
@@ -210,7 +188,7 @@ const SearchForm = memo(function SearchForm({
           placeholder="Օրինակ՝ առակ, Սուրբ Մարիամ, աղոթք…"
           aria-label="Որոնման բառեր"
           autoComplete="off"
-          onInput={handleQueryInput}
+          onInput={scheduleSubmit}
         />
         <button type="submit" aria-label="Որոնել">
           {isSearching ? (
@@ -240,7 +218,7 @@ const SearchForm = memo(function SearchForm({
             <select
               name="category"
               defaultValue={filters.categoryId}
-              onChange={handleImmediateChange}
+              onChange={submitImmediately}
             >
               <option value="">Բոլոր բաժինները</option>
               {categories.map((category) => (
@@ -255,7 +233,7 @@ const SearchForm = memo(function SearchForm({
             <select
               name="media"
               defaultValue={filters.mediaType}
-              onChange={handleImmediateChange}
+              onChange={submitImmediately}
             >
               {SEARCH_MEDIA_TYPES.map((mediaType) => (
                 <option key={mediaType} value={mediaType}>
@@ -270,7 +248,7 @@ const SearchForm = memo(function SearchForm({
               type="date"
               name="from"
               defaultValue={filters.dateFrom}
-              onChange={handleImmediateChange}
+              onChange={submitImmediately}
             />
           </label>
           <label>
@@ -279,7 +257,7 @@ const SearchForm = memo(function SearchForm({
               type="date"
               name="to"
               defaultValue={filters.dateTo}
-              onChange={handleImmediateChange}
+              onChange={submitImmediately}
             />
           </label>
         </div>

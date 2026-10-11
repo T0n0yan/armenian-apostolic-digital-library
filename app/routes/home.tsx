@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { ArrowRight, Search } from "lucide-react";
+import { ArrowRight, LoaderCircle, Search } from "lucide-react";
 import { memo } from "react";
-import { Form, Link } from "react-router";
+import { Form, Link, useNavigation } from "react-router";
 
 import type { Route } from "./+types/home";
 import { hasAdminNavigationCookie } from "../auth/admin.server";
@@ -9,6 +9,46 @@ import { CategoryIcon } from "../components/category-icon";
 import { SiteNav } from "../components/site-nav";
 import type { CategorySummary } from "../data/categories.server";
 import { listActiveCategories } from "../data/categories.server";
+import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
+
+const HomeSearch = memo(function HomeSearch() {
+  const { cancelPending, formRef, scheduleSubmit } =
+    useDebouncedFormSubmit(1_000);
+  const navigation = useNavigation();
+  const isSearching = navigation.location?.pathname === "/search";
+
+  return (
+    <Form
+      ref={formRef}
+      className="home-search"
+      action="/search"
+      method="get"
+      role="search"
+      onSubmit={cancelPending}
+    >
+      <Search aria-hidden="true" size={20} strokeWidth={1.9} />
+      <input
+        type="search"
+        name="q"
+        placeholder="Փնտրել ամբողջ գրադարանում…"
+        aria-label="Փնտրել ամբողջ գրադարանում"
+        autoComplete="off"
+        onInput={scheduleSubmit}
+      />
+      <button type="submit" aria-label="Որոնել">
+        {isSearching ? (
+          <LoaderCircle
+            className="search-loading-icon"
+            aria-hidden="true"
+            size={19}
+          />
+        ) : (
+          <ArrowRight aria-hidden="true" size={19} strokeWidth={1.9} />
+        )}
+      </button>
+    </Form>
+  );
+});
 
 const CategoryCard = memo(function CategoryCard({
   category,
@@ -83,18 +123,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <p className="library-intro">
           Գտեք խմբում հրապարակված նյութերը՝ ըստ բաժինների։
         </p>
-        <Form className="home-search" action="/search" method="get" role="search">
-          <Search aria-hidden="true" size={20} strokeWidth={1.9} />
-          <input
-            type="search"
-            name="q"
-            placeholder="Փնտրել ամբողջ գրադարանում…"
-            aria-label="Փնտրել ամբողջ գրադարանում"
-          />
-          <button type="submit" aria-label="Որոնել">
-            <ArrowRight aria-hidden="true" size={19} strokeWidth={1.9} />
-          </button>
-        </Form>
+        <HomeSearch />
       </header>
 
       <section className="categories-section" aria-labelledby="categories-title">

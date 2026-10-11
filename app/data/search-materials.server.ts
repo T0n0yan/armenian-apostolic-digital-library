@@ -33,13 +33,81 @@ function parseMediaTypes(value: string) {
   }
 }
 
-function createExcerpt(value: string) {
+const sentenceEndings = new Set(["։", ".", "!", "?", "…"]);
+
+function findSequence(haystack: string[], needle: string[]) {
+  if (needle.length === 0 || needle.length > haystack.length) return -1;
+
+  for (let index = 0; index <= haystack.length - needle.length; index += 1) {
+    let matches = true;
+    for (let offset = 0; offset < needle.length; offset += 1) {
+      if (haystack[index + offset] !== needle[offset]) {
+        matches = false;
+        break;
+      }
+    }
+    if (matches) return index;
+  }
+
+  return -1;
+}
+
+function createExcerpt(value: string, normalizedQuery: string) {
   const compact = value.replace(/\s+/g, " ").trim();
   if (!compact) return null;
   const characters = Array.from(compact);
-  return characters.length > 220
-    ? `${characters.slice(0, 217).join("")}…`
-    : compact;
+  const normalizedCharacters = Array.from(compact.toLocaleLowerCase("hy-AM"));
+  const candidates = [
+    normalizedQuery,
+    ...normalizedQuery
+      .split(" ")
+      .filter((term) => Array.from(term).length >= 2)
+      .sort((first, second) => second.length - first.length),
+  ].filter(Boolean);
+
+  let matchStart = -1;
+  let matchLength = 0;
+  for (const candidate of candidates) {
+    const candidateCharacters = Array.from(candidate);
+    const index = findSequence(normalizedCharacters, candidateCharacters);
+    if (index >= 0) {
+      matchStart = index;
+      matchLength = candidateCharacters.length;
+      break;
+    }
+  }
+
+  if (matchStart < 0) {
+    return characters.length > 220
+      ? `${characters.slice(0, 217).join("")}…`
+      : compact;
+  }
+
+  let sentenceStart = matchStart;
+  while (
+    sentenceStart > 0 &&
+    !sentenceEndings.has(characters[sentenceStart - 1])
+  ) {
+    sentenceStart -= 1;
+  }
+  let sentenceEnd = matchStart + matchLength;
+  while (
+    sentenceEnd < characters.length &&
+    !sentenceEndings.has(characters[sentenceEnd])
+  ) {
+    sentenceEnd += 1;
+  }
+  if (sentenceEnd < characters.length) sentenceEnd += 1;
+
+  const sentence = characters.slice(sentenceStart, sentenceEnd);
+  if (sentence.length <= 280) return sentence.join("").trim();
+
+  const windowStart = Math.max(sentenceStart, matchStart - 90);
+  const windowEnd = Math.min(sentenceEnd, matchStart + matchLength + 150);
+  return `${windowStart > sentenceStart ? "…" : ""}${characters
+    .slice(windowStart, windowEnd)
+    .join("")
+    .trim()}${windowEnd < sentenceEnd ? "…" : ""}`;
 }
 
 function createSearchWhere(filters: SearchFilters, includeCategory: boolean) {
@@ -192,7 +260,7 @@ export async function searchMaterials(
       dateValue: row.date_value,
       publishedAt: row.published_at,
       mediaTypes: parseMediaTypes(row.media_types),
-      excerpt: createExcerpt(row.content_text),
+      excerpt: createExcerpt(row.content_text, normalizedQuery),
     })),
     total: Number(countRow?.material_count ?? 0),
   };
