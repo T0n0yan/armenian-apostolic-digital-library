@@ -1,13 +1,14 @@
 import { env } from "cloudflare:workers";
+import { ArrowRight, Search } from "lucide-react";
 import { memo } from "react";
-import { Link } from "react-router";
+import { Form, Link } from "react-router";
 
 import type { Route } from "./+types/home";
 import { hasAdminNavigationCookie } from "../auth/admin.server";
+import { CategoryIcon } from "../components/category-icon";
 import { SiteNav } from "../components/site-nav";
 import type { CategorySummary } from "../data/categories.server";
 import { listActiveCategories } from "../data/categories.server";
-import { getCategoryIcon } from "../utils/category-presentation";
 
 const CategoryCard = memo(function CategoryCard({
   category,
@@ -18,7 +19,7 @@ const CategoryCard = memo(function CategoryCard({
     <li>
       <Link className="category-card" to={`/categories/${category.slug}`}>
         <span className="category-symbol" aria-hidden="true">
-          {getCategoryIcon(category.id)}
+          <CategoryIcon categoryId={category.id} size={22} strokeWidth={1.8} />
         </span>
         <span className="category-content">
           <strong>{category.name}</strong>
@@ -29,7 +30,7 @@ const CategoryCard = memo(function CategoryCard({
           </span>
         </span>
         <span className="category-arrow" aria-hidden="true">
-          →
+          <ArrowRight size={19} strokeWidth={1.8} />
         </span>
       </Link>
     </li>
@@ -82,6 +83,18 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <p className="library-intro">
           Գտեք խմբում հրապարակված նյութերը՝ ըստ բաժինների։
         </p>
+        <Form className="home-search" action="/search" method="get" role="search">
+          <Search aria-hidden="true" size={20} strokeWidth={1.9} />
+          <input
+            type="search"
+            name="q"
+            placeholder="Փնտրել ամբողջ գրադարանում…"
+            aria-label="Փնտրել ամբողջ գրադարանում"
+          />
+          <button type="submit" aria-label="Որոնել">
+            <ArrowRight aria-hidden="true" size={19} strokeWidth={1.9} />
+          </button>
+        </Form>
       </header>
 
       <section className="categories-section" aria-labelledby="categories-title">

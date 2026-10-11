@@ -1,37 +1,20 @@
 import { env } from "cloudflare:workers";
-import { memo, type MouseEvent } from "react";
+import { Bookmark } from "lucide-react";
+import { memo, useCallback } from "react";
 import { isRouteErrorResponse } from "react-router";
 
 import type { Route } from "./+types/category";
+import { getOptionalTelegramUser } from "../auth/telegram-user.server";
+import {
+  MaterialResultCard,
+  openTelegramPost,
+} from "../components/material-result-card";
 import { SiteNav } from "../components/site-nav";
 import { getActiveCategoryBySlug } from "../data/categories.server";
 import type { PublicMaterial } from "../data/materials.server";
 import { listPublicMaterialsByCategory } from "../data/materials.server";
-import { formatArmenianDate } from "../utils/armenian-date";
-
-const mediaLabels: Record<string, string> = {
-  audio: "Աուդիո",
-  video: "Վիդեո",
-  photo: "Նկար",
-  poll: "Հարցում",
-};
-
-type TelegramWindow = Window & {
-  Telegram?: {
-    WebApp?: {
-      openTelegramLink?: (url: string) => void;
-      platform?: string;
-    };
-  };
-};
-
-function openTelegramPost(event: MouseEvent<HTMLAnchorElement>) {
-  const webApp = (window as TelegramWindow).Telegram?.WebApp;
-  if (!webApp?.openTelegramLink || webApp.platform === "unknown") return;
-
-  event.preventDefault();
-  webApp.openTelegramLink(event.currentTarget.href);
-}
+import { listSavedMaterialIds } from "../data/saved-materials.server";
+import { useSavedMaterials } from "../hooks/use-saved-materials";
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.category.name ?? "Բաժին";
@@ -42,8 +25,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
   ];
 }
 
-export async function loader({ params }: Route.LoaderArgs) {
-  const category = await getActiveCategoryBySlug(env.DB, params.slug);
+export async function loader({ params, request }: Route.LoaderArgs) {
+  const [category, user] = await Promise.all([
+    getActiveCategoryBySlug(env.DB, params.slug),
+    getOptionalTelegramUser(request),
+  ]);
 
   if (!category) {
     throw new Response("Category not found", {
@@ -52,58 +38,34 @@ export async function loader({ params }: Route.LoaderArgs) {
     });
   }
 
+  const [materials, savedMaterialIds] = await Promise.all([
+    listPublicMaterialsByCategory(env.DB, category.id, category.defaultSort),
+    user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
+  ]);
+
   return {
     category,
-    materials: await listPublicMaterialsByCategory(
-      env.DB,
-      category.id,
-      category.defaultSort,
-    ),
+    materials,
+    savedMaterialIds,
+    canSave: Boolean(user),
   };
 }
 
-const MaterialCard = memo(function MaterialCard({
-  material,
-}: {
-  material: PublicMaterial;
-}) {
-  const date = formatArmenianDate(material.dateValue);
-
-  return (
-    <li>
-      <a
-        className="material-card"
-        href={material.telegramUrl}
-        target="_blank"
-        rel="noreferrer"
-        onClick={openTelegramPost}
-      >
-        <span className="material-card-content">
-          {date ? <span className="material-date">{date}</span> : null}
-          <strong>{material.title}</strong>
-          {material.mediaTypes.length > 0 ? (
-            <span className="material-media-list">
-              {material.mediaTypes.map((mediaType) => (
-                <span key={mediaType}>{mediaLabels[mediaType] ?? mediaType}</span>
-              ))}
-            </span>
-          ) : null}
-        </span>
-        <span className="material-open" aria-hidden="true">
-          ↗
-        </span>
-      </a>
-    </li>
-  );
-});
-
 const PsalmTile = memo(function PsalmTile({
+  canSave,
+  isSaved,
+  isSaving,
   material,
+  onSavedChange,
 }: {
+  canSave: boolean;
+  isSaved: boolean;
+  isSaving: boolean;
   material: PublicMaterial;
+  onSavedChange: (materialId: string, saved: boolean) => void;
 }) {
   return (
-    <li>
+    <li className="psalm-tile-shell">
       <a
         className="psalm-tile"
         href={material.telegramUrl}
@@ -115,24 +77,66 @@ const PsalmTile = memo(function PsalmTile({
       >
         {material.numberValue}
       </a>
+      {canSave ? (
+        <button
+          className={`psalm-save${isSaved ? " is-saved" : ""}`}
+          type="button"
+          disabled={isSaving}
+          onClick={() => onSavedChange(material.id, !isSaved)}
+          aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+          title={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+        >
+          <Bookmark
+            aria-hidden="true"
+            size={11}
+            strokeWidth={2}
+            fill={isSaved ? "currentColor" : "none"}
+          />
+        </button>
+      ) : null}
     </li>
   );
 });
 
 const MaterialsList = memo(function MaterialsList({
+  canSave,
   isPsalms,
   materials,
+  savedMaterialIds,
 }: {
+  canSave: boolean;
   isPsalms: boolean;
   materials: PublicMaterial[];
+  savedMaterialIds: string[];
 }) {
+  const { isSaving, pendingMaterialId, savedIds, setSaved } =
+    useSavedMaterials(savedMaterialIds);
+  const handleSavedChange = useCallback(
+    (materialId: string, saved: boolean) => setSaved(materialId, saved),
+    [setSaved],
+  );
+
   return (
     <ol className={`materials-list${isPsalms ? " psalms-grid" : ""}`}>
       {materials.map((material) =>
         isPsalms ? (
-          <PsalmTile key={material.id} material={material} />
+          <PsalmTile
+            key={material.id}
+            material={material}
+            canSave={canSave}
+            isSaved={savedIds.has(material.id)}
+            isSaving={isSaving && pendingMaterialId === material.id}
+            onSavedChange={handleSavedChange}
+          />
         ) : (
-          <MaterialCard key={material.id} material={material} />
+          <MaterialResultCard
+            key={material.id}
+            material={material}
+            canSave={canSave}
+            isSaved={savedIds.has(material.id)}
+            isSaving={isSaving && pendingMaterialId === material.id}
+            onSavedChange={handleSavedChange}
+          />
         ),
       )}
     </ol>
@@ -159,7 +163,12 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           <p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p>
         </section>
       ) : (
-        <MaterialsList isPsalms={isPsalms} materials={materials} />
+        <MaterialsList
+          canSave={loaderData.canSave}
+          isPsalms={isPsalms}
+          materials={materials}
+          savedMaterialIds={loaderData.savedMaterialIds}
+        />
       )}
     </main>
   );

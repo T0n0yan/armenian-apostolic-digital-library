@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -6,10 +6,49 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRevalidator,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import "./app.css";
+
+type TelegramWebApp = {
+  initData?: string;
+  ready?: () => void;
+  expand?: () => void;
+};
+
+type TelegramWindow = Window & {
+  Telegram?: { WebApp?: TelegramWebApp };
+};
+
+let telegramSdkPromise: Promise<TelegramWebApp | null> | null = null;
+
+function loadTelegramSdk() {
+  if (telegramSdkPromise) return telegramSdkPromise;
+  telegramSdkPromise = new Promise((resolve) => {
+    const telegramWindow = window as TelegramWindow;
+    if (telegramWindow.Telegram?.WebApp) {
+      resolve(telegramWindow.Telegram.WebApp);
+      return;
+    }
+
+    const source = "https://telegram.org/js/telegram-web-app.js?64";
+    const existing = window.document.querySelector<HTMLScriptElement>(
+      `script[src="${source}"]`,
+    );
+    const script = existing ?? window.document.createElement("script");
+    const finish = () => resolve(telegramWindow.Telegram?.WebApp ?? null);
+    script.addEventListener("load", finish, { once: true });
+    script.addEventListener("error", () => resolve(null), { once: true });
+    if (!existing) {
+      script.src = source;
+      script.async = true;
+      window.document.head.appendChild(script);
+    }
+  });
+  return telegramSdkPromise;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -30,15 +69,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  useEffect(() => {
-    const source = "https://telegram.org/js/telegram-web-app.js?64";
-    if (window.document.querySelector(`script[src="${source}"]`)) return;
+  const revalidator = useRevalidator();
+  const sessionAttempted = useRef(false);
 
-    const script = window.document.createElement("script");
-    script.src = source;
-    script.async = true;
-    window.document.head.appendChild(script);
-  }, []);
+  useEffect(() => {
+    if (sessionAttempted.current) return;
+    sessionAttempted.current = true;
+    let active = true;
+    void loadTelegramSdk().then(async (webApp) => {
+      if (!active || !webApp) return;
+      webApp.ready?.();
+      webApp.expand?.();
+      if (!webApp.initData) return;
+
+      const response = await fetch("/telegram/session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ initData: webApp.initData }),
+      }).catch(() => null);
+      if (active && response?.ok) revalidator.revalidate();
+    });
+    return () => {
+      active = false;
+    };
+  }, [revalidator]);
 
   return <Outlet />;
 }

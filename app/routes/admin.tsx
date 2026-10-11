@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { ChevronDown } from "lucide-react";
 import { memo, useMemo, useState, type CSSProperties } from "react";
 import {
   data,
@@ -16,6 +17,7 @@ import {
   requireAdmin,
   requireSameOrigin,
 } from "../auth/admin.server";
+import { CategoryIcon } from "../components/category-icon";
 import { SiteNav } from "../components/site-nav";
 import type { CategorySummary } from "../data/categories.server";
 import { listActiveCategories } from "../data/categories.server";
@@ -33,7 +35,6 @@ import {
   TelegramImportError,
 } from "../data/telegram-import.server";
 import { formatArmenianDate } from "../utils/armenian-date";
-import { getCategoryIcon } from "../utils/category-presentation";
 
 type FormValues = {
   title: string;
@@ -120,7 +121,11 @@ const IndexOverview = memo(function IndexOverview({
             return (
               <li key={category.id}>
                 <span className="admin-distribution-icon" aria-hidden="true">
-                  {getCategoryIcon(category.id)}
+                  <CategoryIcon
+                    categoryId={category.id}
+                    size={17}
+                    strokeWidth={1.8}
+                  />
                 </span>
                 <span className="admin-distribution-content">
                   <span className="admin-distribution-label">
@@ -157,7 +162,7 @@ const RecentMaterials = memo(function RecentMaterials({
           <small>Արագ ստուգման համար</small>
         </span>
         <span className="admin-details-mark" aria-hidden="true">
-          +
+          <ChevronDown size={17} strokeWidth={1.9} />
         </span>
       </summary>
       <ol className="admin-materials-list">
