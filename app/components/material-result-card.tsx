@@ -19,13 +19,6 @@ import {
 
 import { formatArmenianDate } from "../utils/armenian-date";
 
-const mediaLabels: Record<string, string> = {
-  audio: "Աուդիո",
-  video: "Վիդեո",
-  photo: "Նկար",
-  poll: "Հարցում",
-};
-
 type MaterialResultCardProps = {
   material: {
     id: string;
@@ -204,17 +197,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               {highlightText(material.excerpt, highlightPattern)}
             </span>
           ) : null}
-          {material.mediaTypes.length > 0 ? (
-            <span className="material-media-list">
-              {material.mediaTypes.map((mediaType) => (
-                <span key={mediaType}>{mediaLabels[mediaType] ?? mediaType}</span>
-              ))}
-            </span>
-          ) : null}
           {material.personalNote ? (
             <span className="material-personal-note">
               <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
-              {material.personalNote}
+              {highlightText(material.personalNote, highlightPattern)}
             </span>
           ) : null}
         </span>

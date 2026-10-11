@@ -1,18 +1,7 @@
-export const SEARCH_MEDIA_TYPES = [
-  "all",
-  "text",
-  "photo",
-  "audio",
-  "video",
-  "poll",
-] as const;
-
-export type SearchMediaType = (typeof SEARCH_MEDIA_TYPES)[number];
-
 export type SearchFilters = {
   query: string;
   categoryId: string;
-  mediaType: SearchMediaType;
+  scope: "library" | "saved";
   dateFrom: string;
   dateTo: string;
 };
@@ -28,11 +17,13 @@ export type SearchMaterial = {
   publishedAt: string | null;
   mediaTypes: string[];
   excerpt: string | null;
+  personalNote?: string;
 };
 
 export type SearchMaterialPage = {
   materials: SearchMaterial[];
   total: number;
+  highlightQuery: string;
 };
 
 export type SearchCategoryGroup = {
@@ -40,4 +31,5 @@ export type SearchCategoryGroup = {
   slug: string;
   name: string;
   materialCount: number;
+  isPersonal?: boolean;
 };

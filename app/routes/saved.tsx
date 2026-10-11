@@ -74,9 +74,10 @@ export async function action({ request }: Route.ActionArgs) {
   return Response.json({ saved });
 }
 
-const SavedGroup = memo(function SavedGroup({ group, open }: {
+const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   group: SavedMaterialGroup;
   open: boolean;
+  query: string;
 }) {
   const { materials } = group;
   const savedMaterialIds = useMemo(
@@ -107,6 +108,7 @@ const SavedGroup = memo(function SavedGroup({ group, open }: {
           <MaterialResultCard
             key={material.id}
             material={material}
+            highlightQuery={query}
             canSave
             isSaved={savedIds.has(material.id)}
             isSaving={isSaving && pendingMaterialId === material.id}
@@ -205,6 +207,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                   key={group.categorySlug}
                   group={group}
                   open={Boolean(loaderData.query)}
+                  query={loaderData.query}
                 />
               ))}
             </div>

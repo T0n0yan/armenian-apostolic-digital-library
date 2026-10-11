@@ -9,12 +9,27 @@ import {
 } from "lucide-react";
 import { memo } from "react";
 
-function HarpIcon({ size = 22 }: LucideProps) {
-  const fontSize = typeof size === "number" ? `${size * 1.12}px` : size;
+function HarpIcon({ size = 22, strokeWidth = 2, ...props }: LucideProps) {
   return (
-    <span className="category-harp-icon" style={{ fontSize }} aria-hidden="true">
-      🪉
-    </span>
+    <svg
+      {...props}
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 3v14.5a3.5 3.5 0 0 0 7 0V7" />
+      <path d="M6 4c5.2 0 8.4 1.5 11 4.5" />
+      <path d="M8.8 5.1v11.6" />
+      <path d="M11.6 5.9v10" />
+      <path d="M14.3 7v7.1" />
+      <path d="M17 8.5v3.7" />
+    </svg>
   );
 }
 

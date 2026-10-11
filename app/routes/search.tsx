@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import {
   ArrowRight,
+  Bookmark,
+  ChevronDown,
   Filter,
   LoaderCircle,
   RotateCcw,
@@ -15,9 +17,11 @@ import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
 import { SiteNav } from "../components/site-nav";
 import { listActiveCategories } from "../data/categories.server";
-import { listSavedMaterialIds } from "../data/saved-materials.server";
 import {
-  SEARCH_MEDIA_TYPES,
+  listSavedMaterialIds,
+  listSavedMaterials,
+} from "../data/saved-materials.server";
+import {
   type SearchCategoryGroup,
   type SearchFilters,
   type SearchMaterial,
@@ -26,17 +30,9 @@ import {
   searchMaterialGroups,
   searchMaterials,
 } from "../data/search-materials.server";
+import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
-
-const mediaLabels = {
-  all: "Բոլոր տեսակները",
-  text: "Տեքստ",
-  photo: "Նկար",
-  audio: "Աուդիո",
-  video: "Վիդեո",
-  poll: "Հարցում",
-} as const;
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
@@ -46,18 +42,18 @@ function getPageHref(filters: SearchFilters, page: number) {
   const parameters = new URLSearchParams();
   if (filters.query) parameters.set("q", filters.query);
   if (filters.categoryId) parameters.set("category", filters.categoryId);
-  if (filters.mediaType !== "all") parameters.set("media", filters.mediaType);
+  if (filters.scope === "saved") parameters.set("scope", "saved");
   if (filters.dateFrom) parameters.set("from", filters.dateFrom);
   if (filters.dateTo) parameters.set("to", filters.dateTo);
   if (page > 1) parameters.set("page", String(page));
   return `/search?${parameters.toString()}`;
 }
 
-function getCategoryHref(filters: SearchFilters, categoryId: string) {
+function getCategoryHref(filters: SearchFilters, group: SearchCategoryGroup) {
   const parameters = new URLSearchParams();
   if (filters.query) parameters.set("q", filters.query);
-  parameters.set("category", categoryId);
-  if (filters.mediaType !== "all") parameters.set("media", filters.mediaType);
+  if (group.isPersonal) parameters.set("scope", "saved");
+  else parameters.set("category", group.id);
   if (filters.dateFrom) parameters.set("from", filters.dateFrom);
   if (filters.dateTo) parameters.set("to", filters.dateTo);
   return `/search?${parameters.toString()}`;
@@ -75,16 +71,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   const categoryId = (url.searchParams.get("category") ?? "").slice(0, 80);
-  const requestedMedia = url.searchParams.get("media") ?? "all";
-  const mediaType = SEARCH_MEDIA_TYPES.includes(
-    requestedMedia as (typeof SEARCH_MEDIA_TYPES)[number],
-  )
-    ? (requestedMedia as SearchFilters["mediaType"])
-    : "all";
+  const scope = url.searchParams.get("scope") === "saved" ? "saved" : "library";
   const filters: SearchFilters = {
     query,
     categoryId,
-    mediaType,
+    scope,
     dateFrom: readDate(url.searchParams.get("from")),
     dateTo: readDate(url.searchParams.get("to")),
   };
@@ -93,36 +84,83 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? Math.min(requestedPage, 1_000)
     : 1;
   const hasCriteria = Boolean(
-    query || categoryId || mediaType !== "all" || filters.dateFrom || filters.dateTo,
+    query || categoryId || scope === "saved" || filters.dateFrom || filters.dateTo,
   );
 
-  const [categories, user, categoryGroups, searchPage] = await Promise.all([
+  const [categories, user, resolvedQuery] = await Promise.all([
     listActiveCategories(env.DB),
     getOptionalTelegramUser(request),
-    hasCriteria && !categoryId
-      ? searchMaterialGroups(env.DB, filters)
-      : Promise.resolve([]),
-    hasCriteria && categoryId
-      ? searchMaterials(env.DB, filters, page)
-      : Promise.resolve({ materials: [], total: 0 }),
+    resolveSearchQuery(env.DB, query),
   ]);
-  const savedMaterialIds = user && categoryId
+  const [libraryGroups, libraryPage, allSavedMatches] = await Promise.all([
+    hasCriteria && !categoryId && scope === "library"
+      ? searchMaterialGroups(env.DB, filters, resolvedQuery)
+      : Promise.resolve([]),
+    hasCriteria && categoryId && scope === "library"
+      ? searchMaterials(env.DB, filters, page, 30, resolvedQuery)
+      : Promise.resolve({
+          materials: [],
+          total: 0,
+          highlightQuery: resolvedQuery.highlightQuery,
+        }),
+    user && hasCriteria && !categoryId
+      ? listSavedMaterials(env.DB, user.id, query, resolvedQuery)
+      : Promise.resolve([]),
+  ]);
+  const savedMatches = allSavedMatches.filter((material) => {
+    const date = material.dateValue || material.publishedAt?.slice(0, 10) || "";
+    return (!filters.dateFrom || date >= filters.dateFrom) &&
+      (!filters.dateTo || date <= filters.dateTo);
+  });
+  const savedMaterialIds = user && (categoryId || scope === "saved")
     ? await listSavedMaterialIds(env.DB, user.id)
     : [];
-  const total = categoryId
-    ? searchPage.total
-    : categoryGroups.reduce((sum, group) => sum + group.materialCount, 0);
+  const savedGroup: SearchCategoryGroup[] = savedMatches.length > 0
+    ? [{
+        id: "saved",
+        slug: "saved",
+        name: "Իմ անկյունը",
+        materialCount: savedMatches.length,
+        isPersonal: true,
+      }]
+    : [];
+  const categoryGroups = scope === "library"
+    ? [...savedGroup, ...libraryGroups]
+    : [];
+  const savedPageMaterials: SearchMaterial[] = savedMatches
+    .slice((page - 1) * 30, page * 30)
+    .map((material) => ({
+      id: material.id,
+      title: material.title,
+      telegramUrl: material.telegramUrl,
+      categoryName: material.categoryName,
+      categorySlug: material.categorySlug,
+      numberValue: material.numberValue,
+      dateValue: material.dateValue,
+      publishedAt: material.publishedAt,
+      mediaTypes: material.mediaTypes,
+      excerpt: material.excerpt,
+      personalNote: material.personalNote,
+    }));
+  const materials = scope === "saved" ? savedPageMaterials : libraryPage.materials;
+  const total = scope === "saved"
+    ? savedMatches.length
+    : categoryId
+      ? libraryPage.total
+      : categoryGroups.reduce((sum, group) => sum + group.materialCount, 0);
 
   return {
     categories,
     categoryGroups,
     filters,
     hasCriteria,
-    materials: searchPage.materials,
+    materials,
     total,
     page,
     savedMaterialIds,
     canSave: Boolean(user),
+    highlightQuery: resolvedQuery.highlightQuery,
+    correctedQuery: resolvedQuery.correctedQuery,
   };
 }
 
@@ -137,9 +175,13 @@ const SearchCategoryGroups = memo(function SearchCategoryGroups({
     <ol className="search-category-groups">
       {groups.map((group) => (
         <li key={group.id}>
-          <Link to={getCategoryHref(filters, group.id)}>
+          <Link to={getCategoryHref(filters, group)}>
             <span className="search-category-icon" aria-hidden="true">
-              <CategoryIcon categoryId={group.id} size={22} strokeWidth={1.8} />
+              {group.isPersonal ? (
+                <Bookmark size={22} strokeWidth={1.8} />
+              ) : (
+                <CategoryIcon categoryId={group.id} size={22} strokeWidth={1.8} />
+              )}
             </span>
             <span>
               <strong>{group.name}</strong>
@@ -179,6 +221,9 @@ const SearchForm = memo(function SearchForm({
       role="search"
       onSubmit={handleSubmit}
     >
+      {filters.scope === "saved" ? (
+        <input type="hidden" name="scope" value="saved" />
+      ) : null}
       <div className="search-primary-field">
         <SearchIcon aria-hidden="true" size={20} strokeWidth={1.9} />
         <input
@@ -203,7 +248,6 @@ const SearchForm = memo(function SearchForm({
         className="search-filters"
         open={Boolean(
           filters.categoryId ||
-            filters.mediaType !== "all" ||
             filters.dateFrom ||
             filters.dateTo
         )}
@@ -211,6 +255,11 @@ const SearchForm = memo(function SearchForm({
         <summary>
           <Filter aria-hidden="true" size={17} strokeWidth={1.9} />
           Զտել արդյունքները
+          <ChevronDown
+            className="search-filter-chevron"
+            aria-hidden="true"
+            size={18}
+          />
         </summary>
         <div className="search-filter-grid">
           <label>
@@ -224,20 +273,6 @@ const SearchForm = memo(function SearchForm({
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Տեսակ</span>
-            <select
-              name="media"
-              defaultValue={filters.mediaType}
-              onChange={submitImmediately}
-            >
-              {SEARCH_MEDIA_TYPES.map((mediaType) => (
-                <option key={mediaType} value={mediaType}>
-                  {mediaLabels[mediaType]}
                 </option>
               ))}
             </select>
@@ -276,11 +311,13 @@ const SearchResults = memo(function SearchResults({
   highlightQuery,
   materials,
   savedMaterialIds,
+  allowNoteEditing = false,
 }: {
   canSave: boolean;
   highlightQuery: string;
   materials: SearchMaterial[];
   savedMaterialIds: string[];
+  allowNoteEditing?: boolean;
 }) {
   const { isSaving, pendingMaterialId, savedIds, setSaved } =
     useSavedMaterials(savedMaterialIds);
@@ -296,6 +333,7 @@ const SearchResults = memo(function SearchResults({
         <MaterialResultCard
           key={material.id}
           material={material}
+          allowNoteEditing={allowNoteEditing}
           canSave={canSave}
           highlightQuery={highlightQuery}
           isSaved={savedIds.has(material.id)}
@@ -321,6 +359,9 @@ export default function Search({ loaderData }: Route.ComponentProps) {
   const selectedCategory = categories.find(
     (category) => category.id === filters.categoryId,
   );
+  const selectedTitle = filters.scope === "saved"
+    ? "Իմ անկյունը"
+    : selectedCategory?.name ?? "Համապատասխան բաժիններ";
 
   return (
     <main className="search-page">
@@ -333,10 +374,16 @@ export default function Search({ loaderData }: Route.ComponentProps) {
 
       <SearchForm categories={categories} filters={filters} />
 
+      {loaderData.correctedQuery ? (
+        <p className="search-correction" role="status">
+          Հասկացանք նաև՝ <strong>{loaderData.correctedQuery}</strong>
+        </p>
+      ) : null}
+
       <section className="search-results" aria-live="polite">
         {hasCriteria ? (
           <div className="section-heading search-results-heading">
-            <h2>{selectedCategory?.name ?? "Համապատասխան բաժիններ"}</h2>
+            <h2>{selectedTitle}</h2>
             <span>{total}</span>
           </div>
         ) : null}
@@ -345,7 +392,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           <div className="search-empty-state">
             <SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />
             <h2>Գրիր այն, ինչ փնտրում ես</h2>
-            <p>Կարող ես որոնել նաև միայն բաժնով, ամսաթվով կամ նյութի տեսակով։</p>
+            <p>Կարող ես որոնել նաև բաժնով, ամսաթվով կամ Telegram հղումով։</p>
           </div>
         ) : categoryGroups.length === 0 && materials.length === 0 ? (
           <div className="search-empty-state">
@@ -353,17 +400,20 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <h2>Համապատասխան նյութ չգտնվեց</h2>
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
           </div>
-        ) : !filters.categoryId ? (
+        ) : !filters.categoryId && filters.scope !== "saved" ? (
           <SearchCategoryGroups filters={filters} groups={categoryGroups} />
         ) : (
           <SearchResults
             canSave={loaderData.canSave}
-            highlightQuery={filters.query}
+            allowNoteEditing={filters.scope === "saved"}
+            highlightQuery={loaderData.highlightQuery}
             materials={materials}
             savedMaterialIds={loaderData.savedMaterialIds}
           />
         )}
-        {hasCriteria && filters.categoryId && totalPages > 1 ? (
+        {hasCriteria &&
+        (filters.categoryId || filters.scope === "saved") &&
+        totalPages > 1 ? (
           <nav className="search-pagination" aria-label="Որոնման էջեր">
             {page > 1 ? (
               <Link to={getPageHref(filters, page - 1)}>← Նախորդ</Link>

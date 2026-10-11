@@ -1,9 +1,12 @@
-import { normalizeSearchText } from "./material-content.server";
 import type {
   SearchCategoryGroup,
   SearchFilters,
   SearchMaterialPage,
 } from "./search-materials";
+import {
+  resolveSearchQuery,
+  type ResolvedSearchQuery,
+} from "./search-query.server";
 
 type SearchMaterialRow = {
   id: string;
@@ -52,7 +55,7 @@ function findSequence(haystack: string[], needle: string[]) {
   return -1;
 }
 
-function createExcerpt(value: string, normalizedQuery: string) {
+export function createSearchExcerpt(value: string, normalizedQuery: string) {
   const compact = value.replace(/\s+/g, " ").trim();
   if (!compact) return null;
   const characters = Array.from(compact);
@@ -110,30 +113,34 @@ function createExcerpt(value: string, normalizedQuery: string) {
     .trim()}${windowEnd < sentenceEnd ? "…" : ""}`;
 }
 
-function createSearchWhere(filters: SearchFilters, includeCategory: boolean) {
+function createSearchWhere(
+  filters: SearchFilters,
+  includeCategory: boolean,
+  resolved: ResolvedSearchQuery,
+) {
   const clauses = ["materials.visibility = 'visible'", "categories.is_active = 1"];
   const values: string[] = [];
-  const normalizedQuery = normalizeSearchText(filters.query).slice(0, 120);
-  const terms = normalizedQuery.split(" ").filter(Boolean).slice(0, 8);
 
-  for (const term of terms) {
-    const pattern = `%${escapeLike(term)}%`;
-    clauses.push(
-      "(materials.search_title LIKE ? ESCAPE '\\' OR materials.search_body LIKE ? ESCAPE '\\')",
-    );
-    values.push(pattern, pattern);
+  if (resolved.telegramUrlKey) {
+    clauses.push("materials.telegram_url_key = ?");
+    values.push(resolved.telegramUrlKey);
+  }
+  for (const variants of resolved.termGroups) {
+    const variantClauses: string[] = [];
+    for (const term of variants) {
+      const pattern = `%${escapeLike(term)}%`;
+      variantClauses.push(
+        "materials.search_title LIKE ? ESCAPE '\\'",
+        "materials.search_body LIKE ? ESCAPE '\\'",
+      );
+      values.push(pattern, pattern);
+    }
+    clauses.push(`(${variantClauses.join(" OR ")})`);
   }
 
   if (includeCategory && filters.categoryId) {
     clauses.push("materials.category_id = ?");
     values.push(filters.categoryId);
-  }
-
-  if (filters.mediaType === "text") {
-    clauses.push("length(trim(materials.content_text)) > 0");
-  } else if (filters.mediaType !== "all") {
-    clauses.push("materials.media_types LIKE ?");
-    values.push(`%\"${filters.mediaType}\"%`);
   }
 
   if (filters.dateFrom) {
@@ -145,14 +152,16 @@ function createSearchWhere(filters: SearchFilters, includeCategory: boolean) {
     values.push(filters.dateTo);
   }
 
-  return { clauses, normalizedQuery, values };
+  return { clauses, normalizedQuery: resolved.highlightQuery, values };
 }
 
 export async function searchMaterialGroups(
   database: D1Database,
   filters: SearchFilters,
+  resolvedQuery?: ResolvedSearchQuery,
 ): Promise<SearchCategoryGroup[]> {
-  const { clauses, values } = createSearchWhere(filters, false);
+  const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
+  const { clauses, values } = createSearchWhere(filters, false, resolved);
   const { results } = await database
     .prepare(
       `SELECT
@@ -188,12 +197,14 @@ export async function searchMaterials(
   filters: SearchFilters,
   page: number,
   pageSize = 30,
+  resolvedQuery?: ResolvedSearchQuery,
 ): Promise<SearchMaterialPage> {
+  const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
   const {
     clauses,
     normalizedQuery,
     values: whereValues,
-  } = createSearchWhere(filters, true);
+  } = createSearchWhere(filters, true, resolved);
 
   const rankValues: string[] = [];
   let relevance = "0";
@@ -260,8 +271,9 @@ export async function searchMaterials(
       dateValue: row.date_value,
       publishedAt: row.published_at,
       mediaTypes: parseMediaTypes(row.media_types),
-      excerpt: createExcerpt(row.content_text, normalizedQuery),
+      excerpt: createSearchExcerpt(row.content_text, normalizedQuery),
     })),
     total: Number(countRow?.material_count ?? 0),
+    highlightQuery: resolved.highlightQuery,
   };
 }

@@ -1,4 +1,9 @@
 import { normalizeSearchText } from "./material-content.server";
+import {
+  resolveSearchQuery,
+  type ResolvedSearchQuery,
+} from "./search-query.server";
+import { createSearchExcerpt } from "./search-materials.server";
 
 export type SavedMaterial = {
   id: string;
@@ -13,6 +18,7 @@ export type SavedMaterial = {
   mediaTypes: string[];
   personalNote: string;
   savedAt: string;
+  excerpt: string | null;
 };
 
 export type SavedMaterialGroup = {
@@ -35,6 +41,7 @@ type SavedMaterialRow = {
   media_types: string;
   personal_note: string;
   saved_at: string;
+  content_text: string;
 };
 
 function parseMediaTypes(value: string) {
@@ -60,20 +67,28 @@ export async function listSavedMaterials(
   database: D1Database,
   userId: string,
   query = "",
+  resolvedQuery?: ResolvedSearchQuery,
 ): Promise<SavedMaterial[]> {
-  const normalizedQuery = normalizeSearchText(query).slice(0, 120);
-  const terms = normalizedQuery.split(" ").filter(Boolean).slice(0, 8);
+  const resolved = resolvedQuery ?? await resolveSearchQuery(database, query);
   const searchClauses: string[] = [];
   const searchValues: string[] = [];
 
-  for (const term of terms) {
-    const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`;
-    searchClauses.push(
-      `(materials.search_title LIKE ? ESCAPE '\\'
-        OR materials.search_body LIKE ? ESCAPE '\\'
-        OR saved_materials.personal_note_search LIKE ? ESCAPE '\\')`,
-    );
-    searchValues.push(pattern, pattern, pattern);
+  if (resolved.telegramUrlKey) {
+    searchClauses.push("materials.telegram_url_key = ?");
+    searchValues.push(resolved.telegramUrlKey);
+  }
+  for (const variants of resolved.termGroups) {
+    const variantClauses: string[] = [];
+    for (const term of variants) {
+      const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`;
+      variantClauses.push(
+        "materials.search_title LIKE ? ESCAPE '\\'",
+        "materials.search_body LIKE ? ESCAPE '\\'",
+        "saved_materials.personal_note_search LIKE ? ESCAPE '\\'",
+      );
+      searchValues.push(pattern, pattern, pattern);
+    }
+    searchClauses.push(`(${variantClauses.join(" OR ")})`);
   }
 
   const { results } = await database
@@ -87,6 +102,7 @@ export async function listSavedMaterials(
          materials.date_value,
          materials.published_at,
          materials.media_types,
+         materials.content_text,
          categories.name AS category_name,
          categories.slug AS category_slug,
          saved_materials.personal_note,
@@ -116,6 +132,9 @@ export async function listSavedMaterials(
     mediaTypes: parseMediaTypes(row.media_types),
     personalNote: row.personal_note,
     savedAt: row.saved_at,
+    excerpt: query
+      ? createSearchExcerpt(row.content_text, resolved.highlightQuery)
+      : null,
   }));
 }
 

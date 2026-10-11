@@ -16,7 +16,13 @@ type TelegramWebApp = {
   initData?: string;
   ready?: () => void;
   expand?: () => void;
+  safeAreaInset?: TelegramInset;
+  contentSafeAreaInset?: TelegramInset;
+  onEvent?: (event: string, callback: () => void) => void;
+  offEvent?: (event: string, callback: () => void) => void;
 };
+
+type TelegramInset = { top?: number; right?: number; bottom?: number; left?: number };
 
 type TelegramWindow = Window & {
   Telegram?: { WebApp?: TelegramWebApp };
@@ -50,12 +56,33 @@ function loadTelegramSdk() {
   return telegramSdkPromise;
 }
 
+function syncTelegramSafeArea(webApp: TelegramWebApp) {
+  const root = document.documentElement;
+  const safe = webApp.safeAreaInset ?? {};
+  const content = webApp.contentSafeAreaInset ?? safe;
+  for (const side of ["top", "right", "bottom", "left"] as const) {
+    if (typeof safe[side] === "number") {
+      root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safe[side]}px`);
+    }
+    const contentValue = content[side] ?? safe[side];
+    if (typeof contentValue === "number") {
+      root.style.setProperty(
+        `--tg-content-safe-area-inset-${side}`,
+        `${contentValue}px`,
+      );
+    }
+  }
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="hy">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
         <Meta />
         <Links />
       </head>
@@ -76,8 +103,16 @@ export default function App() {
     if (sessionAttempted.current) return;
     sessionAttempted.current = true;
     let active = true;
+    let webAppForCleanup: TelegramWebApp | null = null;
+    const handleSafeArea = () => {
+      if (webAppForCleanup) syncTelegramSafeArea(webAppForCleanup);
+    };
     void loadTelegramSdk().then(async (webApp) => {
       if (!active || !webApp) return;
+      webAppForCleanup = webApp;
+      syncTelegramSafeArea(webApp);
+      webApp.onEvent?.("safeAreaChanged", handleSafeArea);
+      webApp.onEvent?.("contentSafeAreaChanged", handleSafeArea);
       webApp.ready?.();
       webApp.expand?.();
       if (!webApp.initData) return;
@@ -91,6 +126,8 @@ export default function App() {
     });
     return () => {
       active = false;
+      webAppForCleanup?.offEvent?.("safeAreaChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("contentSafeAreaChanged", handleSafeArea);
     };
   }, [revalidator]);
 
