@@ -12,7 +12,9 @@ import {
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
+import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
+import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import {
   groupSavedMaterials,
   listSavedMaterials,
@@ -24,7 +26,7 @@ import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Իմ անկյունը — Թվային գրադարան" },
+    { title: "Իմ անկյունը — Հոգևոր ժառանգություն" },
     { name: "robots", content: "noindex, nofollow, noarchive" },
     { name: "theme-color", content: "#100817" },
   ];
@@ -97,10 +99,10 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
       <summary className="grid min-h-[66px] cursor-pointer list-none grid-cols-[34px_minmax(0,1fr)_auto_20px] items-center gap-2.5 px-[13px] py-[11px] outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-[rgb(217_181_111/42%)]">
         <CategoryIcon categoryId={group.categoryId} size={20} strokeWidth={1.8} />
         <span className="grid gap-0.5">
-          <strong className="text-[0.84rem]">{group.categoryName}</strong>
-          <small className="text-[0.66rem] text-faint">{materials.length} պահված նյութ</small>
+          <strong className="text-[13px]">{group.categoryName}</strong>
+          <small className="text-[11px] text-faint">{materials.length} պահված նյութ</small>
         </span>
-        <span className="grid h-8 min-w-8 place-items-center rounded-full border border-glass-border px-2 text-[0.72rem] text-gold-bright tabular-nums">{materials.length}</span>
+        <span className="grid h-8 min-w-8 place-items-center rounded-full border border-glass-border px-2 text-[12px] text-gold-bright tabular-nums">{materials.length}</span>
         <ChevronDown className="text-gold transition-transform duration-[180ms] group-open:rotate-180" aria-hidden="true" size={18} />
       </summary>
       <ol className="m-0 grid list-none gap-2.5 px-[9px] pb-[9px]">
@@ -154,44 +156,40 @@ const SavedSearch = memo(function SavedSearch({ query }: { query: string }) {
 
 export default function Saved({ loaderData }: Route.ComponentProps) {
   return (
-    <main className="mx-auto min-h-svh w-[min(100%,940px)] pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+clamp(14px,3vw,32px))] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+clamp(44px,7vw,88px))] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+clamp(14px,3vw,32px))] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)] min-[1440px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+26px)]">
-      <SiteNav actionHref="/" actionLabel="← Գրադարան" />
-      <header className="px-[clamp(2px,1vw,10px)] pt-[clamp(48px,8vw,92px)] pb-[clamp(28px,5vw,48px)] min-[1440px]:pt-[82px]">
-        <p className="m-0 text-[clamp(0.7rem,1.3vw,0.78rem)] font-extrabold tracking-[0.1em] text-gold uppercase">Անձնական տարածք</p>
-        <h1 className="mt-[13px] mb-0 max-w-[860px] text-[clamp(1.85rem,4.5vw,3.65rem)] leading-[1.06] font-[740] tracking-[-0.035em] text-balance">Իմ անկյունը</h1>
-        <p className="mt-[18px] mb-0 max-w-[650px] text-[clamp(0.92rem,1.5vw,1.05rem)] leading-[1.65] text-muted">
-          {loaderData.user
-            ? `${loaderData.user.displayName}, այստեղ են քո պահած նյութերը։`
-            : "Պահած նյութերը հասանելի են Telegram Mini App-ի ներսում։"}
-        </p>
-      </header>
+    <PageShell>
+      <SiteNav />
+      <PageHeader
+        backTo="/"
+        backLabel="Գրադարան"
+        eyebrow="Անձնական տարածք"
+        title="Իմ անկյունը"
+        description={loaderData.user
+          ? `${loaderData.user.displayName}, այստեղ են քո պահած նյութերը։`
+          : "Պահած նյութերը հասանելի են Telegram Mini App-ի ներսում։"}
+      />
 
       {!loaderData.user ? (
-        <section className="grid justify-items-start gap-[9px] rounded-[22px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-[clamp(22px,5vw,38px)] text-muted shadow-glass [&_h2]:m-0 [&_h2]:text-base [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[0.8rem] [&_p]:leading-[1.55]">
-          <Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />
-          <h2>Բացիր գրադարանը Telegram-ից</h2>
+        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Բացիր գրադարանը Telegram-ից">
           <p>Այդպես քո պահած նյութերը կապվում են հենց քո Telegram հաշվի հետ։</p>
-        </section>
+        </EmptyState>
       ) : loaderData.total === 0 && !loaderData.query ? (
-        <section className="grid justify-items-start gap-[9px] rounded-[22px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-[clamp(22px,5vw,38px)] text-muted shadow-glass [&_h2]:m-0 [&_h2]:text-base [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[0.8rem] [&_p]:leading-[1.55]">
-          <Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />
-          <h2>Դեռ ոչինչ չես պահել</h2>
+        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Դեռ ոչինչ չես պահել">
           <p>Նյութի կողքի նշանը սեղմիր, և այն կհայտնվի այստեղ։</p>
-          <Link className="mt-[7px] inline-flex items-center gap-1.5 rounded-[11px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/8%)] px-3 py-[9px] text-[0.76rem] font-[720] text-gold-bright no-underline" to="/search">
+          <Link className="mt-[7px] inline-flex items-center gap-1.5 rounded-[11px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/8%)] px-3 py-[9px] text-[12px] font-[720] text-gold-bright no-underline" to="/search">
             <Search aria-hidden="true" size={17} /> Գտնել նյութ
           </Link>
-        </section>
+        </EmptyState>
       ) : (
-        <section className="mt-5 grid gap-3.5" aria-labelledby="saved-title">
+        <section className="mt-4 grid gap-3" aria-labelledby="saved-title">
           <SavedSearch query={loaderData.query} />
-          <div className="flex items-center justify-between gap-3 px-1">
-            <h2 className="m-0 text-[clamp(1rem,2vw,1.2rem)]" id="saved-title">
+          <div className={sectionHeader}>
+            <h2 className={sectionTitle} id="saved-title">
               {loaderData.query ? "Գտնված նյութեր" : "Պահված նյութեր"}
             </h2>
-            <span className="grid min-h-[34px] min-w-[34px] place-items-center rounded-full border border-glass-border text-[0.8rem] text-muted tabular-nums">{loaderData.total}</span>
+            <span className={countBadge}>{loaderData.total}</span>
           </div>
           {loaderData.groups.length === 0 ? (
-            <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-[13px] gap-y-[11px] rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_52%),var(--glass)] p-4 text-muted [&>a]:col-start-2 [&>a]:w-fit [&>a]:text-[0.72rem] [&>a]:font-[740] [&>a]:text-gold-bright [&>a]:no-underline [&_h2]:m-0 [&_h2]:text-[0.91rem] [&_h2]:leading-[1.45] [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[0.72rem] [&_p]:leading-[1.5]">
+            <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-[13px] gap-y-[11px] rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_52%),var(--glass)] p-4 text-muted [&>a]:col-start-2 [&>a]:w-fit [&>a]:text-[12px] [&>a]:font-[740] [&>a]:text-gold-bright [&>a]:no-underline [&_h2]:m-0 [&_h2]:text-[15px] [&_h2]:leading-[1.45] [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[12px] [&_p]:leading-[1.5]">
               <span className="grid size-11 place-items-center rounded-[14px] border border-[rgb(217_181_111/22%)] bg-[rgb(217_181_111/8%)] text-gold-bright" aria-hidden="true">
                 <Search size={22} strokeWidth={1.7} />
               </span>
@@ -215,6 +213,6 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           )}
         </section>
       )}
-    </main>
+    </PageShell>
   );
 }

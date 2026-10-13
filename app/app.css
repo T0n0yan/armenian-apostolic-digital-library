@@ -1,9 +1,68 @@
 @import "tailwindcss" source(".");
 
+@font-face {
+  font-family: "Noto Serif Armenian";
+  src: url("./assets/fonts/NotoSerifArmenian-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Serif Armenian";
+  src: url("./assets/fonts/NotoSerifArmenian-Medium.otf") format("opentype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Serif Armenian";
+  src: url("./assets/fonts/NotoSerifArmenian-SemiBold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Serif Armenian";
+  src: url("./assets/fonts/NotoSerifArmenian-Bold.otf") format("opentype");
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Trchnatar Birds Color";
+  src: url("./assets/fonts/Trchnatar.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @theme inline {
+  --spacing: 4px;
+  --text-xs: 12px;
+  --text-xs--line-height: 18px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
     system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
     "Noto Color Emoji";
+  --font-noto: "Noto Serif Armenian", Georgia, serif;
+  --font-trchnatar: "Trchnatar Birds Color", "Noto Serif Armenian", serif;
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
@@ -39,7 +98,7 @@
   --success: #347957;
   --danger: #b74f4b;
   --page-bg: #f3edf5;
-  --body-background: radial-gradient(circle at 10% -8%, rgb(171 126 184 / 30%), transparent 34rem), radial-gradient(circle at 92% 18%, rgb(232 197 149 / 24%), transparent 30rem), linear-gradient(155deg, #faf7fb 0%, #f0e7f3 58%, #f8f2f7 100%);
+  --body-background: radial-gradient(circle at 10% -8%, rgb(171 126 184 / 30%), transparent 544px), radial-gradient(circle at 92% 18%, rgb(232 197 149 / 24%), transparent 480px), linear-gradient(155deg, #faf7fb 0%, #f0e7f3 58%, #f8f2f7 100%);
   --glass: rgb(255 255 255 / 56%);
   --glass-strong: rgb(255 255 255 / 76%);
   --card-glass: rgb(255 255 255 / 54%);
@@ -66,7 +125,7 @@
   --success: #77bd91;
   --danger: #ef9188;
   --page-bg: #100817;
-  --body-background: radial-gradient(circle at 10% -8%, rgb(124 74 143 / 30%), transparent 34rem), radial-gradient(circle at 92% 18%, rgb(78 35 94 / 24%), transparent 30rem), linear-gradient(155deg, #12091a 0%, #0b0610 58%, #140a19 100%);
+  --body-background: radial-gradient(circle at 10% -8%, rgb(124 74 143 / 30%), transparent 544px), radial-gradient(circle at 92% 18%, rgb(78 35 94 / 24%), transparent 480px), linear-gradient(155deg, #12091a 0%, #0b0610 58%, #140a19 100%);
   --glass: rgb(35 22 43 / 54%);
   --glass-strong: rgb(43 26 53 / 76%);
   --card-glass: rgb(35 22 43 / 62%);
@@ -94,7 +153,7 @@
     --success: #77bd91;
     --danger: #ef9188;
     --page-bg: #100817;
-    --body-background: radial-gradient(circle at 10% -8%, rgb(124 74 143 / 30%), transparent 34rem), radial-gradient(circle at 92% 18%, rgb(78 35 94 / 24%), transparent 30rem), linear-gradient(155deg, #12091a 0%, #0b0610 58%, #140a19 100%);
+    --body-background: radial-gradient(circle at 10% -8%, rgb(124 74 143 / 30%), transparent 544px), radial-gradient(circle at 92% 18%, rgb(78 35 94 / 24%), transparent 480px), linear-gradient(155deg, #12091a 0%, #0b0610 58%, #140a19 100%);
     --glass: rgb(35 22 43 / 54%);
     --glass-strong: rgb(43 26 53 / 76%);
     --card-glass: rgb(35 22 43 / 62%);
@@ -115,6 +174,7 @@
   *, *::before, *::after { box-sizing: border-box; }
   html { min-width: 320px; min-height: 100%; background: var(--page-bg); }
   body { min-width: 320px; min-height: 100%; margin: 0; overflow-x: hidden; background: var(--body-background); color: var(--ink); font-family: var(--font-sans); font-synthesis: none; text-rendering: optimizeLegibility; }
+  h1, h2, h3 { font-family: var(--font-noto); }
   a, button, input, select, textarea, summary { -webkit-tap-highlight-color: transparent; }
   button, input, select, textarea { font: inherit; }
   summary::-webkit-details-marker { display: none; }

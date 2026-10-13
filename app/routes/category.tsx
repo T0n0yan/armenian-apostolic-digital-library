@@ -9,6 +9,7 @@ import {
   MaterialResultCard,
   openTelegramPost,
 } from "../components/material-result-card";
+import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getActiveCategoryBySlug } from "../data/categories.server";
 import type { PublicMaterial } from "../data/materials.server";
@@ -19,7 +20,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.category.name ?? "Բաժին";
   return [
-    { title: `${title} — Թվային գրադարան` },
+    { title: `${title} — Հոգևոր ժառանգություն` },
     { name: "robots", content: "noindex, nofollow" },
     { name: "theme-color", content: "#100817" },
   ];
@@ -67,7 +68,7 @@ const PsalmTile = memo(function PsalmTile({
   return (
     <li className="relative animate-glass-enter">
       <a
-        className="grid min-h-[50px] place-items-center rounded-[15px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_46%),var(--card-glass)] text-[0.9rem] font-[750] text-ink no-underline shadow-card transition-[border-color,color,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+        className="grid min-h-[50px] place-items-center rounded-[15px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_46%),var(--card-glass)] text-[14px] font-[750] text-ink no-underline shadow-card transition-[border-color,color,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
         href={material.telegramUrl}
         target="_blank"
         rel="noreferrer"
@@ -149,20 +150,18 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   const isPsalms = category.id === "category_psalms";
 
   return (
-    <main className="mx-auto min-h-svh w-[min(100%,940px)] pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+clamp(14px,3vw,32px))] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+clamp(44px,7vw,88px))] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+clamp(14px,3vw,32px))] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)]">
-      <SiteNav actionHref="/" actionLabel="← Բաժիններ" />
-      <header className="px-[clamp(2px,1vw,10px)] pt-[clamp(48px,8vw,92px)] pb-[clamp(34px,6vw,64px)] min-[1440px]:pt-[82px]">
-        <p className="m-0 text-[clamp(0.7rem,1.3vw,0.78rem)] font-extrabold tracking-[0.1em] text-gold uppercase">Թվային գրադարան</p>
-        <h1 className="mt-[13px] mb-0 max-w-[860px] text-[clamp(1.85rem,4.5vw,3.65rem)] leading-[1.06] font-[740] tracking-[-0.035em] text-balance">{category.name}</h1>
-        <p className="mt-[18px] mb-0 max-w-[650px] text-[clamp(0.92rem,1.5vw,1.05rem)] leading-[1.65] text-muted">
-          {materials.length === 0 ? "Դեռ նյութ չկա" : `${materials.length} նյութ`}
-        </p>
-      </header>
+    <PageShell>
+      <SiteNav />
+      <PageHeader
+        backTo="/"
+        backLabel="Բաժիններ"
+        eyebrow="Հոգևոր ժառանգություն"
+        title={category.name}
+        description={materials.length === 0 ? "Դեռ նյութ չկա" : `${materials.length} նյութ`}
+      />
 
       {materials.length === 0 ? (
-        <section className="rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-[22px] shadow-glass">
-          <p className="m-0 text-muted">Այս բաժնում դեռ հրապարակված նյութ չկա։</p>
-        </section>
+        <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>
       ) : (
         <MaterialsList
           canSave={loaderData.canSave}
@@ -171,24 +170,24 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           savedMaterialIds={loaderData.savedMaterialIds}
         />
       )}
-    </main>
+    </PageShell>
   );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   const isNotFound = isRouteErrorResponse(error) && error.status === 404;
   return (
-    <main className="mx-auto min-h-svh w-[min(100%,940px)] pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+clamp(14px,3vw,32px))] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+clamp(44px,7vw,88px))] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+clamp(14px,3vw,32px))] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)]">
-      <SiteNav actionHref="/" actionLabel="← Բաժիններ" />
-      <header className="px-[clamp(2px,1vw,10px)] pt-[clamp(48px,8vw,92px)] pb-[clamp(34px,6vw,64px)] min-[1440px]:pt-[82px]">
-        <p className="m-0 text-[clamp(0.7rem,1.3vw,0.78rem)] font-extrabold tracking-[0.1em] text-gold uppercase">Թվային գրադարան</p>
-        <h1 className="mt-[13px] mb-0 max-w-[860px] text-[clamp(1.85rem,4.5vw,3.65rem)] leading-[1.06] font-[740] tracking-[-0.035em] text-balance">{isNotFound ? "Բաժինը չի գտնվել" : "Սխալ"}</h1>
-        <p className="mt-[18px] mb-0 max-w-[650px] text-[clamp(0.92rem,1.5vw,1.05rem)] leading-[1.65] text-muted">
-          {isNotFound
-            ? "Այս բաժինը գոյություն չունի կամ հասանելի չէ։"
-            : "Էջը բացելիս անսպասելի սխալ է տեղի ունեցել։"}
-        </p>
-      </header>
-    </main>
+    <PageShell>
+      <SiteNav />
+      <PageHeader
+        backTo="/"
+        backLabel="Բաժիններ"
+        eyebrow="Հոգևոր ժառանգություն"
+        title={isNotFound ? "Բաժինը չի գտնվել" : "Սխալ"}
+        description={isNotFound
+          ? "Այս բաժինը գոյություն չունի կամ հասանելի չէ։"
+          : "Էջը բացելիս անսպասելի սխալ է տեղի ունեցել։"}
+      />
+    </PageShell>
   );
 }

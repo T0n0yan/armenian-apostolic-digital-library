@@ -20,7 +20,15 @@ import type { Route } from "./+types/search";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
+import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
+import {
+  countBadge,
+  fieldControl,
+  fieldLabel,
+  sectionHeader,
+  sectionTitle,
+} from "../components/ui-styles";
 import { listActiveCategories } from "../data/categories.server";
 import {
   listSavedMaterialIds,
@@ -66,7 +74,7 @@ function getCategoryHref(filters: SearchFilters, group: SearchCategoryGroup) {
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Որոնում — Թվային գրադարան" },
+    { title: "Որոնում — Հոգևոր ժառանգություն" },
     { name: "robots", content: "noindex, nofollow" },
     { name: "theme-color", content: "#100817" },
   ];
@@ -226,7 +234,7 @@ const SearchForm = memo(function SearchForm({
             filters.dateTo
         )}
       >
-        <summary className="flex min-h-[46px] cursor-pointer list-none items-center gap-2 px-3.5 text-[0.78rem] font-[720] text-muted">
+        <summary className="flex min-h-[46px] cursor-pointer list-none items-center gap-2 px-3.5 text-[13px] font-[720] text-muted">
           <Filter aria-hidden="true" size={17} strokeWidth={1.9} />
           Զտել արդյունքները
           <ChevronDown
@@ -236,10 +244,10 @@ const SearchForm = memo(function SearchForm({
           />
         </summary>
         <div className="grid gap-2.5 px-3 pt-1 pb-3 min-[560px]:grid-cols-2 min-[960px]:grid-cols-[1.4fr_1fr_1fr]">
-          <label className="grid gap-1.5 text-[0.7rem] text-faint">
+          <label className={fieldLabel}>
             <span>Բաժին</span>
             <select
-              className="min-h-11 w-full rounded-xl border border-glass-border bg-control px-[11px] py-2 pr-[42px] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/6%)] outline-none"
+              className={`${fieldControl} pr-[42px]`}
               name="category"
               defaultValue={filters.categoryId}
               onChange={submitImmediately}
@@ -252,20 +260,20 @@ const SearchForm = memo(function SearchForm({
               ))}
             </select>
           </label>
-          <label className="grid gap-1.5 text-[0.7rem] text-faint">
+          <label className={fieldLabel}>
             <span>Սկսած</span>
             <input
-              className="min-h-11 w-full rounded-xl border border-glass-border bg-control px-[11px] py-2 text-ink shadow-[inset_0_1px_0_rgb(255_255_255/6%)] outline-none"
+              className={fieldControl}
               type="date"
               name="from"
               defaultValue={filters.dateFrom}
               onChange={submitImmediately}
             />
           </label>
-          <label className="grid gap-1.5 text-[0.7rem] text-faint">
+          <label className={fieldLabel}>
             <span>Մինչև</span>
             <input
-              className="min-h-11 w-full rounded-xl border border-glass-border bg-control px-[11px] py-2 text-ink shadow-[inset_0_1px_0_rgb(255_255_255/6%)] outline-none"
+              className={fieldControl}
               type="date"
               name="to"
               defaultValue={filters.dateTo}
@@ -274,7 +282,7 @@ const SearchForm = memo(function SearchForm({
           </label>
         </div>
         <div className="flex items-center gap-3.5 px-3 pb-3">
-          <Link className="inline-flex items-center gap-1.5 text-[0.76rem] font-[720] text-gold-bright no-underline" to="/search">
+          <Link className="inline-flex items-center gap-1.5 text-[12px] font-[720] text-gold-bright no-underline" to="/search">
             <RotateCcw aria-hidden="true" size={15} /> Մաքրել
           </Link>
         </div>
@@ -355,10 +363,10 @@ const SearchCategoryGroupItem = memo(function SearchCategoryGroupItem({
             )}
           </span>
           <span className="grid gap-[3px]">
-            <strong className="text-[0.88rem]">{group.name}</strong>
-            <small className="text-[0.68rem] text-faint">{group.materialCount} արդյունք</small>
+            <strong className="text-[14px]">{group.name}</strong>
+            <small className="text-[11px] text-faint">{group.materialCount} արդյունք</small>
           </span>
-          <span className="grid h-8 min-w-8 place-items-center rounded-full border border-glass-border px-2 text-[0.72rem] text-gold-bright tabular-nums">{group.materialCount}</span>
+          <span className="grid h-8 min-w-8 place-items-center rounded-full border border-glass-border px-2 text-[12px] text-gold-bright tabular-nums">{group.materialCount}</span>
           <ChevronDown
             className="text-gold transition-transform duration-[180ms] group-open:rotate-180"
             aria-hidden="true"
@@ -376,7 +384,7 @@ const SearchCategoryGroupItem = memo(function SearchCategoryGroupItem({
               savedMaterialIds={fetcher.data.savedMaterialIds}
             />
           ) : (
-            <span className="flex min-h-[68px] items-center justify-center gap-2 text-[0.76rem] text-muted" role="status">
+            <span className="flex min-h-[68px] items-center justify-center gap-2 text-[12px] text-muted" role="status">
               <LoaderCircle
                 className="animate-search-spin"
                 aria-hidden="true"
@@ -430,42 +438,40 @@ export default function Search({ loaderData }: Route.ComponentProps) {
     : selectedCategory?.name ?? "Համապատասխան բաժիններ";
 
   return (
-    <main className="mx-auto min-h-svh w-[min(100%,940px)] pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+clamp(14px,3vw,32px))] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+clamp(44px,7vw,88px))] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+clamp(14px,3vw,32px))] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)] min-[1440px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+26px)]">
-      <SiteNav actionHref="/" actionLabel="← Գրադարան" />
-      <header className="px-[clamp(2px,1vw,10px)] pt-[clamp(48px,8vw,92px)] pb-[clamp(28px,5vw,48px)] min-[1440px]:pt-[82px]">
-        <p className="m-0 text-[clamp(0.7rem,1.3vw,0.78rem)] font-extrabold tracking-[0.1em] text-gold uppercase">Ամբողջ գրադարանը</p>
-        <h1 className="mt-[13px] mb-0 max-w-[860px] text-[clamp(1.85rem,4.5vw,3.65rem)] leading-[1.06] font-[740] tracking-[-0.035em] text-balance">Որոնում</h1>
-        <p className="mt-[18px] mb-0 max-w-[650px] text-[clamp(0.92rem,1.5vw,1.05rem)] leading-[1.65] text-muted">Փնտրիր վերնագրերի և Telegram-ից ներմուծված ամբողջ տեքստի մեջ։</p>
-      </header>
+    <PageShell>
+      <SiteNav />
+      <PageHeader
+        backTo="/"
+        backLabel="Գրադարան"
+        eyebrow="Ամբողջ գրադարանը"
+        title="Որոնում"
+        description="Փնտրիր վերնագրերի և Telegram-ից ներմուծված ամբողջ տեքստի մեջ։"
+      />
 
       <SearchForm categories={categories} filters={filters} />
 
       {loaderData.correctedQuery ? (
-        <p className="mx-1 mt-3 mb-0 text-[0.78rem] text-muted [&_strong]:text-gold-bright" role="status">
+        <p className="mx-1 mt-3 mb-0 text-[13px] text-muted [&_strong]:text-gold-bright" role="status">
           Հասկացանք նաև՝ <strong>{loaderData.correctedQuery}</strong>
         </p>
       ) : null}
 
-      <section className="mt-5 grid gap-3.5" aria-live="polite">
+      <section className="mt-4 grid gap-3" aria-live="polite">
         {hasCriteria ? (
-          <div className="flex items-center justify-between gap-3 px-1">
-            <h2 className="m-0 text-[clamp(1rem,2vw,1.2rem)]">{selectedTitle}</h2>
-            <span className="grid min-h-[34px] min-w-[34px] place-items-center rounded-full border border-glass-border text-[0.8rem] text-muted tabular-nums">{total}</span>
+          <div className={sectionHeader}>
+            <h2 className={sectionTitle}>{selectedTitle}</h2>
+            <span className={countBadge}>{total}</span>
           </div>
         ) : null}
 
         {!hasCriteria ? (
-          <div className="grid justify-items-start gap-[9px] rounded-[22px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-[clamp(22px,5vw,38px)] text-muted shadow-glass [&_h2]:m-0 [&_h2]:text-base [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[0.8rem] [&_p]:leading-[1.55]">
-            <SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />
-            <h2>Գրիր այն, ինչ փնտրում ես</h2>
+          <EmptyState icon={<SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />} title="Գրիր այն, ինչ փնտրում ես">
             <p>Կարող ես որոնել նաև բաժնով, ամսաթվով կամ Telegram հղումով։</p>
-          </div>
+          </EmptyState>
         ) : categoryGroups.length === 0 && materials.length === 0 ? (
-          <div className="grid justify-items-start gap-[9px] rounded-[22px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-[clamp(22px,5vw,38px)] text-muted shadow-glass [&_h2]:m-0 [&_h2]:text-base [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[0.8rem] [&_p]:leading-[1.55]">
-            <SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />
-            <h2>Համապատասխան նյութ չգտնվեց</h2>
+          <EmptyState icon={<SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />} title="Համապատասխան նյութ չգտնվեց">
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
-          </div>
+          </EmptyState>
         ) : !filters.categoryId && filters.scope !== "saved" ? (
           <SearchCategoryGroups filters={filters} groups={categoryGroups} />
         ) : (
@@ -480,7 +486,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         {hasCriteria &&
         (filters.categoryId || filters.scope === "saved") &&
         totalPages > 1 ? (
-          <nav className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 px-1 pt-3.5 text-[0.75rem] text-faint tabular-nums [&_a]:w-fit [&_a]:font-[720] [&_a]:text-gold-bright [&_a]:no-underline [&_a:last-of-type]:justify-self-end" aria-label="Որոնման էջեր">
+          <nav className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 px-1 pt-3.5 text-[12px] text-faint tabular-nums [&_a]:w-fit [&_a]:font-[720] [&_a]:text-gold-bright [&_a]:no-underline [&_a:last-of-type]:justify-self-end" aria-label="Որոնման էջեր">
             {page > 1 ? (
               <Link to={getPageHref(filters, page - 1)}>← Նախորդ</Link>
             ) : (
@@ -497,6 +503,6 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           </nav>
         ) : null}
       </section>
-    </main>
+    </PageShell>
   );
 }

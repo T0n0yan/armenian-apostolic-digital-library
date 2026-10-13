@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { formatArmenianDate } from "../utils/armenian-date";
+import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 
 type MaterialResultCardProps = {
   material: {
@@ -77,7 +78,7 @@ function highlightText(value: string, pattern: HighlightPattern | null) {
   return parts.map((part, index) =>
     pattern.exactMatch.test(part) ? (
       <mark
-        className="rounded-[0.28em] bg-[rgb(240_196_88/38%)] px-[0.14em] py-[0.04em] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]"
+        className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]"
         key={`${part}-${index}`}
       >
         {part}
@@ -114,10 +115,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   onSavedChange,
 }: MaterialResultCardProps) {
   const date = formatArmenianDate(material.dateValue);
-  const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [isNoteExpanded, setIsNoteExpanded] = useState(false);
+  const [isNoteMounted, setIsNoteMounted] = useState(false);
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const shareResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteTransitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightPattern = useMemo(
     () => createHighlightPattern(highlightQuery),
     [highlightQuery],
@@ -126,14 +129,26 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   useEffect(
     () => () => {
       if (shareResetRef.current) clearTimeout(shareResetRef.current);
+      if (noteTransitionRef.current) clearTimeout(noteTransitionRef.current);
     },
     [],
   );
 
   const openNoteComposer = useCallback(() => {
+    if (noteTransitionRef.current) clearTimeout(noteTransitionRef.current);
     setNoteDraft(material.personalNote ?? "");
-    setIsNoteOpen(true);
+    setIsNoteMounted(true);
+    requestAnimationFrame(() => setIsNoteExpanded(true));
   }, [material.personalNote]);
+
+  const closeNoteComposer = useCallback(() => {
+    setIsNoteExpanded(false);
+    if (noteTransitionRef.current) clearTimeout(noteTransitionRef.current);
+    noteTransitionRef.current = setTimeout(() => {
+      setIsNoteMounted(false);
+      noteTransitionRef.current = null;
+    }, 220);
+  }, []);
 
   const handleBookmark = useCallback(() => {
     if (isSaved) {
@@ -147,9 +162,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       onSavedChange(material.id, true, noteDraft);
-      setIsNoteOpen(false);
+      closeNoteComposer();
     },
-    [material.id, noteDraft, onSavedChange],
+    [closeNoteComposer, material.id, noteDraft, onSavedChange],
   );
 
   const handleShare = useCallback(async () => {
@@ -191,40 +206,41 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   }, [material.excerpt, material.telegramUrl, material.title]);
 
   return (
-    <li className={`relative animate-glass-enter${isNoteOpen ? " min-h-[174px]" : ""}`}>
-      <a
-        className={`relative isolate flex min-h-[82px] items-center gap-3.5 overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_46%),var(--card-glass)] px-3.5 pt-3.5 pb-[54px] text-inherit no-underline shadow-card transition-[border-color,transform,background] duration-[180ms] before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(115deg,rgb(255_255_255/13%),transparent_24%_74%,rgb(217_181_111/6%))] hover:-translate-y-px hover:border-[rgb(217_181_111/30%)] hover:bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_46%),var(--glass-strong)] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]${isNoteOpen ? " pointer-events-none" : ""}`}
+    <li className="animate-glass-enter">
+      <div className="relative">
+        <a
+          className={`${interactiveGlassCard} flex min-h-[76px] items-center gap-[14px] px-[13px] pt-[12px] pb-[50px] text-inherit no-underline${isNoteMounted ? " pointer-events-none" : ""}`}
         href={material.telegramUrl}
         target="_blank"
         rel="noreferrer"
         onClick={openTelegramPost}
-        tabIndex={isNoteOpen ? -1 : undefined}
-        aria-hidden={isNoteOpen ? true : undefined}
-      >
+          tabIndex={isNoteMounted ? -1 : undefined}
+          aria-hidden={isNoteMounted ? true : undefined}
+        >
         <span className="relative z-1 grid min-w-0 flex-1 gap-[7px]">
           {material.categoryName ? (
-            <span className="text-[0.69rem] font-[780] tracking-[0.035em] text-plum">{material.categoryName}</span>
+            <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
           ) : null}
-          {date ? <span className="text-[0.72rem] font-[750] text-gold">{date}</span> : null}
-          <strong className="text-[clamp(0.92rem,1.55vw,1.02rem)] leading-[1.46] [overflow-wrap:anywhere]">{highlightText(material.title, highlightPattern)}</strong>
+          {date ? <span className="text-[12px] font-[750] text-gold">{date}</span> : null}
+          <strong className="text-[15px] leading-[22px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(material.title, highlightPattern)}</strong>
           {material.excerpt ? (
-            <span className="line-clamp-2 overflow-hidden text-[0.76rem] leading-[1.5] text-muted">
+            <span className="line-clamp-2 overflow-hidden text-[12px] leading-[1.5] text-muted">
               {highlightText(material.excerpt, highlightPattern)}
             </span>
           ) : null}
           {material.personalNote ? (
-            <span className="flex items-start gap-[7px] rounded-[11px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/7%)] px-2.5 py-[9px] text-[0.72rem] leading-[1.45] text-gold-bright [&>svg]:mt-px [&>svg]:shrink-0">
+            <span className="flex items-start gap-[7px] rounded-[11px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/7%)] px-2.5 py-[9px] text-[12px] leading-[1.45] text-gold-bright [&>svg]:mt-px [&>svg]:shrink-0">
               <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
               {highlightText(material.personalNote, highlightPattern)}
             </span>
           ) : null}
         </span>
-      </a>
-      {!isNoteOpen ? (
+        </a>
+      {!isNoteMounted ? (
         <span className="absolute right-[11px] bottom-[11px] z-3 flex gap-1.5">
           {canSave ? (
             <button
-              className={`grid size-[34px] cursor-pointer place-items-center rounded-[11px] border bg-nav-glass p-0 transition-[border-color,color,background,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)] disabled:cursor-wait disabled:opacity-60 ${isSaved ? "border-[rgb(217_181_111/34%)] text-gold-bright" : "border-glass-border text-faint"}`}
+              className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass disabled:cursor-wait disabled:opacity-60 ${isSaved ? "border-[rgb(217_181_111/34%)] text-gold-bright" : "text-faint"}`}
               type="button"
               disabled={isSaving}
               onClick={handleBookmark}
@@ -241,7 +257,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           ) : null}
           {allowNoteEditing && isSaved ? (
             <button
-              className="grid size-[34px] cursor-pointer place-items-center rounded-[11px] border border-glass-border bg-nav-glass p-0 text-faint transition-[border-color,color,background,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+              className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-faint`}
               type="button"
               onClick={openNoteComposer}
               aria-label="Խմբագրել անձնական նշումը"
@@ -251,7 +267,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             </button>
           ) : null}
           <button
-            className="grid size-[34px] cursor-pointer place-items-center rounded-[11px] border border-glass-border bg-nav-glass p-0 text-gold transition-[border-color,color,background,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+            className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-gold`}
             type="button"
             onClick={handleShare}
             aria-label={
@@ -267,14 +283,19 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           </button>
         </span>
       ) : null}
-      {isNoteOpen ? (
+      </div>
+      {isNoteMounted ? (
+        <div
+          className={`grid transition-[grid-template-rows,opacity,margin] duration-[220ms] ease-out ${isNoteExpanded ? "mt-[10px] grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
+        >
+          <div className="overflow-hidden">
         <form
-          className="absolute inset-2 z-6 grid content-center gap-2 rounded-[15px] border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-3 shadow-card"
+          className="grid gap-[8px] rounded-[15px] border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card"
           onSubmit={handleNoteSubmit}
           role="dialog"
           aria-label={`${material.title} — անձնական հուշում`}
         >
-          <label className="text-[0.72rem] font-[760] text-gold-bright" htmlFor={`note-${material.id}`}>Անձնական հուշում</label>
+          <label className="text-[12px] font-[760] text-gold-bright" htmlFor={`note-${material.id}`}>Անձնական հուշում</label>
           <div className="grid grid-cols-[minmax(0,1fr)_38px_38px] gap-[7px]">
             <input
               id={`note-${material.id}`}
@@ -283,7 +304,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               maxLength={160}
               placeholder="Օրինակ՝ կարդալ երեկոյան…"
               autoFocus
-              className="min-h-11 w-full min-w-0 rounded-[13px] border border-glass-border bg-control px-3 py-[9px] text-ink shadow-[inset_0_1px_0_rgb(255_255_255/6%)] outline-none focus:border-[rgb(217_181_111/40%)]"
+              className={`${fieldControl} min-w-0 rounded-[13px]`}
             />
             <button className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-[13px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/10%)] p-0 text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)] disabled:cursor-wait disabled:opacity-60" type="submit" disabled={isSaving} aria-label="Պահել նյութը">
               <Check aria-hidden="true" size={17} strokeWidth={2} />
@@ -291,14 +312,16 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <button
               className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-[13px] border border-glass-border bg-subtle p-0 text-muted focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
               type="button"
-              onClick={() => setIsNoteOpen(false)}
+              onClick={closeNoteComposer}
               aria-label="Փակել առանց պահելու"
             >
               <X aria-hidden="true" size={17} strokeWidth={2} />
             </button>
           </div>
-          <small className="text-[0.64rem] leading-[1.4] text-faint">Այս նշումը տեսանելի է միայն քեզ։ Կարող ես թողնել դատարկ։</small>
+          <small className="text-[10px] leading-[1.4] text-faint">Այս նշումը տեսանելի է միայն քեզ։ Կարող ես թողնել դատարկ։</small>
         </form>
+          </div>
+        </div>
       ) : null}
     </li>
   );
