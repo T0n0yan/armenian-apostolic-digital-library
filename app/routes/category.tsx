@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { Bookmark } from "lucide-react";
+import { Bookmark, Search } from "lucide-react";
 import { memo, useCallback } from "react";
-import { isRouteErrorResponse } from "react-router";
+import { isRouteErrorResponse, Link } from "react-router";
 
 import type { Route } from "./+types/category";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
@@ -10,12 +10,31 @@ import {
   openTelegramPost,
 } from "../components/material-result-card";
 import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
+import {
+  getCategoryImage,
+  SectionHeader,
+} from "../components/section-header";
 import { SiteNav } from "../components/site-nav";
+import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug } from "../data/categories.server";
 import type { PublicMaterial } from "../data/materials.server";
 import { listPublicMaterialsByCategory } from "../data/materials.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
+import type { SearchFilters, SearchMaterial } from "../data/search-materials";
+import { searchMaterials } from "../data/search-materials.server";
+import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
+
+type CategoryMaterial = PublicMaterial | SearchMaterial;
+
+const CATEGORY_SEARCH_PLACEHOLDERS: Record<string, string> = {
+  category_saints_lives: "Փնտրել սրբի անունով…",
+  category_gospel_teachings: "Փնտրել թեմա կամ հատված…",
+  category_psalms: "Փնտրել սաղմոսի համարով կամ բառով…",
+  category_bible_questions: "Փնտրել հարց կամ թեմա…",
+  category_prayers: "Փնտրել աղոթք…",
+  category_daily_readings: "Փնտրել ընթերցանություն…",
+};
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const title = loaderData?.category.name ?? "Բաժին";
@@ -27,6 +46,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {
+  const query = (new URL(request.url).searchParams.get("q") ?? "")
+    .trim()
+    .slice(0, 120);
   const [category, user] = await Promise.all([
     getActiveCategoryBySlug(env.DB, params.slug),
     getOptionalTelegramUser(request),
@@ -39,14 +61,30 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     });
   }
 
-  const [materials, savedMaterialIds] = await Promise.all([
-    listPublicMaterialsByCategory(env.DB, category.id, category.defaultSort),
+  const resolvedQuery = query ? await resolveSearchQuery(env.DB, query) : null;
+  const filters: SearchFilters = {
+    query,
+    categoryId: category.id,
+    scope: "library",
+    dateFrom: "",
+    dateTo: "",
+  };
+  const [materialResult, savedMaterialIds] = await Promise.all([
+    query && resolvedQuery
+      ? searchMaterials(env.DB, filters, 1, 200, resolvedQuery)
+      : listPublicMaterialsByCategory(env.DB, category.id, category.defaultSort),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
+  const materials = Array.isArray(materialResult)
+    ? materialResult
+    : materialResult.materials;
 
   return {
     category,
     materials,
+    query,
+    total: Array.isArray(materialResult) ? materialResult.length : materialResult.total,
+    highlightQuery: resolvedQuery?.highlightQuery ?? "",
     savedMaterialIds,
     canSave: Boolean(user),
   };
@@ -104,11 +142,13 @@ const MaterialsList = memo(function MaterialsList({
   isPsalms,
   materials,
   savedMaterialIds,
+  highlightQuery,
 }: {
   canSave: boolean;
   isPsalms: boolean;
-  materials: PublicMaterial[];
+  materials: CategoryMaterial[];
   savedMaterialIds: string[];
+  highlightQuery?: string;
 }) {
   const { isSaving, pendingMaterialId, savedIds, setSaved } =
     useSavedMaterials(savedMaterialIds);
@@ -134,6 +174,7 @@ const MaterialsList = memo(function MaterialsList({
           <MaterialResultCard
             key={material.id}
             material={material}
+            highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}
             isSaving={isSaving && pendingMaterialId === material.id}
@@ -148,28 +189,58 @@ const MaterialsList = memo(function MaterialsList({
 export default function Category({ loaderData }: Route.ComponentProps) {
   const { category, materials } = loaderData;
   const isPsalms = category.id === "category_psalms";
+  const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[category.id] ??
+    "Փնտրել այս բաժնում…";
 
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader
+      <SectionHeader
         backTo="/"
         backLabel="Բաժիններ"
-        eyebrow="Հոգևոր ժառանգություն"
+        imageSrc={getCategoryImage(category.id)}
         title={category.name}
-        description={materials.length === 0 ? "Դեռ նյութ չկա" : `${materials.length} նյութ`}
+        query={loaderData.query}
+        searchAction={`/categories/${category.slug}`}
+        searchLabel={`${category.name} բաժնում որոնում`}
+        searchPlaceholder={searchPlaceholder}
       />
 
-      {materials.length === 0 ? (
-        <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>
-      ) : (
-        <MaterialsList
-          canSave={loaderData.canSave}
-          isPsalms={isPsalms}
-          materials={materials}
-          savedMaterialIds={loaderData.savedMaterialIds}
-        />
-      )}
+      <section className="grid gap-[11px]" aria-labelledby="category-materials-title">
+        <div className={sectionHeader}>
+          <h2 className={sectionTitle} id="category-materials-title">
+            {loaderData.query ? "Գտնված նյութեր" : "Նյութեր"}
+          </h2>
+          <span className={countBadge}>{loaderData.total}</span>
+        </div>
+
+        {materials.length === 0 ? (
+          loaderData.query ? (
+            <EmptyState
+              icon={<Search aria-hidden="true" size={28} strokeWidth={1.6} />}
+              title={`«${loaderData.query}» բառով նյութ չկա`}
+            >
+              <p>Փորձիր մեկ այլ բառ կամ մաքրիր որոնումը։</p>
+              <Link
+                className="mt-[7px] inline-flex text-[12px] font-bold text-gold-bright no-underline"
+                to={`/categories/${category.slug}`}
+              >
+                Ցույց տալ բոլոր նյութերը
+              </Link>
+            </EmptyState>
+          ) : (
+            <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>
+          )
+        ) : (
+          <MaterialsList
+            canSave={loaderData.canSave}
+            isPsalms={isPsalms}
+            materials={materials}
+            savedMaterialIds={loaderData.savedMaterialIds}
+            highlightQuery={loaderData.highlightQuery}
+          />
+        )}
+      </section>
     </PageShell>
   );
 }

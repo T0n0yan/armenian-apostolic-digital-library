@@ -39,7 +39,7 @@ export function PageShell({children, width = "content"}: PageShellProps) {
     </main>);
 }
 
-function PageTitle({title}: {title: ReactNode}) {
+export function PageTitle({title}: { title: ReactNode }) {
     if (typeof title !== "string" || title.length === 0) {
         return title;
     }
@@ -57,12 +57,17 @@ function PageTitle({title}: {title: ReactNode}) {
 export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, title}: PageHeaderProps) {
     return (<header
         className="
+            flex
+            flex-col
+            gap-1
+            items-center
+            justify-center
             text-center
             rounded-[12px]
             overflow-hidden
             px-[2px]
-            pt-[5px]
-            pb-[5px]
+            py-[5px]
+            min-[560px]:gap-2
             min-[560px]:px-[6px]
             min-[560px]:pt-[42px]
             min-[560px]:pb-[32px]
@@ -72,7 +77,27 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             min-[1440px]:pt-[60px]
             ">
         {backTo && backLabel ? (<Link
-            className="mb-[18px] inline-flex min-h-[36px] items-center gap-[7px] rounded-[11px] px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+            className="
+            w-full
+            flex
+            justify-start
+            min-h-[30px]
+            text-[13px]
+            gap-[7px]
+            {/*mb-[18px]*/}
+            px-[2px]
+            font-bold
+            inline-flex
+            items-center
+            rounded-[11px]
+            text-gold-bright
+            no-underline
+            transition-colors
+            hover:text-ink
+            focus-visible:outline-3
+            focus-visible:outline-offset-3
+            focus-visible:outline-[rgb(217_181_111/42%)]
+            "
             to={backTo}
         >
             <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>
@@ -80,6 +105,7 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
         </Link>) : null}
 
         <h1 className="
+            w-full
             text-[22px]
             font-regular
             text-balance

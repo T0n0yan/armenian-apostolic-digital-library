@@ -14,6 +14,7 @@ import {listActiveCategories} from "../data/categories.server";
 import {useDebouncedFormSubmit} from "../hooks/use-debounced-form-submit";
 import LastSupperImg from '../assets/last-supper.webp'
 import AngelLeft from "../assets/angel-left.webp"
+import HomeVine from "../assets/home-vine.png"
 
 const HomeSearch = memo(function HomeSearch() {
     const {cancelPending, formRef, scheduleSubmit} = useDebouncedFormSubmit(1_000);
@@ -22,7 +23,7 @@ const HomeSearch = memo(function HomeSearch() {
 
     return (<Form
         ref={formRef}
-        className="text-[13px] font-noto flex py-0 pl-2 pr-1 text-faint shadow-card min-h-[42px] w-full items-center gap-[10px] rounded-[10px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_55%),var(--glass)]"
+        className="text-[16px] font-noto flex py-0 pl-2 pr-1 text-faint shadow-card min-h-[42px] w-full items-center gap-[10px] rounded-[10px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_55%),var(--glass)]"
         action="/search"
         method="get"
         role="search"
@@ -30,7 +31,7 @@ const HomeSearch = memo(function HomeSearch() {
     >
         <Search aria-hidden="true" size={20} strokeWidth={2}/>
         <input
-            className="text-[13px] font-noto min-w-0 flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint"
+            className="text-[16px] font-noto min-w-0 flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint"
             type="search"
             name="q"
             placeholder="Փնտրել ամբողջ գրադարանում…"
@@ -104,13 +105,19 @@ export async function loader({request}: Route.LoaderArgs) {
 
 export default function Home({loaderData}: Route.ComponentProps) {
     return (<PageShell width="library">
-        <div className='mt-5 relative w-full'>
-            <div className="w-[27%] absolute top-0 -left-[10px]">
-                <img src={AngelLeft} alt="" width={"100%"} height={"auto"}/>
+        <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
+            <div className="absolute top-[12px] -left-[10px] z-4 w-[27%] min-[560px]:top-[20px]">
+                <img className="block h-auto w-full" src={AngelLeft} alt="" width={480} height={480}/>
             </div>
-            <img src={LastSupperImg} width={"100%"} height={"auto"}/>
-            <div className='w-[27%] absolute top-0 -right-[10px] scale-x-[-1] '>
-                <img src={AngelLeft} alt="" width={"100%"} height={"auto"}/>
+            <img
+                className="relative z-1 block h-auto w-full"
+                src={LastSupperImg}
+                alt="Խորհրդավոր ընթրիքը"
+                width={1600}
+                height={900}
+            />
+            <div className="absolute top-[12px] -right-[10px] z-4 w-[27%] scale-x-[-1] min-[560px]:top-[20px]">
+                <img className="block h-auto w-full" src={AngelLeft} alt="" width={480} height={480}/>
             </div>
         </div>
         <div

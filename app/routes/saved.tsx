@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, ChevronDown, Search, X } from "lucide-react";
+import { Bookmark, ChevronDown, Search } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
-import { Form, Link } from "react-router";
+import { Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -12,7 +12,11 @@ import {
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
-import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
+import { EmptyState, PageShell } from "../components/page-layout";
+import {
+  MY_CORNER_IMAGE,
+  SectionHeader,
+} from "../components/section-header";
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import {
@@ -22,7 +26,6 @@ import {
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -123,72 +126,42 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   );
 });
 
-const SavedSearch = memo(function SavedSearch({ query }: { query: string }) {
-  const { cancelPending, formRef, scheduleSubmit } =
-    useDebouncedFormSubmit(650);
-
-  return (
-    <Form
-      ref={formRef}
-      className="flex min-h-[50px] items-center gap-2.5 rounded-2xl border border-glass-border bg-control px-3 text-faint"
-      role="search"
-      method="get"
-      onSubmit={cancelPending}
-    >
-      <Search aria-hidden="true" size={18} strokeWidth={1.9} />
-      <input
-        className="min-w-0 flex-1 border-0 bg-transparent text-ink outline-none"
-        type="search"
-        name="q"
-        defaultValue={query}
-        onInput={scheduleSubmit}
-        placeholder="Փնտրել պահվածներում կամ իմ նշումներում…"
-        aria-label="Փնտրել պահված նյութերում"
-      />
-      {query ? (
-        <Link className="grid size-8 shrink-0 place-items-center rounded-[10px] text-muted" to="/saved" aria-label="Մաքրել որոնումը" title="Մաքրել">
-          <X aria-hidden="true" size={17} />
-        </Link>
-      ) : null}
-    </Form>
-  );
-});
-
 export default function Saved({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader
+      <SectionHeader
         backTo="/"
         backLabel="Գրադարան"
-        eyebrow="Անձնական տարածք"
+        imageSrc={MY_CORNER_IMAGE}
         title="Իմ անկյունը"
-        description={loaderData.user
-          ? `${loaderData.user.displayName}, այստեղ են քո պահած նյութերը։`
-          : "Պահած նյութերը հասանելի են Telegram Mini App-ի ներսում։"}
+        query={loaderData.query}
+        searchAction="/saved"
+        searchLabel="Փնտրել իմ պահած նյութերում"
+        searchPlaceholder="Փնտրել իմ պահած նյութերում…"
+        showSearch={Boolean(loaderData.user)}
       />
 
       {!loaderData.user ? (
         <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Բացիր գրադարանը Telegram-ից">
           <p>Այդպես քո պահած նյութերը կապվում են հենց քո Telegram հաշվի հետ։</p>
         </EmptyState>
-      ) : loaderData.total === 0 && !loaderData.query ? (
-        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Դեռ ոչինչ չես պահել">
-          <p>Նյութի կողքի նշանը սեղմիր, և այն կհայտնվի այստեղ։</p>
-          <Link className="mt-[7px] inline-flex items-center gap-1.5 rounded-[11px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/8%)] px-3 py-[9px] text-[12px] font-[720] text-gold-bright no-underline" to="/search">
-            <Search aria-hidden="true" size={17} /> Գտնել նյութ
-          </Link>
-        </EmptyState>
       ) : (
-        <section className="mt-4 grid gap-3" aria-labelledby="saved-title">
-          <SavedSearch query={loaderData.query} />
+        <section className="grid gap-3" aria-labelledby="saved-title">
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">
               {loaderData.query ? "Գտնված նյութեր" : "Պահված նյութեր"}
             </h2>
             <span className={countBadge}>{loaderData.total}</span>
           </div>
-          {loaderData.groups.length === 0 ? (
+          {loaderData.total === 0 && !loaderData.query ? (
+            <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Դեռ ոչինչ չես պահել">
+              <p>Նյութի կողքի նշանը սեղմիր, և այն կհայտնվի այստեղ։</p>
+              <Link className="mt-[7px] inline-flex items-center gap-1.5 rounded-[11px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/8%)] px-3 py-[9px] text-[12px] font-[720] text-gold-bright no-underline" to="/search">
+                <Search aria-hidden="true" size={17} /> Գտնել նյութ
+              </Link>
+            </EmptyState>
+          ) : loaderData.groups.length === 0 ? (
             <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-[13px] gap-y-[11px] rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_52%),var(--glass)] p-4 text-muted [&>a]:col-start-2 [&>a]:w-fit [&>a]:text-[12px] [&>a]:font-[740] [&>a]:text-gold-bright [&>a]:no-underline [&_h2]:m-0 [&_h2]:text-[15px] [&_h2]:leading-[1.45] [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[12px] [&_p]:leading-[1.5]">
               <span className="grid size-11 place-items-center rounded-[14px] border border-[rgb(217_181_111/22%)] bg-[rgb(217_181_111/8%)] text-gold-bright" aria-hidden="true">
                 <Search size={22} strokeWidth={1.7} />
