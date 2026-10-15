@@ -8,6 +8,7 @@
 		"test": "pnpm build && tsx --test tests/*.test.ts",
 		"dev": "react-router dev",
 		"telegram:authorize": "tsx services/telegram-bridge/src/authorize.ts",
+		"telegram:discover-chats": "tsx services/telegram-bridge/src/discover-chats.ts",
 		"bridge:mock": "TELEGRAM_BRIDGE_ADAPTER=mock TELEGRAM_ALLOWED_CHAT_IDS=-100900 TELEGRAM_BRIDGE_SHARED_SECRET=fixture_bridge_secret_000000000000000000 tsx services/telegram-bridge/src/server.ts",
 		"bridge:start": "tsx services/telegram-bridge/src/server.ts",
 		"bridge:typecheck": "tsc -p services/telegram-bridge/tsconfig.json --noEmit",

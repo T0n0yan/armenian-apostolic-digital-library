@@ -74,6 +74,17 @@ Command-ը phone/code/2FA արժեքները կարդում է թաքցված in
 StringSession-ը atomic եղանակով պահում է նույն ignored `.env.local` ֆայլում՝ առանց
 stdout-ում ցուցադրելու։ Նոր Telegram account չի ստեղծվում։
 
+Session-ը ստուգելու և հասանելի group/supergroup/channel dialog metadata-ն միայն
+read-only ցուցադրելու համար՝
+
+```bash
+pnpm telegram:discover-chats
+```
+
+Command-ը չի լրացնում `TELEGRAM_ALLOWED_CHAT_IDS`, history չի հարցնում և media չի
+ներբեռնում։ Եթե local shared secret-ը դատարկ է, այն անվտանգ ստեղծվում և նույնացվում
+է Bridge-ի `.env.local` ու Worker-ի `.dev.vars` ignored ֆայլերում։
+
 Production adapter-ի variables՝
 
 - `TELEGRAM_API_ID`

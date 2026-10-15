@@ -4,7 +4,7 @@ import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
 
 import { TelegramClient } from "telegram";
-import { LogLevel } from "telegram/extensions/Logger.js";
+import { Logger, LogLevel } from "telegram/extensions/Logger.js";
 import { StringSession } from "telegram/sessions/index.js";
 
 import {
@@ -102,6 +102,7 @@ async function authorize() {
   const client = new TelegramClient(session, credentials.apiId, credentials.apiHash, {
     connectionRetries: 5,
     autoReconnect: false,
+    baseLogger: new Logger(LogLevel.NONE),
   });
   client.setLogLevel(LogLevel.NONE);
   let rejectedSteps = 0;
