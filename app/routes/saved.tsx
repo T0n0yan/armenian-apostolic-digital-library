@@ -12,7 +12,7 @@ import {
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
-import { EmptyState, PageShell } from "../components/page-layout";
+import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
 import {
   MY_CORNER_IMAGE,
   SectionHeader,
@@ -25,6 +25,8 @@ import {
   setMaterialSaved,
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
+import { getBridgePost } from "../data/telegram-bridge.server";
+import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 
 export function meta({}: Route.MetaArgs) {
@@ -61,7 +63,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (
     (intent !== "save" && intent !== "remove") ||
     typeof materialId !== "string" ||
-    !/^material_[a-zA-Z0-9_-]{1,100}$/.test(materialId) ||
+    !parseMaterialId(materialId) ||
     typeof personalNote !== "string" ||
     Array.from(personalNote).length > 160
   ) {
@@ -69,6 +71,10 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   await upsertAppUser(env.DB, user);
+  const reference = parseMaterialId(materialId)!;
+  if (intent === "save" && !(await getBridgePost(env.DB, reference.chatId, reference.messageId))) {
+    return Response.json({ saved: false, error: "material-unavailable" }, { status: 404 });
+  }
   const saved = await setMaterialSaved(
     env.DB,
     user.id,
@@ -188,4 +194,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
       )}
     </PageShell>
   );
+}
+
+export function ErrorBoundary({}: Route.ErrorBoundaryProps) {
+  return <PageShell><SiteNav /><RouteErrorState title="Իմ անկյունը չբացվեց" /></PageShell>;
 }

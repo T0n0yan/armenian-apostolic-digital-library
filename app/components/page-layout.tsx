@@ -29,6 +29,22 @@ export function EmptyState({children, icon, title}: EmptyStateProps) {
     </section>);
 }
 
+export function RouteErrorState({
+    title = "Չհաջողվեց բացել էջը",
+    description = "Ստուգիր կապը և փորձիր կրկին։",
+}: { title?: string; description?: string }) {
+    return (<EmptyState title={title}>
+        <p>{description}</p>
+        <button
+            className="mt-3 min-h-11 cursor-pointer rounded-[12px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
+            type="button"
+            onClick={() => window.location.reload()}
+        >
+            Փորձել կրկին
+        </button>
+    </EmptyState>);
+}
+
 export function PageShell({children, width = "content"}: PageShellProps) {
     const maxWidth = width === "library" ? "max-w-[1180px]" : width === "admin" ? "max-w-[1160px]" : "max-w-[940px]";
 

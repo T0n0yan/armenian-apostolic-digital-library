@@ -1,0 +1,13 @@
+# Server-only. Create .dev.vars locally and never commit real values.
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_BRIDGE_URL=http://127.0.0.1:8788
+TELEGRAM_BRIDGE_SHARED_SECRET=
+
+# Optional Cloudflare Access fallback for /admin.
+CF_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+CF_ACCESS_AUD=
+
+# Optional local/CI Cloudflare CLI credentials. Prefer `wrangler login`;
+# API-token variables are only needed in non-interactive CI environments.
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=

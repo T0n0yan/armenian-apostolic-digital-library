@@ -1,9 +1,8 @@
+import { createMaterialId, parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { normalizeSearchText } from "./material-content.server";
-import {
-  resolveSearchQuery,
-  type ResolvedSearchQuery,
-} from "./search-query.server";
 import { createSearchExcerpt } from "./search-materials.server";
+import type { ResolvedSearchQuery } from "./search-query.server";
+import { getBridgePost } from "./telegram-bridge.server";
 
 export type SavedMaterial = {
   id: string;
@@ -19,6 +18,7 @@ export type SavedMaterial = {
   personalNote: string;
   savedAt: string;
   excerpt: string | null;
+  unavailable?: boolean;
 };
 
 export type SavedMaterialGroup = {
@@ -28,39 +28,24 @@ export type SavedMaterialGroup = {
   materials: SavedMaterial[];
 };
 
-type SavedMaterialRow = {
-  id: string;
-  title: string;
-  telegram_url: string;
-  category_id: string;
-  category_name: string;
-  category_slug: string;
-  number_value: number | null;
-  date_value: string | null;
-  published_at: string | null;
-  media_types: string;
+type SavedReferenceRow = {
+  chat_id: string;
+  message_id: number;
   personal_note: string;
+  personal_note_search: string;
   saved_at: string;
-  content_text: string;
 };
-
-function parseMediaTypes(value: string) {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
 
 export async function listSavedMaterialIds(database: D1Database, userId: string) {
   const { results } = await database
-    .prepare("SELECT material_id FROM saved_materials WHERE user_id = ?")
+    .prepare("SELECT chat_id, message_id FROM saved_materials WHERE user_id = ?")
     .bind(userId)
-    .all<{ material_id: string }>();
-  return results.map((row) => row.material_id);
+    .all<{ chat_id: string; message_id: number }>();
+  return results.map((row) => createMaterialId(row.chat_id, row.message_id));
+}
+
+function unavailableTelegramUrl(chatId: string, messageId: number) {
+  return `https://t.me/c/${chatId.replace(/^-100/u, "").replace(/^-/, "")}/${messageId}`;
 }
 
 export async function listSavedMaterials(
@@ -69,93 +54,69 @@ export async function listSavedMaterials(
   query = "",
   resolvedQuery?: ResolvedSearchQuery,
 ): Promise<SavedMaterial[]> {
-  const resolved = resolvedQuery ?? await resolveSearchQuery(database, query);
-  const searchClauses: string[] = [];
-  const searchValues: string[] = [];
-
-  if (resolved.telegramUrlKey) {
-    searchClauses.push("materials.telegram_url_key = ?");
-    searchValues.push(resolved.telegramUrlKey);
-  }
-  for (const variants of resolved.termGroups) {
-    const variantClauses: string[] = [];
-    for (const term of variants) {
-      const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`;
-      variantClauses.push(
-        "materials.search_title LIKE ? ESCAPE '\\'",
-        "materials.search_body LIKE ? ESCAPE '\\'",
-        "saved_materials.personal_note_search LIKE ? ESCAPE '\\'",
-      );
-      searchValues.push(pattern, pattern, pattern);
+  const { results } = await database.prepare(
+    `SELECT chat_id, message_id, personal_note, personal_note_search, saved_at
+     FROM saved_materials WHERE user_id = ? ORDER BY saved_at DESC LIMIT 500`,
+  ).bind(userId).all<SavedReferenceRow>();
+  const normalizedQuery = resolvedQuery?.highlightQuery || normalizeSearchText(query);
+  const hydrated = await Promise.all(results.map(async (row): Promise<SavedMaterial | null> => {
+    const post = await getBridgePost(database, row.chat_id, row.message_id);
+    if (!post?.categoryId || !post.categoryName || !post.categorySlug) {
+      const title = "Հրապարակումն այլևս հասանելի չէ";
+      if (normalizedQuery && !normalizeSearchText(`${title} ${row.personal_note}`).includes(normalizedQuery)) return null;
+      return {
+        id: createMaterialId(row.chat_id, row.message_id),
+        title,
+        telegramUrl: unavailableTelegramUrl(row.chat_id, row.message_id),
+        categoryId: "category_unavailable",
+        categoryName: "Անհասանելի նյութեր",
+        categorySlug: "unavailable",
+        numberValue: null,
+        dateValue: null,
+        publishedAt: null,
+        mediaTypes: [],
+        personalNote: row.personal_note,
+        savedAt: row.saved_at,
+        excerpt: row.personal_note || "Telegram հրապարակումը ջնջված է կամ այլևս հասանելի չէ։",
+        unavailable: true,
+      };
     }
-    searchClauses.push(`(${variantClauses.join(" OR ")})`);
-  }
-
-  const { results } = await database
-    .prepare(
-      `SELECT
-         materials.id,
-         materials.title,
-         materials.telegram_url,
-         categories.id AS category_id,
-         materials.number_value,
-         materials.date_value,
-         materials.published_at,
-         materials.media_types,
-         materials.content_text,
-         categories.name AS category_name,
-         categories.slug AS category_slug,
-         saved_materials.personal_note,
-         saved_materials.saved_at
-       FROM saved_materials
-       INNER JOIN materials ON materials.id = saved_materials.material_id
-       INNER JOIN categories ON categories.id = materials.category_id
-       WHERE saved_materials.user_id = ?
-         AND materials.visibility = 'visible'
-         AND categories.is_active = 1
-         ${searchClauses.length > 0 ? `AND ${searchClauses.join(" AND ")}` : ""}
-       ORDER BY categories.sort_order ASC, saved_materials.saved_at DESC`,
-    )
-    .bind(userId, ...searchValues)
-    .all<SavedMaterialRow>();
-
-  return results.map((row) => ({
-    id: row.id,
-    title: row.title,
-    telegramUrl: row.telegram_url,
-    categoryId: row.category_id,
-    categoryName: row.category_name,
-    categorySlug: row.category_slug,
-    numberValue: row.number_value,
-    dateValue: row.date_value,
-    publishedAt: row.published_at,
-    mediaTypes: parseMediaTypes(row.media_types),
-    personalNote: row.personal_note,
-    savedAt: row.saved_at,
-    excerpt: query
-      ? createSearchExcerpt(row.content_text, resolved.highlightQuery)
-      : null,
+    const searchable = normalizeSearchText(`${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${row.personal_note}`);
+    if (normalizedQuery && !searchable.includes(normalizedQuery)) return null;
+    return {
+      id: post.id,
+      title: post.title,
+      telegramUrl: post.telegramUrl,
+      categoryId: post.categoryId,
+      categoryName: post.categoryName,
+      categorySlug: post.categorySlug,
+      numberValue: post.numberValue,
+      dateValue: post.dateValue,
+      publishedAt: post.publishedAt,
+      mediaTypes: [...new Set(post.media.map((asset) => asset.kind))],
+      personalNote: row.personal_note,
+      savedAt: row.saved_at,
+      excerpt: normalizedQuery
+        ? createSearchExcerpt(post.contentText || post.captionText || row.personal_note, normalizedQuery)
+        : null,
+    };
   }));
+  return hydrated.filter((item): item is SavedMaterial => item !== null);
 }
 
-export function groupSavedMaterials(
-  materials: SavedMaterial[],
-): SavedMaterialGroup[] {
+export function groupSavedMaterials(materials: SavedMaterial[]): SavedMaterialGroup[] {
   const groups = new Map<string, SavedMaterialGroup>();
   for (const material of materials) {
     const existing = groups.get(material.categorySlug);
-    if (existing) {
-      existing.materials.push(material);
-      continue;
-    }
-    groups.set(material.categorySlug, {
+    if (existing) existing.materials.push(material);
+    else groups.set(material.categorySlug, {
       categoryId: material.categoryId,
       categoryName: material.categoryName,
       categorySlug: material.categorySlug,
       materials: [material],
     });
   }
-  return Array.from(groups.values());
+  return [...groups.values()];
 }
 
 export async function setMaterialSaved(
@@ -165,35 +126,22 @@ export async function setMaterialSaved(
   saved: boolean,
   personalNote = "",
 ) {
+  const reference = parseMaterialId(materialId);
+  if (!reference) return false;
   if (saved) {
     const note = Array.from(personalNote.trim()).slice(0, 160).join("");
     const noteSearch = normalizeSearchText(note).slice(0, 200);
-    const result = await database
-      .prepare(
-        `INSERT INTO saved_materials (
-           user_id,
-           material_id,
-           personal_note,
-           personal_note_search
-         )
-         SELECT ?, materials.id, ?, ?
-         FROM materials
-         INNER JOIN categories ON categories.id = materials.category_id
-         WHERE materials.id = ?
-           AND materials.visibility = 'visible'
-           AND categories.is_active = 1
-         ON CONFLICT(user_id, material_id) DO UPDATE SET
-           personal_note = excluded.personal_note,
-           personal_note_search = excluded.personal_note_search`,
-      )
-      .bind(userId, note, noteSearch, materialId)
-      .run();
-    return result.meta.changes > 0;
+    await database.prepare(
+      `INSERT INTO saved_materials (user_id, chat_id, message_id, personal_note, personal_note_search)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, chat_id, message_id) DO UPDATE SET
+         personal_note = excluded.personal_note,
+         personal_note_search = excluded.personal_note_search`,
+    ).bind(userId, reference.chatId, reference.messageId, note, noteSearch).run();
+    return true;
   }
-
-  await database
-    .prepare("DELETE FROM saved_materials WHERE user_id = ? AND material_id = ?")
-    .bind(userId, materialId)
-    .run();
+  await database.prepare(
+    "DELETE FROM saved_materials WHERE user_id = ? AND chat_id = ? AND message_id = ?",
+  ).bind(userId, reference.chatId, reference.messageId).run();
   return false;
 }

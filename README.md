@@ -1,60 +1,117 @@
 # Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան
 
-Telegram Mini App-first թվային գրադարան՝ խմբի նյութերի որոնման, նավիգացիայի, անձնական պահպանման և հետագայում սրբավայրերի քարտեզի համար։
+Telegram Mini App-first գրադարան։ Telegram-ը նյութերի և media-ի միակ մշտական source of truth-ն է։
 
-## Տեխնիկական հիմք
+## Architecture
 
-- TypeScript
-- React 19
-- React Router 8՝ server-side rendering-ով
-- Cloudflare Workers
-- Cloudflare D1
-- pnpm
+```text
+Telegram MTProto
+      ↓
+long-running Node.js Telegram Bridge (GramJS)
+      ↓ authenticated internal HTTP
+Cloudflare Worker / React Router loaders
+      ↓
+Mini App UI
 
-## Տեղական աշխատանք
+D1 → users, bookmark references, category/topic/hashtag/post mappings, review state
+```
+
+Worker-ը և D1-ը Telegram post body կամ media bytes չեն պահում։ Video/audio/image request-երը Worker-ի private proxy route-ով stream են արվում Bridge-ից։ R2 binding չկա։
+
+## Local mock mode
+
+Առաջին terminal՝
 
 ```bash
 pnpm install
+pnpm bridge:mock
+```
+
+Երկրորդ terminal՝
+
+```bash
+cp .dev.vars.example .dev.vars
+# .dev.vars-ում TELEGRAM_BRIDGE_SHARED_SECRET-ը դիր նույն local fixture արժեքը,
+# որն օգտագործում է bridge:mock script-ը։
+pnpm db:migrate:local
 pnpm dev
 ```
 
-Տեղական D1 migration-ները կիրառելու համար՝
+Local URL՝ `http://127.0.0.1:5173/`։ Mock Bridge-ը լսում է `http://127.0.0.1:8788` հասցեում։
+
+Եթե հին local-only 0010 migration-ը նախկինում արդեն կիրառված է, նախ export արա local D1-ը, հետո վերակառուցիր միայն local D1 state-ը։ Remote database-ի վրա reset մի կատարիր։
+
+## Worker variables
+
+| Name | Purpose |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | Telegram Mini App `initData` server-side validation |
+| `TELEGRAM_BRIDGE_URL` | Internal HTTPS Bridge origin |
+| `TELEGRAM_BRIDGE_SHARED_SECRET` | Worker → Bridge Bearer authentication |
+| `CF_ACCESS_TEAM_DOMAIN` | Optional Cloudflare Access issuer for `/admin` |
+| `CF_ACCESS_AUD` | Optional Cloudflare Access audience |
+
+Սրանք Worker secrets են և չունեն `VITE_` prefix։
+
+## Telegram Bridge
+
+Service-ը գտնվում է `services/telegram-bridge/`-ում և աշխատում է Node.js-ով։
+
+Production adapter-ի variables՝
+
+- `TELEGRAM_API_ID`
+- `TELEGRAM_API_HASH`
+- `TELEGRAM_SESSION`
+- `TELEGRAM_ALLOWED_CHAT_IDS`՝ comma-separated allowlist
+- `TELEGRAM_BRIDGE_SHARED_SECRET`
+- optional `TELEGRAM_MEDIA_CONCURRENCY`
+- optional `TELEGRAM_MEDIA_TIMEOUT_MS`
+
+Գործարկում՝
 
 ```bash
-pnpm db:migrate:local
+pnpm bridge:start
 ```
 
-## Ստուգումներ
+Bridge API՝
+
+- `GET /health`
+- `GET /categories`
+- `GET /categories/:slug/posts?cursor=...`
+- `GET /posts/:chatId/:messageId`
+- `GET /search?q=...&category=...&cursor=...`
+- `GET|HEAD /media/:chatId/:messageId/:mediaIndex`
+
+Բոլոր endpoints-ը պահանջում են service authentication։ Bridge-ը մերժում է allowlist-ից դուրս chat ID-ները։
+
+## Category mapping
+
+Առաջնահերթությունը՝
+
+1. forum topic ID,
+2. configured hashtag,
+3. exact Telegram chat/message admin mapping,
+4. unclassified review։
+
+Ցուցադրվող հայերեն անունները identifier չեն։ Stable արժեքներն են category ID/slug, chat ID, topic ID և message ID։
+
+## D1
+
+`0010_telegram_bridge_references.sql` migration-ը legacy content mirror-ը հեռացնում է և պահում միայն՝
+
+- app users և admin role,
+- bookmarks որպես `user_id + chat_id + message_id`,
+- personal notes,
+- topic/hashtag/post category mappings,
+- review state։
+
+## Verification
 
 ```bash
+pnpm lint
+pnpm test
 pnpm typecheck
 pnpm build
 ```
 
-## Telegram JSON ներմուծում
-
-Admin էջը ընդունում է Telegram Desktop-ի `result.json` export-ը։ Առաջին
-քայլում ցուցադրվում է համեմատության preview, իսկ հաստատումից հետո ներմուծվում
-են միայն նոր կամ փոփոխված հրապարակումները։ Նույն chat ID + message ID զույգը
-չի կարող կրկնակի ինդեքսավորվել։ Կրկնվող export-ները պահեստում չեն կուտակվում՝
-յուրաքանչյուր նյութի համար պահվում է միայն վերջին տեքստային վիճակը և որոնման
-metadata-ն։ Նկարները, աուդիոները և վիդեոները չեն պահվում։
-
-## Որոնում և «Իմ անկյունը»
-
-- `/search` էջը 1 վրկ debounce-ով փնտրում է վերնագրերի և Telegram-ից ներմուծված ամբողջ տեքստի մեջ։ Սկզբում ցուցադրվում են համապատասխան բաժիններն ու դրանց արդյունքների քանակները, ապա՝ ընտրված բաժնի նյութերը։
-- Արդյունքները կարելի է զտել ըստ բաժնի, տեսակի և ամսաթվի, իսկ յուրաքանչյուր նյութ կարելի է բացել Telegram-ում կամ կիսվել native share sheet-ով։
-- Օգտվողի պահած նյութերը և անձնական հուշումները պահպանվում են D1-ում, ոչ թե միայն browser storage-ում։ «Իմ անկյունը» նյութերը խմբավորում է ըստ բաժնի և որոնում նաև անձնական հուշումների մեջ։
-- Telegram Mini App-ը ստորագրված `initData`-ով հաստատում է օգտվողին և ստեղծում է HttpOnly session cookie։
-- Production միջավայրում պետք է Cloudflare Worker secret-ի տեսքով սահմանվի `TELEGRAM_BOT_TOKEN`։ Token-ը երբեք չի պահվում repository-ում։
-- Միայն development build-ում localhost-ից օգտագործվում է առանձին փորձնական օգտվող, որպեսզի պահպանման հոսքը հնարավոր լինի ստուգել առանց Telegram client-ի։
-
-## Անվտանգության սկզբունքներ
-
-- Հավելվածը Telegram խմբում չի հրապարակում, չի խմբագրում և չի ջնջում հաղորդագրություններ։
-- `/admin` ուղին production build-ում փակ է և պահանջում է Cloudflare Access-ի վավեր ստորագրված JWT։
-- Admin մուտքի համար Worker-ի միջավայրում պետք է սահմանվեն `CF_ACCESS_TEAM_DOMAIN` և `CF_ACCESS_AUD` արժեքները։ Առանց դրանց admin-ը վերադարձնում է `403`։
-- Միայն development build-ում `localhost`, `127.0.0.1` և `::1` հասցեներից `/admin` մուտքը թույլատրված է տեղային աշխատանքի համար։
-- Գաղտնի տվյալները չեն պահվում Git repository-ում։
-- Staging և production միջավայրերը մշակվելու են առանձին։
-- Production փոփոխությունները կատարվելու են միայն հստակ հաստատումից հետո։
+Tests-ը իրական Telegram credential չի օգտագործում։ 100+ MB video-ն virtual generated stream է և repository-ում մեծ fixture file չի պահվում։

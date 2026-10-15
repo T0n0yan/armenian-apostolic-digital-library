@@ -20,7 +20,8 @@ import type { Route } from "./+types/search";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
-import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
+import { MaterialListSkeleton } from "../components/material-skeleton";
+import { EmptyState, PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import {
   countBadge,
@@ -51,7 +52,7 @@ function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
-function getPageHref(filters: SearchFilters, page: number) {
+function getPageHref(filters: SearchFilters, page: number, cursor: string | null = null) {
   const parameters = new URLSearchParams();
   if (filters.query) parameters.set("q", filters.query);
   if (filters.categoryId) parameters.set("category", filters.categoryId);
@@ -59,6 +60,7 @@ function getPageHref(filters: SearchFilters, page: number) {
   if (filters.dateFrom) parameters.set("from", filters.dateFrom);
   if (filters.dateTo) parameters.set("to", filters.dateTo);
   if (page > 1) parameters.set("page", String(page));
+  if (cursor) parameters.set("cursor", cursor);
   return `/search?${parameters.toString()}`;
 }
 
@@ -96,6 +98,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const page = Number.isInteger(requestedPage) && requestedPage > 0
     ? Math.min(requestedPage, 1_000)
     : 1;
+  const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const hasCriteria = Boolean(
     query || categoryId || scope === "saved" || filters.dateFrom || filters.dateTo,
   );
@@ -110,11 +113,12 @@ export async function loader({ request }: Route.LoaderArgs) {
       ? searchMaterialGroups(env.DB, filters, resolvedQuery)
       : Promise.resolve([]),
     hasCriteria && categoryId && scope === "library"
-      ? searchMaterials(env.DB, filters, page, 30, resolvedQuery)
+      ? searchMaterials(env.DB, filters, cursor, 30, resolvedQuery)
       : Promise.resolve({
           materials: [],
           total: 0,
           highlightQuery: resolvedQuery.highlightQuery,
+          nextCursor: null,
         }),
     user && hasCriteria && !categoryId
       ? listSavedMaterials(env.DB, user.id, query, resolvedQuery)
@@ -170,6 +174,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     materials,
     total,
     page,
+    nextCursor: scope === "saved" ? null : libraryPage.nextCursor,
     savedMaterialIds,
     canSave: Boolean(user),
     highlightQuery: resolvedQuery.highlightQuery,
@@ -436,6 +441,8 @@ export default function Search({ loaderData }: Route.ComponentProps) {
   const selectedTitle = filters.scope === "saved"
     ? "Իմ անկյունը"
     : selectedCategory?.name ?? "Համապատասխան բաժիններ";
+  const navigation = useNavigation();
+  const isRefreshing = navigation.state === "loading" && navigation.location?.pathname === "/search";
 
   return (
     <PageShell>
@@ -445,7 +452,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         backLabel="Գրադարան"
         eyebrow="Ամբողջ գրադարանը"
         title="Որոնում"
-        description="Փնտրիր վերնագրերի և Telegram-ից ներմուծված ամբողջ տեքստի մեջ։"
+        description="Փնտրիր Telegram հրապարակումների վերնագրերի և ամբողջ տեքստի մեջ։"
       />
 
       <SearchForm categories={categories} filters={filters} />
@@ -464,7 +471,9 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           </div>
         ) : null}
 
-        {!hasCriteria ? (
+        {isRefreshing ? (
+          <MaterialListSkeleton />
+        ) : !hasCriteria ? (
           <EmptyState icon={<SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />} title="Գրիր այն, ինչ փնտրում ես">
             <p>Կարող ես որոնել նաև բաժնով, ամսաթվով կամ Telegram հղումով։</p>
           </EmptyState>
@@ -485,18 +494,18 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         )}
         {hasCriteria &&
         (filters.categoryId || filters.scope === "saved") &&
-        totalPages > 1 ? (
+        (filters.scope === "saved" ? totalPages > 1 : Boolean(loaderData.nextCursor) || page > 1) ? (
           <nav className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 px-1 pt-3.5 text-[12px] text-faint tabular-nums [&_a]:w-fit [&_a]:font-[720] [&_a]:text-gold-bright [&_a]:no-underline [&_a:last-of-type]:justify-self-end" aria-label="Որոնման էջեր">
             {page > 1 ? (
-              <Link to={getPageHref(filters, page - 1)}>← Նախորդ</Link>
+              <Link to={getPageHref(filters, 1)}>← Սկիզբ</Link>
             ) : (
               <span />
             )}
             <span>
-              {page} / {totalPages}
+              {filters.scope === "saved" ? `${page} / ${totalPages}` : page}
             </span>
-            {page < totalPages ? (
-              <Link to={getPageHref(filters, page + 1)}>Հաջորդ →</Link>
+            {(filters.scope === "saved" ? page < totalPages : Boolean(loaderData.nextCursor)) ? (
+              <Link to={getPageHref(filters, page + 1, loaderData.nextCursor)}>Հաջորդ →</Link>
             ) : (
               <span />
             )}
@@ -505,4 +514,8 @@ export default function Search({ loaderData }: Route.ComponentProps) {
       </section>
     </PageShell>
   );
+}
+
+export function ErrorBoundary({}: Route.ErrorBoundaryProps) {
+  return <PageShell><SiteNav /><PageHeader backTo="/" backLabel="Գրադարան" eyebrow="Ամբողջ գրադարանը" title="Որոնում" /><RouteErrorState title="Որոնումը չհաջողվեց" /></PageShell>;
 }

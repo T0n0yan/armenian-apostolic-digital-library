@@ -39,6 +39,7 @@ type SectionHeaderProps = {
   searchPlaceholder: string;
   showSearch?: boolean;
   title: string;
+  description?: string;
 };
 
 export const MY_CORNER_IMAGE = myCornerImage;
@@ -78,6 +79,7 @@ export const SectionHeader = memo(function SectionHeader({
   searchPlaceholder,
   showSearch = true,
   title,
+  description,
 }: SectionHeaderProps) {
   const { cancelPending, formRef, scheduleSubmit } =
     useDebouncedFormSubmit(650);
@@ -114,6 +116,8 @@ export const SectionHeader = memo(function SectionHeader({
           </h1>
           {/*<BotanicalDivider />*/}
           <img src={divider2} alt="" width={1200} height={126} decoding="async" className='w-full h-[40px] object-contain'/>
+
+          {description ? <p className="m-0 max-w-[620px] text-[13px] leading-[1.65] text-muted min-[768px]:text-[14px]">{description}</p> : null}
 
           {showSearch ? (
             <Form

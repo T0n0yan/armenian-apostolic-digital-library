@@ -38,6 +38,10 @@ type TelegramWebApp = {
   expand?: () => void;
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
+  colorScheme?: "light" | "dark";
+  themeParams?: Record<string, string | undefined>;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
   onEvent?: (event: string, callback: () => void) => void;
   offEvent?: (event: string, callback: () => void) => void;
 };
@@ -78,6 +82,14 @@ function loadTelegramSdk() {
 
 function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
+  try {
+    const savedTheme = localStorage.getItem("library-theme-v1");
+    if (savedTheme !== "light" && savedTheme !== "dark" && webApp.colorScheme) {
+      root.dataset.theme = webApp.colorScheme;
+    }
+  } catch {
+    // Storage may be unavailable in restricted browser contexts.
+  }
   const safe = webApp.safeAreaInset ?? {};
   const content = webApp.contentSafeAreaInset ?? safe;
   for (const side of ["top", "right", "bottom", "left"] as const) {
@@ -92,6 +104,16 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
       );
     }
   }
+  if (typeof webApp.viewportHeight === "number") {
+    root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`);
+  }
+  if (typeof webApp.viewportStableHeight === "number") {
+    root.style.setProperty("--tg-viewport-stable-height", `${webApp.viewportStableHeight}px`);
+  }
+  const background = webApp.themeParams?.bg_color;
+  const text = webApp.themeParams?.text_color;
+  if (background) root.style.setProperty("--tg-theme-bg", background);
+  if (text) root.style.setProperty("--tg-theme-text", text);
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -134,6 +156,8 @@ export default function App() {
       syncTelegramSafeArea(webApp);
       webApp.onEvent?.("safeAreaChanged", handleSafeArea);
       webApp.onEvent?.("contentSafeAreaChanged", handleSafeArea);
+      webApp.onEvent?.("viewportChanged", handleSafeArea);
+      webApp.onEvent?.("themeChanged", handleSafeArea);
       webApp.ready?.();
       webApp.expand?.();
       if (!webApp.initData) return;
@@ -149,6 +173,8 @@ export default function App() {
       active = false;
       webAppForCleanup?.offEvent?.("safeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("contentSafeAreaChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("viewportChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("themeChanged", handleSafeArea);
     };
   }, [revalidator]);
 

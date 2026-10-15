@@ -24,6 +24,7 @@ export type SearchMaterialPage = {
   materials: SearchMaterial[];
   total: number;
   highlightQuery: string;
+  nextCursor: string | null;
 };
 
 export type SearchCategoryGroup = {

@@ -1,6 +1,7 @@
 import {
   Bookmark,
   Check,
+  ExternalLink,
   Pencil,
   Share2,
   StickyNote,
@@ -16,6 +17,7 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
+import { Link } from "react-router";
 
 import { formatArmenianDate } from "../utils/armenian-date";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
@@ -208,12 +210,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   return (
     <li className="animate-glass-enter">
       <div className="relative">
-        <a
+        <Link
           className={`${interactiveGlassCard} flex min-h-[76px] items-center gap-[14px] px-[13px] pt-[12px] pb-[50px] text-inherit no-underline${isNoteMounted ? " pointer-events-none" : ""}`}
-        href={material.telegramUrl}
-        target="_blank"
-        rel="noreferrer"
-        onClick={openTelegramPost}
+          to={`/materials/${material.id}`}
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
         >
@@ -235,7 +234,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             </span>
           ) : null}
         </span>
-        </a>
+        </Link>
       {!isNoteMounted ? (
         <span className="absolute right-[11px] bottom-[11px] z-3 flex gap-1.5">
           {canSave ? (
@@ -266,6 +265,17 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <Pencil aria-hidden="true" size={16} strokeWidth={1.9} />
             </button>
           ) : null}
+          <a
+            className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-muted`}
+            href={material.telegramUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={openTelegramPost}
+            aria-label="Բացել սկզբնականը Telegram-ում"
+            title="Telegram"
+          >
+            <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
+          </a>
           <button
             className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-gold`}
             type="button"

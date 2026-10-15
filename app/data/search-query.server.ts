@@ -67,9 +67,7 @@ async function getVocabulary(database: D1Database) {
   }
   const { results } = await database
     .prepare(
-      `SELECT search_title AS value FROM materials WHERE visibility = 'visible'
-       UNION ALL
-       SELECT lower(name) AS value FROM categories WHERE is_active = 1`,
+      `SELECT lower(name) AS value FROM categories WHERE is_active = 1`,
     )
     .all<{ value: string }>();
   const words = Array.from(

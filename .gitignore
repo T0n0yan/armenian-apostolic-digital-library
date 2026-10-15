@@ -1,7 +1,8 @@
 .DS_Store
 .idea/
 .vscode/
-.env
+.env*
+.local-backups/
 /node_modules/
 *.tsbuildinfo
 
