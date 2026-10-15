@@ -1,61 +1,96 @@
-import { Bookmark, Church, Search, Settings } from "lucide-react";
-import { memo } from "react";
-import { Link } from "react-router";
+import {Bookmark, Church, Search, Settings} from "lucide-react";
+import {memo, useEffect, useRef, useState} from "react";
+import {NavLink, useLocation, useRouteLoaderData} from "react-router";
 
-import { ThemeToggle } from "./theme-toggle";
-import { focusRing, iconButton } from "./ui-styles";
+import type {loader as rootLoader} from "../root";
+import ArmenianEternity from "../assets/armenian-eternity.svg";
+import CrownWreath from "../assets/crown-olive-wreath.webp";
 
-type SiteNavProps = {
-  showAdminLink?: boolean;
-};
+type SiteNavProps = { showAdminLink?: boolean };
 
-export const SiteNav = memo(function SiteNav({
-  showAdminLink = false,
-}: SiteNavProps) {
-  return (
-    <nav
-      className="fixed right-[calc(var(--tg-content-safe-area-inset-right,0px)+12px)] bottom-[calc(var(--tg-content-safe-area-inset-bottom,0px)+10px)] left-[calc(var(--tg-content-safe-area-inset-left,0px)+12px)] z-20 flex min-h-[60px] items-center justify-between gap-2.5 rounded-[20px] border border-glass-border bg-[linear-gradient(130deg,rgb(255_255_255/18%),transparent_48%),var(--nav-surface)] px-3 py-2 shadow-[inset_0_1px_0_rgb(255_255_255/18%),0_16px_44px_rgb(2_0_7/22%)] backdrop-blur-xl backdrop-saturate-150 min-[560px]:right-[calc(var(--tg-content-safe-area-inset-right,0px)+20px)] min-[560px]:bottom-[calc(var(--tg-content-safe-area-inset-bottom,0px)+14px)] min-[560px]:left-[calc(var(--tg-content-safe-area-inset-left,0px)+20px)] min-[560px]:min-h-[62px] min-[560px]:rounded-[22px] min-[560px]:px-3.5 min-[960px]:right-auto min-[960px]:left-1/2 min-[960px]:w-[min(720px,calc(100%-64px))] min-[960px]:-translate-x-1/2"
-      aria-label="Հիմնական նավիգացիա"
+const navigationItems = [{to: "/", label: "Գլխավոր", icon: Church, end: true}, {
+    to: "/search",
+    label: "Որոնում",
+    icon: Search
+}, {to: "/saved", label: "Իմ անկյունը", icon: Bookmark},] as const;
+
+const linkBase = "group/link grid grid-cols-[auto_52px] items-center gap-[9px] text-muted no-underline outline-none";
+const labelClass = "inline-flex min-h-9 items-center justify-center whitespace-nowrap rounded-[13px] border border-glass-border bg-nav-surface px-3 py-[7px] font-noto text-[13px] font-semibold shadow-[0_8px_24px_rgb(18_7_25/15%),inset_0_1px_0_rgb(255_255_255/16%)] backdrop-blur-[20px] backdrop-saturate-[170%]";
+const iconClass = "grid size-[52px] place-items-center rounded-full border border-[rgb(217_181_111/27%)] bg-[linear-gradient(145deg,rgb(247_214_148/95%),rgb(205_153_72/94%))] text-[#3d263f] shadow-[inset_0_1px_0_rgb(255_255_255/52%),inset_0_-8px_16px_rgb(116_65_26/12%),0_9px_25px_rgb(28_10_34/22%)] transition-[transform,box-shadow,filter] duration-[180ms] group-hover/link:-translate-y-0.5 group-hover/link:brightness-[1.04] group-active/link:scale-[0.92] group-focus-visible/link:shadow-[0_0_0_4px_rgb(217_181_111/20%),inset_0_1px_0_rgb(255_255_255/52%),0_9px_25px_rgb(28_10_34/22%)]";
+
+export const SiteNav = memo(function SiteNav({showAdminLink = false}: SiteNavProps) {
+    const rootData = useRouteLoaderData<typeof rootLoader>("root");
+    const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
+    const [isOpen, setIsOpen] = useState(false);
+    const location = useLocation();
+    const menuRef = useRef<HTMLElement>(null);
+    const items = canManage ? [...navigationItems, {
+        to: "/admin",
+        label: "Կարգավորումներ",
+        icon: Settings,
+        end: false
+    }] : navigationItems;
+
+    useEffect(() => setIsOpen(false), [location.pathname]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === "Escape") setIsOpen(false);
+        };
+        const closeOutside = (event: PointerEvent) => {
+            if (!menuRef.current?.contains(event.target as Node)) setIsOpen(false);
+        };
+
+        document.addEventListener("keydown", closeOnEscape);
+        document.addEventListener("pointerdown", closeOutside);
+        return () => {
+            document.removeEventListener("keydown", closeOnEscape);
+            document.removeEventListener("pointerdown", closeOutside);
+        };
+    }, [isOpen]);
+
+    return (<nav
+        ref={menuRef}
+        className="fixed right-[calc(var(--tg-content-safe-area-inset-right,0px)+16px)] bottom-[calc(var(--tg-content-safe-area-inset-bottom,0px)+14px)] z-30 grid justify-items-end min-[960px]:right-[calc(var(--tg-content-safe-area-inset-right,0px)+max(24px,calc((100vw-1180px)/2+24px)))] min-[960px]:bottom-[calc(var(--tg-content-safe-area-inset-bottom,0px)+20px)]"
+        aria-label="Հիմնական նավիգացիա"
     >
-      <Link
-        className={`inline-flex min-w-0 items-center gap-[9px] text-[13px] leading-[16px] font-bold text-inherit no-underline ${focusRing}`}
-        to="/"
-      >
-        <span className="grid size-[34px] shrink-0 place-items-center rounded-[11px] border border-[rgb(240_211_151/26%)] bg-[linear-gradient(145deg,rgb(217_181_111/24%),rgb(93_48_108/34%))] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/15%)]" aria-hidden="true">
-          <Church size={19} strokeWidth={1.8} />
-        </span>
-        <span className="hidden overflow-hidden text-ellipsis whitespace-nowrap min-[960px]:inline">Հոգևոր ժառանգություն</span>
-      </Link>
-      <span className="flex items-center gap-1.5">
-        {showAdminLink ? (
-          <Link
-            className={`inline-flex min-h-[36px] shrink-0 items-center gap-[6px] rounded-[12px] border border-[rgb(217_181_111/22%)] bg-[rgb(217_181_111/8%)] px-[12px] text-[13px] leading-[16px] font-bold text-gold-bright no-underline ${focusRing}`}
-            to="/admin"
-            aria-label="Կառավարում"
-            title="Կառավարում"
-          >
-            <Settings aria-hidden="true" size={18} strokeWidth={1.9} />
-            <span className="hidden min-[960px]:inline">Կառավարում</span>
-          </Link>
-        ) : null}
-        <Link
-          className={iconButton}
-          to="/search"
-          aria-label="Որոնում"
-          title="Որոնում"
+        <ul className={`absolute right-0.5 bottom-[70px] m-0 grid min-w-max list-none gap-2.5 p-0 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+            aria-hidden={!isOpen}>
+            {items.map(({to, label, icon: Icon, ...item}, index) => (<li
+                className={`origin-right transition-[opacity,transform] duration-[380ms] ease-[cubic-bezier(0.2,0.9,0.24,1.24)] ${isOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-[18px] scale-[0.82] opacity-0"}`}
+                style={{transitionDelay: isOpen ? `${index * 55}ms` : `${(items.length - index - 1) * 35}ms`}}
+                key={to}
+            >
+                <NavLink
+                    className={({isActive}) => `${linkBase} ${isActive ? "text-gold-bright [&>span:last-child]:shadow-[0_0_0_3px_rgb(217_181_111/18%),inset_0_1px_0_rgb(255_255_255/60%),0_10px_28px_rgb(28_10_34/25%)]" : ""}`}
+                    to={to}
+                    end={"end" in item ? item.end : false}
+                    tabIndex={isOpen ? 0 : -1}
+                    aria-label={label}
+                >
+                    <span className={labelClass}>{label}</span>
+                    <span className={iconClass} aria-hidden="true">
+                        <Icon size={22} strokeWidth={1.7}/>
+                    </span>
+                </NavLink>
+            </li>))}
+        </ul>
+
+        <button
+            className="relative flex items-center justify-center size-[60px] cursor-pointer rounded-full duration-[260ms]"
+            type="button"
+            aria-label={isOpen ? "Փակել նավիգացիան" : "Բացել նավիգացիան"}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen((open) => !open)}
         >
-          <Search aria-hidden="true" size={18} strokeWidth={1.9} />
-        </Link>
-        <Link
-          className={iconButton}
-          to="/saved"
-          aria-label="Իմ անկյունը"
-          title="Իմ անկյունը"
-        >
-          <Bookmark aria-hidden="true" size={18} strokeWidth={1.9} />
-        </Link>
-        <ThemeToggle />
-      </span>
-    </nav>
-  );
+            <img
+                className="pointer-events-none absolute block size-[60px] object-cover animate-[floating-wheat_60s_linear_infinite]"
+                src={CrownWreath} width={256} height={256} alt="" aria-hidden="true"/>
+            <img
+                className="pointer-events-none z-1 block size-[27px] animate-[floating-wheat_30s_linear_infinite]"
+                src={ArmenianEternity} width={48} height={48} alt="" aria-hidden="true"/>
+        </button>
+    </nav>);
 });

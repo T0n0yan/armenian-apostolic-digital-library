@@ -24,7 +24,7 @@ function applyTheme(preference: ThemePreference) {
     ?.setAttribute("content", isDark ? "#100817" : "#f2ebf4");
 }
 
-export const ThemeToggle = memo(function ThemeToggle() {
+export const ThemeToggle = memo(function ThemeToggle({className}: {className?: string}) {
   const [preference, setPreference] = useState<ThemePreference>("system");
 
   useEffect(() => {
@@ -66,13 +66,13 @@ export const ThemeToggle = memo(function ThemeToggle() {
 
   return (
     <button
-      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-glass-border bg-subtle p-0 text-muted transition-[color,transform,background] duration-[160ms] outline-none hover:-translate-y-px hover:bg-glass-highlight hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/42%)] focus-visible:ring-offset-3"
+      className={className ?? "grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-glass-border bg-subtle p-0 text-muted transition-[color,transform,background] duration-[160ms] outline-none hover:-translate-y-px hover:bg-glass-highlight hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/42%)] focus-visible:ring-offset-3"}
       type="button"
       onClick={cycleTheme}
       aria-label={`${themeLabels[preference]}։ Փոխել՝ ${themeLabels[nextPreference]}`}
       title={themeLabels[preference]}
     >
-      <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
+      <Icon aria-hidden="true" size={className ? 21 : 18} strokeWidth={className ? 1.75 : 1.9} />
     </button>
   );
 });

@@ -1,3 +1,4 @@
+import {env} from "cloudflare:workers";
 import { useEffect, useRef } from "react";
 import {
   isRouteErrorResponse,
@@ -10,7 +11,26 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
+import { CandleLoader } from "./components/candle-loader";
 import "./app.css";
+
+const initialThemeScript = `(() => {
+  try {
+    const saved = localStorage.getItem("library-theme-v1");
+    if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+    const dark = saved === "dark" || (saved !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#100817" : "#f2ebf4");
+  } catch {}
+})();`;
+
+export async function loader({request}: Route.LoaderArgs) {
+  const telegramAdmin = await getOptionalTelegramAdmin(request, env.DB);
+
+  return {
+    showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
+  };
+}
 
 type TelegramWebApp = {
   initData?: string;
@@ -76,7 +96,7 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hy">
+    <html lang="hy" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta
@@ -85,6 +105,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <Meta />
         <Links />
+        <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
       </head>
       <body>
         {children}
@@ -131,7 +152,10 @@ export default function App() {
     };
   }, [revalidator]);
 
-  return <Outlet />;
+  return <>
+    <Outlet />
+    <CandleLoader />
+  </>;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

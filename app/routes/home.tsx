@@ -1,67 +1,38 @@
 import {env} from "cloudflare:workers";
-import {ArrowRight, LoaderCircle, Search} from "lucide-react";
+import {ArrowRight} from "lucide-react";
 import {memo} from "react";
-import {Form, Link, useNavigation} from "react-router";
+import {Link} from "react-router";
 
 import type {Route} from "./+types/home";
-import {getOptionalTelegramAdmin, hasAdminNavigationCookie,} from "../auth/admin.server";
 import {CategoryIcon} from "../components/category-icon";
 import {PageHeader, PageShell} from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
-import {countBadge, interactiveGlassCard, sectionHeader, sectionTitle,} from "../components/ui-styles";
+import {interactiveGlassCard, sectionHeader, sectionTitle,} from "../components/ui-styles";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
-import {useDebouncedFormSubmit} from "../hooks/use-debounced-form-submit";
 import LastSupperImg from '../assets/last-supper.webp'
 import AngelLeft from "../assets/angel-left.webp"
-import HomeVine from "../assets/home-vine.png"
+import CornerDecoration from "../assets/corner-decoration.webp"
 
-const HomeSearch = memo(function HomeSearch() {
-    const {cancelPending, formRef, scheduleSubmit} = useDebouncedFormSubmit(1_000);
-    const navigation = useNavigation();
-    const isSearching = navigation.location?.pathname === "/search";
-
-    return (<Form
-        ref={formRef}
-        className="text-[16px] font-noto flex py-0 pl-2 pr-1 text-faint shadow-card min-h-[42px] w-full items-center gap-[10px] rounded-[10px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_55%),var(--glass)]"
-        action="/search"
-        method="get"
-        role="search"
-        onSubmit={cancelPending}
-    >
-        <Search aria-hidden="true" size={20} strokeWidth={2}/>
-        <input
-            className="text-[16px] font-noto min-w-0 flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint"
-            type="search"
-            name="q"
-            placeholder="Փնտրել ամբողջ գրադարանում…"
-            aria-label="Փնտրել ամբողջ գրադարանում"
-            autoComplete="off"
-            onInput={scheduleSubmit}
-        />
-        <button
-            className="grid size-[30px] shrink-0 cursor-pointer place-items-center rounded-[6px] border border-[rgb(217_181_111/28%)] bg-[linear-gradient(145deg,var(--plum),#5d356c)] p-0 text-[#fffaf3]"
-            type="submit" aria-label="Որոնել">
-            {isSearching ? (<LoaderCircle
-                className="animate-search-spin"
-                aria-hidden="true"
-                size={19}
-            />) : (<ArrowRight aria-hidden="true" size={19} strokeWidth={1.9}/>)}
-        </button>
-    </Form>);
-});
-
-const CategoryCard = memo(function CategoryCard({
-                                                    category,
-                                                }: {
-    category: CategorySummary;
-}) {
+export function meta({}: Route.MetaArgs) {
+    return [{title: "Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան"}, {
+        name: "description", content: "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված թվային գրադարան։",
+    }, {name: "robots", content: "noindex, nofollow"}, {name: "theme-color", content: "#100817"},];
+}
+export async function loader({}: Route.LoaderArgs) {
+    return {categories: await listActiveCategories(env.DB)};
+}
+const CategoryCard = memo(function CategoryCard({category}: { category: CategorySummary; }) {
     return (<li>
         <Link
-            className={`${interactiveGlassCard} flex min-h-[55px] items-center gap-[13px] py-1 px-2 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[15px]`}
+            className={`${interactiveGlassCard} relative flex min-h-[55px] items-center gap-[13px] py-1 px-2 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[15px]`}
             to={`/categories/${category.slug}`}>
+            <img className="absolute -top-[12px] -left-[9.5px] z-1" src={CornerDecoration} alt="" width={100} height={100} decoding="async"/>
+            <img className="absolute -bottom-[9.5px] -right-[12px] transform rotate-90 scale-x-[-1] z-1" src={CornerDecoration} alt="" width={100} height={100} decoding="async"/>
+
         <span
-            className="grid size-[40px] shrink-0 place-items-center rounded-[10px] border border-[rgb(217_181_111/20%)] bg-[image:var(--icon-surface)] text-icon-ink shadow-[inset_0_1px_0_rgb(255_255_255/16%),0_12px_24px_rgb(8_2_13/22%)]"
+            // rounded-[6px] border border-[rgb(217_181_111/20%)] bg-[image:var(--icon-surface)] shadow-[inset_0_1px_0_rgb(255_255_255/16%),0_12px_24px_rgb(8_2_13/22%)]
+            className="grid size-[30px] shrink-0 place-items-center text-icon-ink"
             aria-hidden="true">
           <CategoryIcon categoryId={category.id} size={20} strokeWidth={1}/>
         </span>
@@ -79,45 +50,30 @@ const CategoryCard = memo(function CategoryCard({
     </li>);
 });
 
-const CategoryGrid = memo(function CategoryGrid({
-                                                    categories,
-                                                }: {
-    categories: CategorySummary[];
-}) {
+const CategoryGrid = memo(function CategoryGrid({categories}: { categories: CategorySummary[]; }) {
     return (<ol className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2 min-[960px]:grid-cols-3">
         {categories.map((category) => (<CategoryCard key={category.id} category={category}/>))}
     </ol>);
 });
 
-export function meta({}: Route.MetaArgs) {
-    return [{title: "Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան"}, {
-        name: "description", content: "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված թվային գրադարան։",
-    }, {name: "robots", content: "noindex, nofollow"}, {name: "theme-color", content: "#100817"},];
-}
-
-export async function loader({request}: Route.LoaderArgs) {
-    const [categories, telegramAdmin] = await Promise.all([listActiveCategories(env.DB), getOptionalTelegramAdmin(request, env.DB),]);
-
-    return {
-        categories, showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request),),
-    };
-}
 
 export default function Home({loaderData}: Route.ComponentProps) {
     return (<PageShell width="library">
         <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
             <div className="absolute top-[12px] -left-[10px] z-4 w-[27%] min-[560px]:top-[20px]">
-                <img className="block h-auto w-full" src={AngelLeft} alt="" width={480} height={480}/>
+                <img className="block h-auto w-full" src={AngelLeft} alt="" width={540} height={728} decoding="async"/>
             </div>
             <img
                 className="relative z-1 block h-auto w-full"
                 src={LastSupperImg}
                 alt="Խորհրդավոր ընթրիքը"
-                width={1600}
-                height={900}
+                width={1774}
+                height={887}
+                fetchPriority="high"
+                decoding="async"
             />
             <div className="absolute top-[12px] -right-[10px] z-4 w-[27%] scale-x-[-1] min-[560px]:top-[20px]">
-                <img className="block h-auto w-full" src={AngelLeft} alt="" width={480} height={480}/>
+                <img className="block h-auto w-full" src={AngelLeft} alt="" width={540} height={728} decoding="async"/>
             </div>
         </div>
         <div
@@ -129,7 +85,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
                 home
             />
         </div>
-        <HomeSearch/>
+        {/*<HomeSearch/>*/}
         <section className="grid gap-3 mt-2" aria-labelledby="categories-title">
             <div className={sectionHeader}>
                 <h2 className={sectionTitle} id="categories-title">Բաժիններ</h2>
@@ -138,6 +94,6 @@ export default function Home({loaderData}: Route.ComponentProps) {
 
             <CategoryGrid categories={loaderData.categories}/>
         </section>
-        <SiteNav showAdminLink={loaderData.showAdminLink}/>
+        <SiteNav/>
     </PageShell>);
 }

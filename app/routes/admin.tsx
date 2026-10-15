@@ -572,7 +572,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
 
   return (
     <PageShell width="admin">
-      <SiteNav />
+      <SiteNav showAdminLink />
       <PageHeader
         backTo="/"
         backLabel="Գրադարան"

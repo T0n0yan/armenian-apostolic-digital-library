@@ -47,7 +47,7 @@ export function PageTitle({title}: { title: ReactNode }) {
     const [firstLetter, ...rest] = Array.from(title);
 
     return (<>
-        <span className="font-trchnatar inline-block align-[0.04em] text-[1.08em] leading-none font-normal">
+        <span className="font-trchnatar inline-block align-[0.04em] text-[50px] leading-none font-normal">
             {firstLetter}
         </span>
         <span className="font-noto">{rest.join("")}</span>
@@ -84,7 +84,6 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             min-h-[30px]
             text-[13px]
             gap-[7px]
-            {/*mb-[18px]*/}
             px-[2px]
             font-bold
             inline-flex
@@ -106,7 +105,7 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
 
         <h1 className="
             w-full
-            text-[22px]
+            text-[18px]
             font-regular
             text-balance
             leading-9
