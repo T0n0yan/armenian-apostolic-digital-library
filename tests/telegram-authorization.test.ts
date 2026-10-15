@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+import { parseEnv } from "node:util";
+
+import {
+  readTelegramAuthorizationCredentials,
+  saveTelegramSession,
+  withTelegramSession,
+} from "../services/telegram-bridge/src/authorization-env";
+
+const FIXTURE_HASH = "0123456789abcdef0123456789abcdef";
+const FIXTURE_SESSION = "fixture_string_session_value_1234567890";
+
+test("authorization credentials require MTProto API credentials and never accept a bot token as a substitute", () => {
+  assert.throws(
+    () => readTelegramAuthorizationCredentials({ TELEGRAM_BOT_TOKEN: "000000000:fixture-token-not-a-secret" }),
+    /TELEGRAM_API_ID/u,
+  );
+  assert.deepEqual(
+    readTelegramAuthorizationCredentials({ TELEGRAM_API_ID: "12345", TELEGRAM_API_HASH: FIXTURE_HASH }),
+    { apiId: 12345, apiHash: FIXTURE_HASH },
+  );
+  assert.throws(
+    () => readTelegramAuthorizationCredentials({ TELEGRAM_API_ID: "12345", TELEGRAM_API_HASH: "not-a-hash" }),
+    /TELEGRAM_API_HASH/u,
+  );
+});
+
+test("session serialization replaces duplicates without exposing it as a command argument", () => {
+  const result = withTelegramSession(
+    "TELEGRAM_API_ID=12345\nTELEGRAM_SESSION=old\nTELEGRAM_SESSION=duplicate\n",
+    FIXTURE_SESSION,
+  );
+  assert.equal((result.match(/^TELEGRAM_SESSION=/gmu) ?? []).length, 1);
+  assert.match(result, new RegExp(FIXTURE_SESSION, "u"));
+  assert.throws(() => withTelegramSession("", "value\nwith-newline"), /invalid session/u);
+});
+
+test("session is written atomically to a regular local file with owner-only permissions", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "telegram-authorization-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const environmentFile = join(directory, ".env.local");
+  await writeFile(environmentFile, `TELEGRAM_API_ID=12345\nTELEGRAM_API_HASH=${FIXTURE_HASH}\n`, { mode: 0o644 });
+  await saveTelegramSession(environmentFile, FIXTURE_SESSION);
+  const contents = await readFile(environmentFile, "utf8");
+  assert.equal(parseEnv(contents).TELEGRAM_SESSION, FIXTURE_SESSION);
+  if (process.platform !== "win32") assert.equal((await stat(environmentFile)).mode & 0o777, 0o600);
+});

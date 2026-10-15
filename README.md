@@ -57,6 +57,23 @@ Local URL՝ `http://127.0.0.1:5173/`։ Mock Bridge-ը լսում է `http://127.
 
 Service-ը գտնվում է `services/telegram-bridge/`-ում և աշխատում է Node.js-ով։
 
+`TELEGRAM_BOT_TOKEN`-ը միայն Mini App `initData` validation-ի և bot-ի գործող
+ֆունկցիաների համար է։ MTProto history access-ը user session է և առանձին պահանջում
+է `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION`։ Bot token-ը դրանց
+փոխարինողը չէ։
+
+Local authorization preparation՝
+
+```bash
+cp services/telegram-bridge/.env.example services/telegram-bridge/.env.local
+# Լրացրու միայն TELEGRAM_API_ID և TELEGRAM_API_HASH։
+pnpm telegram:authorize
+```
+
+Command-ը phone/code/2FA արժեքները կարդում է թաքցված interactive input-ով և
+StringSession-ը atomic եղանակով պահում է նույն ignored `.env.local` ֆայլում՝ առանց
+stdout-ում ցուցադրելու։ Նոր Telegram account չի ստեղծվում։
+
 Production adapter-ի variables՝
 
 - `TELEGRAM_API_ID`
