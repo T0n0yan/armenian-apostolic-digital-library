@@ -23,6 +23,7 @@ build
 
 .local-artifacts
 .local-backups
+.cloudflared-staging
 screenshots
 tmp
 **/tmp
