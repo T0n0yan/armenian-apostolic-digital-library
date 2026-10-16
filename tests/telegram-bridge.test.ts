@@ -170,7 +170,9 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.match(videoHtml, /<video/u);
   assert.match(videoHtml, /thumbnail=1/u);
   const pollPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_109");
-  assert.match(await pollPage.text(), /Քվեարկել Telegram-ում/u);
+  const pollHtml = await pollPage.text();
+  assert.match(pollHtml, /Քվեարկել Telegram-ում/u);
+  assert.match(pollHtml, /Ընտրված պատասխան/u);
   const locationPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_108");
   assert.match(await locationPage.text(), /Բացել քարտեզում/u);
   const unsupportedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_110");

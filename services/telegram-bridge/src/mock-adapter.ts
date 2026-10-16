@@ -70,7 +70,7 @@ export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
     poll: {
       question: { text: "Ո՞ր սաղմոսն ես կարդում այսօր", entities: [] },
       options: [
-        { text: { text: "Սաղմոս 12", entities: [] }, voterCount: 3, chosen: false, correct: null },
+        { text: { text: "Սաղմոս 12", entities: [] }, voterCount: 3, chosen: true, correct: null },
         { text: { text: "Սաղմոս 50", entities: [] }, voterCount: 5, chosen: false, correct: null },
       ],
       totalVoters: 8,

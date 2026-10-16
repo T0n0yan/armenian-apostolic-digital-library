@@ -72,7 +72,19 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   assert.ok(uniquePosts.some((post) => post.contentType === "video"));
   assert.ok(uniquePosts.some((post) => post.contentType === "audio" || post.contentType === "voice"));
   assert.ok(uniquePosts.some((post) => post.contentType === "location" && post.location));
-  assert.ok(uniquePosts.some((post) => post.contentType === "unsupported"));
+
+  const poll = uniquePosts.find((post) => post.messageId === 64);
+  assert.equal(poll?.contentType, "poll");
+  assert.equal(poll?.topicId, 52);
+  assert.equal(poll?.poll?.options.length, 4);
+  assert.equal(poll?.poll?.quiz, true);
+  assert.equal(poll?.poll?.closed, false);
+  assert.equal(poll?.poll?.anonymous, true);
+  assert.equal(poll?.poll?.multipleChoice, false);
+  assert.ok(poll?.poll?.question.text);
+  const pollDetail = await app(request(`/posts/${chatId}/64`));
+  assert.equal(pollDetail.status, 200);
+  assert.equal((await pollDetail.json() as BridgePost).contentType, "poll");
 
   const album = uniquePosts.find((post) => post.contentType === "album")!;
   assert.deepEqual(album.media.map((media) => media.index), album.media.map((_, index) => index));
@@ -106,9 +118,17 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   }
 
   const audio = uniquePosts.find((post) => post.contentType === "audio" || post.contentType === "voice")!;
+  assert.equal(audio.messageId, 66);
+  assert.equal(audio.contentType, "audio");
+  assert.equal(audio.media[0]?.title, "Սաղմոս 12");
+  assert.ok(audio.media[0]?.duration && audio.media[0].duration > 0);
+  assert.equal(audio.media[0]?.hasThumbnail, true);
   const audioRange = await app(request(`/media/${chatId}/${audio.messageId}/0`, { headers: { range: "bytes=0-511" } }));
   assert.equal(audioRange.status, 206);
   assert.equal((await audioRange.arrayBuffer()).byteLength, 512);
+  const audioThumbnail = await app(request(`/media/${chatId}/${audio.messageId}/0?thumbnail=1`, { method: "HEAD" }));
+  assert.equal(audioThumbnail.status, 200);
+  assert.equal(audioThumbnail.headers.get("content-type"), "image/jpeg");
 
   const search = await app(request(`/search?q=${encodeURIComponent("Սաղմոս")}`));
   assert.equal(search.status, 200);

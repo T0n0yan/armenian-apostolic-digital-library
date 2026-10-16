@@ -24,6 +24,7 @@ import type {
   TelegramPost,
   TopicOptions,
 } from "./adapter";
+import { getCurrentPollSnapshot, type GramJsPollSnapshot } from "./gramjs-poll-compat";
 
 type GramConfig = {
   apiId: number;
@@ -189,9 +190,22 @@ function isMessage(value: Api.Message | undefined): value is Api.Message {
   return value instanceof Api.Message;
 }
 
-function pollFor(message: Api.Message): BridgePoll | null {
-  if (!(message.media instanceof Api.MessageMediaPoll)) return null;
-  const { poll, results } = message.media;
+type PollShape = {
+  question: { text: string; entities?: Api.TypeMessageEntity[] };
+  answers: Array<{ text: { text: string; entities?: Api.TypeMessageEntity[] }; option: Buffer }>;
+  closed?: boolean;
+  publicVoters?: boolean;
+  multipleChoice?: boolean;
+  quiz?: boolean;
+};
+type PollResultsShape = {
+  results?: Array<{ option: Buffer; voters?: number; chosen?: boolean; correct?: boolean }>;
+  totalVoters?: number;
+  solution?: string;
+  solutionEntities?: Api.TypeMessageEntity[];
+};
+
+function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
   const resultByOption = new Map((results.results ?? []).map((result) => [Buffer.from(result.option).toString("base64url"), result]));
   const exposesCorrectAnswer = (results.results ?? []).some((result) => Boolean(result.correct));
   return {
@@ -212,6 +226,20 @@ function pollFor(message: Api.Message): BridgePoll | null {
     quiz: Boolean(poll.quiz),
     explanation: results.solution ? formattedText(results.solution, results.solutionEntities) : null,
   };
+}
+
+function pollFor(message: Api.Message): BridgePoll | null {
+  if (!(message.media instanceof Api.MessageMediaPoll)) return null;
+  return pollDto(message.media.poll, message.media.results);
+}
+
+function currentPollDto(snapshot: GramJsPollSnapshot): BridgePoll {
+  return pollDto(snapshot, {
+    results: snapshot.results,
+    totalVoters: snapshot.totalVoters,
+    solution: snapshot.solution ?? undefined,
+    solutionEntities: snapshot.solutionEntities,
+  });
 }
 
 function locationFor(message: Api.Message): BridgeLocation | null {
@@ -385,12 +413,16 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     return nearby.filter(isMessage).filter((candidate) => groupedId(candidate) === group).sort((left, right) => left.id - right.id);
   }
 
-  private async toPost(chatId: string, messages: Api.Message[]): Promise<TelegramPost> {
+  private async toPost(chatId: string, messages: Api.Message[], signal?: AbortSignal): Promise<TelegramPost> {
     const ordered = [...messages].sort((left, right) => left.id - right.id);
     const lead = ordered.find((message) => message.message?.trim()) ?? ordered[0];
     const messageId = ordered[0].id;
     const body = cleanText(lead.message ?? "");
-    const poll = pollFor(lead);
+    const poll = pollFor(lead) ?? (
+      lead.media instanceof Api.MessageMediaUnsupported
+        ? await getCurrentPollSnapshot(this.client, chatId, lead.id, signal).then((snapshot) => snapshot ? currentPollDto(snapshot) : null)
+        : null
+    );
     const location = locationFor(lead);
     const media = ordered.map((message, index) => mediaFor(message, index, body || `Telegram media #${messageId}`))
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
@@ -464,7 +496,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       const oldestMessageId = Math.min(...messages.map((message) => message.id));
       cursor.offsets[key] = Math.min(cursor.offsets[key] ?? Number.MAX_SAFE_INTEGER, oldestMessageId);
     }
-    const posts = await Promise.all(hydratedGroups.map(({ chatId, messages }) => this.toPost(chatId, messages)));
+    const posts = await Promise.all(hydratedGroups.map(({ chatId, messages }) => this.toPost(chatId, messages, options.signal)));
     posts.sort((left, right) => (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || right.messageId - left.messageId);
     return { posts, nextCursor: mayHaveMore || candidates.length > selected.length ? encodeCursor(cursor) : null };
   }
@@ -477,7 +509,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     const result = await this.client.getMessages(chatId, { ids: messageId });
     const message = result.find(isMessage);
     if (!message) return null;
-    return this.toPost(chatId, await this.albumMessages(chatId, message));
+    return this.toPost(chatId, await this.albumMessages(chatId, message), signal);
   }
 
   private async mediaMessage(chatId: string, messageId: number, mediaIndex: number) {
