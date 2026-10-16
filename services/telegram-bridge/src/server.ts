@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
 import { once } from "node:events";
 
 import { createBridgeApplication } from "./app";
@@ -26,9 +26,39 @@ const application = createBridgeApplication({
   mediaConcurrency: config.mediaConcurrency,
   mediaTimeoutMs: config.mediaTimeoutMs,
   isReady: () => ready,
+  onMetric: (metric) => console.info(JSON.stringify({ event: "telegram_metric", ...metric })),
 });
 
 let activeRequests = 0;
+let activeMediaRequests = 0;
+let requestSequence = 0;
+
+function waitForDrainOrClose(outgoing: ServerResponse) {
+  return new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      outgoing.off("drain", drained);
+      outgoing.off("close", closed);
+      outgoing.off("error", failed);
+    };
+    const drained = () => { cleanup(); resolve(); };
+    const closed = () => { cleanup(); reject(new Error("Client disconnected.")); };
+    const failed = () => { cleanup(); reject(new Error("Client connection failed.")); };
+    outgoing.once("drain", drained);
+    outgoing.once("close", closed);
+    outgoing.once("error", failed);
+  });
+}
+
+function requestMetadata(pathname: string) {
+  const media = /^\/media\/-?\d{1,20}\/(\d{1,20})\/(\d{1,3})$/u.exec(pathname);
+  if (media) return { kind: "media", messageId: Number(media[1]), mediaIndex: Number(media[2]) };
+  if (pathname === "/categories" || pathname === "/topics") return { kind: "topics" };
+  if (pathname === "/search") return { kind: "search" };
+  if (/^\/categories\/[^/]+\/posts$/u.test(pathname)) return { kind: "topic-posts" };
+  if (/^\/posts\//u.test(pathname)) return { kind: "post" };
+  return { kind: "other" };
+}
+
 const server = createServer(async (incoming, outgoing) => {
   if (activeRequests >= config.requestConcurrency) {
     outgoing.writeHead(503, {
@@ -42,6 +72,14 @@ const server = createServer(async (incoming, outgoing) => {
   activeRequests += 1;
   const abort = new AbortController();
   const pathname = new URL(incoming.url || "/", "http://bridge.invalid").pathname;
+  const isMediaRequest = pathname.startsWith("/media/");
+  if (isMediaRequest) activeMediaRequests += 1;
+  const mediaRequestsAtStart = activeMediaRequests;
+  const requestId = ++requestSequence;
+  const startedAt = performance.now();
+  let responseStatus = 500;
+  let bytesWritten = 0;
+  let outcome = "ok";
   const timeoutMs = pathname.startsWith("/media/") ? config.mediaTimeoutMs : config.requestTimeoutMs;
   const timeout = setTimeout(() => abort.abort(new Error("Bridge request timed out.")), timeoutMs);
   timeout.unref();
@@ -58,16 +96,21 @@ const server = createServer(async (incoming, outgoing) => {
       ),
       signal: abort.signal,
     });
+    const applicationStartedAt = performance.now();
     const response = await application(request);
-    outgoing.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+    responseStatus = response.status;
+    const responseHeaders = new Headers(response.headers);
+    responseHeaders.append("server-timing", `bridge-app;dur=${(performance.now() - applicationStartedAt).toFixed(1)}`);
+    outgoing.writeHead(response.status, Object.fromEntries(responseHeaders.entries()));
     if (!response.body || incoming.method === "HEAD") { outgoing.end(); return; }
     const reader = response.body.getReader();
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        bytesWritten += value.byteLength;
         if (!outgoing.write(value)) {
-          await Promise.race([once(outgoing, "drain"), once(outgoing, "close")]);
+          await waitForDrainOrClose(outgoing);
           if (outgoing.destroyed) throw new Error("Client disconnected.");
         }
       }
@@ -76,6 +119,12 @@ const server = createServer(async (incoming, outgoing) => {
       reader.releaseLock();
     }
   } catch {
+    outcome = abort.signal.aborted
+      ? abort.signal.reason instanceof Error && /disconnect/iu.test(abort.signal.reason.message)
+        ? "aborted"
+        : "timeout"
+      : "error";
+    responseStatus = abort.signal.aborted ? 504 : 500;
     if (!outgoing.destroyed) {
       if (!outgoing.headersSent) {
         outgoing.writeHead(abort.signal.aborted ? 504 : 500, {
@@ -88,6 +137,20 @@ const server = createServer(async (incoming, outgoing) => {
   } finally {
     clearTimeout(timeout);
     activeRequests -= 1;
+    if (isMediaRequest) activeMediaRequests -= 1;
+    console.info(JSON.stringify({
+      event: "bridge_request",
+      requestId,
+      method: incoming.method ?? "GET",
+      ...requestMetadata(pathname),
+      status: responseStatus,
+      durationMs: Math.round(performance.now() - startedAt),
+      bytesWritten,
+      activeRequests,
+      activeMediaRequests,
+      mediaRequestsAtStart,
+      outcome,
+    }));
   }
 });
 

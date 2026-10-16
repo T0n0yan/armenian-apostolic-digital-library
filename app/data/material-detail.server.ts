@@ -47,10 +47,10 @@ export type MaterialDetail = {
   media: MaterialMedia[];
 };
 
-export async function getPublicMaterialDetail(database: D1Database, id: string): Promise<MaterialDetail | null> {
+export async function getPublicMaterialDetail(database: D1Database, id: string, signal?: AbortSignal): Promise<MaterialDetail | null> {
   const reference = parseMaterialId(id);
   if (!reference) return null;
-  const post = await getBridgePost(database, reference.chatId, reference.messageId);
+  const post = await getBridgePost(database, reference.chatId, reference.messageId, signal);
   if (!post?.categoryId || !post.categoryName || !post.categorySlug || post.deleted) return null;
   return {
     id: post.id,

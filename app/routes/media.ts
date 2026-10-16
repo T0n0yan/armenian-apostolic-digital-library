@@ -14,11 +14,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
   const upstream = await proxyBridgeMedia(env.DB, params.chatId, messageId, mediaIndex, request);
   const headers = new Headers();
-  for (const name of ["accept-ranges", "cache-control", "content-length", "content-range", "content-type", "x-content-type-options"]) {
+  for (const name of ["accept-ranges", "cache-control", "content-length", "content-range", "content-type", "server-timing", "x-content-type-options"]) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
   }
-  headers.set("cache-control", "private, no-store");
+  headers.set("cache-control", new URL(request.url).searchParams.get("thumbnail") === "1"
+    ? "private, max-age=300"
+    : "private, no-store");
   return new Response(request.method === "HEAD" ? null : upstream.body, {
     status: upstream.status,
     headers,

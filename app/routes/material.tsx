@@ -12,7 +12,7 @@ import {
   TelegramPollCard,
   TelegramUnsupportedCard,
 } from "../components/telegram-content";
-import { PageHeader, PageShell } from "../components/page-layout";
+import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
@@ -24,7 +24,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     throw new Response("Not Found", { status: 404 });
   }
   const [material, user] = await Promise.all([
-    getPublicMaterialDetail(env.DB, params.materialId),
+    getPublicMaterialDetail(env.DB, params.materialId, request.signal),
     getOptionalTelegramUser(request),
   ]);
   if (!material) throw new Response("Not Found", { status: 404 });
@@ -103,7 +103,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     <PageShell>
       <SiteNav />
       <PageHeader eyebrow="Հոգևոր ժառանգություն" title={notFound ? "Նյութը չի գտնվել" : "Չհաջողվեց բացել նյութը"} description="Փորձիր վերադառնալ բաժինների ցանկին։" />
-      <Link className="mt-4 inline-flex text-[13px] font-bold text-gold-bright" to="/">Վերադառնալ գլխավոր էջ</Link>
+      {notFound ? <Link className="mt-4 inline-flex text-[13px] font-bold text-gold-bright" to="/">Վերադառնալ գլխավոր էջ</Link> : <RouteErrorState title="Նյութը ժամանակավորապես չբացվեց" description="Կապը վերականգնելուց հետո կարող ես փորձել նույն էջը կրկին։" />}
     </PageShell>
   );
 }

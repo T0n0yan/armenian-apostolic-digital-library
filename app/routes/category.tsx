@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, RotateCw, Search } from "lucide-react";
+import { RotateCw, Search } from "lucide-react";
 import { memo, useCallback } from "react";
 import { isRouteErrorResponse, Link, useNavigation } from "react-router";
 
@@ -63,7 +63,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : 1;
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const [category, user] = await Promise.all([
-    getActiveCategoryBySlug(env.DB, params.slug),
+    getActiveCategoryBySlug(env.DB, params.slug, request.signal),
     getOptionalTelegramUser(request),
   ]);
 
@@ -84,8 +84,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   };
   const [materialResult, savedMaterialIds] = await Promise.all([
     query && resolvedQuery
-      ? searchMaterials(env.DB, filters, cursor, 30, resolvedQuery)
-      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor),
+      ? searchMaterials(env.DB, filters, cursor, 30, resolvedQuery, request.signal)
+      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
   const materials = materialResult.materials;
@@ -103,59 +103,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   };
 }
 
-const PsalmTile = memo(function PsalmTile({
-  canSave,
-  isSaved,
-  isSaving,
-  material,
-  onSavedChange,
-}: {
-  canSave: boolean;
-  isSaved: boolean;
-  isSaving: boolean;
-  material: PublicMaterial;
-  onSavedChange: (materialId: string, saved: boolean) => void;
-}) {
-  return (
-    <li className="relative animate-glass-enter">
-      <Link
-        className="grid min-h-[50px] place-items-center rounded-[15px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_46%),var(--card-glass)] text-[14px] font-[750] text-ink no-underline shadow-card transition-[border-color,color,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
-        to={`/materials/${material.id}`}
-        title={material.title}
-        aria-label={`${material.title} — բացել հավելվածում`}
-      >
-        {material.numberValue}
-      </Link>
-      {canSave ? (
-        <button
-          className={`absolute top-[3px] right-[3px] grid size-5 cursor-pointer place-items-center rounded-[7px] border-0 bg-transparent p-0 disabled:cursor-wait disabled:opacity-60 ${isSaved ? "text-gold-bright" : "text-faint"}`}
-          type="button"
-          disabled={isSaving}
-          onClick={() => onSavedChange(material.id, !isSaved)}
-          aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-          title={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-        >
-          <Bookmark
-            aria-hidden="true"
-            size={11}
-            strokeWidth={2}
-            fill={isSaved ? "currentColor" : "none"}
-          />
-        </button>
-      ) : null}
-    </li>
-  );
-});
-
 const MaterialsList = memo(function MaterialsList({
   canSave,
-  isPsalms,
   materials,
   savedMaterialIds,
   highlightQuery,
 }: {
   canSave: boolean;
-  isPsalms: boolean;
   materials: CategoryMaterial[];
   savedMaterialIds: string[];
   highlightQuery?: string;
@@ -169,18 +123,8 @@ const MaterialsList = memo(function MaterialsList({
   );
 
   return (
-    <ol className={`m-0 grid list-none p-0 ${isPsalms ? "grid-cols-[repeat(auto-fill,minmax(50px,1fr))] gap-2 min-[560px]:grid-cols-[repeat(auto-fill,minmax(58px,1fr))]" : "gap-2.5 min-[860px]:grid-cols-2"}`}>
+    <ol className="m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2">
       {materials.map((material) =>
-        isPsalms ? (
-          <PsalmTile
-            key={material.id}
-            material={material}
-            canSave={canSave}
-            isSaved={savedIds.has(material.id)}
-            isSaving={isSaving && pendingMaterialId === material.id}
-            onSavedChange={handleSavedChange}
-          />
-        ) : (
           <MaterialResultCard
             key={material.id}
             material={material}
@@ -190,7 +134,6 @@ const MaterialsList = memo(function MaterialsList({
             isSaving={isSaving && pendingMaterialId === material.id}
             onSavedChange={handleSavedChange}
           />
-        ),
       )}
     </ol>
   );
@@ -198,7 +141,6 @@ const MaterialsList = memo(function MaterialsList({
 
 export default function Category({ loaderData }: Route.ComponentProps) {
   const { category, materials } = loaderData;
-  const isPsalms = category.id === "category_psalms";
   const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[category.id] ??
     "Փնտրել այս թեմայում…";
   const categoryDescription = CATEGORY_DESCRIPTIONS[category.id]
@@ -243,7 +185,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         </div>
 
         {isRefreshing ? (
-          <MaterialListSkeleton count={isPsalms ? 8 : 4} />
+          <MaterialListSkeleton count={4} />
         ) : materials.length === 0 ? (
           loaderData.query ? (
             <EmptyState
@@ -264,7 +206,6 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         ) : (
           <MaterialsList
             canSave={loaderData.canSave}
-            isPsalms={isPsalms}
             materials={materials}
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}

@@ -7,6 +7,7 @@ import test from "node:test";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
+import { isPendingNavigation } from "../shared/navigation-state";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { readBridgeConfig } from "../services/telegram-bridge/src/config";
@@ -44,11 +45,13 @@ function telegramInitData(user: object, authDate = Math.floor(Date.now() / 1_000
 
 test("mock adapter and authenticated Bridge API cover pagination, search, posts and streaming", async () => {
   const adapter = new MockTelegramAdapter();
+  const metrics: string[] = [];
   const app = createBridgeApplication({
     adapter,
     allowedChatIds: new Set([MOCK_CHAT_ID]),
     sharedSecret: BRIDGE_SECRET,
     mediaConcurrency: 1,
+    onMetric: (metric) => metrics.push(`${metric.operation}:${metric.outcome}`),
   });
 
   const conflictingMappings: BridgeCategoryMappings = {
@@ -69,12 +72,15 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
 
   const categories = await (await app(bridgeRequest("/categories"))).json() as Array<{ id: string; materialCount: number }>;
   assert.equal(categories.find((item) => item.id === MOCK_TOPIC_ID)?.materialCount, 9);
+  assert.equal(categories.length, 7);
   const page = await (await app(bridgeRequest(`/categories/${MOCK_TOPIC_SLUG}/posts`))).json() as BridgePostPage;
   assert.ok(page.posts.some((post) => post.messageId === 101 && post.contentText.includes("խաղաղություն")));
   assert.equal(page.posts.find((post) => post.messageId === 102)?.media[0].kind, "photo");
   assert.deepEqual(page.posts.find((post) => post.messageId === 103)?.media.map((asset) => asset.index), [0, 1]);
   assert.ok(page.posts.find((post) => post.messageId === 104)?.editedAt);
   assert.equal(page.posts.find((post) => post.messageId === 109)?.poll?.totalVoters, 8);
+  const serializedPoll = JSON.stringify(page.posts.find((post) => post.messageId === 109)?.poll);
+  assert.doesNotMatch(serializedPoll, /chosen|correct|explanation/u);
   assert.equal(page.posts.find((post) => post.messageId === 108)?.location?.venueType, "church");
   assert.equal(page.posts.find((post) => post.messageId === 110)?.contentType, "unsupported");
 
@@ -82,6 +88,11 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.equal(deleted.status, 410);
   const search = await (await app(bridgeRequest("/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6"))).json() as BridgePostPage;
   assert.ok(search.posts.length >= 1);
+  for (const query of ["Սաղմ", "Սաղմոս", "սաղմ", "  Սաղմ  ", "Սաղմ,"]) {
+    const response = await app(bridgeRequest(`/search?q=${encodeURIComponent(query)}`));
+    assert.equal(response.status, 200);
+    assert.ok((await response.json() as BridgePostPage).posts.some((post) => /սաղմ/iu.test(post.title)));
+  }
 
   const unauthorized = await app(new Request("https://bridge.fixture/categories"));
   assert.equal(unauthorized.status, 401);
@@ -127,6 +138,53 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   await reader.cancel();
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
   assert.equal(adapter.stats.abortedStreams, 1);
+  assert.ok(metrics.includes("topics:ok"));
+  assert.ok(metrics.includes("search:ok"));
+  assert.ok(metrics.includes("media-descriptor:ok"));
+  assert.ok(metrics.includes("media-first-byte:ok"));
+});
+
+test("pending navigation, media failure isolation, and metadata abort remain safe", async () => {
+  assert.equal(isPendingNavigation("loading", "/materials/example", "/materials/example"), true);
+  assert.equal(isPendingNavigation("idle", undefined, "/materials/example"), false);
+
+  const mediaSource = readFileSync(resolve(ROOT, "app/components/material-media.tsx"), "utf8");
+  assert.match(mediaSource, /onError=\{\(\) => setFailed\(true\)\}/u);
+  assert.match(mediaSource, /media\.map\(\(asset, index\)/u);
+  assert.match(mediaSource, /մյուս մեդիան շարունակում է աշխատել/u);
+
+  const adapter = new MockTelegramAdapter();
+  adapter.search = async ({ signal }) => await new Promise((_, reject) => {
+    try { signal.throwIfAborted(); } catch (error) { reject(error); return; }
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
+  const app = createBridgeApplication({ adapter, allowedChatIds: new Set([MOCK_CHAT_ID]), sharedSecret: BRIDGE_SECRET });
+  const controller = new AbortController();
+  const pending = app(bridgeRequest("/search?q=slow-query", { signal: controller.signal }));
+  controller.abort(new Error("test abort"));
+  await assert.rejects(pending, /test abort/u);
+
+  const timeoutAdapter = new MockTelegramAdapter();
+  timeoutAdapter.streamMedia = async function* ({ signal }) {
+    await new Promise<void>((resolvePromise, reject) => {
+      const timer = setTimeout(resolvePromise, 5_000);
+      signal.addEventListener("abort", () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      }, { once: true });
+    });
+    yield new Uint8Array([1]);
+  };
+  const timeoutApp = createBridgeApplication({
+    adapter: timeoutAdapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    mediaTimeoutMs: 1_000,
+  });
+  const timedOutMedia = await timeoutApp(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, {
+    headers: { range: "bytes=0-63" },
+  }));
+  await assert.rejects(timedOutMedia.arrayBuffer(), /timeout|aborted/iu);
 });
 
 test("Bridge environment validation rejects unsafe deployment settings", () => {
@@ -220,15 +278,30 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
 
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /Աղոթքներ/u);
+  const homeHtml = await home.text();
+  assert.match(homeHtml, /Աղոթքներ/u);
+  assert.doesNotMatch(homeHtml, />General</u);
+  for (const topic of ["Աղոթքներ", "Սրբերի կյանք", "Ավետարանի ուսուցում", "Սաղմոսներ", "Հարցեր Աստվածաշնչից", "Օրվա ընթերցանություն"]) {
+    assert.match(homeHtml, new RegExp(topic, "u"));
+  }
   const category = await mf.dispatchFetch(`https://app.fixture/categories/${MOCK_TOPIC_SLUG}`);
-  assert.match(await category.text(), /Առավոտյան աղոթք/u);
+  const categoryHtml = await category.text();
+  assert.match(categoryHtml, /Առավոտյան աղոթք/u);
+  for (const label of ["Տեքստ", "Նկար", "2 նկար", "Տեսանյութ", "Հարցում", "Տեղադրություն", "Այլ նյութ"]) {
+    assert.match(categoryHtml, new RegExp(label, "u"));
+  }
+  assert.match(categoryHtml, /loading="lazy"/u);
+  assert.match(categoryHtml, /thumbnail=1/u);
+
+  const guestSaved = await mf.dispatchFetch("https://app.fixture/saved");
+  assert.equal(guestSaved.status, 200);
+  assert.match(await guestSaved.text(), /Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս/u);
 
   const imagePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_102");
   const imageHtml = await imagePage.text();
   assert.equal(imagePage.status, 200);
   assert.match(imageHtml, /<img/u);
-  assert.match(imageHtml, /\/media\/-100900\/102\/0/u);
+  assert.match(imageHtml, /<img[^>]+thumbnail=1/u);
   const formattedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_101");
   assert.match(await formattedPage.text(), /<strong>Տե՛ր<\/strong>/u);
   const videoPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_106");
@@ -238,7 +311,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const pollPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_109");
   const pollHtml = await pollPage.text();
   assert.match(pollHtml, /Քվեարկել Telegram-ում/u);
-  assert.match(pollHtml, /Ընտրված պատասխան/u);
+  assert.doesNotMatch(pollHtml, /Ընտրված պատասխան|Ճիշտ պատասխան|explanation/u);
   const locationPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_108");
   assert.match(await locationPage.text(), /Բացել քարտեզում/u);
   const unsupportedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_110");
@@ -261,6 +334,11 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
 
   const search = await mf.dispatchFetch(`https://app.fixture/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6&category=${encodeURIComponent(MOCK_TOPIC_ID)}`);
   assert.match(await search.text(), /Առավոտյան աղոթք/u);
+  const prefixSearch = await mf.dispatchFetch(`https://app.fixture/search?q=${encodeURIComponent("Սաղմ")}`);
+  const prefixSearchHtml = await prefixSearch.text();
+  assert.equal(prefixSearch.status, 200);
+  assert.match(prefixSearchHtml, /Ո՞ր սաղմոսն ես կարդում այսօր/u);
+  assert.match(prefixSearchHtml, /Հարցում/u);
 
   const session = await mf.dispatchFetch("https://app.fixture/telegram/session", {
     method: "POST",

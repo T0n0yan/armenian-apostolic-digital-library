@@ -1,5 +1,5 @@
-import { AlertCircle, FileText, Headphones, ImageIcon, Video } from "lucide-react";
-import { memo } from "react";
+import { AlertCircle, Expand, FileText, Headphones, ImageIcon, RotateCw, Video } from "lucide-react";
+import { memo, useState } from "react";
 
 import type { MaterialMedia } from "../data/material-detail.server";
 
@@ -41,27 +41,63 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
   );
 }
 
+function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boolean }) {
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const source = showOriginal || !asset.thumbnailUrl ? asset.url : asset.thumbnailUrl;
+  const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
+
+  if (!source) return <PendingMedia asset={asset} />;
+  if (failed) {
+    return (
+      <div className="grid min-h-[180px] place-items-center rounded-[18px] border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
+        <span className="grid justify-items-center gap-3">
+          <AlertCircle aria-hidden="true" className="text-gold" size={28} strokeWidth={1.6} />
+          <span className="text-[12px]">Նկարը չբեռնվեց, սակայն մյուս մեդիան շարունակում է աշխատել։</span>
+          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-glass-border bg-glass px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setFailed(false)}>
+            <RotateCw aria-hidden="true" size={15} /> Կրկին փորձել
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  const image = (
+    <img
+      className="block h-auto max-h-[74svh] w-full object-contain"
+      src={source}
+      sizes="(min-width: 960px) 430px, 92vw"
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : "auto"}
+      decoding="async"
+      width={asset.width ?? 1280}
+      height={asset.height ?? 800}
+      style={{ aspectRatio: ratio }}
+      alt={asset.altText || "Telegram հրապարակման նկար"}
+      onError={() => setFailed(true)}
+    />
+  );
+
+  return (
+    <figure className="relative m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
+      {!showOriginal && asset.thumbnailUrl && asset.url ? (
+        <button className="group relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => setShowOriginal(true)} aria-label="Բեռնել նկարի ամբողջական տարբերակը">
+          {image}
+          <span className="absolute right-3 bottom-3 inline-flex min-h-9 items-center gap-2 rounded-[11px] border border-white/20 bg-[rgb(17_8_22/72%)] px-3 text-[11px] font-bold text-white backdrop-blur-md transition-transform group-hover:-translate-y-0.5">
+            <Expand aria-hidden="true" size={14} /> Ամբողջ չափով
+          </span>
+        </button>
+      ) : image}
+    </figure>
+  );
+}
+
 function MediaItem({ asset, priority = false }: { asset: MaterialMedia; priority?: boolean }) {
   if (!asset.url) return <PendingMedia asset={asset} />;
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
   if (asset.kind === "photo") {
-    return (
-      <figure className="m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
-        <img
-          className="block h-auto max-h-[74svh] w-full object-contain"
-          src={asset.url}
-          sizes="(min-width: 960px) 860px, 100vw"
-          loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : "auto"}
-          decoding="async"
-          width={asset.width ?? 1280}
-          height={asset.height ?? 800}
-          style={{ aspectRatio: ratio }}
-          alt={asset.altText || "Telegram հրապարակման նկար"}
-        />
-      </figure>
-    );
+    return <PhotoMedia asset={asset} priority={priority} />;
   }
 
   if (asset.kind === "video" || asset.kind === "animation") {
@@ -116,7 +152,7 @@ export const MaterialMediaGallery = memo(function MaterialMediaGallery({ media }
   return (
     <section className="grid gap-2.5" aria-label="Հրապարակման մեդիա">
       <div className={media.length > 1 ? "grid snap-x snap-mandatory auto-cols-[minmax(84%,1fr)] grid-flow-col gap-2.5 overflow-x-auto pb-2 min-[720px]:snap-none min-[720px]:grid-flow-row min-[720px]:grid-cols-2 min-[720px]:overflow-visible min-[720px]:pb-0" : "grid gap-2.5"}>
-        {media.map((asset, index) => <div className="snap-center" key={asset.id}><MediaItem asset={asset} priority={index === 0} /></div>)}
+        {media.map((asset, index) => <div className="min-w-0 snap-center" key={asset.id}><MediaItem asset={asset} priority={index === 0} /></div>)}
       </div>
       {hasUnavailable ? (
         <p className="m-0 flex items-start gap-2 rounded-[12px] border border-[rgb(217_181_111/18%)] bg-[rgb(217_181_111/7%)] px-3 py-2.5 text-[11px] leading-[1.55] text-muted">

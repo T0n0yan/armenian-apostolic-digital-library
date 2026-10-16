@@ -82,7 +82,7 @@ export const SectionHeader = memo(function SectionHeader({
   description,
 }: SectionHeaderProps) {
   const { cancelPending, formRef, scheduleSubmit } =
-    useDebouncedFormSubmit(650);
+    useDebouncedFormSubmit(320, 2);
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === searchAction;
 
@@ -128,6 +128,7 @@ export const SectionHeader = memo(function SectionHeader({
               method="get"
               role="search"
               onSubmit={cancelPending}
+              aria-busy={isSearching || undefined}
             >
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
               <input
@@ -138,6 +139,7 @@ export const SectionHeader = memo(function SectionHeader({
                 placeholder={searchPlaceholder}
                 aria-label={searchLabel}
                 autoComplete="off"
+                minLength={2}
                 onInput={scheduleSubmit}
               />
               {query ? (

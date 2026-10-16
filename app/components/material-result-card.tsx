@@ -1,8 +1,18 @@
 import {
+  AlignLeft,
+  BarChart3,
   Bookmark,
   Check,
   ExternalLink,
+  FileQuestion,
+  FileText,
+  Headphones,
+  Image as ImageIcon,
+  Images,
+  LoaderCircle,
+  MapPin,
   Pencil,
+  Play,
   Share2,
   StickyNote,
   X,
@@ -17,9 +27,12 @@ import {
   type FormEvent,
   type MouseEvent,
 } from "react";
-import { Link } from "react-router";
+import { Link, useNavigation } from "react-router";
 
+import type { BridgeContentType } from "../../shared/telegram-bridge-contract";
+import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
+import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 
 type MaterialResultCardProps = {
@@ -28,9 +41,12 @@ type MaterialResultCardProps = {
     title: string;
     telegramUrl: string;
     dateValue: string | null;
+    publishedAt?: string | null;
     mediaTypes: string[];
     categoryName?: string;
     excerpt?: string | null;
+    contentType: BridgeContentType;
+    preview: MaterialCardPreview;
     personalNote?: string;
   };
   canSave: boolean;
@@ -44,6 +60,27 @@ type MaterialResultCardProps = {
     personalNote?: string,
   ) => void;
 };
+
+function durationLabel(seconds: number | null) {
+  if (!seconds || seconds < 0) return null;
+  return `${Math.floor(seconds / 60)}:${Math.round(seconds % 60).toString().padStart(2, "0")}`;
+}
+
+function contentTypeMeta(type: BridgeContentType, count: number) {
+  switch (type) {
+    case "photo": return { label: "Նկար", Icon: ImageIcon };
+    case "album": return { label: `${count} նկար`, Icon: Images };
+    case "video": return { label: "Տեսանյութ", Icon: Play };
+    case "audio": return { label: "Աուդիո", Icon: Headphones };
+    case "voice": return { label: "Ձայնային", Icon: Headphones };
+    case "poll": return { label: "Հարցում", Icon: BarChart3 };
+    case "location": return { label: "Տեղադրություն", Icon: MapPin };
+    case "document": return { label: "Փաստաթուղթ", Icon: FileText };
+    case "animation": return { label: "Շարժապատկեր", Icon: Play };
+    case "unsupported": return { label: "Այլ նյութ", Icon: FileQuestion };
+    default: return { label: "Տեքստ", Icon: AlignLeft };
+  }
+}
 
 function escapeRegularExpression(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -116,11 +153,24 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   allowNoteEditing = false,
   onSavedChange,
 }: MaterialResultCardProps) {
-  const date = formatArmenianDate(material.dateValue);
+  const date = formatArmenianDate(material.dateValue ?? material.publishedAt ?? null);
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
   const [isNoteMounted, setIsNoteMounted] = useState(false);
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
+  const navigation = useNavigation();
+  const targetPath = `/materials/${material.id}`;
+  const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
+  const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
+  const TypeIcon = typeMeta.Icon;
+  const previewTitle = material.contentType === "poll"
+    ? material.preview.pollQuestion
+    : material.contentType === "location"
+      ? material.preview.locationTitle
+      : material.contentType === "audio" || material.contentType === "voice"
+        ? material.preview.mediaTitle
+        : null;
+  const duration = durationLabel(material.preview.duration);
   const shareResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteTransitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightPattern = useMemo(
@@ -211,20 +261,45 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     <li className="animate-glass-enter">
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} flex min-h-[76px] items-center gap-[14px] px-[13px] pt-[12px] pb-[50px] text-inherit no-underline${isNoteMounted ? " pointer-events-none" : ""}`}
-          to={`/materials/${material.id}`}
+          className={`${interactiveGlassCard} grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] px-[12px] pt-[12px] pb-[52px] text-inherit no-underline active:scale-[.992] min-[560px]:grid-cols-[96px_minmax(0,1fr)]${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          to={targetPath}
+          prefetch="intent"
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
+          aria-busy={isOpening || undefined}
+          onClick={(event) => { if (isOpening) event.preventDefault(); }}
         >
-        <span className="relative z-1 grid min-w-0 flex-1 gap-[7px]">
+        <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle">
+          {material.preview.thumbnailUrl ? (
+            <img
+              className="h-full w-full object-cover"
+              src={material.preview.thumbnailUrl}
+              width={material.preview.width ?? 320}
+              height={material.preview.height ?? 240}
+              sizes="(min-width: 560px) 96px, 78px"
+              loading="lazy"
+              decoding="async"
+              alt=""
+            />
+          ) : (
+            <span className="grid h-full w-full place-items-center text-gold"><TypeIcon aria-hidden="true" size={25} strokeWidth={1.55} /></span>
+          )}
+          {material.contentType === "video" ? <span className="absolute inset-0 grid place-items-center bg-black/15 text-white"><span className="grid size-9 place-items-center rounded-full bg-black/55"><Play aria-hidden="true" size={18} fill="currentColor" /></span></span> : null}
+          {material.contentType === "album" ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white">{material.preview.mediaCount} նկար</span> : null}
+          {duration ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white tabular-nums">{duration}</span> : null}
+        </span>
+        <span className="relative z-1 grid min-w-0 gap-[6px]">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span>
+            {date ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
+          </span>
           {material.categoryName ? (
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
           ) : null}
-          {date ? <span className="text-[12px] font-[750] text-gold">{date}</span> : null}
-          <strong className="text-[15px] leading-[22px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(material.title, highlightPattern)}</strong>
-          {material.excerpt ? (
-            <span className="line-clamp-2 overflow-hidden text-[12px] leading-[1.5] text-muted">
-              {highlightText(material.excerpt, highlightPattern)}
+          <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
+          {material.excerpt || material.preview.performer || material.preview.locationSummary ? (
+            <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
+              {highlightText(material.excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
             </span>
           ) : null}
           {material.personalNote ? (
@@ -233,6 +308,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               {highlightText(material.personalNote, highlightPattern)}
             </span>
           ) : null}
+          {isOpening ? <span className="inline-flex items-center gap-2 text-[11px] font-bold text-gold-bright" role="status"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={14} /> Բացվում է…</span> : null}
         </span>
         </Link>
       {!isNoteMounted ? (

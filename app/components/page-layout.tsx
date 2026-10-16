@@ -85,12 +85,12 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             py-[5px]
             min-[560px]:gap-2
             min-[560px]:px-[6px]
-            min-[560px]:pt-[42px]
-            min-[560px]:pb-[32px]
+            min-[560px]:pt-[24px]
+            min-[560px]:pb-[20px]
             min-[960px]:px-[10px]
-            min-[960px]:pt-[52px]
-            min-[960px]:pb-[40px]
-            min-[1440px]:pt-[60px]
+            min-[960px]:pt-[30px]
+            min-[960px]:pb-[24px]
+            min-[1440px]:pt-[34px]
             ">
         {backTo && backLabel ? (<Link
             className="
@@ -121,16 +121,16 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
 
         <h1 className="
             w-full
-            text-[18px]
+            text-[26px]
             font-regular
             text-balance
             leading-9
             max-w-[860px]
             tracking-[-1.2px]
-            min-[560px]:text-[42px]
-            min-[560px]:leading-[49px]
-            min-[960px]:text-[58px]
-            min-[960px]:leading-[64px]
+            min-[560px]:text-[38px]
+            min-[560px]:leading-[45px]
+            min-[960px]:text-[50px]
+            min-[960px]:leading-[57px]
             ">
             <PageTitle title={title}/>
         </h1>

@@ -61,15 +61,12 @@ export type BridgePoll = {
   options: Array<{
     text: BridgeFormattedText;
     voterCount: number;
-    chosen: boolean;
-    correct: boolean | null;
   }>;
   totalVoters: number;
   closed: boolean;
   anonymous: boolean;
   multipleChoice: boolean;
   quiz: boolean;
-  explanation: BridgeFormattedText | null;
 };
 
 export type BridgeLocation = {

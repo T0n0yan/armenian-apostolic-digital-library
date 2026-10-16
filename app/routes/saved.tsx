@@ -5,7 +5,7 @@ import { Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
-  getOptionalTelegramUser,
+  getTelegramUserState,
   requireSameOriginUserRequest,
   requireTelegramUser,
   upsertAppUser,
@@ -26,6 +26,7 @@ import {
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
 import { getBridgePost } from "../data/telegram-bridge.server";
+import { TelegramBridgeError } from "../data/telegram-bridge.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 
@@ -41,12 +42,28 @@ export async function loader({ request }: Route.LoaderArgs) {
   const query = (new URL(request.url).searchParams.get("q") ?? "")
     .trim()
     .slice(0, 120);
-  const user = await getOptionalTelegramUser(request);
-  if (!user) return { user: null, groups: [], query, total: 0 };
-  await upsertAppUser(env.DB, user);
-  const materials = await listSavedMaterials(env.DB, user.id, query);
+  const auth = await getTelegramUserState(request);
+  const user = auth.user;
+  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0 };
+  try {
+    await upsertAppUser(env.DB, user);
+  } catch {
+    console.error(JSON.stringify({ event: "saved_loader_error", kind: "database" }));
+    return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0 };
+  }
+  let materials;
+  try {
+    materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
+  } catch (error) {
+    if (request.signal.aborted) throw error;
+    const errorKind = error instanceof TelegramBridgeError ? "bridge" as const : "database" as const;
+    console.error(JSON.stringify({ event: "saved_loader_error", kind: errorKind }));
+    return { user, authStatus: auth.status, errorKind, groups: [], query, total: 0 };
+  }
   return {
     user,
+    authStatus: auth.status,
+    errorKind: null,
     groups: groupSavedMaterials(materials),
     query,
     total: materials.length,
@@ -72,7 +89,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   await upsertAppUser(env.DB, user);
   const reference = parseMaterialId(materialId)!;
-  if (intent === "save" && !(await getBridgePost(env.DB, reference.chatId, reference.messageId))) {
+  if (intent === "save" && !(await getBridgePost(env.DB, reference.chatId, reference.messageId, request.signal))) {
     return Response.json({ saved: false, error: "material-unavailable" }, { status: 404 });
   }
   const saved = await setMaterialSaved(
@@ -148,9 +165,18 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         showSearch={Boolean(loaderData.user)}
       />
 
-      {!loaderData.user ? (
-        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Բացիր գրադարանը Telegram-ից">
-          <p>Այդպես քո պահած նյութերը կապվում են հենց քո Telegram հաշվի հետ։</p>
+      {loaderData.errorKind ? (
+        <RouteErrorState
+          title={loaderData.errorKind === "bridge" ? "Telegram նյութերն առայժմ անհասանելի են" : "Պահված նյութերը չհաջողվեց բեռնել"}
+          description={loaderData.errorKind === "bridge" ? "Bridge կապը ժամանակավորապես հասանելի չէ։ Քո պահված հղումները չեն կորել։" : "Տվյալների պահոցի հետ կապը չհաջողվեց։ Փորձիր կրկին։"}
+        />
+      ) : !loaderData.user ? (
+        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title={loaderData.authStatus === "invalid" ? "Telegram նույնականացման ժամկետն ավարտվել է" : "Իմ անկյունը հասանելի է Telegram-ում"}>
+          <p>{loaderData.authStatus === "invalid"
+            ? "Փակիր և նորից բացիր Mini App-ը Telegram-ից։"
+            : loaderData.authStatus === "unavailable"
+              ? "Telegram նույնականացումը այս միջավայրում կազմաձևված չէ։"
+              : "Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս։"}</p>
         </EmptyState>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">

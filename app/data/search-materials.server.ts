@@ -1,6 +1,7 @@
 import type { BridgePost } from "../../shared/telegram-bridge-contract";
-import { listBridgeCategories, searchBridgePosts } from "./telegram-bridge.server";
-import type { SearchCategoryGroup, SearchFilters, SearchMaterialPage } from "./search-materials";
+import { bridgePostToCardPreview } from "./materials.server";
+import { searchBridgePosts } from "./telegram-bridge.server";
+import type { SearchFilters, SearchMaterialPage } from "./search-materials";
 import { resolveSearchQuery, type ResolvedSearchQuery } from "./search-query.server";
 
 const sentenceEndings = new Set(["։", ".", "!", "?", "…"]);
@@ -45,34 +46,13 @@ function matchesDate(post: BridgePost, filters: SearchFilters) {
   return (!filters.dateFrom || date >= filters.dateFrom) && (!filters.dateTo || date <= filters.dateTo);
 }
 
-export async function searchMaterialGroups(
-  database: D1Database,
-  filters: SearchFilters,
-  resolvedQuery?: ResolvedSearchQuery,
-): Promise<SearchCategoryGroup[]> {
-  const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
-  const categories = await listBridgeCategories(database);
-  const pages = await Promise.all(categories.map((category) =>
-    searchBridgePosts(database, resolved.correctedQuery || resolved.original, category.id, null),
-  ));
-  return categories.flatMap((category, index) => {
-    const page = pages[index];
-    const count = page.posts.filter((post) => matchesDate(post, filters)).length;
-    return count || page.nextCursor ? [{
-      id: category.id,
-      slug: category.slug,
-      name: category.name,
-      materialCount: page.total ?? count + (page.nextCursor ? 1 : 0),
-    }] : [];
-  });
-}
-
 export async function searchMaterials(
   database: D1Database,
   filters: SearchFilters,
   cursor: string | null,
   _pageSize = 30,
   resolvedQuery?: ResolvedSearchQuery,
+  signal?: AbortSignal,
 ): Promise<SearchMaterialPage> {
   const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
   const page = await searchBridgePosts(
@@ -80,6 +60,7 @@ export async function searchMaterials(
     resolved.correctedQuery || resolved.original,
     filters.categoryId,
     cursor,
+    signal,
   );
   const posts = page.posts.filter((post) => matchesDate(post, filters));
   return {
@@ -94,6 +75,8 @@ export async function searchMaterials(
       publishedAt: post.publishedAt,
       mediaTypes: [...new Set(post.media.map((asset) => asset.kind))],
       excerpt: createSearchExcerpt(post.contentText || post.captionText, resolved.highlightQuery),
+      contentType: post.contentType,
+      preview: bridgePostToCardPreview(post),
     })),
     total: page.total ?? posts.length + (page.nextCursor ? 1 : 0),
     highlightQuery: resolved.highlightQuery,

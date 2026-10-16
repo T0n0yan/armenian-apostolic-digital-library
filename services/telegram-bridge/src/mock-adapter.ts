@@ -28,7 +28,7 @@ function media(
     title: null,
     performer: null,
     waveform: kind === "voice" ? "AQIDBA" : null,
-    hasThumbnail: kind === "video" || kind === "audio",
+    hasThumbnail: kind === "photo" || kind === "video" || kind === "audio",
     altText: kind === "photo" ? "Փորձնական Telegram նկար" : "Փորձնական Telegram տեսանյութ",
     ...overrides,
   };
@@ -70,15 +70,14 @@ export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
     poll: {
       question: { text: "Ո՞ր սաղմոսն ես կարդում այսօր", entities: [] },
       options: [
-        { text: { text: "Սաղմոս 12", entities: [] }, voterCount: 3, chosen: true, correct: null },
-        { text: { text: "Սաղմոս 50", entities: [] }, voterCount: 5, chosen: false, correct: null },
+        { text: { text: "Սաղմոս 12", entities: [] }, voterCount: 3 },
+        { text: { text: "Սաղմոս 50", entities: [] }, voterCount: 5 },
       ],
       totalVoters: 8,
       closed: false,
       anonymous: true,
       multipleChoice: false,
       quiz: false,
-      explanation: null,
     },
   }),
   post({
@@ -135,20 +134,44 @@ export class MockTelegramAdapter implements TelegramAdapter {
   async close() {}
 
   async listTopics(): Promise<BridgeCategory[]> {
-    return [{
-      id: createTopicCategoryId(CHAT_ID, 700),
-      slug: createTopicSlug(CHAT_ID, 700),
-      name: "Աղոթքներ",
-      defaultSort: "date-desc",
-      materialCount: MOCK_TELEGRAM_POSTS.filter((item) => !item.deleted).length,
-      messageCount: MOCK_TELEGRAM_POSTS.length,
-      chatId: CHAT_ID,
-      topicId: 700,
-      status: "open",
-      iconColor: 0x6fb9f0,
-      iconEmojiId: null,
-      isGeneral: false,
-    }];
+    const namedTopics = [
+      [700, "Աղոթքներ"],
+      [701, "Սրբերի կյանք"],
+      [702, "Ավետարանի ուսուցում"],
+      [703, "Սաղմոսներ"],
+      [704, "Հարցեր Աստվածաշնչից"],
+      [705, "Օրվա ընթերցանություն"],
+    ] as const;
+    return [
+      {
+        id: createTopicCategoryId(CHAT_ID, 1),
+        slug: createTopicSlug(CHAT_ID, 1),
+        name: "General",
+        defaultSort: "date-desc",
+        materialCount: 0,
+        messageCount: 0,
+        chatId: CHAT_ID,
+        topicId: 1,
+        status: "open",
+        iconColor: 0x6f7780,
+        iconEmojiId: null,
+        isGeneral: true,
+      },
+      ...namedTopics.map(([topicId, name]) => ({
+        id: createTopicCategoryId(CHAT_ID, topicId),
+        slug: createTopicSlug(CHAT_ID, topicId),
+        name,
+        defaultSort: "date-desc" as const,
+        materialCount: topicId === 700 ? MOCK_TELEGRAM_POSTS.filter((item) => !item.deleted).length : 0,
+        messageCount: topicId === 700 ? MOCK_TELEGRAM_POSTS.length : 0,
+        chatId: CHAT_ID,
+        topicId,
+        status: "open" as const,
+        iconColor: 0x6fb9f0,
+        iconEmojiId: null,
+        isGeneral: false,
+      })),
+    ];
   }
 
   async listHistory({ cursor, limit, signal }: HistoryOptions): Promise<AdapterPage> {

@@ -17,6 +17,7 @@ type BridgeApplicationOptions = {
   mediaTimeoutMs?: number;
   topicCacheTtlMs?: number;
   isReady?: () => boolean;
+  onMetric?: (metric: { operation: string; durationMs: number; outcome: "ok" | "error" }) => void;
 };
 
 class Semaphore {
@@ -97,13 +98,53 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
   const timeoutMs = Math.max(1_000, options.mediaTimeoutMs ?? 120_000);
   const topicCacheTtlMs = Math.max(1_000, options.topicCacheTtlMs ?? 15_000);
   let topicCache: { expiresAt: number; value: BridgeCategory[] } | null = null;
+  let topicInflight: Promise<BridgeCategory[]> | null = null;
+  const postCache = new Map<string, { expiresAt: number; value: TelegramPost | null }>();
+  const postInflight = new Map<string, Promise<TelegramPost | null>>();
+
+  async function telegramCall<T>(operation: string, action: () => Promise<T>) {
+    const startedAt = performance.now();
+    try {
+      const value = await action();
+      options.onMetric?.({ operation, durationMs: Math.round(performance.now() - startedAt), outcome: "ok" });
+      return value;
+    } catch (error) {
+      options.onMetric?.({ operation, durationMs: Math.round(performance.now() - startedAt), outcome: "error" });
+      throw error;
+    }
+  }
 
   async function topics(refresh: boolean, signal: AbortSignal) {
     if (!refresh && topicCache && topicCache.expiresAt > Date.now()) return topicCache.value;
-    const value = (await options.adapter.listTopics({ refresh, signal }))
-      .filter((topic) => topic.chatId && options.allowedChatIds.has(topic.chatId));
-    topicCache = { expiresAt: Date.now() + topicCacheTtlMs, value };
-    return value;
+    if (!refresh && topicInflight) return topicInflight;
+    const pending = telegramCall("topics", () => options.adapter.listTopics({ refresh, signal })).then((value) => {
+      const allowed = value.filter((topic) => topic.chatId && options.allowedChatIds.has(topic.chatId));
+      topicCache = { expiresAt: Date.now() + topicCacheTtlMs, value: allowed };
+      return allowed;
+    }).finally(() => {
+      if (topicInflight === pending) topicInflight = null;
+    });
+    topicInflight = pending;
+    return pending;
+  }
+
+  async function rawPost(chatId: string, messageId: number, signal: AbortSignal) {
+    const key = `${chatId}:${messageId}`;
+    const cached = postCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const existing = postInflight.get(key);
+    if (existing) return existing;
+    const pending = telegramCall("post", () => options.adapter.getPost(chatId, messageId, signal)).then((value) => {
+      postCache.set(key, { expiresAt: Date.now() + (value ? 15_000 : 3_000), value });
+      while (postCache.size > 300) {
+        const oldest = postCache.keys().next().value as string | undefined;
+        if (!oldest) break;
+        postCache.delete(oldest);
+      }
+      return value;
+    }).finally(() => postInflight.delete(key));
+    postInflight.set(key, pending);
+    return pending;
   }
 
   async function filteredPage(
@@ -119,11 +160,21 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     let adapterCursor = cursor;
     let loops = 0;
     do {
+      const categoryChatId = category?.chatId ?? null;
+      const categoryTopicId = category?.topicId ?? null;
       const page = query
-        ? await options.adapter.search({ cursor: adapterCursor, limit: 30, query, signal })
-        : category?.chatId && category.topicId
-          ? await options.adapter.listHistory({ cursor: adapterCursor, limit: 30, chatId: category.chatId, topicId: category.topicId, signal })
-          : await options.adapter.listHistory({ cursor: adapterCursor, limit: 30, signal });
+        ? await telegramCall("search", () => options.adapter.search({
+            cursor: adapterCursor,
+            limit: 30,
+            query,
+            signal,
+            ...(categoryChatId && categoryTopicId
+              ? { chatId: categoryChatId, topicId: categoryTopicId }
+              : {}),
+          }))
+        : categoryChatId && categoryTopicId
+          ? await telegramCall("topic-history", () => options.adapter.listHistory({ cursor: adapterCursor, limit: 30, chatId: categoryChatId, topicId: categoryTopicId, signal }))
+          : await telegramCall("history", () => options.adapter.listHistory({ cursor: adapterCursor, limit: 30, signal }));
       adapterCursor = page.nextCursor;
       for (const raw of page.posts) {
         if (!allowedPost(raw, options.allowedChatIds)) continue;
@@ -175,7 +226,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
         return new Response("Not Found", { status: 404 });
       }
       const category = availableTopics.find((topic) => topic.slug === categorySlug || topic.id === categorySlug) ?? null;
-      if (!query && !category) return json({ posts: [], nextCursor: null, total: 0 } satisfies BridgePostPage);
+      if ((!query || Array.from(query).length < 2) && !category) return json({ posts: [], nextCursor: null, total: 0 } satisfies BridgePostPage);
       return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), query, category?.slug ?? null, request.signal));
     }
 
@@ -189,7 +240,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
       const [, chatId, rawMessageId] = postMatch;
       const messageId = safeInteger(rawMessageId);
       if (!messageId || !options.allowedChatIds.has(chatId)) return new Response("Not Found", { status: 404 });
-      const raw = await options.adapter.getPost(chatId, messageId, request.signal);
+      const raw = await rawPost(chatId, messageId, request.signal);
       if (!raw) return new Response("Not Found", { status: 404 });
       if (raw.deleted) return json({ deleted: true }, 410);
       const post = categorizePost(raw, await topics(false, request.signal));
@@ -204,11 +255,13 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
       if (!messageId || !Number.isSafeInteger(mediaIndex) || mediaIndex < 0 || !options.allowedChatIds.has(chatId)) {
         return new Response("Not Found", { status: 404 });
       }
-      const raw = await options.adapter.getPost(chatId, messageId, request.signal);
+      const raw = await rawPost(chatId, messageId, request.signal);
       const availableTopics = await topics(false, request.signal);
       if (!raw || raw.deleted || !categorizePost(raw, availableTopics).categoryId) return new Response("Not Found", { status: 404 });
       const thumbnail = url.searchParams.get("thumbnail") === "1";
-      const descriptor = await options.adapter.getMediaDescriptor(chatId, messageId, mediaIndex, request.signal, thumbnail);
+      const descriptor = await telegramCall("media-descriptor", () =>
+        options.adapter.getMediaDescriptor(chatId, messageId, mediaIndex, request.signal, thumbnail)
+      );
       if (!descriptor?.sizeBytes) return new Response("Not Found", { status: 404 });
       const range = parseRangeHeader(request.headers.get("range"), descriptor.sizeBytes);
       if (range === "invalid") {
@@ -232,6 +285,8 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
       const signal = AbortSignal.any([request.signal, timeout, streamAbort.signal]);
       let release: (() => void) | null = await semaphore.acquire(signal);
       const iterator = options.adapter.streamMedia({ chatId, messageId, mediaIndex, start, end, thumbnail, signal })[Symbol.asyncIterator]();
+      const streamStartedAt = performance.now();
+      let firstChunkMeasured = false;
       const finish = async () => {
         const current = release;
         release = null;
@@ -243,8 +298,15 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
           try {
             const next = await iterator.next();
             if (next.done) { controller.close(); await finish(); }
-            else controller.enqueue(next.value);
+            else {
+              if (!firstChunkMeasured) {
+                firstChunkMeasured = true;
+                options.onMetric?.({ operation: "media-first-byte", durationMs: Math.round(performance.now() - streamStartedAt), outcome: "ok" });
+              }
+              controller.enqueue(next.value);
+            }
           } catch (error) {
+            if (!firstChunkMeasured) options.onMetric?.({ operation: "media-first-byte", durationMs: Math.round(performance.now() - streamStartedAt), outcome: "error" });
             controller.error(error);
             await finish();
           }

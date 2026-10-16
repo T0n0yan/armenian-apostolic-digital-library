@@ -1,4 +1,4 @@
-import { BarChart3, CheckCircle2, ExternalLink, MapPin, TriangleAlert } from "lucide-react";
+import { BarChart3, ExternalLink, MapPin, TriangleAlert } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
 import type {
@@ -58,9 +58,9 @@ export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; tele
         {poll.options.map((option, index) => {
           const percent = poll.totalVoters > 0 ? Math.round(option.voterCount / poll.totalVoters * 100) : 0;
           return (
-            <li className={`grid gap-1.5 rounded-[12px] ${option.chosen ? "border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/7%)] p-2.5" : ""}`} key={`${index}-${option.text.text}`}>
+            <li className="grid gap-1.5 rounded-[12px] border border-glass-border bg-subtle p-2.5" key={`${index}-${option.text.text}`}>
               <div className="flex items-start justify-between gap-3 text-[13px] text-ink">
-                <span className="flex items-start gap-1.5"><FormattedTelegramText value={option.text} />{option.correct ? <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-500" aria-label="Ճիշտ պատասխան" size={15} /> : null}{option.chosen ? <span className="sr-only">Ընտրված պատասխան</span> : null}</span>
+                <span className="flex items-start gap-1.5"><FormattedTelegramText value={option.text} /></span>
                 <span className="shrink-0 tabular-nums text-muted">{option.voterCount} · {percent}%</span>
               </div>
               <span className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><span className="block h-full rounded-full bg-gold/65" style={{ width: `${percent}%` }} /></span>
@@ -68,8 +68,7 @@ export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; tele
           );
         })}
       </ol>
-      {poll.explanation ? <p className="m-0 rounded-[12px] bg-subtle p-3 text-[12px] leading-[1.6] text-muted"><FormattedTelegramText value={poll.explanation} /></p> : null}
-      {!poll.closed ? <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Քվեարկել Telegram-ում</a> : null}
+      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> {poll.closed ? "Բացել Telegram-ում" : "Քվեարկել Telegram-ում"}</a>
     </section>
   );
 }

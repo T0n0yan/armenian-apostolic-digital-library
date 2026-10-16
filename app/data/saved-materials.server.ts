@@ -1,5 +1,6 @@
-import { createMaterialId, parseMaterialId } from "../../shared/telegram-bridge-contract";
+import { createMaterialId, parseMaterialId, type BridgeContentType } from "../../shared/telegram-bridge-contract";
 import { normalizeSearchText } from "./material-content.server";
+import { bridgePostToCardPreview, createMaterialExcerpt, type MaterialCardPreview } from "./materials.server";
 import { createSearchExcerpt } from "./search-materials.server";
 import type { ResolvedSearchQuery } from "./search-query.server";
 import { getBridgePost } from "./telegram-bridge.server";
@@ -18,6 +19,8 @@ export type SavedMaterial = {
   personalNote: string;
   savedAt: string;
   excerpt: string | null;
+  contentType: BridgeContentType;
+  preview: MaterialCardPreview;
   unavailable?: boolean;
 };
 
@@ -53,18 +56,26 @@ export async function listSavedMaterials(
   userId: string,
   query = "",
   resolvedQuery?: ResolvedSearchQuery,
+  signal?: AbortSignal,
 ): Promise<SavedMaterial[]> {
   const { results } = await database.prepare(
     `SELECT chat_id, message_id, personal_note, personal_note_search, saved_at
      FROM saved_materials WHERE user_id = ? ORDER BY saved_at DESC LIMIT 500`,
   ).bind(userId).all<SavedReferenceRow>();
   const normalizedQuery = resolvedQuery?.highlightQuery || normalizeSearchText(query);
-  const hydrated = await Promise.all(results.map(async (row): Promise<SavedMaterial | null> => {
-    const post = await getBridgePost(database, row.chat_id, row.message_id);
-    if (!post?.categoryId || !post.categoryName || !post.categorySlug) {
-      const title = "Հրապարակումն այլևս հասանելի չէ";
-      if (normalizedQuery && !normalizeSearchText(`${title} ${row.personal_note}`).includes(normalizedQuery)) return null;
-      return {
+  const hydrated: Array<SavedMaterial | null> = new Array(results.length).fill(null);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(4, results.length) }, async () => {
+    while (nextIndex < results.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      signal?.throwIfAborted();
+      const row = results[index];
+      const post = await getBridgePost(database, row.chat_id, row.message_id, signal);
+      if (!post?.categoryId || !post.categoryName || !post.categorySlug) {
+        const title = "Հրապարակումն այլևս հասանելի չէ";
+        if (normalizedQuery && !normalizeSearchText(`${title} ${row.personal_note}`).includes(normalizedQuery)) continue;
+        hydrated[index] = {
         id: createMaterialId(row.chat_id, row.message_id),
         title,
         telegramUrl: unavailableTelegramUrl(row.chat_id, row.message_id),
@@ -78,12 +89,28 @@ export async function listSavedMaterials(
         personalNote: row.personal_note,
         savedAt: row.saved_at,
         excerpt: row.personal_note || "Telegram հրապարակումը ջնջված է կամ այլևս հասանելի չէ։",
+        contentType: "unsupported",
+        preview: {
+          thumbnailUrl: null,
+          width: null,
+          height: null,
+          mediaCount: 0,
+          duration: null,
+          mediaTitle: null,
+          performer: null,
+          pollQuestion: null,
+          pollOptionCount: null,
+          locationTitle: null,
+          locationSummary: null,
+          unsupportedType: "unavailable",
+        },
         unavailable: true,
-      };
-    }
-    const searchable = normalizeSearchText(`${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${row.personal_note}`);
-    if (normalizedQuery && !searchable.includes(normalizedQuery)) return null;
-    return {
+        };
+        continue;
+      }
+      const searchable = normalizeSearchText(`${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${row.personal_note}`);
+      if (normalizedQuery && !searchable.includes(normalizedQuery)) continue;
+      hydrated[index] = {
       id: post.id,
       title: post.title,
       telegramUrl: post.telegramUrl,
@@ -98,9 +125,13 @@ export async function listSavedMaterials(
       savedAt: row.saved_at,
       excerpt: normalizedQuery
         ? createSearchExcerpt(post.contentText || post.captionText || row.personal_note, normalizedQuery)
-        : null,
-    };
-  }));
+        : createMaterialExcerpt(post.contentText || post.captionText || row.personal_note),
+      contentType: post.contentType,
+      preview: bridgePostToCardPreview(post),
+      };
+    }
+  });
+  await Promise.all(workers);
   return hydrated.filter((item): item is SavedMaterial => item !== null);
 }
 

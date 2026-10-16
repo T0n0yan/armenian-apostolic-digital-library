@@ -25,7 +25,21 @@ function base64Url(value: string) {
   return btoa(binary).replace(/\+/gu, "-").replace(/\//gu, "_").replace(/=+$/u, "");
 }
 
+let mappingCache: { expiresAt: number; value: BridgeCategoryMappings } | null = null;
+let mappingInflight: Promise<BridgeCategoryMappings> | null = null;
+let categoryCache: { expiresAt: number; value: BridgeCategory[] } | null = null;
+let categoryInflight: Promise<BridgeCategory[]> | null = null;
+
 export async function loadBridgeMappings(database: D1Database): Promise<BridgeCategoryMappings> {
+  if (mappingCache && mappingCache.expiresAt > Date.now()) return mappingCache.value;
+  if (mappingInflight) return mappingInflight;
+  mappingInflight = readBridgeMappings(database).finally(() => { mappingInflight = null; });
+  const value = await mappingInflight;
+  mappingCache = { expiresAt: Date.now() + 30_000, value };
+  return value;
+}
+
+async function readBridgeMappings(database: D1Database): Promise<BridgeCategoryMappings> {
   const [topics, hashtags, posts] = await Promise.all([
     database.prepare(
       `SELECT sources.chat_id, topics.topic_id, topics.category_id
@@ -44,9 +58,18 @@ export async function loadBridgeMappings(database: D1Database): Promise<BridgeCa
   };
 }
 
-async function bridgeFetch(path: string, database: D1Database, init: RequestInit = {}, acceptError = false) {
+async function bridgeFetch(
+  path: string,
+  database: D1Database,
+  init: RequestInit = {},
+  acceptError = false,
+  timeoutMs = 20_000,
+) {
+  const startedAt = performance.now();
   const { origin, secret, access } = configuration();
+  const mappingsStartedAt = performance.now();
   const mappings = await loadBridgeMappings(database);
+  const mappingsDurationMs = Math.round(performance.now() - mappingsStartedAt);
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${secret}`);
   if (access) {
@@ -54,22 +77,63 @@ async function bridgeFetch(path: string, database: D1Database, init: RequestInit
     headers.set("CF-Access-Client-Secret", access.clientSecret);
   }
   headers.set("x-telegram-category-mappings", base64Url(JSON.stringify(mappings)));
-  const response = await fetch(new URL(path, origin), { ...init, headers });
-  if (!response.ok && !acceptError) throw new TelegramBridgeError(response.status);
-  return response;
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+  let status = 0;
+  let outcome: "ok" | "error" | "aborted" = "ok";
+  try {
+    const response = await fetch(new URL(path, origin), { ...init, headers, signal });
+    status = response.status;
+    if (!response.ok && !acceptError) throw new TelegramBridgeError(response.status);
+    return response;
+  } catch (error) {
+    outcome = signal.aborted ? "aborted" : "error";
+    throw error;
+  } finally {
+    console.info(JSON.stringify({
+      event: "worker_bridge_request",
+      kind: bridgeRequestKind(path),
+      status,
+      outcome,
+      mappingsDurationMs,
+      durationMs: Math.round(performance.now() - startedAt),
+    }));
+  }
 }
 
-export async function listBridgeCategories(database: D1Database, refresh = false) {
+function bridgeRequestKind(path: string) {
+  const pathname = path.split("?", 1)[0];
+  if (pathname === "/categories") return "topics";
+  if (pathname === "/search") return "search";
+  if (pathname === "/unclassified") return "unclassified";
+  if (/^\/categories\/[^/]+\/posts$/u.test(pathname)) return "topic-posts";
+  if (/^\/posts\//u.test(pathname)) return "post";
+  if (/^\/media\//u.test(pathname)) return "media";
+  return "other";
+}
+
+export async function listBridgeCategories(database: D1Database, refresh = false, signal?: AbortSignal) {
+  if (!refresh && categoryCache && categoryCache.expiresAt > Date.now()) return categoryCache.value;
+  if (!refresh && categoryInflight) return categoryInflight;
   const query = refresh ? "?refresh=1" : "";
-  return (await (await bridgeFetch(`/categories${query}`, database, { signal: AbortSignal.timeout(20_000) })).json()) as BridgeCategory[];
+  const pending = bridgeFetch(`/categories${query}`, database, { signal }).then(async (response) =>
+    await response.json() as BridgeCategory[]
+  ).then((value) => {
+    categoryCache = { expiresAt: Date.now() + 15_000, value };
+    return value;
+  }).finally(() => {
+    if (categoryInflight === pending) categoryInflight = null;
+  });
+  categoryInflight = pending;
+  return pending;
 }
 
-export async function listBridgeCategoryPosts(database: D1Database, slug: string, cursor: string | null) {
+export async function listBridgeCategoryPosts(database: D1Database, slug: string, cursor: string | null, signal?: AbortSignal) {
   const search = new URLSearchParams();
   if (cursor) search.set("cursor", cursor);
   const suffix = search.toString();
   return (await (await bridgeFetch(`/categories/${encodeURIComponent(slug)}/posts${suffix ? `?${suffix}` : ""}`, database, {
-    signal: AbortSignal.timeout(20_000),
+    signal,
   })).json()) as BridgePostPage;
 }
 
@@ -78,24 +142,25 @@ export async function searchBridgePosts(
   query: string,
   category: string,
   cursor: string | null,
+  signal?: AbortSignal,
 ) {
   const search = new URLSearchParams({ q: query });
   if (category) search.set("category", category);
   if (cursor) search.set("cursor", cursor);
-  return (await (await bridgeFetch(`/search?${search}`, database, { signal: AbortSignal.timeout(20_000) })).json()) as BridgePostPage;
+  return (await (await bridgeFetch(`/search?${search}`, database, { signal })).json()) as BridgePostPage;
 }
 
-export async function listUnclassifiedBridgePosts(database: D1Database, cursor: string | null = null) {
+export async function listUnclassifiedBridgePosts(database: D1Database, cursor: string | null = null, signal?: AbortSignal) {
   const search = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
   return (await (await bridgeFetch(`/unclassified${search}`, database, {
-    signal: AbortSignal.timeout(20_000),
+    signal,
   })).json()) as BridgePostPage;
 }
 
-export async function getBridgePost(database: D1Database, chatId: string, messageId: number) {
+export async function getBridgePost(database: D1Database, chatId: string, messageId: number, signal?: AbortSignal) {
   try {
     return (await (await bridgeFetch(`/posts/${encodeURIComponent(chatId)}/${messageId}`, database, {
-      signal: AbortSignal.timeout(20_000),
+      signal,
     })).json()) as BridgePost;
   } catch (error) {
     if (error instanceof TelegramBridgeError && (error.status === 404 || error.status === 410)) return null;
@@ -118,5 +183,5 @@ export function proxyBridgeMedia(
     method: request.method === "HEAD" ? "HEAD" : "GET",
     headers,
     signal: request.signal,
-  }, true);
+  }, true, 120_000);
 }

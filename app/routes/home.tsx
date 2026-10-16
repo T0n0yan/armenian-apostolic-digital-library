@@ -1,7 +1,7 @@
 import {env} from "cloudflare:workers";
-import {ArrowRight, RefreshCw, RotateCw} from "lucide-react";
+import {ArrowRight, LoaderCircle, RefreshCw, RotateCw} from "lucide-react";
 import {memo} from "react";
-import {Link} from "react-router";
+import {Link, useNavigation} from "react-router";
 
 import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
@@ -10,6 +10,7 @@ import {SiteNav} from "../components/site-nav";
 import {interactiveGlassCard, sectionHeader, sectionTitle,} from "../components/ui-styles";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
+import {isPendingNavigation} from "../../shared/navigation-state";
 import LastSupperImg from '../assets/last-supper.webp'
 import AngelLeft from "../assets/angel-left.webp"
 import CornerDecoration from "../assets/corner-decoration.webp"
@@ -21,16 +22,22 @@ export function meta({}: Route.MetaArgs) {
 }
 export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";
-    return {categories: await listActiveCategories(env.DB, refresh)};
+    return {categories: await listActiveCategories(env.DB, refresh, request.signal)};
 }
 const CategoryCard = memo(function CategoryCard({category}: { category: CategorySummary; }) {
+    const navigation = useNavigation();
+    const targetPath = `/categories/${category.slug}`;
+    const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
     const topicColor = category.iconColor === null
         ? "var(--gold)"
         : `#${category.iconColor.toString(16).padStart(6, "0")}`;
     return (<li>
         <Link
-            className={`${interactiveGlassCard} relative flex min-h-[55px] items-center gap-[13px] py-1 px-2 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[15px]`}
-            to={`/categories/${category.slug}`}>
+            className={`${interactiveGlassCard} relative flex min-h-[72px] items-center gap-[13px] px-3 py-2.5 text-inherit no-underline active:scale-[.992] min-[560px]:min-h-[88px] min-[560px]:p-[15px] ${isOpening ? "border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+            to={targetPath}
+            prefetch="intent"
+            aria-busy={isOpening || undefined}
+            onClick={(event) => { if (isOpening) event.preventDefault(); }}>
             <img className="absolute -top-[12px] -left-[9.5px] z-1" src={CornerDecoration} alt="" width={100} height={100} decoding="async"/>
             <img className="absolute -bottom-[9.5px] -right-[12px] transform rotate-90 scale-x-[-1] z-1" src={CornerDecoration} alt="" width={100} height={100} decoding="async"/>
 
@@ -57,7 +64,7 @@ const CategoryCard = memo(function CategoryCard({category}: { category: Category
           </span>
         </span>
             <span className="relative z-1 text-gold" aria-hidden="true">
-          <ArrowRight size={19} strokeWidth={1.8}/>
+          {isOpening ? <LoaderCircle className="animate-search-spin" size={19} strokeWidth={1.8}/> : <ArrowRight size={19} strokeWidth={1.8}/>}
         </span>
         </Link>
     </li>);

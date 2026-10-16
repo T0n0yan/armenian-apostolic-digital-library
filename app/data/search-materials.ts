@@ -17,6 +17,8 @@ export type SearchMaterial = {
   publishedAt: string | null;
   mediaTypes: string[];
   excerpt: string | null;
+  contentType: BridgeContentType;
+  preview: MaterialCardPreview;
   personalNote?: string;
 };
 
@@ -34,3 +36,5 @@ export type SearchCategoryGroup = {
   materialCount: number;
   isPersonal?: boolean;
 };
+import type { BridgeContentType } from "../../shared/telegram-bridge-contract";
+import type { MaterialCardPreview } from "./materials.server";

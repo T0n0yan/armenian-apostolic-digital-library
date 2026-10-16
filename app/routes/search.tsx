@@ -7,6 +7,7 @@ import {
   LoaderCircle,
   RotateCcw,
   Search as SearchIcon,
+  X,
 } from "lucide-react";
 import {
   memo,
@@ -41,7 +42,6 @@ import {
   type SearchMaterial,
 } from "../data/search-materials";
 import {
-  searchMaterialGroups,
   searchMaterials,
 } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
@@ -99,21 +99,19 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? Math.min(requestedPage, 1_000)
     : 1;
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
+  const hasSearchQuery = Array.from(query).length >= 2;
   const hasCriteria = Boolean(
-    query || categoryId || scope === "saved" || filters.dateFrom || filters.dateTo,
+    hasSearchQuery || categoryId || scope === "saved" || filters.dateFrom || filters.dateTo,
   );
 
   const [categories, user, resolvedQuery] = await Promise.all([
-    listActiveCategories(env.DB),
+    listActiveCategories(env.DB, false, request.signal),
     getOptionalTelegramUser(request),
     resolveSearchQuery(env.DB, query),
   ]);
-  const [libraryGroups, libraryPage, allSavedMatches] = await Promise.all([
-    hasCriteria && !categoryId && scope === "library"
-      ? searchMaterialGroups(env.DB, filters, resolvedQuery)
-      : Promise.resolve([]),
-    hasCriteria && categoryId && scope === "library"
-      ? searchMaterials(env.DB, filters, cursor, 30, resolvedQuery)
+  const [libraryPage, allSavedMatches] = await Promise.all([
+    hasCriteria && scope === "library"
+      ? searchMaterials(env.DB, filters, cursor, 30, resolvedQuery, request.signal)
       : Promise.resolve({
           materials: [],
           total: 0,
@@ -121,7 +119,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           nextCursor: null,
         }),
     user && hasCriteria && !categoryId
-      ? listSavedMaterials(env.DB, user.id, query, resolvedQuery)
+      ? listSavedMaterials(env.DB, user.id, query, resolvedQuery, request.signal)
       : Promise.resolve([]),
   ]);
   const savedMatches = allSavedMatches.filter((material) => {
@@ -141,9 +139,7 @@ export async function loader({ request }: Route.LoaderArgs) {
         isPersonal: true,
       }]
     : [];
-  const categoryGroups = scope === "library"
-    ? [...savedGroup, ...libraryGroups]
-    : [];
+  const categoryGroups = scope === "library" ? savedGroup : [];
   const savedPageMaterials: SearchMaterial[] = savedMatches
     .slice((page - 1) * 30, page * 30)
     .map((material) => ({
@@ -157,6 +153,8 @@ export async function loader({ request }: Route.LoaderArgs) {
       publishedAt: material.publishedAt,
       mediaTypes: material.mediaTypes,
       excerpt: material.excerpt,
+      contentType: material.contentType,
+      preview: material.preview,
       personalNote: material.personalNote,
     }));
   const materials = scope === "saved" ? savedPageMaterials : libraryPage.materials;
@@ -164,7 +162,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? savedMatches.length
     : categoryId
       ? libraryPage.total
-      : categoryGroups.reduce((sum, group) => sum + group.materialCount, 0);
+      : libraryPage.total + categoryGroups.reduce((sum, group) => sum + group.materialCount, 0);
 
   return {
     categories,
@@ -190,9 +188,9 @@ const SearchForm = memo(function SearchForm({
   filters: SearchFilters;
 }) {
   const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
-    useDebouncedFormSubmit(1_000);
+    useDebouncedFormSubmit(320, 2);
   const navigation = useNavigation();
-  const isSearching = navigation.location?.pathname === "/search";
+  const isSearching = navigation.state !== "idle" && navigation.location?.pathname === "/search";
 
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
     cancelPending();
@@ -206,6 +204,7 @@ const SearchForm = memo(function SearchForm({
       method="get"
       role="search"
       onSubmit={handleSubmit}
+      aria-busy={isSearching || undefined}
     >
       {filters.scope === "saved" ? (
         <input type="hidden" name="scope" value="saved" />
@@ -220,9 +219,11 @@ const SearchForm = memo(function SearchForm({
           placeholder="Օրինակ՝ առակ, Սուրբ Մարիամ, աղոթք…"
           aria-label="Որոնման բառեր"
           autoComplete="off"
+          minLength={2}
           onInput={scheduleSubmit}
         />
-        <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-4 font-[750] text-[#fffaf3]" type="submit" aria-label="Որոնել">
+        {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright" to="/search" aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
+        <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-4 font-[750] text-[#fffaf3] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
           {isSearching ? (
             <LoaderCircle className="animate-search-spin" aria-hidden="true" size={18} />
           ) : (
@@ -463,7 +464,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         </p>
       ) : null}
 
-      <section className="mt-4 grid gap-3" aria-live="polite">
+      <section className="mt-4 grid gap-3" aria-live="polite" aria-busy={isRefreshing || undefined}>
         {hasCriteria ? (
           <div className={sectionHeader}>
             <h2 className={sectionTitle}>{selectedTitle}</h2>
@@ -482,7 +483,18 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
           </EmptyState>
         ) : !filters.categoryId && filters.scope !== "saved" ? (
-          <SearchCategoryGroups filters={filters} groups={categoryGroups} />
+          <div className="grid gap-3">
+            {categoryGroups.length ? <SearchCategoryGroups filters={filters} groups={categoryGroups} /> : null}
+            {materials.length ? (
+              <SearchResults
+                canSave={loaderData.canSave}
+                allowNoteEditing={false}
+                highlightQuery={loaderData.highlightQuery}
+                materials={materials}
+                savedMaterialIds={loaderData.savedMaterialIds}
+              />
+            ) : null}
+          </div>
         ) : (
           <SearchResults
             canSave={loaderData.canSave}

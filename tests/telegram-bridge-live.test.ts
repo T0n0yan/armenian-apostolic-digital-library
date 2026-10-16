@@ -82,6 +82,7 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   assert.equal(poll?.poll?.anonymous, true);
   assert.equal(poll?.poll?.multipleChoice, false);
   assert.ok(poll?.poll?.question.text);
+  assert.doesNotMatch(JSON.stringify(poll?.poll), /chosen|correct|explanation/u);
   const pollDetail = await app(request(`/posts/${chatId}/64`));
   assert.equal(pollDetail.status, 200);
   assert.equal((await pollDetail.json() as BridgePost).contentType, "poll");
@@ -89,6 +90,7 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   const album = uniquePosts.find((post) => post.contentType === "album")!;
   assert.deepEqual(album.media.map((media) => media.index), album.media.map((_, index) => index));
   assert.equal(new Set(album.media.map((media) => media.index)).size, album.media.length);
+  assert.ok(album.media.every((media) => media.hasThumbnail), "Album photos should expose bounded Telegram thumbnails.");
   const detail = await app(request(`/posts/${chatId}/${album.messageId}`));
   assert.equal(detail.status, 200);
   assert.equal((await detail.json() as BridgePost).mediaGroupId, album.mediaGroupId);
@@ -130,7 +132,9 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   assert.equal(audioThumbnail.status, 200);
   assert.equal(audioThumbnail.headers.get("content-type"), "image/jpeg");
 
-  const search = await app(request(`/search?q=${encodeURIComponent("Սաղմոս")}`));
-  assert.equal(search.status, 200);
-  assert.ok((await search.json() as BridgePostPage).posts.some((post) => /սաղմոս/iu.test(`${post.title} ${post.contentText}`)));
+  for (const query of ["Սաղմ", "Սաղմոս", "սաղմ", "  Սաղմ  ", "Սաղմ,"]) {
+    const search = await app(request(`/search?q=${encodeURIComponent(query)}`));
+    assert.equal(search.status, 200);
+    assert.ok((await search.json() as BridgePostPage).posts.some((post) => post.messageId === 66));
+  }
 });

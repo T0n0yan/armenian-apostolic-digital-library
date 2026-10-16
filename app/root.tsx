@@ -13,6 +13,8 @@ import {
 import type { Route } from "./+types/root";
 import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
 import { CandleLoader } from "./components/candle-loader";
+import { PageShell, RouteErrorState } from "./components/page-layout";
+import { SiteNav } from "./components/site-nav";
 import {listActiveCategories} from "./data/categories.server";
 import "./app.css";
 
@@ -28,7 +30,7 @@ const initialThemeScript = `(() => {
 export async function loader({request}: Route.LoaderArgs) {
   const [telegramAdmin, categories] = await Promise.all([
     getOptionalTelegramAdmin(request, env.DB),
-    listActiveCategories(env.DB),
+    listActiveCategories(env.DB, false, request.signal).catch(() => []),
   ]);
 
   return {
@@ -190,30 +192,23 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Սխալ";
-  let details = "Տեղի է ունեցել անսպասելի սխալ։";
-  let stack: string | undefined;
+  let message = "Էջը չհաջողվեց բացել";
+  let details = "Տեղի է ունեցել ժամանակավոր սխալ։ Փորձիր կրկին։";
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Սխալ";
+    message = error.status === 404 ? "Էջը չի գտնվել" : message;
     details =
       error.status === 404
         ? "Պահանջված էջը չի գտնվել։"
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
-    stack = error.stack;
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
-    </main>
+    <PageShell>
+      <SiteNav />
+      <RouteErrorState title={message} description={details} />
+    </PageShell>
   );
 }

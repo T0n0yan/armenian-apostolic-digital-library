@@ -62,6 +62,24 @@ function cleanText(value: string) {
   return value.normalize("NFC").trim();
 }
 
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFC")
+    .replace(/[\u200B-\u200D\uFEFF]/gu, "")
+    .replace(/[՚-՟։֍֎.,!?;:()[\]{}"'«»—–-]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .toLocaleLowerCase("hy-AM")
+    .replace(/եւ/gu, "և")
+    .trim();
+}
+
+function searchableMessageText(message: Api.Message) {
+  const pollQuestion = message.media instanceof Api.MessageMediaPoll
+    ? message.media.poll.question.text
+    : "";
+  return normalizeSearch(`${message.message ?? ""} ${pollQuestion}`);
+}
+
 function safeLink(value: string) {
   const candidate = value.trim();
   if (!candidate) return null;
@@ -133,6 +151,10 @@ function photoMetadata(message: Api.Message) {
 }
 
 function hasThumbnail(message: Api.Message) {
+  const photo = message.photo;
+  if (photo instanceof Api.Photo && photo.sizes.some((thumb) =>
+    thumb instanceof Api.PhotoSize || thumb instanceof Api.PhotoSizeProgressive,
+  )) return true;
   const document = message.document;
   return document instanceof Api.Document && (document.thumbs ?? []).some((thumb) =>
     thumb instanceof Api.PhotoSize || thumb instanceof Api.PhotoSizeProgressive,
@@ -207,7 +229,6 @@ type PollResultsShape = {
 
 function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
   const resultByOption = new Map((results.results ?? []).map((result) => [Buffer.from(result.option).toString("base64url"), result]));
-  const exposesCorrectAnswer = (results.results ?? []).some((result) => Boolean(result.correct));
   return {
     question: formattedText(poll.question.text, poll.question.entities),
     options: poll.answers.map((answer) => {
@@ -215,8 +236,6 @@ function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
       return {
         text: formattedText(answer.text.text, answer.text.entities),
         voterCount: result?.voters ?? 0,
-        chosen: Boolean(result?.chosen),
-        correct: poll.quiz && exposesCorrectAnswer ? Boolean(result?.correct) : null,
       };
     }),
     totalVoters: results.totalVoters ?? 0,
@@ -224,7 +243,6 @@ function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
     anonymous: !poll.publicVoters,
     multipleChoice: Boolean(poll.multipleChoice),
     quiz: Boolean(poll.quiz),
-    explanation: results.solution ? formattedText(results.solution, results.solutionEntities) : null,
   };
 }
 
@@ -284,20 +302,33 @@ function topicMessageCount(total: number | undefined) {
 type TelegramThumbnail = { thumb: Api.TypePhotoSize; size: number; width: number | null; height: number | null };
 
 function thumbnailFor(message: Api.Message): TelegramThumbnail | null {
-  const document = message.document;
-  if (!(document instanceof Api.Document)) return null;
   const candidates: TelegramThumbnail[] = [];
-  for (const thumb of document.thumbs ?? []) {
+  const photo = message.photo;
+  const document = message.document;
+  const thumbs = photo instanceof Api.Photo
+    ? photo.sizes
+    : document instanceof Api.Document
+      ? document.thumbs ?? []
+      : [];
+  for (const thumb of thumbs) {
     if (thumb instanceof Api.PhotoSize) candidates.push({ thumb, size: thumb.size, width: thumb.w, height: thumb.h });
     else if (thumb instanceof Api.PhotoSizeProgressive) candidates.push({ thumb, size: Math.max(...thumb.sizes), width: thumb.w, height: thumb.h });
   }
-  return candidates.sort((left, right) => right.size - left.size)[0] ?? null;
+  const useful = candidates.filter((candidate) =>
+    Math.max(candidate.width ?? 0, candidate.height ?? 0) <= 640,
+  );
+  return (useful.length ? useful : candidates)
+    .sort((left, right) => (right.width ?? 0) * (right.height ?? 0) - (left.width ?? 0) * (left.height ?? 0))[0] ?? null;
 }
 
 export class GramJsTelegramAdapter implements TelegramAdapter {
   private readonly client: TelegramClient;
   private readonly deleted = new Set<string>();
   private readonly usernames = new Map<string, string | null>();
+  private readonly messageGroupCache = new Map<string, { expiresAt: number; messages: Api.Message[] }>();
+  private readonly messageGroupInflight = new Map<string, Promise<Api.Message[] | null>>();
+  private readonly searchHistoryCache = new Map<string, { expiresAt: number; messages: Api.Message[] }>();
+  private readonly searchHistoryInflight = new Map<string, Promise<Api.Message[]>>();
 
   constructor(private readonly config: GramConfig) {
     this.client = new TelegramClient(new StringSession(config.session), config.apiId, config.apiHash, {
@@ -360,6 +391,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       let offsetId = 0;
       let offsetTopic = 0;
       const seen = new Set<number>();
+      const found: Api.ForumTopic[] = [];
       for (let page = 0; page < 100; page += 1) {
         signal.throwIfAborted();
         const result = await this.client.invoke(new Api.channels.GetForumTopics({
@@ -375,25 +407,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
           if (seen.has(topic.id)) continue;
           seen.add(topic.id);
           added += 1;
-          const messages = await this.client.getMessages(entity, { replyTo: topic.id, limit: 0 });
-          const messageCount = topicMessageCount(messages.total);
-          output.push({
-            id: createTopicCategoryId(chatId, topic.id),
-            slug: createTopicSlug(chatId, topic.id),
-            name: cleanText(topic.title),
-            defaultSort: "date-desc",
-            // Telegram exposes raw topic message count, not album/material
-            // count. Keep the two concepts separate rather than presenting a
-            // multi-photo album as several materials.
-            materialCount: null,
-            messageCount,
-            chatId,
-            topicId: topic.id,
-            status: topicStatus(topic),
-            iconColor: topic.iconColor,
-            iconEmojiId: topic.iconEmojiId?.toString() ?? null,
-            isGeneral: topic.id === 1,
-          });
+          found.push(topic);
         }
         if (topics.length < 100 || added === 0) break;
         const last = topics.at(-1)!;
@@ -401,16 +415,78 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
         offsetId = last.topMessage;
         offsetTopic = last.id;
       }
+      const messageCounts = await Promise.all(found.map(async (topic) => {
+        signal.throwIfAborted();
+        const messages = await this.client.getMessages(entity, { replyTo: topic.id, limit: 0 });
+        return topicMessageCount(messages.total);
+      }));
+      output.push(...found.map((topic, index) => ({
+        id: createTopicCategoryId(chatId, topic.id),
+        slug: createTopicSlug(chatId, topic.id),
+        name: cleanText(topic.title),
+        defaultSort: "date-desc" as const,
+        materialCount: null,
+        messageCount: messageCounts[index],
+        chatId,
+        topicId: topic.id,
+        status: topicStatus(topic),
+        iconColor: topic.iconColor,
+        iconEmojiId: topic.iconEmojiId?.toString() ?? null,
+        isGeneral: topic.id === 1,
+      })));
     }
     return output;
   }
 
-  private async albumMessages(chatId: string, message: Api.Message) {
+  private async uncachedAlbumMessages(chatId: string, message: Api.Message) {
     const group = groupedId(message);
     if (!group) return [message];
     const ids = Array.from({ length: 41 }, (_, index) => message.id - 20 + index).filter((id) => id > 0);
     const nearby = await this.client.getMessages(chatId, { ids });
     return nearby.filter(isMessage).filter((candidate) => groupedId(candidate) === group).sort((left, right) => left.id - right.id);
+  }
+
+  private rememberMessageGroup(chatId: string, messages: Api.Message[]) {
+    const entry = { expiresAt: Date.now() + 15_000, messages };
+    for (const message of messages) this.messageGroupCache.set(`${chatId}:${message.id}`, entry);
+    while (this.messageGroupCache.size > 300) {
+      const oldest = this.messageGroupCache.keys().next().value as string | undefined;
+      if (!oldest) break;
+      this.messageGroupCache.delete(oldest);
+    }
+  }
+
+  private async messageGroup(chatId: string, messageId: number, seed?: Api.Message) {
+    const key = `${chatId}:${messageId}`;
+    const cached = this.messageGroupCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.messages;
+    const existing = this.messageGroupInflight.get(key);
+    if (existing) return existing;
+    const pending = (async () => {
+      const message = seed ?? (await this.client.getMessages(chatId, { ids: messageId })).find(isMessage);
+      if (!message) return null;
+      const messages = await this.uncachedAlbumMessages(chatId, message);
+      this.rememberMessageGroup(chatId, messages);
+      return messages;
+    })().finally(() => this.messageGroupInflight.delete(key));
+    this.messageGroupInflight.set(key, pending);
+    return pending;
+  }
+
+  private async recentSearchMessages(chatId: string, signal: AbortSignal) {
+    const cached = this.searchHistoryCache.get(chatId);
+    if (cached && cached.expiresAt > Date.now()) return cached.messages;
+    const existing = this.searchHistoryInflight.get(chatId);
+    if (existing) return existing;
+    const pending = (async () => {
+      signal.throwIfAborted();
+      const messages = (await this.client.getMessages(chatId, { limit: 500 })).filter(isMessage);
+      signal.throwIfAborted();
+      this.searchHistoryCache.set(chatId, { expiresAt: Date.now() + 30_000, messages });
+      return messages;
+    })().finally(() => this.searchHistoryInflight.delete(chatId));
+    this.searchHistoryInflight.set(chatId, pending);
+    return pending;
   }
 
   private async toPost(chatId: string, messages: Api.Message[], signal?: AbortSignal): Promise<TelegramPost> {
@@ -460,6 +536,37 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     return { ...draft, contentType: contentTypeFor(draft) };
   }
 
+  private async hydratePage(
+    options: HistoryOptions,
+    cursor: Cursor,
+    candidates: Array<{ chatId: string; message: Api.Message }>,
+    mayHaveMore: boolean,
+  ): Promise<AdapterPage> {
+    candidates.sort((left, right) => (right.message.date ?? 0) - (left.message.date ?? 0) || right.message.id - left.message.id);
+    const selected = candidates.slice(0, options.limit);
+    const groups = new Map<string, { chatId: string; messages: Api.Message[] }>();
+    for (const candidate of selected) {
+      const key = `${candidate.chatId}:${groupedId(candidate.message) ?? `message-${candidate.message.id}`}`;
+      const existing = groups.get(key);
+      if (existing) existing.messages.push(candidate.message);
+      else groups.set(key, { chatId: candidate.chatId, messages: [candidate.message] });
+    }
+    const hydratedGroups = await Promise.all([...groups.values()].map(async ({ chatId, messages }) => ({
+      chatId,
+      messages: groupedId(messages[0])
+        ? await this.messageGroup(chatId, messages[0].id, messages[0]) ?? messages
+        : messages,
+    })));
+    for (const { chatId, messages } of hydratedGroups) {
+      const key = options.topicId ? `${chatId}:${options.topicId}` : chatId;
+      const oldestMessageId = Math.min(...messages.map((message) => message.id));
+      cursor.offsets[key] = Math.min(cursor.offsets[key] ?? Number.MAX_SAFE_INTEGER, oldestMessageId);
+    }
+    const posts = await Promise.all(hydratedGroups.map(({ chatId, messages }) => this.toPost(chatId, messages, options.signal)));
+    posts.sort((left, right) => (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || right.messageId - left.messageId);
+    return { posts, nextCursor: mayHaveMore || candidates.length > selected.length ? encodeCursor(cursor) : null };
+  }
+
   private async page(options: HistoryOptions, search?: string): Promise<AdapterPage> {
     const cursor = cursorValue(options.cursor);
     const candidates: Array<{ chatId: string; message: Api.Message }> = [];
@@ -472,51 +579,51 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       const messages = await this.client.getMessages(chatId, {
         limit: requestLimit,
         offsetId: cursor.offsets[key] ?? 0,
-        ...(options.topicId ? { replyTo: options.topicId } : search ? { search } : {}),
+        ...(options.topicId ? { replyTo: options.topicId } : {}),
+        ...(search ? { search } : {}),
       });
       const valid = messages.filter(isMessage);
       mayHaveMore ||= valid.length >= requestLimit;
       candidates.push(...valid.map((message) => ({ chatId, message })));
     }
-    candidates.sort((left, right) => (right.message.date ?? 0) - (left.message.date ?? 0) || right.message.id - left.message.id);
-    const selected = candidates.slice(0, options.limit);
-    const groups = new Map<string, { chatId: string; messages: Api.Message[] }>();
-    for (const candidate of selected) {
-      const key = `${candidate.chatId}:${groupedId(candidate.message) ?? `message-${candidate.message.id}`}`;
-      const existing = groups.get(key);
-      if (existing) existing.messages.push(candidate.message);
-      else groups.set(key, { chatId: candidate.chatId, messages: [candidate.message] });
-    }
-    const hydratedGroups = await Promise.all([...groups.values()].map(async ({ chatId, messages }) => ({
-      chatId,
-      messages: groupedId(messages[0]) ? await this.albumMessages(chatId, messages[0]) : messages,
-    })));
-    for (const { chatId, messages } of hydratedGroups) {
-      const key = options.topicId ? `${chatId}:${options.topicId}` : chatId;
-      const oldestMessageId = Math.min(...messages.map((message) => message.id));
-      cursor.offsets[key] = Math.min(cursor.offsets[key] ?? Number.MAX_SAFE_INTEGER, oldestMessageId);
-    }
-    const posts = await Promise.all(hydratedGroups.map(({ chatId, messages }) => this.toPost(chatId, messages, options.signal)));
-    posts.sort((left, right) => (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || right.messageId - left.messageId);
-    return { posts, nextCursor: mayHaveMore || candidates.length > selected.length ? encodeCursor(cursor) : null };
+    return this.hydratePage(options, cursor, candidates, mayHaveMore);
   }
 
   listHistory(options: HistoryOptions) { return this.page(options); }
-  search(options: HistoryOptions) { return this.page(options, options.query); }
+  async search(options: HistoryOptions) {
+    const native = await this.page(options, options.query);
+    if (native.posts.length > 0) return native;
+
+    const needle = normalizeSearch(options.query ?? "");
+    if (Array.from(needle).length < 2) return native;
+    const cursor = cursorValue(options.cursor);
+    const candidates: Array<{ chatId: string; message: Api.Message }> = [];
+    const chatIds = options.chatId ? [options.chatId] : this.config.allowedChatIds;
+    let totalMatches = 0;
+    for (const chatId of chatIds) {
+      const key = options.topicId ? `${chatId}:${options.topicId}` : chatId;
+      const offset = cursor.offsets[key] ?? Number.MAX_SAFE_INTEGER;
+      const recent = await this.recentSearchMessages(chatId, options.signal);
+      const matches = recent.filter((message) =>
+        message.id < offset &&
+        (!options.topicId || (topicId(message) ?? 1) === options.topicId) &&
+        searchableMessageText(message).includes(needle),
+      );
+      totalMatches += matches.length;
+      candidates.push(...matches.map((message) => ({ chatId, message })));
+    }
+    return this.hydratePage(options, cursor, candidates, totalMatches > options.limit);
+  }
 
   async getPost(chatId: string, messageId: number, signal: AbortSignal) {
     signal.throwIfAborted();
-    const result = await this.client.getMessages(chatId, { ids: messageId });
-    const message = result.find(isMessage);
-    if (!message) return null;
-    return this.toPost(chatId, await this.albumMessages(chatId, message), signal);
+    const messages = await this.messageGroup(chatId, messageId);
+    if (!messages) return null;
+    return this.toPost(chatId, messages, signal);
   }
 
   private async mediaMessage(chatId: string, messageId: number, mediaIndex: number) {
-    const result = await this.client.getMessages(chatId, { ids: messageId });
-    const message = result.find(isMessage);
-    if (!message) return null;
-    return (await this.albumMessages(chatId, message))[mediaIndex] ?? null;
+    return (await this.messageGroup(chatId, messageId))?.[mediaIndex] ?? null;
   }
 
   async getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail = false) {

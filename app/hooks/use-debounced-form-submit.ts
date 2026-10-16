@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type FormEvent } from "react";
 import { useSubmit } from "react-router";
 
-export function useDebouncedFormSubmit(delayMs: number) {
+export function useDebouncedFormSubmit(delayMs: number, minimumCharacters = 0) {
   const formRef = useRef<HTMLFormElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submit = useSubmit();
@@ -20,10 +20,12 @@ export function useDebouncedFormSubmit(delayMs: number) {
     void submit(formRef.current, { preventScrollReset: true, replace: true });
   }, [cancelPending, submit]);
 
-  const scheduleSubmit = useCallback(() => {
+  const scheduleSubmit = useCallback((event?: FormEvent<HTMLInputElement>) => {
     cancelPending();
+    const value = event?.currentTarget.value.trim() ?? "";
+    if (value && Array.from(value).length < minimumCharacters) return;
     timerRef.current = setTimeout(submitImmediately, delayMs);
-  }, [cancelPending, delayMs, submitImmediately]);
+  }, [cancelPending, delayMs, minimumCharacters, submitImmediately]);
 
   return { cancelPending, formRef, scheduleSubmit, submitImmediately };
 }
