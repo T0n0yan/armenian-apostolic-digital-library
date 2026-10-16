@@ -6,6 +6,12 @@ import { isRouteErrorResponse, Link } from "react-router";
 import type { Route } from "./+types/material";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { MaterialMediaGallery } from "../components/material-media";
+import {
+  FormattedTelegramText,
+  TelegramLocationCard,
+  TelegramPollCard,
+  TelegramUnsupportedCard,
+} from "../components/telegram-content";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
@@ -39,7 +45,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { isSaving, savedIds, setSaved } = useSavedMaterials(loaderData.savedIds);
   const isSaved = savedIds.has(material.id);
   const toggleSaved = useCallback(() => setSaved(material.id, !isSaved), [isSaved, material.id, setSaved]);
-  const paragraphs = material.contentText.split(/\n{2,}/u).filter(Boolean);
   const date = formatArmenianDate(material.dateValue ?? material.publishedAt);
 
   return (
@@ -54,6 +59,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <article className="grid gap-4">
         <MaterialMediaGallery media={material.media} />
 
+        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} /> : null}
+        {material.location ? <TelegramLocationCard location={material.location} /> : null}
+        {material.contentType === "unsupported" ? <TelegramUnsupportedCard type={material.unsupportedType} telegramUrl={material.telegramUrl} /> : null}
+
         {material.tags.length > 0 ? (
           <ul className="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Պիտակներ">
             {material.tags.map((tag) => (
@@ -64,12 +73,12 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {paragraphs.length > 0 ? (
-          <div className="rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px] [&>p]:my-0 [&>p+p]:mt-4">
-            {paragraphs.map((paragraph, index) => <p className="whitespace-pre-line" key={`${index}-${paragraph.slice(0, 24)}`}>{paragraph}</p>)}
+        {material.formattedText.text ? (
+          <div className="rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]">
+            <FormattedTelegramText value={material.formattedText} />
           </div>
-        ) : material.captionText ? (
-          <p className="m-0 rounded-[20px] border border-glass-border bg-glass p-5 text-[15px] leading-[1.8] text-ink">{material.captionText}</p>
+        ) : material.formattedCaption.text ? (
+          <p className="m-0 rounded-[20px] border border-glass-border bg-glass p-5 text-[15px] leading-[1.8] text-ink"><FormattedTelegramText value={material.formattedCaption} /></p>
         ) : null}
 
         <div className="flex flex-wrap gap-2.5">

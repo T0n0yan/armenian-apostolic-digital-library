@@ -1,4 +1,10 @@
-import { parseMaterialId } from "../../shared/telegram-bridge-contract";
+import {
+  parseMaterialId,
+  type BridgeContentType,
+  type BridgeFormattedText,
+  type BridgeLocation,
+  type BridgePoll,
+} from "../../shared/telegram-bridge-contract";
 import { getBridgePost } from "./telegram-bridge.server";
 
 export type MaterialMedia = {
@@ -11,6 +17,10 @@ export type MaterialMedia = {
   width: number | null;
   height: number | null;
   duration: number | null;
+  title: string | null;
+  performer: string | null;
+  waveform: string | null;
+  thumbnailUrl: string | null;
   altText: string;
   url: string | null;
 };
@@ -24,6 +34,12 @@ export type MaterialDetail = {
   categorySlug: string;
   contentText: string;
   captionText: string;
+  formattedText: BridgeFormattedText;
+  formattedCaption: BridgeFormattedText;
+  contentType: BridgeContentType;
+  poll: BridgePoll | null;
+  location: BridgeLocation | null;
+  unsupportedType: string | null;
   tags: string[];
   publishedAt: string | null;
   editedAt: string | null;
@@ -45,6 +61,12 @@ export async function getPublicMaterialDetail(database: D1Database, id: string):
     categorySlug: post.categorySlug,
     contentText: post.contentText,
     captionText: post.captionText,
+    formattedText: post.formattedText,
+    formattedCaption: post.formattedCaption,
+    contentType: post.contentType,
+    poll: post.poll,
+    location: post.location,
+    unsupportedType: post.unsupportedType,
     tags: post.tags,
     publishedAt: post.publishedAt,
     editedAt: post.editedAt,
@@ -54,6 +76,9 @@ export async function getPublicMaterialDetail(database: D1Database, id: string):
       ...asset,
       status: "ready",
       url: `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}`,
+      thumbnailUrl: asset.hasThumbnail
+        ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1`
+        : null,
     })),
   };
 }

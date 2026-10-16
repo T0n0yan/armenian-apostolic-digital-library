@@ -1,5 +1,5 @@
 import {env} from "cloudflare:workers";
-import {ArrowRight} from "lucide-react";
+import {ArrowRight, RefreshCw, RotateCw} from "lucide-react";
 import {memo} from "react";
 import {Link} from "react-router";
 
@@ -19,10 +19,14 @@ export function meta({}: Route.MetaArgs) {
         name: "description", content: "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված թվային գրադարան։",
     }, {name: "robots", content: "noindex, nofollow"}, {name: "theme-color", content: "#100817"},];
 }
-export async function loader({}: Route.LoaderArgs) {
-    return {categories: await listActiveCategories(env.DB)};
+export async function loader({request}: Route.LoaderArgs) {
+    const refresh = new URL(request.url).searchParams.get("refresh") === "1";
+    return {categories: await listActiveCategories(env.DB, refresh)};
 }
 const CategoryCard = memo(function CategoryCard({category}: { category: CategorySummary; }) {
+    const topicColor = category.iconColor === null
+        ? "var(--gold)"
+        : `#${category.iconColor.toString(16).padStart(6, "0")}`;
     return (<li>
         <Link
             className={`${interactiveGlassCard} relative flex min-h-[55px] items-center gap-[13px] py-1 px-2 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[15px]`}
@@ -32,7 +36,9 @@ const CategoryCard = memo(function CategoryCard({category}: { category: Category
 
         <span
             // rounded-[6px] border border-[rgb(217_181_111/20%)] bg-[image:var(--icon-surface)] shadow-[inset_0_1px_0_rgb(255_255_255/16%),0_12px_24px_rgb(8_2_13/22%)]
-            className="grid size-[30px] shrink-0 place-items-center text-icon-ink"
+            className="grid size-[34px] shrink-0 place-items-center rounded-full border border-white/15 bg-[var(--topic-color)] text-white shadow-[inset_0_1px_0_rgb(255_255_255/25%)]"
+            style={{"--topic-color": topicColor} as React.CSSProperties}
+            data-telegram-emoji-id={category.iconEmojiId ?? undefined}
             aria-hidden="true">
           <CategoryIcon categoryId={category.id} size={20} strokeWidth={1}/>
         </span>
@@ -40,7 +46,14 @@ const CategoryCard = memo(function CategoryCard({category}: { category: Category
           <strong
               className="text-[15px] leading-[21px] min-[960px]:text-[17px] min-[960px]:leading-[23px]">{category.name}</strong>
           <span className="text-[13px] text-faint">
-            {category.materialCount === 0 ? "Դեռ նյութ չկա" : `${category.materialCount} նյութ`}
+            {category.materialCount === null
+                ? category.messageCount === null
+                    ? "Բացել թեման"
+                    : `${category.messageCount} հաղորդագրություն`
+                : category.materialCount === 0
+                    ? "Դեռ նյութ չկա"
+                    : `${category.materialCount} նյութ`}
+            {category.status !== "open" ? ` · ${category.status === "closed" ? "փակված" : "թաքցված"}` : ""}
           </span>
         </span>
             <span className="relative z-1 text-gold" aria-hidden="true">
@@ -89,11 +102,15 @@ export default function Home({loaderData}: Route.ComponentProps) {
         <section className="grid gap-3 mt-2" aria-labelledby="categories-title">
             <div className={sectionHeader}>
                 <h2 className={sectionTitle} id="categories-title">Բաժիններ</h2>
-                {/*<span className={countBadge}>{loaderData.categories.length}</span>*/}
+                <Link className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-[10px] px-2 text-[11px] font-bold text-gold-bright no-underline hover:bg-subtle" to="/?refresh=1" reloadDocument aria-label="Թարմացնել Telegram թեմաների ցանկը"><RefreshCw aria-hidden="true" size={14}/><span className="hidden min-[560px]:inline">Թարմացնել</span></Link>
             </div>
 
             <CategoryGrid categories={loaderData.categories}/>
         </section>
         <SiteNav/>
     </PageShell>);
+}
+
+export function ErrorBoundary() {
+    return (<PageShell><SiteNav/><PageHeader eyebrow="Telegram Bridge" title="Թեմաները չհաջողվեց բեռնել" description="Ստուգիր local Bridge կապը և կրկին փորձիր։"/><button className="mt-4 inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright" type="button" onClick={() => window.location.reload()}><RotateCw aria-hidden="true" size={16}/> Կրկին փորձել</button></PageShell>);
 }

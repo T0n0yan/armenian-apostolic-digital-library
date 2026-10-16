@@ -70,8 +70,9 @@ async function bridgeFetch(path: string, database: D1Database, init: RequestInit
   return response;
 }
 
-export async function listBridgeCategories(database: D1Database) {
-  return (await (await bridgeFetch("/categories", database, { signal: AbortSignal.timeout(20_000) })).json()) as BridgeCategory[];
+export async function listBridgeCategories(database: D1Database, refresh = false) {
+  const query = refresh ? "?refresh=1" : "";
+  return (await (await bridgeFetch(`/categories${query}`, database, { signal: AbortSignal.timeout(20_000) })).json()) as BridgeCategory[];
 }
 
 export async function listBridgeCategoryPosts(database: D1Database, slug: string, cursor: string | null) {
@@ -123,7 +124,8 @@ export function proxyBridgeMedia(
   const headers = new Headers();
   const range = request.headers.get("range");
   if (range) headers.set("range", range);
-  return bridgeFetch(`/media/${encodeURIComponent(chatId)}/${messageId}/${mediaIndex}`, database, {
+  const thumbnail = new URL(request.url).searchParams.get("thumbnail") === "1" ? "?thumbnail=1" : "";
+  return bridgeFetch(`/media/${encodeURIComponent(chatId)}/${messageId}/${mediaIndex}${thumbnail}`, database, {
     method: request.method === "HEAD" ? "HEAD" : "GET",
     headers,
     signal: request.signal,

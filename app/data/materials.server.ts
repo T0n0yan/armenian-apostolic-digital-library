@@ -1,5 +1,5 @@
-import { categoryById, type BridgePost } from "../../shared/telegram-bridge-contract";
-import { listBridgeCategoryPosts } from "./telegram-bridge.server";
+import type { BridgePost } from "../../shared/telegram-bridge-contract";
+import { listBridgeCategories, listBridgeCategoryPosts } from "./telegram-bridge.server";
 
 export type PublicMaterial = {
   id: string;
@@ -44,7 +44,7 @@ export async function listPublicMaterialPageByCategory(
   _defaultSort: "title-asc" | "manual" | "number-asc" | "date-desc",
   cursor: string | null,
 ): Promise<PublicMaterialPage> {
-  const category = categoryById(categoryId);
+  const category = (await listBridgeCategories(database)).find((item) => item.id === categoryId);
   if (!category) return { materials: [], total: 0, nextCursor: null };
   const page = await listBridgeCategoryPosts(database, category.slug, cursor);
   return {

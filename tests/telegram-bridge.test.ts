@@ -9,11 +9,13 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
-import type { BridgeCategoryMappings, BridgePostPage } from "../shared/telegram-bridge-contract";
+import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const BRIDGE_SECRET = "fixture_bridge_secret_000000000000000000";
 const BOT_TOKEN = "000000000:fixture-token-not-a-secret";
+const MOCK_TOPIC_SLUG = createTopicSlug(MOCK_CHAT_ID, 700);
+const MOCK_TOPIC_ID = createTopicCategoryId(MOCK_CHAT_ID, 700);
 const mappings: BridgeCategoryMappings = {
   topics: { [`${MOCK_CHAT_ID}:700`]: "category_prayers" },
   hashtags: {},
@@ -62,12 +64,15 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.notEqual(second.posts[0].messageId, first.posts[0].messageId);
 
   const categories = await (await app(bridgeRequest("/categories"))).json() as Array<{ id: string; materialCount: number }>;
-  assert.equal(categories.find((item) => item.id === "category_prayers")?.materialCount, 5);
-  const page = await (await app(bridgeRequest("/categories/prayers/posts"))).json() as BridgePostPage;
+  assert.equal(categories.find((item) => item.id === MOCK_TOPIC_ID)?.materialCount, 9);
+  const page = await (await app(bridgeRequest(`/categories/${MOCK_TOPIC_SLUG}/posts`))).json() as BridgePostPage;
   assert.ok(page.posts.some((post) => post.messageId === 101 && post.contentText.includes("խաղաղություն")));
   assert.equal(page.posts.find((post) => post.messageId === 102)?.media[0].kind, "photo");
   assert.deepEqual(page.posts.find((post) => post.messageId === 103)?.media.map((asset) => asset.index), [0, 1]);
   assert.ok(page.posts.find((post) => post.messageId === 104)?.editedAt);
+  assert.equal(page.posts.find((post) => post.messageId === 109)?.poll?.totalVoters, 8);
+  assert.equal(page.posts.find((post) => post.messageId === 108)?.location?.venueType, "church");
+  assert.equal(page.posts.find((post) => post.messageId === 110)?.contentType, "unsupported");
 
   const deleted = await app(bridgeRequest(`/posts/${MOCK_CHAT_ID}/105`));
   assert.equal(deleted.status, 410);
@@ -97,6 +102,10 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   const invalid = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: `bytes=${MOCK_VIDEO_SIZE}-` } }));
   assert.equal(invalid.status, 416);
   assert.equal(invalid.headers.get("content-range"), `bytes */${MOCK_VIDEO_SIZE}`);
+  const thumbnail = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0?thumbnail=1`, { headers: { range: "bytes=0-63" } }));
+  assert.equal(thumbnail.status, 206);
+  assert.equal(thumbnail.headers.get("content-type"), "image/jpeg");
+  assert.equal((await thumbnail.arrayBuffer()).byteLength, 64);
 
   const aborted = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`));
   const reader = aborted.body!.getReader();
@@ -146,7 +155,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
   assert.match(await home.text(), /Աղոթքներ/u);
-  const category = await mf.dispatchFetch("https://app.fixture/categories/prayers");
+  const category = await mf.dispatchFetch(`https://app.fixture/categories/${MOCK_TOPIC_SLUG}`);
   assert.match(await category.text(), /Առավոտյան աղոթք/u);
 
   const imagePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_102");
@@ -154,9 +163,20 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal(imagePage.status, 200);
   assert.match(imageHtml, /<img/u);
   assert.match(imageHtml, /\/media\/-100900\/102\/0/u);
+  const formattedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_101");
+  assert.match(await formattedPage.text(), /<strong>Տե՛ր<\/strong>/u);
   const videoPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_106");
   const videoHtml = await videoPage.text();
   assert.match(videoHtml, /<video/u);
+  assert.match(videoHtml, /thumbnail=1/u);
+  const pollPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_109");
+  assert.match(await pollPage.text(), /Քվեարկել Telegram-ում/u);
+  const locationPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_108");
+  assert.match(await locationPage.text(), /Բացել քարտեզում/u);
+  const unsupportedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_110");
+  assert.match(await unsupportedPage.text(), /MessageMediaUnsupported/u);
+  const voicePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_107");
+  assert.match(await voicePage.text(), /<audio/u);
   assert.doesNotMatch(`${imageHtml}${videoHtml}`, /fixture_bridge_secret|TELEGRAM_SESSION|TELEGRAM_API_HASH/u);
 
   const proxiedRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { headers: { range: "bytes=2048-4095" } });
@@ -168,7 +188,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal(proxiedHead.headers.get("content-length"), String(MOCK_VIDEO_SIZE));
   assert.equal((await mf.dispatchFetch("https://app.fixture/media/-100999/106/0")).status, 404);
 
-  const search = await mf.dispatchFetch("https://app.fixture/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6&category=category_prayers");
+  const search = await mf.dispatchFetch(`https://app.fixture/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6&category=${encodeURIComponent(MOCK_TOPIC_ID)}`);
   assert.match(await search.text(), /Առավոտյան աղոթք/u);
 
   const session = await mf.dispatchFetch("https://app.fixture/telegram/session", {

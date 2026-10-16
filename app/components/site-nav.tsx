@@ -1,15 +1,4 @@
-import {
-  Bird,
-  Bookmark,
-  BookOpenCheck,
-  BookOpenText,
-  CalendarDays,
-  Church,
-  HandHeart,
-  Search,
-  Settings,
-  X,
-} from "lucide-react";
+import { Bookmark, Church, Search, Settings, Sparkles, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -20,14 +9,11 @@ import { ThemeToggle } from "./theme-toggle";
 
 type SiteNavProps = { showAdminLink?: boolean };
 
-const navigationItems = [
+const primaryNavigationItems = [
   { to: "/", label: "Գլխավոր", icon: Church, end: true },
-  { to: "/categories/saints-lives", label: "Սրբերի կյանք", icon: Bird },
-  { to: "/categories/gospel-teachings", label: "Ավետարանի ուսուցում", icon: BookOpenText },
-  { to: "/categories/psalms", label: "Սաղմոսներ", icon: BookOpenText },
-  { to: "/categories/bible-questions", label: "Հարցեր Աստվածաշնչից", icon: BookOpenCheck },
-  { to: "/categories/prayers", label: "Աղոթք", icon: HandHeart },
-  { to: "/categories/daily-readings", label: "Օրվա ընթերցանություն", icon: CalendarDays },
+] as const;
+
+const secondaryNavigationItems = [
   { to: "/search", label: "Որոնում", icon: Search },
   { to: "/saved", label: "Իմ անկյունը", icon: Bookmark },
 ] as const;
@@ -37,6 +23,7 @@ const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
   const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
+  const topicItems = rootData?.categories ?? [];
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const dialogRef = useRef<HTMLElement>(null);
@@ -104,9 +91,29 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           </div>
           <div className="max-h-[min(68svh,620px)] overflow-y-auto overscroll-contain pr-0.5">
             <ul className="m-0 grid list-none gap-0.5 p-0">
-              {navigationItems.map(({ to, label, icon: Icon, ...item }) => (
+              {primaryNavigationItems.map(({ to, label, icon: Icon, ...item }) => (
                 <li key={to}>
                   <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={to} end={"end" in item ? item.end : false} tabIndex={isOpen ? 0 : -1}>
+                    <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(217_181_111/16%)] bg-[rgb(217_181_111/7%)] text-gold"><Icon aria-hidden="true" size={17} strokeWidth={1.8} /></span>
+                    <span>{label}</span>
+                  </NavLink>
+                </li>
+              ))}
+              {topicItems.map((topic) => {
+                const topicColor = topic.iconColor === null ? "var(--gold)" : `#${topic.iconColor.toString(16).padStart(6, "0")}`;
+                return (
+                  <li key={topic.id}>
+                    <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1}>
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-[var(--topic-color)] text-white" style={{ "--topic-color": topicColor } as React.CSSProperties} data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><Sparkles aria-hidden="true" size={16} strokeWidth={1.8} /></span>
+                      <span className="min-w-0 flex-1 truncate">{topic.name}</span>
+                      {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
+                    </NavLink>
+                  </li>
+                );
+              })}
+              {secondaryNavigationItems.map(({ to, label, icon: Icon }) => (
+                <li key={to}>
+                  <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={to} tabIndex={isOpen ? 0 : -1}>
                     <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(217_181_111/16%)] bg-[rgb(217_181_111/7%)] text-gold"><Icon aria-hidden="true" size={17} strokeWidth={1.8} /></span>
                     <span>{label}</span>
                   </NavLink>

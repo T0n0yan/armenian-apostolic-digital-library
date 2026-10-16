@@ -13,6 +13,7 @@ import {
 import type { Route } from "./+types/root";
 import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
 import { CandleLoader } from "./components/candle-loader";
+import {listActiveCategories} from "./data/categories.server";
 import "./app.css";
 
 const initialThemeScript = `(() => {
@@ -25,10 +26,14 @@ const initialThemeScript = `(() => {
 })();`;
 
 export async function loader({request}: Route.LoaderArgs) {
-  const telegramAdmin = await getOptionalTelegramAdmin(request, env.DB);
+  const [telegramAdmin, categories] = await Promise.all([
+    getOptionalTelegramAdmin(request, env.DB),
+    listActiveCategories(env.DB),
+  ]);
 
   return {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
+    categories,
   };
 }
 

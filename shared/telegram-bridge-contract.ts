@@ -12,11 +12,18 @@ export type ContentCategorySlug = (typeof CONTENT_CATEGORIES)[number]["slug"];
 export type CategorySort = (typeof CONTENT_CATEGORIES)[number]["defaultSort"];
 
 export type BridgeCategory = {
-  id: ContentCategoryId;
-  slug: ContentCategorySlug;
+  id: string;
+  slug: string;
   name: string;
   defaultSort: CategorySort;
-  materialCount: number;
+  materialCount: number | null;
+  messageCount: number | null;
+  chatId: string | null;
+  topicId: number | null;
+  status: "open" | "closed" | "hidden";
+  iconColor: number | null;
+  iconEmojiId: string | null;
+  isGeneral: boolean;
 };
 
 export type BridgeMediaKind = "photo" | "video" | "audio" | "voice" | "animation" | "document";
@@ -30,21 +37,89 @@ export type BridgeMedia = {
   width: number | null;
   height: number | null;
   duration: number | null;
+  title: string | null;
+  performer: string | null;
+  waveform: string | null;
+  hasThumbnail: boolean;
   altText: string;
 };
+
+export type BridgeTextEntity = {
+  type: "bold" | "italic" | "underline" | "strikethrough" | "code" | "pre" | "blockquote" | "link";
+  offset: number;
+  length: number;
+  url: string | null;
+};
+
+export type BridgeFormattedText = {
+  text: string;
+  entities: BridgeTextEntity[];
+};
+
+export type BridgePoll = {
+  question: BridgeFormattedText;
+  options: Array<{
+    text: BridgeFormattedText;
+    voterCount: number;
+    chosen: boolean;
+    correct: boolean | null;
+  }>;
+  totalVoters: number;
+  closed: boolean;
+  anonymous: boolean;
+  multipleChoice: boolean;
+  quiz: boolean;
+  explanation: BridgeFormattedText | null;
+};
+
+export type BridgeLocation = {
+  latitude: number;
+  longitude: number;
+  title: string | null;
+  address: string | null;
+  provider: string | null;
+  venueId: string | null;
+  venueType: string | null;
+  live: boolean;
+  livePeriodSeconds: number | null;
+  heading: number | null;
+  proximityNotificationRadius: number | null;
+  expiresAt: string | null;
+};
+
+export type BridgeContentType =
+  | "text"
+  | "photo"
+  | "album"
+  | "video"
+  | "voice"
+  | "audio"
+  | "poll"
+  | "location"
+  | "document"
+  | "animation"
+  | "unsupported";
 
 export type BridgePost = {
   id: string;
   chatId: string;
   messageId: number;
+  topicId: number | null;
   forumTopicId: number | null;
+  mediaGroupId: string | null;
   title: string;
   telegramUrl: string;
-  categoryId: ContentCategoryId | null;
+  categoryId: string | null;
   categoryName: string | null;
-  categorySlug: ContentCategorySlug | null;
+  categorySlug: string | null;
   contentText: string;
   captionText: string;
+  formattedText: BridgeFormattedText;
+  formattedCaption: BridgeFormattedText;
+  contentType: BridgeContentType;
+  poll: BridgePoll | null;
+  location: BridgeLocation | null;
+  unsupportedType: string | null;
   tags: string[];
   publishedAt: string | null;
   editedAt: string | null;
@@ -82,6 +157,26 @@ export function telegramTopicKey(chatId: string, topicId: number) {
 export function createMaterialId(chatId: string, messageId: number) {
   const chatPart = chatId.startsWith("-") ? `n${chatId.slice(1)}` : `p${chatId}`;
   return `material_tg_${chatPart}_${messageId}`;
+}
+
+function telegramChatSlugPart(chatId: string) {
+  return chatId.startsWith("-") ? `n${chatId.slice(1)}` : `p${chatId}`;
+}
+
+export function createTopicCategoryId(chatId: string, topicId: number) {
+  return `telegram_topic:${chatId}:${topicId}`;
+}
+
+export function createTopicSlug(chatId: string, topicId: number) {
+  return `topic-${telegramChatSlugPart(chatId)}-${topicId}`;
+}
+
+export function parseTopicSlug(slug: string) {
+  const match = /^topic-([np])(\d{1,20})-(\d{1,10})$/u.exec(slug);
+  if (!match) return null;
+  const topicId = Number(match[3]);
+  if (!Number.isSafeInteger(topicId) || topicId <= 0) return null;
+  return { chatId: `${match[1] === "n" ? "-" : ""}${match[2]}`, topicId };
 }
 
 export function parseMaterialId(id: string) {

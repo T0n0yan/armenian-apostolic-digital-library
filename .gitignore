@@ -4,6 +4,7 @@
 .env*
 services/telegram-bridge/.env.local
 .local-backups/
+.local-artifacts/
 /node_modules/
 *.tsbuildinfo
 

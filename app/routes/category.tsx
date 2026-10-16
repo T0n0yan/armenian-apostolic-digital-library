@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, Search } from "lucide-react";
+import { Bookmark, RotateCw, Search } from "lucide-react";
 import { memo, useCallback } from "react";
 import { isRouteErrorResponse, Link, useNavigation } from "react-router";
 
@@ -200,7 +200,13 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   const { category, materials } = loaderData;
   const isPsalms = category.id === "category_psalms";
   const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[category.id] ??
-    "Փնտրել այս բաժնում…";
+    "Փնտրել այս թեմայում…";
+  const categoryDescription = CATEGORY_DESCRIPTIONS[category.id]
+    ?? (category.isGeneral
+      ? "Telegram ֆորումի հիմնական թեմայի հրապարակումները։"
+      : category.status === "closed"
+        ? "Այս Telegram թեման փակված է, սակայն հրապարակումները հասանելի են ընթերցման համար։"
+        : "Telegram ֆորումի այս թեմայի հրապարակումները։");
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
     navigation.location?.pathname === `/categories/${category.slug}`;
@@ -221,7 +227,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         backLabel="Բաժիններ"
         imageSrc={getCategoryImage(category.id)}
         title={category.name}
-        description={CATEGORY_DESCRIPTIONS[category.id]}
+        description={categoryDescription}
         query={loaderData.query}
         searchAction={`/categories/${category.slug}`}
         searchLabel={`${category.name} բաժնում որոնում`}
@@ -233,7 +239,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           <h2 className={sectionTitle} id="category-materials-title">
             {loaderData.query ? "Գտնված նյութեր" : "Նյութեր"}
           </h2>
-          <span className={countBadge}>{loaderData.total}</span>
+          <span className={countBadge}>{loaderData.total ?? materials.length}</span>
         </div>
 
         {isRefreshing ? (
@@ -290,6 +296,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
           ? "Այս բաժինը գոյություն չունի կամ հասանելի չէ։"
           : "Էջը բացելիս անսպասելի սխալ է տեղի ունեցել։"}
       />
+      {!isNotFound ? (
+        <button className="mt-4 inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright" type="button" onClick={() => window.location.reload()}>
+          <RotateCw aria-hidden="true" size={16} /> Կրկին փորձել
+        </button>
+      ) : null}
     </PageShell>
   );
 }
