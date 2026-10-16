@@ -55,9 +55,10 @@ export async function searchMaterials(
   signal?: AbortSignal,
 ): Promise<SearchMaterialPage> {
   const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
+  const bridgeQuery = filters.query ? resolved.correctedQuery || resolved.original : "";
   const page = await searchBridgePosts(
     database,
-    resolved.correctedQuery || resolved.original,
+    bridgeQuery,
     filters.categoryId,
     cursor,
     signal,

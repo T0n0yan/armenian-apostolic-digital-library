@@ -20,6 +20,7 @@ export type SearchMaterial = {
   contentType: BridgeContentType;
   preview: MaterialCardPreview;
   personalNote?: string;
+  matchReasons?: Array<"telegram" | "personal-note">;
 };
 
 export type SearchMaterialPage = {
@@ -29,12 +30,5 @@ export type SearchMaterialPage = {
   nextCursor: string | null;
 };
 
-export type SearchCategoryGroup = {
-  id: string;
-  slug: string;
-  name: string;
-  materialCount: number;
-  isPersonal?: boolean;
-};
 import type { BridgeContentType } from "../../shared/telegram-bridge-contract";
 import type { MaterialCardPreview } from "./materials.server";

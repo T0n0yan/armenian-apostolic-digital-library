@@ -174,19 +174,26 @@ export class MockTelegramAdapter implements TelegramAdapter {
     ];
   }
 
-  async listHistory({ cursor, limit, signal }: HistoryOptions): Promise<AdapterPage> {
+  async listHistory({ cursor, limit, chatId, topicId, signal }: HistoryOptions): Promise<AdapterPage> {
     signal.throwIfAborted();
-    const available = MOCK_TELEGRAM_POSTS.filter((item) => !item.deleted);
+    const available = MOCK_TELEGRAM_POSTS.filter((item) =>
+      !item.deleted &&
+      (!chatId || item.chatId === chatId) &&
+      (!topicId || (item.topicId ?? item.forumTopicId ?? 1) === topicId),
+    );
     const offset = readCursor(cursor);
     const posts = available.slice(offset, offset + limit);
     return { posts, nextCursor: nextCursor(offset + posts.length, available.length) };
   }
 
-  async search({ cursor, limit, query = "", signal }: HistoryOptions): Promise<AdapterPage> {
+  async search({ cursor, limit, query = "", chatId, topicId, signal }: HistoryOptions): Promise<AdapterPage> {
     signal.throwIfAborted();
     const needle = normalize(query);
     const available = MOCK_TELEGRAM_POSTS.filter((item) =>
-      !item.deleted && normalize(`${item.title} ${item.contentText} ${item.captionText} ${item.tags.join(" ")}`).includes(needle),
+      !item.deleted &&
+      (!chatId || item.chatId === chatId) &&
+      (!topicId || (item.topicId ?? item.forumTopicId ?? 1) === topicId) &&
+      normalize(`${item.title} ${item.contentText} ${item.captionText} ${item.tags.join(" ")}`).includes(needle),
     );
     const offset = readCursor(cursor);
     const posts = available.slice(offset, offset + limit);

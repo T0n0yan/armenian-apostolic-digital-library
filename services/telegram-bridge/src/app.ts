@@ -73,6 +73,29 @@ function allowedPost(post: TelegramPost, allowedChatIds: ReadonlySet<string>) {
   return allowedChatIds.has(post.chatId) && !post.deleted;
 }
 
+function normalizeSearch(value: string) {
+  return value
+    .normalize("NFC")
+    .replace(/[\u200B-\u200D\uFEFF]/gu, "")
+    .replace(/[՚-՟։֍֎.,!?;:()[\]{}"'«»—–-]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .toLocaleLowerCase("hy-AM")
+    .replace(/եւ/gu, "և")
+    .trim();
+}
+
+function matchesSearch(post: BridgePost, query: string) {
+  const needle = normalizeSearch(query);
+  if (!needle) return true;
+  const pollQuestion = post.poll?.question.text ?? "";
+  const location = post.location
+    ? `${post.location.title ?? ""} ${post.location.address ?? ""}`
+    : "";
+  return normalizeSearch(
+    `${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${pollQuestion} ${location}`,
+  ).includes(needle);
+}
+
 function topicForPost(post: TelegramPost, topics: BridgeCategory[]) {
   const topicId = post.topicId ?? post.forumTopicId ?? 1;
   return topics.find((topic) => topic.chatId === post.chatId && topic.topicId === topicId) ?? null;
@@ -181,6 +204,9 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
         const post = categorizePost(raw, availableTopics);
         if (includeUnclassified ? post.categorySlug : !post.categorySlug) continue;
         if (categorySlug && post.categorySlug !== categorySlug) continue;
+        // Telegram may ignore or broaden a combined search + forum-topic
+        // request. Never let topic history become a search fallback.
+        if (query && !matchesSearch(post, query)) continue;
         posts.push(post);
       }
       loops += 1;
@@ -221,7 +247,8 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     if (request.method === "GET" && url.pathname === "/search") {
       const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
       const categorySlug = (url.searchParams.get("category") ?? "").trim() || null;
-      const availableTopics = await topics(false, request.signal);
+      const availableTopics = (await topics(false, request.signal))
+        .filter((topic) => !topic.isGeneral && topic.topicId !== 1);
       if (categorySlug && !availableTopics.some((topic) => topic.slug === categorySlug || topic.id === categorySlug)) {
         return new Response("Not Found", { status: 404 });
       }

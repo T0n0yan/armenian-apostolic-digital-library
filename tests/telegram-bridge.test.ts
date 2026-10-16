@@ -93,6 +93,43 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
     assert.equal(response.status, 200);
     assert.ok((await response.json() as BridgePostPage).posts.some((post) => /սաղմ/iu.test(post.title)));
   }
+  const topicNoMatch = await app(bridgeRequest(
+    `/search?q=${encodeURIComponent("օրինակ")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  ));
+  assert.equal(topicNoMatch.status, 200);
+  assert.equal((await topicNoMatch.json() as BridgePostPage).posts.length, 0);
+  const topicMatch = await app(bridgeRequest(
+    `/search?q=${encodeURIComponent("խաղաղություն")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  ));
+  const topicMatchPosts = (await topicMatch.json() as BridgePostPage).posts;
+  assert.deepEqual(topicMatchPosts.map((post) => post.messageId), [101]);
+
+  const broadAdapter = new MockTelegramAdapter();
+  broadAdapter.search = (options) => broadAdapter.listHistory(options);
+  const defensiveSearchApp = createBridgeApplication({
+    adapter: broadAdapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+  });
+  const defensiveNoMatch = await defensiveSearchApp(bridgeRequest(
+    `/search?q=${encodeURIComponent("չգտնվող")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  ));
+  assert.equal((await defensiveNoMatch.json() as BridgePostPage).posts.length, 0);
+
+  const generalPostAdapter = new MockTelegramAdapter();
+  generalPostAdapter.search = async ({ signal }) => {
+    signal.throwIfAborted();
+    return { posts: [{ ...MOCK_TELEGRAM_POSTS[0], topicId: 1, forumTopicId: 1 }], nextCursor: null };
+  };
+  const noGeneralSearchApp = createBridgeApplication({
+    adapter: generalPostAdapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+  });
+  const generalSearch = await noGeneralSearchApp(bridgeRequest(
+    `/search?q=${encodeURIComponent("խաղաղություն")}`,
+  ));
+  assert.equal((await generalSearch.json() as BridgePostPage).posts.length, 0);
 
   const unauthorized = await app(new Request("https://bridge.fixture/categories"));
   assert.equal(unauthorized.status, 401);
@@ -235,6 +272,7 @@ test("Worker Bridge configuration requires paired Cloudflare Access service-toke
 test("Bridge flows through Worker loaders, SSR, bookmark references and media proxy", async (context) => {
   const adapter = new MockTelegramAdapter();
   const bridge = createBridgeApplication({ adapter, allowedChatIds: new Set([MOCK_CHAT_ID]), sharedSecret: BRIDGE_SECRET });
+  const bridgeRequestPaths: string[] = [];
   const serverRoot = resolve(ROOT, "build/server");
   const serverModules = readdirSync(serverRoot, { recursive: true })
     .filter((path): path is string => typeof path === "string" && path.endsWith(".js"))
@@ -253,6 +291,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
         CF_ACCESS_CLIENT_SECRET: ACCESS_CLIENT_SECRET,
       },
       outboundService: (request: Request) => {
+        bridgeRequestPaths.push(new URL(request.url).pathname + new URL(request.url).search);
         assert.equal(request.headers.get("CF-Access-Client-Id"), ACCESS_CLIENT_ID);
         assert.equal(request.headers.get("CF-Access-Client-Secret"), ACCESS_CLIENT_SECRET);
         assert.equal(request.headers.get("authorization"), `Bearer ${BRIDGE_SECRET}`);
@@ -339,6 +378,29 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal(prefixSearch.status, 200);
   assert.match(prefixSearchHtml, /Ո՞ր սաղմոսն ես կարդում այսօր/u);
   assert.match(prefixSearchHtml, /Հարցում/u);
+  const searchCallsBeforeLanding = bridgeRequestPaths.filter((path) => path.startsWith("/search?")).length;
+  const searchLanding = await mf.dispatchFetch("https://app.fixture/search");
+  assert.equal(searchLanding.status, 200);
+  assert.match(await searchLanding.text(), /Գրիր այն, ինչ փնտրում ես/u);
+  assert.equal(
+    bridgeRequestPaths.filter((path) => path.startsWith("/search?")).length,
+    searchCallsBeforeLanding,
+    "An empty search landing must not call the Bridge search endpoint.",
+  );
+
+  const topicNoMatch = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("օրինակ")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  );
+  const topicNoMatchHtml = await topicNoMatch.text();
+  assert.equal(topicNoMatch.status, 200);
+  assert.match(topicNoMatchHtml, /Համապատասխան նյութ չգտնվեց/u);
+  assert.doesNotMatch(topicNoMatchHtml, /data-material-id=/u);
+  const topicMatch = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("խաղաղություն")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  );
+  const topicMatchHtml = await topicMatch.text();
+  assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_101"/u);
+  assert.equal((topicMatchHtml.match(/data-material-id=/gu) ?? []).length, 1);
 
   const session = await mf.dispatchFetch("https://app.fixture/telegram/session", {
     method: "POST",
@@ -350,11 +412,51 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const save = await mf.dispatchFetch("https://app.fixture/saved", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://app.fixture", cookie },
-    body: new URLSearchParams({ intent: "save", materialId: "material_tg_n100900_101", personalNote: "Իմ նշումը" }),
+    body: new URLSearchParams({ intent: "save", materialId: "material_tg_n100900_101", personalNote: "Իմ օրինակ խաղաղություն նշումը" }),
   });
   assert.equal(save.status, 200);
   const savedReference = await database.prepare("SELECT user_id,chat_id,message_id,personal_note FROM saved_materials").first();
-  assert.deepEqual(savedReference, { user_id: "telegram:70001", chat_id: MOCK_CHAT_ID, message_id: 101, personal_note: "Իմ նշումը" });
+  assert.deepEqual(savedReference, { user_id: "telegram:70001", chat_id: MOCK_CHAT_ID, message_id: 101, personal_note: "Իմ օրինակ խաղաղություն նշումը" });
+
+  const userBSession = await mf.dispatchFetch("https://app.fixture/telegram/session", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "https://app.fixture" },
+    body: JSON.stringify({ initData: telegramInitData({ id: 70002, first_name: "Second", last_name: "User" }) }),
+  });
+  const userBCookie = (userBSession.headers.get("set-cookie") ?? "").split(";", 1)[0];
+  const userBSave = await mf.dispatchFetch("https://app.fixture/saved", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://app.fixture", cookie: userBCookie },
+    body: new URLSearchParams({ intent: "save", materialId: "material_tg_n100900_102", personalNote: "Օրինակ երկրորդ անձնական նշում" }),
+  });
+  assert.equal(userBSave.status, 200);
+
+  const authenticatedNoteSearch = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("օրինակ")}`,
+    { headers: { cookie } },
+  );
+  const authenticatedNoteHtml = await authenticatedNoteSearch.text();
+  assert.equal(authenticatedNoteSearch.status, 200);
+  assert.match(authenticatedNoteHtml, /Իմ նշումներից/u);
+  assert.match(authenticatedNoteHtml, /Իմ նշումից/u);
+  assert.match(authenticatedNoteHtml, /data-material-id="material_tg_n100900_101"/u);
+  assert.doesNotMatch(authenticatedNoteHtml, /data-material-id="material_tg_n100900_102"/u);
+
+  const guestNoteSearch = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("օրինակ")}`,
+  );
+  const guestNoteHtml = await guestNoteSearch.text();
+  assert.doesNotMatch(guestNoteHtml, /Իմ նշումներից|Իմ նշումից|data-material-id="material_tg_n100900_101"/u);
+
+  const duplicateSearch = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("խաղաղություն")}`,
+    { headers: { cookie } },
+  );
+  const duplicateSearchHtml = await duplicateSearch.text();
+  assert.equal((duplicateSearchHtml.match(/data-material-id="material_tg_n100900_101"/gu) ?? []).length, 1);
+  assert.match(duplicateSearchHtml, /Telegram նյութ/u);
+  assert.match(duplicateSearchHtml, /Իմ նշումից/u);
+
   await database.prepare(
     "INSERT INTO saved_materials (user_id,chat_id,message_id,personal_note) VALUES ('telegram:70001',?,999,'Հին նշում')",
   ).bind(MOCK_CHAT_ID).run();

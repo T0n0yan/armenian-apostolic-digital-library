@@ -14,18 +14,21 @@ export function useDebouncedFormSubmit(delayMs: number, minimumCharacters = 0) {
 
   useEffect(() => cancelPending, [cancelPending]);
 
-  const submitImmediately = useCallback(() => {
+  const submitForm = useCallback((replace: boolean) => {
     cancelPending();
     if (!formRef.current) return;
-    void submit(formRef.current, { preventScrollReset: true, replace: true });
+    void submit(formRef.current, { preventScrollReset: true, replace });
   }, [cancelPending, submit]);
+
+  const submitImmediately = useCallback(() => submitForm(false), [submitForm]);
+  const submitDebounced = useCallback(() => submitForm(true), [submitForm]);
 
   const scheduleSubmit = useCallback((event?: FormEvent<HTMLInputElement>) => {
     cancelPending();
     const value = event?.currentTarget.value.trim() ?? "";
     if (value && Array.from(value).length < minimumCharacters) return;
-    timerRef.current = setTimeout(submitImmediately, delayMs);
-  }, [cancelPending, delayMs, minimumCharacters, submitImmediately]);
+    timerRef.current = setTimeout(submitDebounced, delayMs);
+  }, [cancelPending, delayMs, minimumCharacters, submitDebounced]);
 
   return { cancelPending, formRef, scheduleSubmit, submitImmediately };
 }

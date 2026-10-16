@@ -48,6 +48,7 @@ type MaterialResultCardProps = {
     contentType: BridgeContentType;
     preview: MaterialCardPreview;
     personalNote?: string;
+    matchReasons?: Array<"telegram" | "personal-note">;
   };
   canSave: boolean;
   highlightQuery?: string;
@@ -258,7 +259,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   }, [material.excerpt, material.telegramUrl, material.title]);
 
   return (
-    <li className="animate-glass-enter">
+    <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
           className={`${interactiveGlassCard} grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] px-[12px] pt-[12px] pb-[52px] text-inherit no-underline active:scale-[.992] min-[560px]:grid-cols-[96px_minmax(0,1fr)]${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
@@ -291,6 +292,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         <span className="relative z-1 grid min-w-0 gap-[6px]">
           <span className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span>
+            {material.matchReasons?.map((reason) => (
+              <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum" key={reason}>
+                {reason === "personal-note" ? "Իմ նշումից" : "Telegram նյութ"}
+              </span>
+            ))}
             {date ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
           </span>
           {material.categoryName ? (
@@ -305,7 +311,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {material.personalNote ? (
             <span className="flex items-start gap-[7px] rounded-[11px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/7%)] px-2.5 py-[9px] text-[12px] leading-[1.45] text-gold-bright [&>svg]:mt-px [&>svg]:shrink-0">
               <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
-              {highlightText(material.personalNote, highlightPattern)}
+              <span><strong className="font-[760]">Իմ նշումից՝ </strong>{highlightText(material.personalNote, highlightPattern)}</span>
             </span>
           ) : null}
           {isOpening ? <span className="inline-flex items-center gap-2 text-[11px] font-bold text-gold-bright" role="status"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={14} /> Բացվում է…</span> : null}

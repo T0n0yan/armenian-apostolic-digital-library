@@ -63,6 +63,33 @@ export async function listSavedMaterials(
      FROM saved_materials WHERE user_id = ? ORDER BY saved_at DESC LIMIT 500`,
   ).bind(userId).all<SavedReferenceRow>();
   const normalizedQuery = resolvedQuery?.highlightQuery || normalizeSearchText(query);
+  return hydrateSavedReferences(database, results, normalizedQuery, signal, false);
+}
+
+export async function searchSavedMaterialNotes(
+  database: D1Database,
+  userId: string,
+  resolvedQuery: ResolvedSearchQuery,
+  signal?: AbortSignal,
+): Promise<SavedMaterial[]> {
+  const normalizedQuery = resolvedQuery.normalized;
+  if (Array.from(normalizedQuery).length < 2) return [];
+  const { results } = await database.prepare(
+    `SELECT chat_id, message_id, personal_note, personal_note_search, saved_at
+     FROM saved_materials
+     WHERE user_id = ? AND instr(personal_note_search, ?) > 0
+     ORDER BY saved_at DESC LIMIT 500`,
+  ).bind(userId, normalizedQuery).all<SavedReferenceRow>();
+  return hydrateSavedReferences(database, results, normalizedQuery, signal, true);
+}
+
+async function hydrateSavedReferences(
+  database: D1Database,
+  results: SavedReferenceRow[],
+  normalizedQuery: string,
+  signal: AbortSignal | undefined,
+  notesOnly: boolean,
+) {
   const hydrated: Array<SavedMaterial | null> = new Array(results.length).fill(null);
   let nextIndex = 0;
   const workers = Array.from({ length: Math.min(4, results.length) }, async () => {
@@ -74,7 +101,8 @@ export async function listSavedMaterials(
       const post = await getBridgePost(database, row.chat_id, row.message_id, signal);
       if (!post?.categoryId || !post.categoryName || !post.categorySlug) {
         const title = "Հրապարակումն այլևս հասանելի չէ";
-        if (normalizedQuery && !normalizeSearchText(`${title} ${row.personal_note}`).includes(normalizedQuery)) continue;
+        const searchable = notesOnly ? row.personal_note : `${title} ${row.personal_note}`;
+        if (normalizedQuery && !normalizeSearchText(searchable).includes(normalizedQuery)) continue;
         hydrated[index] = {
         id: createMaterialId(row.chat_id, row.message_id),
         title,
@@ -108,7 +136,9 @@ export async function listSavedMaterials(
         };
         continue;
       }
-      const searchable = normalizeSearchText(`${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${row.personal_note}`);
+      const searchable = normalizeSearchText(notesOnly
+        ? row.personal_note
+        : `${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${row.personal_note}`);
       if (normalizedQuery && !searchable.includes(normalizedQuery)) continue;
       hydrated[index] = {
       id: post.id,
@@ -124,7 +154,9 @@ export async function listSavedMaterials(
       personalNote: row.personal_note,
       savedAt: row.saved_at,
       excerpt: normalizedQuery
-        ? createSearchExcerpt(post.contentText || post.captionText || row.personal_note, normalizedQuery)
+        ? createSearchExcerpt(notesOnly
+          ? row.personal_note
+          : post.contentText || post.captionText || row.personal_note, normalizedQuery)
         : createMaterialExcerpt(post.contentText || post.captionText || row.personal_note),
       contentType: post.contentType,
       preview: bridgePostToCardPreview(post),

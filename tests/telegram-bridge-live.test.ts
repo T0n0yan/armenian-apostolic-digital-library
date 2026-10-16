@@ -137,4 +137,15 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
     assert.equal(search.status, 200);
     assert.ok((await search.json() as BridgePostPage).posts.some((post) => post.messageId === 66));
   }
+
+  const topicThree = topics.find((topic) => topic.topicId === 50);
+  assert.ok(topicThree, "The read-only test fixture must expose Topic 3.");
+  const topicNoMatch = await app(request(
+    `/search?q=${encodeURIComponent("օրինակ")}&category=${encodeURIComponent(topicThree.id)}`,
+  ));
+  assert.equal(topicNoMatch.status, 200);
+  assert.equal((await topicNoMatch.json() as BridgePostPage).posts.length, 0);
+  const globalNoMatch = await app(request(`/search?q=${encodeURIComponent("օրինակ")}`));
+  assert.equal(globalNoMatch.status, 200);
+  assert.equal((await globalNoMatch.json() as BridgePostPage).posts.length, 0);
 });
