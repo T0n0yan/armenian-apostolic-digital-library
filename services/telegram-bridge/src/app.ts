@@ -7,7 +7,7 @@ import {
   type BridgePostPage,
 } from "../../../shared/telegram-bridge-contract";
 import { messageIdSearchMatch, parseTelegramSearchQuery } from "../../../shared/telegram-search";
-import type { TelegramAdapter, TelegramPost } from "./adapter";
+import { InvalidPaginationCursorError, type TelegramAdapter, type TelegramPost } from "./adapter";
 import { DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS } from "./config";
 import { parseRangeHeader } from "./range";
 import { TelegramSearchIndex } from "./search-index";
@@ -203,19 +203,28 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     categorySlug: string | null,
     signal: AbortSignal,
     includeUnclassified = false,
+    limit = 12,
   ): Promise<BridgePostPage> {
     const category = categorySlug ? availableTopics.find((item) => item.slug === categorySlug) ?? null : null;
-    if (query) return searchIndex!.search(query, category?.id ?? null, cursor, 30, signal);
+    if (query) return compactPage(await searchIndex!.search(query, category?.id ?? null, cursor, Math.min(20, limit), signal));
     const posts: BridgePost[] = [];
     let adapterCursor = cursor;
     let loops = 0;
+    const seenCursors = new Set<string>();
     do {
+      const cursorIdentity = adapterCursor ?? "initial";
+      if (seenCursors.has(cursorIdentity)) {
+        adapterCursor = null;
+        break;
+      }
+      seenCursors.add(cursorIdentity);
       const categoryChatId = category?.chatId ?? null;
       const categoryTopicId = category?.topicId ?? null;
       const page = categoryChatId && categoryTopicId
-          ? await telegramCall("topic-history", () => options.adapter.listHistory({ cursor: adapterCursor, limit: 30, chatId: categoryChatId, topicId: categoryTopicId, signal }))
-          : await telegramCall("history", () => options.adapter.listHistory({ cursor: adapterCursor, limit: 30, signal }));
+          ? await telegramCall("topic-history", () => options.adapter.listHistory({ cursor: adapterCursor, limit, chatId: categoryChatId, topicId: categoryTopicId, signal }))
+          : await telegramCall("history", () => options.adapter.listHistory({ cursor: adapterCursor, limit, signal }));
       adapterCursor = page.nextCursor;
+      if (adapterCursor && seenCursors.has(adapterCursor)) adapterCursor = null;
       for (const raw of page.posts) {
         if (!allowedPost(raw, options.allowedChatIds)) continue;
         const post = categorizePost(raw, availableTopics);
@@ -224,8 +233,12 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
         posts.push(post);
       }
       loops += 1;
-    } while (posts.length < 30 && adapterCursor && loops < 100);
-    return { posts: posts.slice(0, 30), nextCursor: adapterCursor, total: category?.materialCount ?? null };
+    } while (posts.length < limit && adapterCursor && loops < 100);
+    return compactPage({ posts: posts.slice(0, limit), nextCursor: adapterCursor, total: category?.materialCount ?? null });
+  }
+
+  function compactPage(page: BridgePostPage): BridgePostPage {
+    return { ...page, posts: page.posts.map((post) => post.richContent ? { ...post, richContent: null } : post) };
   }
 
   return async function handleBridgeRequest(request: Request): Promise<Response> {
@@ -242,6 +255,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
         : json({ ready: true });
     }
 
+    try {
     if (request.method === "GET" && (url.pathname === "/categories" || url.pathname === "/topics")) {
       const refresh = url.searchParams.get("refresh") === "1";
       return json(await topics(refresh, request.signal), 200, "private, max-age=15");
@@ -255,7 +269,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
       if (!category || category.chatId !== reference?.chatId || category.topicId !== reference.topicId) {
         return new Response("Not Found", { status: 404 });
       }
-      return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), "", category.slug, request.signal));
+      return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), "", category.slug, request.signal, false, 12));
     }
 
     if (request.method === "GET" && url.pathname === "/search") {
@@ -285,14 +299,22 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
             matchedMessageId: match.matchedMessageId,
           } });
         }
-        return json({ posts: [...new Map(posts.map((post) => [post.id, post])).values()], nextCursor: null, total: posts.length } satisfies BridgePostPage);
+        return json(compactPage({ posts: [...new Map(posts.map((post) => [post.id, post])).values()], nextCursor: null, total: posts.length }));
       }
-      return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), query, category?.slug ?? null, request.signal));
+      return json(await filteredPage(
+        availableTopics,
+        url.searchParams.get("cursor"),
+        query,
+        category?.slug ?? null,
+        request.signal,
+        false,
+        query ? 20 : 12,
+      ));
     }
 
     if (request.method === "GET" && url.pathname === "/unclassified") {
       const availableTopics = await topics(false, request.signal);
-      return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), "", null, request.signal, true));
+      return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), "", null, request.signal, true, 12));
     }
 
     const postMatch = /^\/posts\/(-?\d{1,20})\/(\d{1,20})$/u.exec(url.pathname);
@@ -377,5 +399,9 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     }
 
     return new Response("Not Found", { status: 404 });
+    } catch (error) {
+      if (error instanceof InvalidPaginationCursorError) return json({ error: "invalid_cursor" }, 400);
+      throw error;
+    }
   };
 }

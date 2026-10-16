@@ -10,6 +10,7 @@ import {
   DEFAULT_SEARCH_INDEX_MAX_CHARACTERS,
   DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS,
 } from "./config";
+import { InvalidPaginationCursorError } from "./adapter";
 
 type IndexedPost = { post: BridgePost; document: SearchableTelegramDocument };
 type IndexSnapshot = {
@@ -45,20 +46,78 @@ function waitForBuild<T>(promise: Promise<T>, signal: AbortSignal) {
   });
 }
 
-function cursorOffset(value: string | null, query: ParsedTelegramSearchQuery, categoryId: string | null) {
-  if (!value) return 0;
+type RankedMatch = {
+  post: BridgePost;
+  match: NonNullable<ReturnType<typeof matchSearchableTelegramDocument>>;
+};
+
+type SearchCursor = {
+  version: 1;
+  query: string;
+  categoryId: string | null;
+  rank: number;
+  publishedAt: string;
+  messageId: number;
+  chatId: string;
+  materialId: string;
+};
+
+function decodeCursor(value: string | null, query: ParsedTelegramSearchQuery, categoryId: string | null) {
+  if (!value) return null;
+  if (value.length > 2_000) throw new InvalidPaginationCursorError();
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as { offset?: unknown; query?: unknown; categoryId?: unknown };
-    return Number.isSafeInteger(parsed.offset) && Number(parsed.offset) >= 0 && parsed.query === query.normalized && parsed.categoryId === categoryId
-      ? Number(parsed.offset)
-      : 0;
-  } catch { return 0; }
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<SearchCursor>;
+    if (parsed.version !== 1 || parsed.query !== query.normalized || parsed.categoryId !== categoryId ||
+      !Number.isSafeInteger(parsed.rank) || !Number.isSafeInteger(parsed.messageId) || Number(parsed.messageId) <= 0 ||
+      typeof parsed.publishedAt !== "string" || typeof parsed.chatId !== "string" || !parsed.chatId ||
+      typeof parsed.materialId !== "string" || !parsed.materialId) {
+      throw new InvalidPaginationCursorError();
+    }
+    return parsed as SearchCursor;
+  } catch (error) {
+    if (error instanceof InvalidPaginationCursorError) throw error;
+    throw new InvalidPaginationCursorError();
+  }
 }
 
-function nextCursor(offset: number, total: number, query: ParsedTelegramSearchQuery, categoryId: string | null) {
-  return offset < total
-    ? Buffer.from(JSON.stringify({ offset, query: query.normalized, categoryId })).toString("base64url")
-    : null;
+function encodeCursor(item: RankedMatch, query: ParsedTelegramSearchQuery, categoryId: string | null) {
+  return Buffer.from(JSON.stringify({
+    version: 1,
+    query: query.normalized,
+    categoryId,
+    rank: item.match.rank,
+    publishedAt: item.post.publishedAt ?? "",
+    messageId: item.post.messageId,
+    chatId: item.post.chatId,
+    materialId: item.post.id,
+  } satisfies SearchCursor)).toString("base64url");
+}
+
+function compareMatches(left: RankedMatch, right: RankedMatch) {
+  return right.match.rank - left.match.rank ||
+    (right.post.publishedAt ?? "").localeCompare(left.post.publishedAt ?? "") ||
+    right.post.messageId - left.post.messageId ||
+    left.post.chatId.localeCompare(right.post.chatId) ||
+    left.post.id.localeCompare(right.post.id);
+}
+
+function cursorStart(matches: RankedMatch[], cursor: SearchCursor | null) {
+  if (!cursor) return 0;
+  const index = matches.findIndex(({ post, match }) =>
+    match.rank === cursor.rank &&
+    (post.publishedAt ?? "") === cursor.publishedAt &&
+    post.messageId === cursor.messageId &&
+    post.id === cursor.materialId
+  );
+  if (index >= 0) return index + 1;
+  const firstAfterAnchor = matches.findIndex(({ post, match }) =>
+    match.rank < cursor.rank ||
+    (match.rank === cursor.rank && (post.publishedAt ?? "") < cursor.publishedAt) ||
+    (match.rank === cursor.rank && (post.publishedAt ?? "") === cursor.publishedAt && post.messageId < cursor.messageId) ||
+    (match.rank === cursor.rank && (post.publishedAt ?? "") === cursor.publishedAt && post.messageId === cursor.messageId && post.chatId > cursor.chatId) ||
+    (match.rank === cursor.rank && (post.publishedAt ?? "") === cursor.publishedAt && post.messageId === cursor.messageId && post.chatId === cursor.chatId && post.id > cursor.materialId)
+  );
+  return firstAfterAnchor < 0 ? matches.length : firstAfterAnchor;
 }
 
 export class TelegramSearchIndex {
@@ -121,18 +180,18 @@ export class TelegramSearchIndex {
     if (!parsed.normalized || parsed.messageIdIntent) return { posts: [], nextCursor: null, total: 0 };
     const snapshot = await this.ensure(signal);
     signal.throwIfAborted();
-    const matches = snapshot.entries
+    const matches: RankedMatch[] = snapshot.entries
       .filter(({ post }) => !categoryId || post.categoryId === categoryId || post.categorySlug === categoryId)
       .map(({ post, document }) => ({ post, match: matchSearchableTelegramDocument(document, parsed) }))
       .filter((item): item is { post: BridgePost; match: NonNullable<typeof item.match> } => Boolean(item.match))
-      .sort((left, right) => right.match.rank - left.match.rank ||
-        (right.post.publishedAt ?? "").localeCompare(left.post.publishedAt ?? "") ||
-        right.post.messageId - left.post.messageId);
-    const offset = cursorOffset(cursor, parsed, categoryId);
-    const page = matches.slice(offset, offset + limit);
+      .sort(compareMatches);
+    const safeLimit = Math.max(1, Math.min(20, limit));
+    const start = cursorStart(matches, decodeCursor(cursor, parsed, categoryId));
+    const page = matches.slice(start, start + safeLimit);
+    const last = page.at(-1);
     return {
       posts: page.map(({ post, match }) => ({ ...post, searchMatch: { scoreCategory: match.scoreCategory, reasons: match.reasons } })),
-      nextCursor: nextCursor(offset + page.length, matches.length, parsed, categoryId),
+      nextCursor: last && start + page.length < matches.length ? encodeCursor(last, parsed, categoryId) : null,
       total: matches.length,
     };
   }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import bigInt from "big-integer";
-import { Api } from "telegram";
+import { Api } from "../services/telegram-bridge/src/telegram-client";
 
 import {
   collectDiscoverableTelegramChats,

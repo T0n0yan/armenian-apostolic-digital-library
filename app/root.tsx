@@ -1,5 +1,5 @@
 import {env} from "cloudflare:workers";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -12,10 +12,12 @@ import {
 
 import type { Route } from "./+types/root";
 import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
+import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
 import { CandleLoader } from "./components/candle-loader";
 import { PageShell, RouteErrorState } from "./components/page-layout";
 import { SiteNav } from "./components/site-nav";
 import {listActiveCategories} from "./data/categories.server";
+import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import "./app.css";
 
 const initialThemeScript = `(() => {
@@ -28,14 +30,16 @@ const initialThemeScript = `(() => {
 })();`;
 
 export async function loader({request}: Route.LoaderArgs) {
-  const [telegramAdmin, categories] = await Promise.all([
+  const [telegramAdmin, categories, telegramUser] = await Promise.all([
     getOptionalTelegramAdmin(request, env.DB),
     listActiveCategories(env.DB, false, request.signal).catch(() => []),
+    getOptionalTelegramUser(request),
   ]);
 
   return {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
     categories,
+    navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };
 }
 
@@ -138,16 +142,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <ScrollRestoration />
+        <ScrollRestoration getKey={({ pathname, search }) => `${pathname}${search}`} />
         <Scripts />
       </body>
     </html>
   );
 }
 
-export default function App() {
+export default function App({ loaderData }: Route.ComponentProps) {
   const revalidator = useRevalidator();
   const sessionAttempted = useRef(false);
+
+  useLayoutEffect(() => {
+    setNavigationCacheScope(loaderData.navigationCacheScope);
+  }, [loaderData.navigationCacheScope]);
 
   useEffect(() => {
     if (sessionAttempted.current) return;
@@ -174,7 +182,10 @@ export default function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ initData: webApp.initData }),
       }).catch(() => null);
-      if (active && response?.ok) revalidator.revalidate();
+      if (active && response?.ok) {
+        clearNavigationCache();
+        revalidator.revalidate();
+      }
     });
     return () => {
       active = false;

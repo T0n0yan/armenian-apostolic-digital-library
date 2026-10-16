@@ -4,6 +4,7 @@ import {
   type BridgeFormattedText,
   type BridgeLocation,
   type BridgePoll,
+  type BridgeRichContent,
 } from "../../shared/telegram-bridge-contract";
 import { getBridgePost } from "./telegram-bridge.server";
 
@@ -36,6 +37,7 @@ export type MaterialDetail = {
   captionText: string;
   formattedText: BridgeFormattedText;
   formattedCaption: BridgeFormattedText;
+  richContent: BridgeRichContent | null;
   contentType: BridgeContentType;
   poll: BridgePoll | null;
   location: BridgeLocation | null;
@@ -63,6 +65,7 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
     captionText: post.captionText,
     formattedText: post.formattedText,
     formattedCaption: post.formattedCaption,
+    richContent: post.richContent,
     contentType: post.contentType,
     poll: post.poll,
     location: post.location,

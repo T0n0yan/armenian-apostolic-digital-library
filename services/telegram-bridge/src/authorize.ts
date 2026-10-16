@@ -3,9 +3,7 @@ import { loadEnvFile } from "node:process";
 import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath } from "node:url";
 
-import { TelegramClient } from "telegram";
-import { Logger, LogLevel } from "telegram/extensions/Logger.js";
-import { StringSession } from "telegram/sessions/index.js";
+import { Logger, LogLevel, StringSession, TelegramClient } from "./telegram-client";
 
 import {
   assertLocalSecretFile,

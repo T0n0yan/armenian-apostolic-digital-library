@@ -7,6 +7,7 @@ import type {
   TelegramAdapter,
   TelegramPost,
 } from "./adapter";
+import { InvalidPaginationCursorError } from "./adapter";
 
 const CHAT_ID = "-100900";
 const VIDEO_SIZE = 120 * 1024 * 1024 + 17;
@@ -46,6 +47,7 @@ function post(input: Partial<TelegramPost> & Pick<TelegramPost, "messageId" | "t
     captionText: "",
     formattedText: { text: input.contentText, entities: [] },
     formattedCaption: { text: "", entities: [] },
+    richContent: null,
     contentType: "text",
     poll: null,
     location: null,
@@ -62,7 +64,23 @@ function post(input: Partial<TelegramPost> & Pick<TelegramPost, "messageId" | "t
 }
 
 export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
-  post({ messageId: 110, title: "Չաջակցվող նյութ", contentText: "", contentType: "unsupported", unsupportedType: "MessageMediaUnsupported" }),
+  post({
+    messageId: 112,
+    title: "Ձևաչափված ընթերցում",
+    contentText: "Ձևաչափված ընթերցում Թավ տեքստ մեջբերում",
+    contentType: "photo",
+    media: [media(0, "photo")],
+    richContent: {
+      partial: false,
+      blocks: [
+        { type: "heading", level: 1, content: [{ type: "text", text: "Ձևաչափված ընթերցում" }] },
+        { type: "paragraph", content: [{ type: "bold", children: [{ type: "text", text: "Թավ տեքստ" }] }, { type: "line-break" }, { type: "link", url: null, children: [{ type: "text", text: "անվտանգ fallback" }] }] },
+        { type: "media", mediaIndex: 0, caption: [{ type: "italic", children: [{ type: "text", text: "Նկարի բացատրություն" }] }] },
+        { type: "blockquote", expandable: false, blocks: [{ type: "paragraph", content: [{ type: "text", text: "մեջբերում" }] }], caption: [] },
+      ],
+    },
+  }),
+  post({ messageId: 110, title: "Չաջակցվող նյութ", contentText: "", contentType: "unsupported", unsupportedType: "unknown-attachment" }),
   post({
     messageId: 109,
     title: "Ո՞ր կլոր տարբերակն ես ընտրում",
@@ -109,20 +127,39 @@ export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
   post({ messageId: 102, title: "Սուրբ պատկերի պատմություն", contentText: "Նկարագրություն՝ հրապարակման ամբողջ տեքստը։", captionText: "Նկարագրություն՝ հրապարակման ամբողջ տեքստը։", formattedCaption: { text: "Նկարագրություն՝ հրապարակման ամբողջ տեքստը։", entities: [] }, contentType: "photo", media: [media(0, "photo")] }),
   post({ messageId: 67, title: "Telegram նյութ #67", contentText: "Փորձնական ID որոնման նյութ։" }),
   post({ messageId: 101, title: "Առավոտյան աղոթք", contentText: "Տե՛ր, խաղաղություն պարգևիր մեր ժողովրդին։", formattedText: { text: "Տե՛ր, խաղաղություն պարգևիր մեր ժողովրդին։", entities: [{ type: "bold", offset: 0, length: 4, url: null }] }, tags: ["աղոթք"] }),
+  ...Array.from({ length: 5 }, (_, index) => post({
+    messageId: 100 - index,
+    title: `Լրացուցիչ նյութ ${index + 1}`,
+    contentText: `Cursor pagination fixture ${index + 1}`,
+  })),
 ];
 
-function readCursor(cursor: string | null) {
+function cursorScope(options: Pick<HistoryOptions, "chatId" | "topicId" | "query">) {
+  return JSON.stringify({ chatId: options.chatId ?? null, topicId: options.topicId ?? null, query: normalize(options.query ?? "") });
+}
+
+function readCursor(cursor: string | null, options: Pick<HistoryOptions, "chatId" | "topicId" | "query">, available: TelegramPost[]) {
   if (!cursor) return 0;
+  if (cursor.length > 2_000) throw new InvalidPaginationCursorError();
   try {
-    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as { offset?: unknown };
-    return Number.isSafeInteger(parsed.offset) && Number(parsed.offset) >= 0 ? Number(parsed.offset) : 0;
-  } catch {
-    return 0;
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as { version?: unknown; scope?: unknown; materialId?: unknown };
+    if (parsed.version !== 1 || parsed.scope !== cursorScope(options) || typeof parsed.materialId !== "string") {
+      throw new InvalidPaginationCursorError();
+    }
+    const index = available.findIndex((post) => post.id === parsed.materialId);
+    if (index < 0) throw new InvalidPaginationCursorError();
+    return index + 1;
+  } catch (error) {
+    if (error instanceof InvalidPaginationCursorError) throw error;
+    throw new InvalidPaginationCursorError();
   }
 }
 
-function nextCursor(offset: number, total: number) {
-  return offset < total ? Buffer.from(JSON.stringify({ offset })).toString("base64url") : null;
+function nextCursor(posts: TelegramPost[], end: number, total: number, options: Pick<HistoryOptions, "chatId" | "topicId" | "query">) {
+  const last = posts.at(-1);
+  return last && end < total
+    ? Buffer.from(JSON.stringify({ version: 1, scope: cursorScope(options), materialId: last.id })).toString("base64url")
+    : null;
 }
 
 function normalize(value: string) {
@@ -176,19 +213,21 @@ export class MockTelegramAdapter implements TelegramAdapter {
     ];
   }
 
-  async listHistory({ cursor, limit, chatId, topicId, signal }: HistoryOptions): Promise<AdapterPage> {
+  async listHistory(options: HistoryOptions): Promise<AdapterPage> {
+    const { cursor, limit, chatId, topicId, signal } = options;
     signal.throwIfAborted();
     const available = MOCK_TELEGRAM_POSTS.filter((item) =>
       !item.deleted &&
       (!chatId || item.chatId === chatId) &&
       (!topicId || (item.topicId ?? item.forumTopicId ?? 1) === topicId),
     );
-    const offset = readCursor(cursor);
+    const offset = readCursor(cursor, options, available);
     const posts = available.slice(offset, offset + limit);
-    return { posts, nextCursor: nextCursor(offset + posts.length, available.length) };
+    return { posts, nextCursor: nextCursor(posts, offset + posts.length, available.length, options) };
   }
 
-  async search({ cursor, limit, query = "", chatId, topicId, signal }: HistoryOptions): Promise<AdapterPage> {
+  async search(options: HistoryOptions): Promise<AdapterPage> {
+    const { cursor, limit, query = "", chatId, topicId, signal } = options;
     signal.throwIfAborted();
     const needle = normalize(query);
     const available = MOCK_TELEGRAM_POSTS.filter((item) =>
@@ -197,9 +236,9 @@ export class MockTelegramAdapter implements TelegramAdapter {
       (!topicId || (item.topicId ?? item.forumTopicId ?? 1) === topicId) &&
       normalize(`${item.title} ${item.contentText} ${item.captionText} ${item.tags.join(" ")}`).includes(needle),
     );
-    const offset = readCursor(cursor);
+    const offset = readCursor(cursor, options, available);
     const posts = available.slice(offset, offset + limit);
-    return { posts, nextCursor: nextCursor(offset + posts.length, available.length) };
+    return { posts, nextCursor: nextCursor(posts, offset + posts.length, available.length, options) };
   }
 
   async getPost(chatId: string, messageId: number, signal: AbortSignal) {

@@ -45,15 +45,40 @@ export type BridgeMedia = {
 };
 
 export type BridgeTextEntity = {
-  type: "bold" | "italic" | "underline" | "strikethrough" | "code" | "pre" | "blockquote" | "link";
+  type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler" | "code" | "pre" | "blockquote" | "expandable-blockquote" | "link" | "mention" | "hashtag" | "cashtag" | "bot-command" | "custom-emoji";
   offset: number;
   length: number;
   url: string | null;
+  language?: string | null;
+  customEmojiId?: string | null;
 };
 
 export type BridgeFormattedText = {
   text: string;
   entities: BridgeTextEntity[];
+};
+
+export type BridgeRichInline =
+  | { type: "text"; text: string }
+  | { type: "bold" | "italic" | "underline" | "strikethrough" | "spoiler" | "code" | "subscript" | "superscript" | "mark"; children: BridgeRichInline[] }
+  | { type: "link"; url: string | null; children: BridgeRichInline[] }
+  | { type: "custom-emoji"; alt: string; documentId: string | null }
+  | { type: "line-break" }
+  | { type: "unsupported"; telegramType: string };
+
+export type BridgeRichBlock =
+  | { type: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; content: BridgeRichInline[] }
+  | { type: "paragraph"; content: BridgeRichInline[] }
+  | { type: "pre"; language: string | null; content: BridgeRichInline[] }
+  | { type: "list"; ordered: boolean; start: number | null; items: BridgeRichBlock[][] }
+  | { type: "blockquote"; expandable: boolean; blocks: BridgeRichBlock[]; caption: BridgeRichInline[] }
+  | { type: "divider" }
+  | { type: "media"; mediaIndex: number; caption: BridgeRichInline[] }
+  | { type: "unsupported"; telegramType: string };
+
+export type BridgeRichContent = {
+  blocks: BridgeRichBlock[];
+  partial: boolean;
 };
 
 export type BridgePoll = {
@@ -144,6 +169,7 @@ export type BridgePost = {
   captionText: string;
   formattedText: BridgeFormattedText;
   formattedCaption: BridgeFormattedText;
+  richContent: BridgeRichContent | null;
   contentType: BridgeContentType;
   poll: BridgePoll | null;
   location: BridgeLocation | null;

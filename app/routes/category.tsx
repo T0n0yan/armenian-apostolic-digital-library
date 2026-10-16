@@ -1,11 +1,12 @@
 import { env } from "cloudflare:workers";
 import { RotateCw, Search } from "lucide-react";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { isRouteErrorResponse, Link, useNavigation } from "react-router";
 
 import type { Route } from "./+types/category";
-import { getOptionalTelegramUser } from "../auth/telegram-user.server";
+import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
 import { MaterialResultCard } from "../components/material-result-card";
+import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { MaterialListSkeleton } from "../components/material-skeleton";
 import {
@@ -22,6 +23,7 @@ import type { SearchFilters, SearchMaterial } from "../data/search-materials";
 import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
+import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
 
@@ -57,10 +59,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const query = (url.searchParams.get("q") ?? "")
     .trim()
     .slice(0, 120);
-  const requestedPage = Number(url.searchParams.get("page"));
-  const page = Number.isInteger(requestedPage) && requestedPage > 0
-    ? Math.min(requestedPage, 1_000)
-    : 1;
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const [category, user] = await Promise.all([
     getActiveCategoryBySlug(env.DB, params.slug, request.signal),
@@ -84,7 +82,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   };
   const [materialResult, savedMaterialIds] = await Promise.all([
     query && resolvedQuery
-      ? searchMaterials(env.DB, filters, cursor, 30, resolvedQuery, request.signal)
+      ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
       : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
@@ -95,13 +93,21 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     materials,
     query,
     total: materialResult.total,
-    page,
     nextCursor: materialResult.nextCursor,
     highlightQuery: resolvedQuery?.highlightQuery ?? "",
     savedMaterialIds,
     canSave: Boolean(user),
+    navigationCacheKey: `${url.pathname}${url.search}`,
+    navigationCacheScope: await getTelegramUserCacheScope(user),
   };
 }
+
+type CategoryLoaderData = Awaited<ReturnType<typeof loader>>;
+
+export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
+  return loadNavigationData("topic-feed", request.url, async () => await serverLoader() as CategoryLoaderData);
+}
+clientLoader.hydrate = true as const;
 
 const MaterialsList = memo(function MaterialsList({
   canSave,
@@ -140,7 +146,17 @@ const MaterialsList = memo(function MaterialsList({
 });
 
 export default function Category({ loaderData }: Route.ComponentProps) {
-  const { category, materials } = loaderData;
+  const { category } = loaderData;
+  const stateKey = `${category.slug}|${loaderData.query}`;
+  const [materials, setMaterials] = useState<CategoryMaterial[]>(loaderData.materials);
+  const [nextCursor, setNextCursor] = useState<string | null>(loaderData.nextCursor);
+  const [pageError, setPageError] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const stateKeyRef = useRef(stateKey);
+  stateKeyRef.current = stateKey;
+  const requestedCursorRef = useRef<string | null>(null);
+  const seenCursorsRef = useRef(new Set<string>());
   const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[category.id] ??
     "Փնտրել այս թեմայում…";
   const categoryDescription = CATEGORY_DESCRIPTIONS[category.id]
@@ -152,14 +168,62 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
     navigation.location?.pathname === `/categories/${category.slug}`;
-  const pageHref = (page: number, cursor: string | null) => {
-    const search = new URLSearchParams();
+  useEffect(() => {
+    abortRef.current?.abort();
+    setMaterials(loaderData.materials);
+    setNextCursor(loaderData.nextCursor);
+    setPageError(false);
+    setIsLoadingMore(false);
+    requestedCursorRef.current = null;
+    seenCursorsRef.current = new Set();
+  }, [loaderData.materials, loaderData.nextCursor, stateKey]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  useEffect(() => {
+    writeNavigationCache("topic-feed", loaderData.navigationCacheKey, loaderData.navigationCacheScope, {
+      ...loaderData,
+      materials,
+      nextCursor,
+    });
+  }, [loaderData, materials, nextCursor]);
+
+  const loadMore = useCallback(() => {
+    if (!nextCursor || isLoadingMore || seenCursorsRef.current.has(nextCursor)) return;
+    seenCursorsRef.current.add(nextCursor);
+    requestedCursorRef.current = nextCursor;
+    setPageError(false);
+    setIsLoadingMore(true);
+    const controller = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = controller;
+    const requestedKey = stateKey;
+    const search = new URLSearchParams({ cursor: nextCursor });
     if (loaderData.query) search.set("q", loaderData.query);
-    if (page > 1) search.set("page", String(page));
-    if (cursor) search.set("cursor", cursor);
-    const suffix = search.toString();
-    return `/categories/${category.slug}${suffix ? `?${suffix}` : ""}`;
-  };
+    void fetch(`/api/categories/${category.slug}/posts?${search}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Page request failed: ${response.status}`);
+        return await response.json() as { materials: CategoryMaterial[]; nextCursor: string | null };
+      })
+      .then((data) => {
+        if (requestedKey !== stateKeyRef.current || controller.signal.aborted) return;
+        setMaterials((current) => {
+          const byId = new Map(current.map((material) => [material.id, material]));
+          for (const material of data.materials) byId.set(material.id, material);
+          return [...byId.values()];
+        });
+        setNextCursor(data.nextCursor && data.nextCursor !== requestedCursorRef.current ? data.nextCursor : null);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        seenCursorsRef.current.delete(nextCursor);
+        setPageError(true);
+      })
+      .finally(() => {
+        if (abortRef.current === controller) abortRef.current = null;
+        if (!controller.signal.aborted) setIsLoadingMore(false);
+      });
+  }, [category.slug, isLoadingMore, loaderData.query, nextCursor, stateKey]);
 
   return (
     <PageShell>
@@ -211,12 +275,13 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             highlightQuery={loaderData.highlightQuery}
           />
         )}
-        {!isRefreshing && materials.length > 0 && (loaderData.page > 1 || loaderData.nextCursor) ? (
-          <nav className="grid grid-cols-[1fr_auto_1fr] items-center gap-2.5 px-1 pt-3.5 text-[12px] text-faint tabular-nums [&_a]:w-fit [&_a]:font-[720] [&_a]:text-gold-bright [&_a]:no-underline [&_a:last-of-type]:justify-self-end" aria-label="Բաժնի էջեր">
-            {loaderData.page > 1 ? <Link to={pageHref(1, null)}>← Սկիզբ</Link> : <span />}
-            <span>{loaderData.page}</span>
-            {loaderData.nextCursor ? <Link to={pageHref(loaderData.page + 1, loaderData.nextCursor)}>Հաջորդ →</Link> : <span />}
-          </nav>
+        {!isRefreshing && materials.length > 0 ? (
+          <InfiniteLoadControls
+            hasMore={Boolean(nextCursor)}
+            isLoading={isLoadingMore}
+            hasError={pageError}
+            onLoadMore={loadMore}
+          />
         ) : null}
       </section>
     </PageShell>

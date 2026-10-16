@@ -1,5 +1,4 @@
-import { Api, utils } from "telegram";
-import type { Entity } from "telegram/define";
+import { Api, utils, type Entity } from "./telegram-client";
 
 export type DiscoveredTelegramChat = {
   title: string;
@@ -54,7 +53,7 @@ export async function collectDiscoverableTelegramChats(
   const chats = new Map<string, DiscoveredTelegramChat>();
 
   // Folder 0 is the main dialog list and folder 1 is Telegram's archive.
-  // The supplied iterators must be unbounded so GramJS performs cursor
+  // The supplied iterators must be unbounded so Teleproto performs cursor
   // pagination until each folder is exhausted.
   for (const folder of [0, 1] as const) {
     for await (const dialog of iterateFolder(folder)) {

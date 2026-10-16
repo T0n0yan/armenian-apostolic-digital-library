@@ -8,6 +8,7 @@ import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { MaterialMediaGallery } from "../components/material-media";
 import {
   FormattedTelegramText,
+  TelegramRichMessage,
   TelegramLocationCard,
   TelegramPollCard,
   TelegramUnsupportedCard,
@@ -57,7 +58,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         title={material.title}
       />
       <article className="grid gap-4">
-        <MaterialMediaGallery media={material.media} />
+        {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
@@ -73,11 +74,11 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {material.formattedText.text ? (
+        {!material.richContent && material.formattedText.text ? (
           <div className="rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]">
             <FormattedTelegramText value={material.formattedText} />
           </div>
-        ) : material.formattedCaption.text ? (
+        ) : !material.richContent && material.formattedCaption.text ? (
           <p className="m-0 rounded-[20px] border border-glass-border bg-glass p-5 text-[15px] leading-[1.8] text-ink"><FormattedTelegramText value={material.formattedCaption} /></p>
         ) : null}
 

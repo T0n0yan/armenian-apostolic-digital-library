@@ -9,7 +9,7 @@ import type { BridgeCategory, BridgePost, BridgePostPage } from "../shared/teleg
 const live = process.env.TELEGRAM_LIVE_TEST === "1";
 const TEST_FIXTURE_CHAT_ID = "-1004427053230";
 
-test("authorized GramJS session serves the allowlisted forum end to end", { skip: !live, timeout: 120_000 }, async (context) => {
+test("authorized Teleproto session serves the allowlisted forum end to end", { skip: !live, timeout: 120_000 }, async (context) => {
   const config = readBridgeConfig(process.env);
   assert.equal(config.adapter, "gramjs");
   const contentChatIds = activeContentChatIds(config);
@@ -55,6 +55,8 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   assert.deepEqual(categories.map((topic) => topic.id), topics.map((topic) => topic.id));
 
   const posts: BridgePost[] = [];
+  const pagesByTopic = new Map<number, BridgePost[][]>();
+  const firstCursorByTopic = new Map<number, string>();
   for (const topic of topics) {
     let cursor: string | null = null;
     for (let pageNumber = 0; pageNumber < 20; pageNumber += 1) {
@@ -62,6 +64,11 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
       const response = await app(request(`/categories/${topic.slug}/posts${suffix}`));
       assert.equal(response.status, 200);
       const page = await response.json() as BridgePostPage;
+      assert.ok(page.posts.length <= 12, `Topic ${topic.topicId} exceeded the 12-material page contract.`);
+      const topicPages = pagesByTopic.get(topic.topicId!) ?? [];
+      topicPages.push(page.posts);
+      pagesByTopic.set(topic.topicId!, topicPages);
+      if (pageNumber === 0 && page.nextCursor) firstCursorByTopic.set(topic.topicId!, page.nextCursor);
       posts.push(...page.posts);
       cursor = page.nextCursor;
       if (!cursor) break;
@@ -73,6 +80,47 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
     assert.equal(visibleTopics.length, 6, "The active main forum should expose six visible content topics.");
     assert.ok(uniquePosts.length > 0, "The active main forum should expose readable materials.");
     assert.ok(uniquePosts.every((post) => post.chatId === chatId), "No material may leak from another allowlisted forum.");
+    const materialMessageIds = new Set(uniquePosts.map((post) => post.messageId));
+    for (const album of uniquePosts.filter((post) => post.contentType === "album" && post.mediaGroupId)) {
+      assert.ok(album.constituentMessageIds.length > 1);
+      assert.ok(
+        album.constituentMessageIds.filter((messageId) => messageId !== album.messageId)
+          .every((messageId) => !materialMessageIds.has(messageId)),
+        `Album ${album.messageId} must stay canonical across cursor boundaries.`,
+      );
+    }
+
+    for (const richTopicId of [136, 205]) {
+      const topicPosts = (pagesByTopic.get(richTopicId) ?? []).flat();
+      const expectedCount = richTopicId === 136 ? 5 : 42;
+      assert.equal(topicPosts.length, expectedCount, `Topic ${richTopicId} must expose every RichMessage through cursors.`);
+      assert.equal(new Set(topicPosts.map((post) => post.id)).size, expectedCount, `Topic ${richTopicId} pages must remain unique.`);
+      assert.ok(topicPosts.every((post) => post.contentType !== "unsupported"), `Topic ${richTopicId} must not degrade to MessageMediaUnsupported.`);
+      assert.ok(topicPosts.every((post) => post.contentText.length > 0), `Topic ${richTopicId} must preserve searchable plain text.`);
+      assert.ok(topicPosts.every((post) => post.richContent === null), `Topic ${richTopicId} feed must omit full rich block payloads.`);
+      const richDetail = await app(request(`/posts/${chatId}/${topicPosts[0]!.messageId}`));
+      assert.equal(richDetail.status, 200);
+      assert.ok((await richDetail.json() as BridgePost).richContent?.blocks.length, `Topic ${richTopicId} detail must expose decoded rich blocks.`);
+    }
+
+    const topic205 = topics.find((topic) => topic.topicId === 205)!;
+    const topic136 = topics.find((topic) => topic.topicId === 136)!;
+    const topic205Cursor = firstCursorByTopic.get(205);
+    assert.ok(topic205Cursor, "Topic 205 must expose a second cursor page.");
+    assert.equal((await app(request(`/categories/${topic136.slug}/posts?cursor=${encodeURIComponent(topic205Cursor)}`))).status, 400);
+    const tamperedCursor = `${topic205Cursor.slice(0, -1)}${topic205Cursor.endsWith("A") ? "B" : "A"}`;
+    assert.equal((await app(request(`/categories/${topic205.slug}/posts?cursor=${encodeURIComponent(tamperedCursor)}`))).status, 400);
+
+    const topic205Posts = (pagesByTopic.get(205) ?? []).flat();
+    const beyondFirstPage = topic205Posts[12];
+    assert.ok(beyondFirstPage, "Topic 205 must have a material beyond its initial page.");
+    const beyondQuery = beyondFirstPage.title.trim();
+    assert.ok(Array.from(beyondQuery).length >= 2);
+    const beyondSearch = await app(request(
+      `/search?q=${encodeURIComponent(beyondQuery)}&category=${encodeURIComponent(topic205.id)}`,
+    ));
+    assert.equal(beyondSearch.status, 200);
+    assert.ok((await beyondSearch.json() as BridgePostPage).posts.some((post) => post.id === beyondFirstPage.id));
 
     const text = uniquePosts.find((post) => post.contentType === "text");
     const poll = uniquePosts.find((post) => post.contentType === "poll" && post.poll?.options.length);

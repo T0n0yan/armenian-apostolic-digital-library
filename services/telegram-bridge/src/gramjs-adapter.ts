@@ -1,9 +1,5 @@
 import bigInt from "big-integer";
-import { Api, TelegramClient, utils } from "telegram";
-import type { Entity } from "telegram/define";
-import { StringSession } from "telegram/sessions/index.js";
-import { DeletedMessage, type DeletedMessageEvent } from "telegram/events/DeletedMessage.js";
-import { Logger, LogLevel } from "telegram/extensions/Logger.js";
+import { Api, DeletedMessage, Logger, LogLevel, Rich, StringSession, TelegramClient, utils, type DeletedMessageEvent, type Entity } from "./telegram-client";
 
 import {
   createMaterialId,
@@ -24,7 +20,8 @@ import type {
   TelegramPost,
   TopicOptions,
 } from "./adapter";
-import { getCurrentPollSnapshot, type GramJsPollSnapshot } from "./gramjs-poll-compat";
+import { InvalidPaginationCursorError } from "./adapter";
+import { mapRichMessage, type RichMediaSource } from "./rich-message";
 
 type GramConfig = {
   apiId: number;
@@ -33,15 +30,28 @@ type GramConfig = {
   allowedChatIds: string[];
 };
 
-type Cursor = { offsets: Record<string, number> };
+type Cursor = { version: 1; scope: string; offsets: Record<string, number> };
 
-function cursorValue(value: string | null): Cursor {
-  if (!value) return { offsets: {} };
+function cursorScope(options: HistoryOptions) {
+  return JSON.stringify({ chatId: options.chatId ?? null, topicId: options.topicId ?? null, query: normalizeSearch(options.query ?? "") });
+}
+
+function cursorValue(value: string | null, options: HistoryOptions): Cursor {
+  const scope = cursorScope(options);
+  if (!value) return { version: 1, scope, offsets: {} };
+  if (value.length > 2_000) throw new InvalidPaginationCursorError();
   try {
-    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Cursor;
-    return parsed && typeof parsed.offsets === "object" ? parsed : { offsets: {} };
-  } catch {
-    return { offsets: {} };
+    const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as Partial<Cursor>;
+    if (parsed.version !== 1 || parsed.scope !== scope || !parsed.offsets || typeof parsed.offsets !== "object") {
+      throw new InvalidPaginationCursorError();
+    }
+    for (const [key, offset] of Object.entries(parsed.offsets)) {
+      if (!key || !Number.isSafeInteger(offset) || offset <= 0) throw new InvalidPaginationCursorError();
+    }
+    return parsed as Cursor;
+  } catch (error) {
+    if (error instanceof InvalidPaginationCursorError) throw error;
+    throw new InvalidPaginationCursorError();
   }
 }
 
@@ -77,7 +87,8 @@ function searchableMessageText(message: Api.Message) {
   const pollQuestion = message.media instanceof Api.MessageMediaPoll
     ? message.media.poll.question.text
     : "";
-  return normalizeSearch(`${message.message ?? ""} ${pollQuestion}`);
+  const richText = message.richMessage instanceof Api.RichMessage ? Rich.toPlainText(message.richMessage) : "";
+  return normalizeSearch(`${message.message ?? ""} ${richText} ${pollQuestion}`);
 }
 
 function safeLink(value: string) {
@@ -86,13 +97,13 @@ function safeLink(value: string) {
   const withProtocol = /^[a-z][a-z0-9+.-]*:/iu.test(candidate) ? candidate : `https://${candidate}`;
   try {
     const url = new URL(withProtocol);
-    return ["http:", "https:", "tg:", "mailto:", "tel:"].includes(url.protocol) ? url.toString() : null;
+    return ["http:", "https:", "mailto:", "tel:"].includes(url.protocol) ? url.toString() : null;
   } catch {
     return null;
   }
 }
 
-function formattedText(text: string, entities: Api.TypeMessageEntity[] | undefined): BridgeFormattedText {
+export function mapFormattedText(text: string, entities: Api.TypeMessageEntity[] | undefined): BridgeFormattedText {
   // Telegram entity offsets are UTF-16 code-unit offsets into the original
   // string. Preserve that exact string here; normalization or trimming would
   // shift offsets for combining characters and leading whitespace.
@@ -109,38 +120,61 @@ function formattedText(text: string, entities: Api.TypeMessageEntity[] | undefin
     else if (entity instanceof Api.MessageEntityUnderline) type = "underline";
     else if (entity instanceof Api.MessageEntityStrike) type = "strikethrough";
     else if (entity instanceof Api.MessageEntityCode) type = "code";
+    else if (entity instanceof Api.MessageEntitySpoiler) type = "spoiler";
     else if (entity instanceof Api.MessageEntityPre) type = "pre";
-    else if (entity instanceof Api.MessageEntityBlockquote) type = "blockquote";
+    else if (entity instanceof Api.MessageEntityBlockquote) type = entity.collapsed ? "expandable-blockquote" : "blockquote";
     else if (entity instanceof Api.MessageEntityTextUrl) { type = "link"; url = safeLink(entity.url); }
     else if (entity instanceof Api.MessageEntityUrl) { type = "link"; url = safeLink(normalized.slice(offset, offset + length)); }
     else if (entity instanceof Api.MessageEntityEmail) { type = "link"; url = safeLink(`mailto:${normalized.slice(offset, offset + length)}`); }
     else if (entity instanceof Api.MessageEntityPhone) { type = "link"; url = safeLink(`tel:${normalized.slice(offset, offset + length)}`); }
     else if (entity instanceof Api.MessageEntityMention) { type = "link"; url = safeLink(`https://t.me/${normalized.slice(offset + 1, offset + length)}`); }
-    if (type && (type !== "link" || url)) output.push({ type, offset, length, url });
+    else if (entity instanceof Api.MessageEntityMentionName || entity instanceof Api.InputMessageEntityMentionName) type = "mention";
+    else if (entity instanceof Api.MessageEntityHashtag) type = "hashtag";
+    else if (entity instanceof Api.MessageEntityCashtag) type = "cashtag";
+    else if (entity instanceof Api.MessageEntityBotCommand) type = "bot-command";
+    else if (entity instanceof Api.MessageEntityCustomEmoji) type = "custom-emoji";
+    if (type && (type !== "link" || url)) output.push({
+      type,
+      offset,
+      length,
+      url,
+      ...(entity instanceof Api.MessageEntityPre ? { language: entity.language || null } : {}),
+      ...(entity instanceof Api.MessageEntityCustomEmoji ? { customEmojiId: entity.documentId.toString() } : {}),
+    });
   }
   return { text: normalized, entities: output };
 }
 
-function audioAttribute(message: Api.Message) {
-  const document = message.document;
+type MediaSource = Api.Message | RichMediaSource;
+
+function sourcePhoto(source: MediaSource) {
+  return source instanceof Api.Photo ? source : source instanceof Api.Message && source.photo instanceof Api.Photo ? source.photo : null;
+}
+
+function sourceDocument(source: MediaSource) {
+  return source instanceof Api.Document ? source : source instanceof Api.Message && source.document instanceof Api.Document ? source.document : null;
+}
+
+function audioAttribute(source: MediaSource) {
+  const document = sourceDocument(source);
   if (!(document instanceof Api.Document)) return null;
   return document.attributes.find((attribute): attribute is Api.DocumentAttributeAudio => attribute instanceof Api.DocumentAttributeAudio) ?? null;
 }
 
-function videoAttribute(message: Api.Message) {
-  const document = message.document;
+function videoAttribute(source: MediaSource) {
+  const document = sourceDocument(source);
   if (!(document instanceof Api.Document)) return null;
   return document.attributes.find((attribute): attribute is Api.DocumentAttributeVideo => attribute instanceof Api.DocumentAttributeVideo) ?? null;
 }
 
-function fileNameAttribute(message: Api.Message) {
-  const document = message.document;
+function fileNameAttribute(source: MediaSource) {
+  const document = sourceDocument(source);
   if (!(document instanceof Api.Document)) return null;
   return document.attributes.find((attribute): attribute is Api.DocumentAttributeFilename => attribute instanceof Api.DocumentAttributeFilename) ?? null;
 }
 
-function photoMetadata(message: Api.Message) {
-  const photo = message.photo;
+function photoMetadata(source: MediaSource) {
+  const photo = sourcePhoto(source);
   if (!(photo instanceof Api.Photo)) return null;
   const sizes = photo.sizes.flatMap((size) => {
     if (size instanceof Api.PhotoSize) return [{ width: size.w, height: size.h, size: size.size }];
@@ -150,43 +184,44 @@ function photoMetadata(message: Api.Message) {
   return sizes.sort((left, right) => right.width * right.height - left.width * left.height)[0] ?? null;
 }
 
-function hasThumbnail(message: Api.Message) {
-  const photo = message.photo;
+function hasThumbnail(source: MediaSource) {
+  const photo = sourcePhoto(source);
   if (photo instanceof Api.Photo && photo.sizes.some((thumb) =>
     thumb instanceof Api.PhotoSize || thumb instanceof Api.PhotoSizeProgressive,
   )) return true;
-  const document = message.document;
+  const document = sourceDocument(source);
   return document instanceof Api.Document && (document.thumbs ?? []).some((thumb) =>
     thumb instanceof Api.PhotoSize || thumb instanceof Api.PhotoSizeProgressive,
   );
 }
 
-function kindFor(message: Api.Message): MediaDescriptor["kind"] | null {
-  if (message.photo) return "photo";
-  const audio = audioAttribute(message);
+function kindFor(source: MediaSource): MediaDescriptor["kind"] | null {
+  if (sourcePhoto(source)) return "photo";
+  const audio = audioAttribute(source);
   if (audio?.voice) return "voice";
   if (audio) return "audio";
-  const video = videoAttribute(message);
+  const video = videoAttribute(source);
   if (video) return "video";
-  if (message.document instanceof Api.Document) {
-    if (message.document.mimeType === "image/gif") return "animation";
+  const document = sourceDocument(source);
+  if (document) {
+    if (document.mimeType === "image/gif") return "animation";
     return "document";
   }
   return null;
 }
 
-function mediaFor(message: Api.Message, index: number, title: string) {
-  const kind = kindFor(message);
+function mediaFor(source: MediaSource, index: number, title: string) {
+  const kind = kindFor(source);
   if (!kind) return null;
-  const audio = audioAttribute(message);
-  const video = videoAttribute(message);
-  const document = message.document instanceof Api.Document ? message.document : null;
-  const photo = photoMetadata(message);
+  const audio = audioAttribute(source);
+  const video = videoAttribute(source);
+  const document = sourceDocument(source);
+  const photo = photoMetadata(source);
   return {
     index,
     kind,
     mimeType: document?.mimeType ?? (photo ? "image/jpeg" : null),
-    fileName: fileNameAttribute(message)?.fileName ?? null,
+    fileName: fileNameAttribute(source)?.fileName ?? null,
     sizeBytes: fileSize(document?.size) ?? photo?.size ?? null,
     width: video?.w ?? photo?.width ?? null,
     height: video?.h ?? photo?.height ?? null,
@@ -194,7 +229,7 @@ function mediaFor(message: Api.Message, index: number, title: string) {
     title: audio?.title ?? null,
     performer: audio?.performer?.trim() || null,
     waveform: audio?.waveform ? Buffer.from(audio.waveform).toString("base64url") : null,
-    hasThumbnail: hasThumbnail(message),
+    hasThumbnail: hasThumbnail(source),
     altText: title,
   } satisfies TelegramPost["media"][number];
 }
@@ -230,11 +265,11 @@ type PollResultsShape = {
 function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
   const resultByOption = new Map((results.results ?? []).map((result) => [Buffer.from(result.option).toString("base64url"), result]));
   return {
-    question: formattedText(poll.question.text, poll.question.entities),
+    question: mapFormattedText(poll.question.text, poll.question.entities),
     options: poll.answers.map((answer) => {
       const result = resultByOption.get(Buffer.from(answer.option).toString("base64url"));
       return {
-        text: formattedText(answer.text.text, answer.text.entities),
+        text: mapFormattedText(answer.text.text, answer.text.entities),
         voterCount: result?.voters ?? 0,
       };
     }),
@@ -248,16 +283,8 @@ function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
 
 function pollFor(message: Api.Message): BridgePoll | null {
   if (!(message.media instanceof Api.MessageMediaPoll)) return null;
-  return pollDto(message.media.poll, message.media.results);
-}
-
-function currentPollDto(snapshot: GramJsPollSnapshot): BridgePoll {
-  return pollDto(snapshot, {
-    results: snapshot.results,
-    totalVoters: snapshot.totalVoters,
-    solution: snapshot.solution ?? undefined,
-    solutionEntities: snapshot.solutionEntities,
-  });
+  const answers = message.media.poll.answers.filter((answer): answer is Api.PollAnswer => answer instanceof Api.PollAnswer);
+  return pollDto({ ...message.media.poll, answers }, message.media.results);
 }
 
 function locationFor(message: Api.Message): BridgeLocation | null {
@@ -301,10 +328,10 @@ function topicMessageCount(total: number | undefined) {
 
 type TelegramThumbnail = { thumb: Api.TypePhotoSize; size: number; width: number | null; height: number | null };
 
-function thumbnailFor(message: Api.Message): TelegramThumbnail | null {
+function thumbnailFor(source: MediaSource): TelegramThumbnail | null {
   const candidates: TelegramThumbnail[] = [];
-  const photo = message.photo;
-  const document = message.document;
+  const photo = sourcePhoto(source);
+  const document = sourceDocument(source);
   const thumbs = photo instanceof Api.Photo
     ? photo.sizes
     : document instanceof Api.Document
@@ -319,6 +346,29 @@ function thumbnailFor(message: Api.Message): TelegramThumbnail | null {
   );
   return (useful.length ? useful : candidates)
     .sort((left, right) => (right.width ?? 0) * (right.height ?? 0) - (left.width ?? 0) * (left.height ?? 0))[0] ?? null;
+}
+
+function inputLocation(source: MediaSource, thumbnail = false) {
+  const photo = sourcePhoto(source);
+  const document = sourceDocument(source);
+  const selected = thumbnail ? thumbnailFor(source)?.thumb : null;
+  const thumbSize = selected && "type" in selected ? selected.type : "";
+  if (photo) {
+    const largest = photo.sizes.flatMap((size) => "type" in size ? [size.type] : []).at(-1) ?? "";
+    return new Api.InputPhotoFileLocation({
+      id: photo.id,
+      accessHash: photo.accessHash,
+      fileReference: photo.fileReference,
+      thumbSize: thumbnail ? thumbSize : largest,
+    });
+  }
+  if (document) return new Api.InputDocumentFileLocation({
+    id: document.id,
+    accessHash: document.accessHash,
+    fileReference: document.fileReference,
+    thumbSize: thumbnail ? thumbSize : "",
+  });
+  return null;
 }
 
 export class GramJsTelegramAdapter implements TelegramAdapter {
@@ -350,20 +400,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   }
 
   async close() {
-    // GramJS 2.26.x stores exported media-DC senders in Maps but its
-    // disconnect implementation iterates them with Object.values(). Capture
-    // and close them explicitly so local verification and graceful shutdown
-    // do not leave sockets/timers behind.
-    const internals = this.client as unknown as {
-      _destroyed: boolean;
-      _exportedSenderPromises?: Map<number, Promise<{ disconnect(): Promise<void> }>>;
-      _exportedSenderReleaseTimeouts?: Map<number, ReturnType<typeof setTimeout>>;
-    };
-    const exportedSenders = [...(internals._exportedSenderPromises?.values() ?? [])];
-    for (const timeout of internals._exportedSenderReleaseTimeouts?.values() ?? []) clearTimeout(timeout);
-    internals._destroyed = true;
     await this.client.disconnect();
-    await Promise.allSettled(exportedSenders.map(async (senderPromise) => (await senderPromise).disconnect()));
   }
 
   private async username(chatId: string) {
@@ -394,8 +431,8 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       const found: Api.ForumTopic[] = [];
       for (let page = 0; page < 100; page += 1) {
         signal.throwIfAborted();
-        const result = await this.client.invoke(new Api.channels.GetForumTopics({
-          channel: entity,
+        const result = await this.client.invoke(new Api.messages.GetForumTopics({
+          peer: entity,
           offsetDate,
           offsetId,
           offsetTopic,
@@ -491,23 +528,27 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
 
   private async toPost(chatId: string, messages: Api.Message[], signal?: AbortSignal): Promise<TelegramPost> {
     const ordered = [...messages].sort((left, right) => left.id - right.id);
-    const lead = ordered.find((message) => message.message?.trim()) ?? ordered[0];
+    const lead = ordered.find((message) => message.richMessage || message.message?.trim()) ?? ordered[0];
+    if (lead.richMessage instanceof Api.RichMessage && lead.richMessage.part) {
+      signal?.throwIfAborted();
+      await lead.fetchRichMessage();
+      signal?.throwIfAborted();
+    }
     const messageId = ordered[0].id;
-    const body = cleanText(lead.message ?? "");
-    const poll = pollFor(lead) ?? (
-      lead.media instanceof Api.MessageMediaUnsupported
-        ? await getCurrentPollSnapshot(this.client, chatId, lead.id, signal).then((snapshot) => snapshot ? currentPollDto(snapshot) : null)
-        : null
-    );
+    signal?.throwIfAborted();
+    const rich = lead.richMessage instanceof Api.RichMessage ? mapRichMessage(lead.richMessage) : null;
+    const body = cleanText(rich?.plainText || lead.message || "");
+    const poll = pollFor(lead);
     const location = locationFor(lead);
-    const media = ordered.map((message, index) => mediaFor(message, index, body || `Telegram media #${messageId}`))
+    const sources: MediaSource[] = rich?.mediaSources.length ? rich.mediaSources : ordered;
+    const media = sources.map((source, index) => mediaFor(source, index, body || `Telegram media #${messageId}`))
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    const unsupportedType = !poll && !location && lead.media && media.length === 0 ? lead.media.className : null;
+    const unsupportedType = !rich && !poll && !location && lead.media && media.length === 0 ? "unknown-attachment" : null;
     const titleSource = body || poll?.question.text || location?.title || media[0]?.title || media[0]?.fileName
-      || (unsupportedType ? `Telegram նյութ՝ ${unsupportedType}` : `Telegram նյութ #${messageId}`);
+      || (unsupportedType ? "Չաջակցվող Telegram նյութ" : `Telegram նյութ #${messageId}`);
     const title = Array.from(titleSource.split("\n").map((line) => line.trim()).find(Boolean) ?? titleSource).slice(0, 240).join("");
     const deleted = this.deleted.has(`${chatId}:${messageId}`) || this.deleted.has(`*:${messageId}`);
-    const formatted = formattedText(lead.message ?? "", lead.entities);
+    const formatted = mapFormattedText(lead.message ?? "", lead.entities);
     const resolvedTopicId = ordered.map(topicId).find((value): value is number => value !== null) ?? null;
     const draft = {
       id: createMaterialId(chatId, messageId),
@@ -523,6 +564,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       captionText: media.length ? body : "",
       formattedText: formatted,
       formattedCaption: media.length ? formatted : { text: "", entities: [] },
+      richContent: rich?.content ?? null,
       poll,
       location,
       unsupportedType,
@@ -544,13 +586,14 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     mayHaveMore: boolean,
   ): Promise<AdapterPage> {
     candidates.sort((left, right) => (right.message.date ?? 0) - (left.message.date ?? 0) || right.message.id - left.message.id);
-    const selected = candidates.slice(0, options.limit);
     const groups = new Map<string, { chatId: string; messages: Api.Message[] }>();
-    for (const candidate of selected) {
+    let hasUnselectedGroup = false;
+    for (const candidate of candidates) {
       const key = `${candidate.chatId}:${groupedId(candidate.message) ?? `message-${candidate.message.id}`}`;
       const existing = groups.get(key);
       if (existing) existing.messages.push(candidate.message);
-      else groups.set(key, { chatId: candidate.chatId, messages: [candidate.message] });
+      else if (groups.size < options.limit) groups.set(key, { chatId: candidate.chatId, messages: [candidate.message] });
+      else hasUnselectedGroup = true;
     }
     const hydratedGroups = await Promise.all([...groups.values()].map(async ({ chatId, messages }) => ({
       chatId,
@@ -565,18 +608,22 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     }
     const posts = await Promise.all(hydratedGroups.map(({ chatId, messages }) => this.toPost(chatId, messages, options.signal)));
     posts.sort((left, right) => (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || right.messageId - left.messageId);
-    return { posts, nextCursor: mayHaveMore || candidates.length > selected.length ? encodeCursor(cursor) : null };
+    const nextCursor = mayHaveMore || hasUnselectedGroup ? encodeCursor(cursor) : null;
+    return { posts, nextCursor };
   }
 
   private async page(options: HistoryOptions, search?: string): Promise<AdapterPage> {
-    const cursor = cursorValue(options.cursor);
+    const cursor = cursorValue(options.cursor, options);
     const candidates: Array<{ chatId: string; message: Api.Message }> = [];
     let mayHaveMore = false;
     const chatIds = options.chatId ? [options.chatId] : this.config.allowedChatIds;
+    if (options.chatId && !this.config.allowedChatIds.includes(options.chatId)) throw new InvalidPaginationCursorError();
+    const allowedCursorKeys = new Set(chatIds.map((chatId) => options.topicId ? `${chatId}:${options.topicId}` : chatId));
+    if (Object.keys(cursor.offsets).some((key) => !allowedCursorKeys.has(key))) throw new InvalidPaginationCursorError();
     for (const chatId of chatIds) {
       options.signal.throwIfAborted();
       const key = options.topicId ? `${chatId}:${options.topicId}` : chatId;
-      const requestLimit = options.topicId ? options.limit + 10 : options.limit;
+      const requestLimit = options.topicId ? Math.min(100, Math.max(options.limit * 2, options.limit + 10)) : options.limit;
       const messages = await this.client.getMessages(chatId, {
         limit: requestLimit,
         offsetId: cursor.offsets[key] ?? 0,
@@ -597,7 +644,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
 
     const needle = normalizeSearch(options.query ?? "");
     if (Array.from(needle).length < 2) return native;
-    const cursor = cursorValue(options.cursor);
+    const cursor = cursorValue(options.cursor, options);
     const candidates: Array<{ chatId: string; message: Api.Message }> = [];
     const chatIds = options.chatId ? [options.chatId] : this.config.allowedChatIds;
     let totalMatches = 0;
@@ -623,18 +670,22 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     return this.toPost(chatId, messages, signal);
   }
 
-  private async mediaMessage(chatId: string, messageId: number, mediaIndex: number) {
-    return (await this.messageGroup(chatId, messageId))?.[mediaIndex] ?? null;
+  private async mediaSource(chatId: string, messageId: number, mediaIndex: number): Promise<MediaSource | null> {
+    const messages = await this.messageGroup(chatId, messageId);
+    if (!messages) return null;
+    const lead = messages.find((message) => message.richMessage instanceof Api.RichMessage);
+    if (lead?.richMessage instanceof Api.RichMessage) return mapRichMessage(lead.richMessage).mediaSources[mediaIndex] ?? null;
+    return messages[mediaIndex] ?? null;
   }
 
   async getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail = false) {
     signal.throwIfAborted();
-    const message = await this.mediaMessage(chatId, messageId, mediaIndex);
-    if (!message) return null;
-    const asset = mediaFor(message, mediaIndex, message.message || `Telegram media #${messageId}`);
+    const source = await this.mediaSource(chatId, messageId, mediaIndex);
+    if (!source) return null;
+    const asset = mediaFor(source, mediaIndex, source instanceof Api.Message ? source.message || `Telegram media #${messageId}` : `Telegram media #${messageId}`);
     if (!asset) return null;
     if (!thumbnail) return { ...asset, chatId, messageId };
-    const thumb = thumbnailFor(message);
+    const thumb = thumbnailFor(source);
     return thumb ? {
       ...asset,
       mimeType: "image/jpeg",
@@ -654,26 +705,16 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   }
 
   async *streamMedia({ chatId, messageId, mediaIndex, start, end, thumbnail, signal }: MediaRequest) {
-    const message = await this.mediaMessage(chatId, messageId, mediaIndex);
-    if (!message?.media) return;
-    if (thumbnail) {
-      const thumb = thumbnailFor(message);
-      if (!thumb) return;
-      const downloaded = await this.client.downloadMedia(message, { thumb: thumb.thumb });
-      signal.throwIfAborted();
-      if (Buffer.isBuffer(downloaded)) {
-        const output = downloaded.subarray(start, end + 1);
-        yield new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
-      }
-      return;
-    }
+    const source = await this.mediaSource(chatId, messageId, mediaIndex);
+    if (!source || (thumbnail && !thumbnailFor(source))) return;
+    const file = inputLocation(source, Boolean(thumbnail));
+    if (!file) return;
     const requestSize = 512 * 1024;
-    const iterator = this.client.iterDownload({
-      file: message.media,
+    const iterator = this.client.iterDownload(file, {
       offset: bigInt(start),
       requestSize,
-      chunkSize: requestSize,
-      fileSize: bigInt(end + 1),
+      limit: Math.ceil((end - start + 1) / requestSize),
+      signal,
     });
     let remaining = end - start + 1;
     try {
@@ -685,7 +726,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
         yield new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
       }
     } finally {
-      await iterator.close();
+      await iterator.return(undefined);
     }
   }
 }

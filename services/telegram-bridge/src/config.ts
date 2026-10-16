@@ -103,7 +103,7 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     throw new Error("TELEGRAM_CONTENT_CHAT_ID must be included in TELEGRAM_ALLOWED_CHAT_IDS.");
   }
   if (adapter === "gramjs" && (!config.apiId || !config.apiHash || !config.session)) {
-    throw new Error("GramJS requires TELEGRAM_API_ID, TELEGRAM_API_HASH and TELEGRAM_SESSION.");
+    throw new Error("Teleproto requires TELEGRAM_API_ID, TELEGRAM_API_HASH and TELEGRAM_SESSION.");
   }
   return config;
 }

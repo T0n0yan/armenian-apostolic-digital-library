@@ -9,7 +9,7 @@
 ```text
 Telegram MTProto
   ↕ persistent connection
-always-on Node.js Telegram Bridge (GramJS, HTTPS, authenticated)
+always-on Node.js Telegram Bridge (Teleproto, HTTPS, authenticated)
   ↕ streamed HTTP / Range
 Cloudflare Worker + React Router SSR
   ↕
@@ -22,7 +22,7 @@ Mini App UI                 D1 (app-only state/references)
 - Bridge-ը Node.js 22 long-running process է։ Այն պահում է MTProto connection-ը և
   reconnect state-ը process lifecycle-ի ընթացքում, իսկ StringSession-ը ստանում է
   միայն hosting secret store-ից։
-- GramJS-ը Worker-ի ներսում չի աշխատեցվում. Worker invocation-ը request-scoped է,
+- Teleproto-ն Worker-ի ներսում չի աշխատեցվում. Worker invocation-ը request-scoped է,
   իսկ outbound TCP socket-ը չի կարելի global scope-ում պահել կամ request-ների միջև
   կիսել։ Persistent updates/reconnect և երկար media stream-երի համար անհրաժեշտ է
   առանձին always-on Node service։

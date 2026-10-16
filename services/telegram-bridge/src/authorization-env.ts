@@ -69,7 +69,7 @@ export function withTelegramSession(source: string, session: string) {
     || session.length > 16_384
     || /[\u0000-\u001F\u007F]/u.test(session)
   ) {
-    throw new Error("GramJS returned an invalid session value.");
+    throw new Error("Teleproto returned an invalid session value.");
   }
   return withLocalEnvironmentValue(source, "TELEGRAM_SESSION", session);
 }
@@ -102,7 +102,7 @@ export function saveTelegramSession(filePath: string, session: string) {
     || session.length > 16_384
     || /[\u0000-\u001F\u007F]/u.test(session)
   ) {
-    throw new Error("GramJS returned an invalid session value.");
+    throw new Error("Teleproto returned an invalid session value.");
   }
   return saveLocalEnvironmentValue(filePath, "TELEGRAM_SESSION", session);
 }

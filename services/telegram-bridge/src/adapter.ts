@@ -10,6 +10,13 @@ export type AdapterPage = {
   nextCursor: string | null;
 };
 
+export class InvalidPaginationCursorError extends Error {
+  constructor() {
+    super("Invalid pagination cursor.");
+    this.name = "InvalidPaginationCursorError";
+  }
+}
+
 export type HistoryOptions = {
   cursor: string | null;
   limit: number;

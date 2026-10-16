@@ -7,7 +7,7 @@ Telegram Mini App-first գրադարան։ Telegram-ը նյութերի և media
 ```text
 Telegram MTProto
       ↓
-long-running Node.js Telegram Bridge (GramJS)
+long-running Node.js Telegram Bridge (Teleproto, Layer 230)
       ↓ authenticated internal HTTP
 Cloudflare Worker / React Router loaders
       ↓

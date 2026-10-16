@@ -15,6 +15,14 @@ import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bri
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
 import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
 import { normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
+import {
+  clearNavigationCache,
+  loadNavigationData,
+  navigationCachePolicy,
+  readNavigationCache,
+  setNavigationCacheScope,
+  writeNavigationCache,
+} from "../app/utils/navigation-cache";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const BRIDGE_SECRET = "fixture_bridge_secret_000000000000000000";
@@ -114,6 +122,38 @@ test("memory search index enforces configurable document and character ceilings"
   assert.ok(characterBounded.metrics().approximateBytes <= singleDocumentCharacters * 2);
 });
 
+test("search pagination uses a stable identity cursor and rejects stale cursors", async () => {
+  const template = {
+    ...MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 101)!,
+    categoryId: MOCK_TOPIC_ID,
+    categoryName: "Աղոթքներ",
+    categorySlug: MOCK_TOPIC_SLUG,
+  };
+  const posts = Array.from({ length: 45 }, (_, index) => ({
+    ...template,
+    id: `${template.id}-page-${index}`,
+    messageId: 2_000 - index,
+    constituentMessageIds: [2_000 - index],
+    title: `Էջավորվող որոնում ${index}`,
+    contentText: `Էջավորվող որոնում ${index}`,
+    publishedAt: new Date(Date.UTC(2026, 9, 15, 8, 0, 45 - index)).toISOString(),
+  }));
+  const index = new TelegramSearchIndex({ load: async () => posts });
+  const signal = new AbortController().signal;
+  const first = await index.search("Էջավորվող", null, null, 20, signal);
+  const second = await index.search("Էջավորվող", null, first.nextCursor, 20, signal);
+  const third = await index.search("Էջավորվող", null, second.nextCursor, 20, signal);
+  assert.deepEqual([first.posts.length, second.posts.length, third.posts.length], [20, 20, 5]);
+  assert.equal(new Set([...first.posts, ...second.posts, ...third.posts].map((post) => post.id)).size, 45);
+  assert.equal(third.nextCursor, null);
+  const withoutAnchor = new TelegramSearchIndex({ load: async () => posts.filter((post) => post.id !== first.posts.at(-1)?.id) });
+  const continuedAfterDeletion = await withoutAnchor.search("Էջավորվող", null, first.nextCursor, 20, signal);
+  assert.ok(continuedAfterDeletion.posts.length > 0, "a deleted page anchor must not make the next page unavailable");
+  assert.ok(continuedAfterDeletion.posts.every((post) => !first.posts.some((firstPost) => firstPost.id === post.id)));
+  await assert.rejects(() => index.search("այլ հարցում", null, first.nextCursor, 20, signal), /Invalid pagination cursor/u);
+  await assert.rejects(() => index.search("Էջավորվող", null, "not-a-cursor", 20, signal), /Invalid pagination cursor/u);
+});
+
 test("Bridge search index paginates beyond two thousand canonical materials", async () => {
   const adapter = new MockTelegramAdapter();
   const template = MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 101)!;
@@ -177,9 +217,10 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
     hashtags: { "աղոթք": "category_saints_lives" },
     posts: { [`${MOCK_CHAT_ID}:101`]: "category_gospel_teachings" },
   };
-  assert.equal(classifyPost(MOCK_TELEGRAM_POSTS.at(-1)!, conflictingMappings).categoryId, "category_prayers");
-  assert.equal(classifyPost({ ...MOCK_TELEGRAM_POSTS.at(-1)!, forumTopicId: null }, conflictingMappings).categoryId, "category_saints_lives");
-  assert.equal(classifyPost({ ...MOCK_TELEGRAM_POSTS.at(-1)!, forumTopicId: null, tags: [] }, conflictingMappings).categoryId, "category_gospel_teachings");
+  const mappedFixture = MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 101)!;
+  assert.equal(classifyPost(mappedFixture, conflictingMappings).categoryId, "category_prayers");
+  assert.equal(classifyPost({ ...mappedFixture, forumTopicId: null }, conflictingMappings).categoryId, "category_saints_lives");
+  assert.equal(classifyPost({ ...mappedFixture, forumTopicId: null, tags: [] }, conflictingMappings).categoryId, "category_gospel_teachings");
 
   const first = await adapter.listHistory({ cursor: null, limit: 2, signal: new AbortController().signal });
   assert.equal(first.posts.length, 2);
@@ -189,9 +230,10 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.notEqual(second.posts[0].messageId, first.posts[0].messageId);
 
   const categories = await (await app(bridgeRequest("/categories"))).json() as Array<{ id: string; materialCount: number }>;
-  assert.equal(categories.find((item) => item.id === MOCK_TOPIC_ID)?.materialCount, 10);
+  assert.equal(categories.find((item) => item.id === MOCK_TOPIC_ID)?.materialCount, MOCK_TELEGRAM_POSTS.filter((post) => !post.deleted).length);
   assert.equal(categories.length, 7);
   const page = await (await app(bridgeRequest(`/categories/${MOCK_TOPIC_SLUG}/posts`))).json() as BridgePostPage;
+  assert.ok(page.posts.length <= 12, "topic API must use the 12-material initial batch");
   assert.ok(page.posts.some((post) => post.messageId === 101 && post.contentText.includes("խաղաղություն")));
   assert.equal(page.posts.find((post) => post.messageId === 102)?.media[0].kind, "photo");
   assert.deepEqual(page.posts.find((post) => post.messageId === 103)?.media.map((asset) => asset.index), [0, 1]);
@@ -201,11 +243,13 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.doesNotMatch(serializedPoll, /chosen|correct|explanation/u);
   assert.equal(page.posts.find((post) => post.messageId === 108)?.location?.venueType, "church");
   assert.equal(page.posts.find((post) => post.messageId === 110)?.contentType, "unsupported");
+  assert.equal((await app(bridgeRequest(`/categories/${MOCK_TOPIC_SLUG}/posts?cursor=invalid`))).status, 400);
 
   const deleted = await app(bridgeRequest(`/posts/${MOCK_CHAT_ID}/105`));
   assert.equal(deleted.status, 410);
   const search = await (await app(bridgeRequest("/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6"))).json() as BridgePostPage;
   assert.ok(search.posts.length >= 1);
+  assert.equal((await app(bridgeRequest(`/search?q=${encodeURIComponent("խաղաղություն")}&cursor=invalid`))).status, 400);
   for (const query of ["Սաղմ", "Սաղմոս", "սաղմ", "  Սաղմ  ", "Սաղմ,"]) {
     const response = await app(bridgeRequest(`/search?q=${encodeURIComponent(query)}`));
     assert.equal(response.status, 200);
@@ -245,6 +289,21 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   ));
   assert.equal(topicNoMatch.status, 200);
   assert.equal((await topicNoMatch.json() as BridgePostPage).posts.length, 0);
+  const emptyQueryTopicFeed = await app(bridgeRequest(
+    `/search?category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  ));
+  const emptyQueryTopicPage = await emptyQueryTopicFeed.json() as BridgePostPage;
+  assert.equal(emptyQueryTopicFeed.status, 200);
+  assert.equal(emptyQueryTopicPage.posts.length, 12);
+  assert.ok(emptyQueryTopicPage.nextCursor);
+  assert.ok(emptyQueryTopicPage.posts.every((post) => post.topicId === 700));
+  const beyondFeedSearch = await app(bridgeRequest(
+    `/search?q=${encodeURIComponent("Cursor pagination fixture 5")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  ));
+  const beyondFeedPage = await beyondFeedSearch.json() as BridgePostPage;
+  assert.equal(beyondFeedSearch.status, 200);
+  assert.equal(beyondFeedPage.posts.length, 1, "topic search must cover indexed history beyond the first 12 feed items");
+  assert.equal(beyondFeedPage.posts[0].messageId, 96);
   const topicMatch = await app(bridgeRequest(
     `/search?q=${encodeURIComponent("խաղաղություն")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
   ));
@@ -344,6 +403,17 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(mediaSource, /media\.map\(\(asset, index\)/u);
   assert.match(mediaSource, /մյուս մեդիան շարունակում է աշխատել/u);
+  const categorySource = readFileSync(resolve(ROOT, "app/routes/category.tsx"), "utf8");
+  const searchSource = readFileSync(resolve(ROOT, "app/routes/search.tsx"), "utf8");
+  const infiniteSource = readFileSync(resolve(ROOT, "app/components/infinite-load-controls.tsx"), "utf8");
+  const rootSource = readFileSync(resolve(ROOT, "app/root.tsx"), "utf8");
+  assert.match(categorySource, /clientLoader\.hydrate = true/u);
+  assert.match(searchSource, /clientLoader\.hydrate = true/u);
+  assert.doesNotMatch(categorySource, /sessionStorage|window\.scrollTo/u);
+  assert.match(infiniteSource, /observer\.disconnect\(\)/u);
+  assert.match(categorySource, /abortRef\.current\?\.abort\(\)/u);
+  assert.match(searchSource, /abortRef\.current\?\.abort\(\)/u);
+  assert.match(rootSource, /ScrollRestoration getKey=\{\(\{ pathname, search \}\) => `\$\{pathname\}\$\{search\}`\}/u);
 
   const adapter = new MockTelegramAdapter();
   adapter.search = async ({ signal }) => await new Promise((_, reject) => {
@@ -377,6 +447,54 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
     headers: { range: "bytes=0-63" },
   }));
   await assert.rejects(timedOutMedia.arrayBuffer(), /timeout|aborted/iu);
+});
+
+test("bounded navigation cache preserves loaded pages and isolates topic, query, and viewer scope", async () => {
+  clearNavigationCache();
+  setNavigationCacheScope("guest");
+  const topicUrl = "https://app.fixture/categories/topic-a";
+  const cachedTopic = {
+    navigationCacheScope: "guest",
+    materials: Array.from({ length: 24 }, (_, index) => ({ id: `material-${index}` })),
+    nextCursor: "opaque-third-page",
+  };
+  writeNavigationCache("topic-feed", topicUrl, "guest", cachedTopic);
+  let serverCalls = 0;
+  const restoredTopic = await loadNavigationData("topic-feed", topicUrl, async () => {
+    serverCalls += 1;
+    return { navigationCacheScope: "guest", materials: [], nextCursor: null };
+  });
+  assert.equal(serverCalls, 0, "an unchanged topic must not repeat its initial server/Bridge request on Back");
+  assert.equal(restoredTopic.materials.length, 24);
+  assert.equal(restoredTopic.nextCursor, "opaque-third-page");
+  assert.equal(readNavigationCache("topic-feed", "https://app.fixture/categories/topic-b"), null);
+
+  const searchUrl = "https://app.fixture/search?q=%D5%BD%D5%A1%D5%B2%D5%B4&category=topic-a";
+  writeNavigationCache("search-results", searchUrl, "guest", {
+    navigationCacheScope: "guest",
+    materials: [{ id: "search-result" }],
+    filters: { query: "սաղմ", categoryId: "topic-a" },
+  });
+  assert.equal((readNavigationCache<{ materials: unknown[] }>("search-results", searchUrl)?.materials.length), 1);
+  assert.equal(readNavigationCache("search-results", "https://app.fixture/search?q=other&category=topic-a"), null);
+
+  setNavigationCacheScope("telegram:user-a");
+  assert.equal(readNavigationCache("search-results", searchUrl), null, "guest results must not cross into a user scope");
+  writeNavigationCache("search-results", searchUrl, "telegram:user-a", {
+    navigationCacheScope: "telegram:user-a",
+    personalMaterials: [{ id: "private-note" }],
+  });
+  setNavigationCacheScope("telegram:user-b");
+  assert.equal(readNavigationCache("search-results", searchUrl), null, "personal-note results must not cross users");
+
+  for (let index = 0; index < navigationCachePolicy.maximumEntries + 3; index += 1) {
+    writeNavigationCache("topic-feed", `https://app.fixture/categories/topic-${index}`, "telegram:user-b", {
+      navigationCacheScope: "telegram:user-b",
+      materials: [],
+    });
+  }
+  assert.equal(readNavigationCache("topic-feed", "https://app.fixture/categories/topic-0"), null);
+  clearNavigationCache();
 });
 
 test("Bridge environment validation rejects unsafe deployment settings", () => {
@@ -525,6 +643,23 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   }
   assert.match(categoryHtml, /loading="lazy"/u);
   assert.match(categoryHtml, /thumbnail=1/u);
+  assert.match(categoryHtml, /Բեռնել ավելին/u);
+  const firstCategoryPage = await mf.dispatchFetch(`https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts`);
+  const firstCategoryData = await firstCategoryPage.json() as { materials: Array<{ id: string }>; nextCursor: string | null };
+  assert.equal(firstCategoryPage.status, 200);
+  assert.equal(firstCategoryData.materials.length, 12);
+  assert.ok(firstCategoryData.nextCursor);
+  const secondCategoryPage = await mf.dispatchFetch(
+    `https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts?cursor=${encodeURIComponent(firstCategoryData.nextCursor!)}`,
+  );
+  const secondCategoryData = await secondCategoryPage.json() as { materials: Array<{ id: string }>; nextCursor: string | null };
+  assert.equal(secondCategoryPage.status, 200);
+  assert.equal(secondCategoryData.nextCursor, null);
+  assert.equal(
+    new Set([...firstCategoryData.materials, ...secondCategoryData.materials].map((material) => material.id)).size,
+    MOCK_TELEGRAM_POSTS.filter((post) => !post.deleted).length,
+  );
+  assert.equal((await mf.dispatchFetch(`https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts?cursor=invalid`)).status, 400);
 
   const guestSaved = await mf.dispatchFetch("https://app.fixture/saved");
   assert.equal(guestSaved.status, 200);
@@ -535,6 +670,13 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal(imagePage.status, 200);
   assert.match(imageHtml, /<img/u);
   assert.match(imageHtml, /<img[^>]+thumbnail=1/u);
+  const richPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_112");
+  const richHtml = await richPage.text();
+  assert.match(richHtml, /<h2[^>]*>Ձևաչափված ընթերցում<\/h2>/u);
+  assert.match(richHtml, /<strong>Թավ տեքստ<\/strong>/u);
+  assert.match(richHtml, /<blockquote/u);
+  assert.match(richHtml, /Նկարի բացատրություն/u);
+  assert.doesNotMatch(richHtml, /dangerouslySetInnerHTML|javascript:/u);
   const formattedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_101");
   assert.match(await formattedPage.text(), /<strong>Տե՛ր<\/strong>/u);
   const videoPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_106");
@@ -548,7 +690,8 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const locationPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_108");
   assert.match(await locationPage.text(), /Բացել քարտեզում/u);
   const unsupportedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_110");
-  assert.match(await unsupportedPage.text(), /MessageMediaUnsupported/u);
+  assert.match(await unsupportedPage.text(), /Telegram-ում հասանելի հավելված կամ ձևաչափ/u);
+  assert.doesNotMatch(await (await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_110")).text(), /MessageMediaUnsupported/u);
   const voicePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_107");
   assert.match(await voicePage.text(), /<audio/u);
   assert.doesNotMatch(
@@ -581,6 +724,13 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
     searchCallsBeforeLanding,
     "An empty search landing must not call the Bridge search endpoint.",
   );
+  const filteredLanding = await mf.dispatchFetch(
+    `https://app.fixture/search?category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
+  );
+  const filteredLandingHtml = await filteredLanding.text();
+  assert.equal(filteredLanding.status, 200);
+  assert.match(filteredLandingHtml, /Առավոտյան աղոթք/u);
+  assert.match(filteredLandingHtml, /Բեռնել ավելին/u);
 
   const topicNoMatch = await mf.dispatchFetch(
     `https://app.fixture/search?q=${encodeURIComponent("օրինակ")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
@@ -588,8 +738,8 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const topicNoMatchHtml = await topicNoMatch.text();
   assert.equal(topicNoMatch.status, 200);
   assert.doesNotMatch(topicNoMatchHtml, /data-material-id=/u);
-  assert.match(topicNoMatchHtml, /Այս թեմայում արդյունք չգտնվեց/u);
-  assert.match(topicNoMatchHtml, /Փնտրել բոլոր թեմաներում/u);
+  assert.match(topicNoMatchHtml, /Այս բաժնում արդյունք չկա/u);
+  assert.match(topicNoMatchHtml, /Փորձել բոլոր բաժիններում/u);
   const topicMatch = await mf.dispatchFetch(
     `https://app.fixture/search?q=${encodeURIComponent("խաղաղություն")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
   );
@@ -668,6 +818,12 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal((duplicateSearchHtml.match(/data-material-id="material_tg_n100900_101"/gu) ?? []).length, 1);
   assert.match(duplicateSearchHtml, /Telegram նյութ/u);
   assert.match(duplicateSearchHtml, /Իմ նշումից/u);
+  assert.ok(
+    bridgeRequestPaths.every((path) => !decodeURIComponent(path).includes("Իմ օրինակ խաղաղություն նշումը") &&
+      !decodeURIComponent(path).includes("Նկարագրություն՝ իմ անձնական նշումից") &&
+      !decodeURIComponent(path).includes("Օրինակ երկրորդ անձնական նշում")),
+    "personal note text must never be sent to the Telegram Bridge",
+  );
 
   await database.prepare(
     "INSERT INTO saved_materials (user_id,chat_id,message_id,personal_note) VALUES ('telegram:70001',?,999,'Հին նշում')",

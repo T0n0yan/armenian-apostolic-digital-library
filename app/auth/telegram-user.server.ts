@@ -27,6 +27,15 @@ export type TelegramUserState =
   | { status: "authenticated"; user: TelegramUserIdentity }
   | { status: "guest" | "invalid" | "unavailable"; user: null };
 
+export async function getTelegramUserCacheScope(user: TelegramUserIdentity | null) {
+  if (!user) return "guest";
+  const botToken = getBotToken();
+  if (!botToken) return "guest";
+  const key = await getSessionKey(botToken);
+  const signature = await signHmac(key, encoder.encode(user.id));
+  return `telegram:${toHex(signature).slice(0, 32)}`;
+}
+
 const SESSION_COOKIE = "library_telegram_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const INIT_DATA_MAX_AGE_SECONDS = 60 * 60 * 24;

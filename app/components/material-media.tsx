@@ -92,7 +92,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   );
 }
 
-function MediaItem({ asset, priority = false }: { asset: MaterialMedia; priority?: boolean }) {
+export function MaterialMediaItem({ asset, priority = false }: { asset: MaterialMedia; priority?: boolean }) {
   if (!asset.url) return <PendingMedia asset={asset} />;
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
@@ -152,7 +152,7 @@ export const MaterialMediaGallery = memo(function MaterialMediaGallery({ media }
   return (
     <section className="grid gap-2.5" aria-label="Հրապարակման մեդիա">
       <div className={media.length > 1 ? "grid snap-x snap-mandatory auto-cols-[minmax(84%,1fr)] grid-flow-col gap-2.5 overflow-x-auto pb-2 min-[720px]:snap-none min-[720px]:grid-flow-row min-[720px]:grid-cols-2 min-[720px]:overflow-visible min-[720px]:pb-0" : "grid gap-2.5"}>
-        {media.map((asset, index) => <div className="min-w-0 snap-center" key={asset.id}><MediaItem asset={asset} priority={index === 0} /></div>)}
+        {media.map((asset, index) => <div className="min-w-0 snap-center" key={asset.id}><MaterialMediaItem asset={asset} priority={index === 0} /></div>)}
       </div>
       {hasUnavailable ? (
         <p className="m-0 flex items-start gap-2 rounded-[12px] border border-[rgb(217_181_111/18%)] bg-[rgb(217_181_111/7%)] px-3 py-2.5 text-[11px] leading-[1.55] text-muted">
