@@ -146,10 +146,41 @@ export type BridgeSearchScoreCategory =
   | "transliteration"
   | "fuzzy";
 
+export type BridgeSearchHitSource =
+  | "title" | "content" | "caption" | "poll" | "location"
+  | "audio" | "document" | "topic" | "hashtag" | "personal-note";
+
+export type BridgeSearchHit = {
+  source: BridgeSearchHitSource;
+  blockId: string | null;
+  /** UTF-16 offsets in the original source string, matching Telegram/DOM semantics. */
+  start: number;
+  length: number;
+  snippet: string;
+  snippetStart: number;
+  snippetMatchStart: number;
+  snippetMatchLength: number;
+};
+
+export function isBridgeSearchHit(value: unknown): value is BridgeSearchHit {
+  if (!value || typeof value !== "object") return false;
+  const hit = value as Partial<BridgeSearchHit>;
+  const sources = new Set<BridgeSearchHitSource>(["title", "content", "caption", "poll", "location", "audio", "document", "topic", "hashtag", "personal-note"]);
+  const validBlock = hit.blockId === null || (typeof hit.blockId === "string" && /^(?:block(?:-\d+)+(?:-caption)?|formatted-(?:text|caption)|poll-(?:question|option-\d+))$/u.test(hit.blockId));
+  return typeof hit.source === "string" && sources.has(hit.source as BridgeSearchHitSource) && validBlock &&
+    Number.isSafeInteger(hit.start) && Number(hit.start) >= 0 && Number(hit.start) <= 8_000 &&
+    Number.isSafeInteger(hit.length) && Number(hit.length) > 0 && Number(hit.length) <= 400 &&
+    typeof hit.snippet === "string" && hit.snippet.length <= 400 && Number.isSafeInteger(hit.snippetStart) && Number(hit.snippetStart) >= 0 &&
+    Number.isSafeInteger(hit.snippetMatchStart) && Number(hit.snippetMatchStart) >= 0 &&
+    Number.isSafeInteger(hit.snippetMatchLength) && Number(hit.snippetMatchLength) > 0 &&
+    Number(hit.snippetMatchStart) + Number(hit.snippetMatchLength) <= hit.snippet.length;
+}
+
 export type BridgeSearchMatch = {
   scoreCategory: BridgeSearchScoreCategory;
   reasons: BridgeSearchMatchReason[];
   matchedMessageId?: number;
+  hit?: BridgeSearchHit;
 };
 
 export type BridgePost = {

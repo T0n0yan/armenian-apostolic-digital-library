@@ -56,7 +56,7 @@ function waitForDrainOrClose(outgoing: ServerResponse) {
 
 function requestMetadata(pathname: string) {
   const media = /^\/media\/-?\d{1,20}\/(\d{1,20})\/(\d{1,3})$/u.exec(pathname);
-  if (media) return { kind: "media", messageId: Number(media[1]), mediaIndex: Number(media[2]) };
+  if (media) return { kind: "media", messageId: Number(media[1]) };
   if (pathname === "/categories" || pathname === "/topics") return { kind: "topics" };
   if (pathname === "/search") return { kind: "search" };
   if (/^\/categories\/[^/]+\/posts$/u.test(pathname)) return { kind: "topic-posts" };
@@ -85,6 +85,8 @@ const server = createServer(async (incoming, outgoing) => {
   let responseStatus = 500;
   let bytesWritten = 0;
   let outcome = "ok";
+  let abortReason: "client-disconnect" | "timeout" | null = null;
+  let mediaType: string | null = null;
   const timeoutMs = pathname.startsWith("/media/") ? config.mediaTimeoutMs : config.requestTimeoutMs;
   const timeout = setTimeout(() => abort.abort(new Error("Bridge request timed out.")), timeoutMs);
   timeout.unref();
@@ -105,6 +107,7 @@ const server = createServer(async (incoming, outgoing) => {
     const response = await application(request);
     responseStatus = response.status;
     const responseHeaders = new Headers(response.headers);
+    mediaType = isMediaRequest ? responseHeaders.get("content-type") : null;
     responseHeaders.append("server-timing", `bridge-app;dur=${(performance.now() - applicationStartedAt).toFixed(1)}`);
     outgoing.writeHead(response.status, Object.fromEntries(responseHeaders.entries()));
     if (!response.body || incoming.method === "HEAD") { outgoing.end(); return; }
@@ -120,6 +123,9 @@ const server = createServer(async (incoming, outgoing) => {
         }
       }
       outgoing.end();
+    } catch (error) {
+      await reader.cancel(error).catch(() => undefined);
+      throw error;
     } finally {
       reader.releaseLock();
     }
@@ -129,6 +135,7 @@ const server = createServer(async (incoming, outgoing) => {
         ? "aborted"
         : "timeout"
       : "error";
+    abortReason = outcome === "aborted" ? "client-disconnect" : outcome === "timeout" ? "timeout" : null;
     responseStatus = abort.signal.aborted ? 504 : 500;
     if (!outgoing.destroyed) {
       if (!outgoing.headersSent) {
@@ -143,17 +150,27 @@ const server = createServer(async (incoming, outgoing) => {
     clearTimeout(timeout);
     activeRequests -= 1;
     if (isMediaRequest) activeMediaRequests -= 1;
-    console.info(JSON.stringify({
+    const metadata = requestMetadata(pathname);
+    console.info(JSON.stringify(isMediaRequest ? {
+      event: "bridge_media_request",
+      requestId,
+      mediaType,
+      messageId: "messageId" in metadata ? metadata.messageId : null,
+      method: incoming.method ?? "GET",
+      range: typeof incoming.headers.range === "string" && /^bytes=\d*-\d*$/u.test(incoming.headers.range) ? incoming.headers.range : null,
+      status: responseStatus,
+      bytes: bytesWritten,
+      durationMs: Math.round(performance.now() - startedAt),
+      abortReason,
+      activeStreamCount: activeMediaRequests,
+      activeStreamCountAtStart: mediaRequestsAtStart,
+    } : {
       event: "bridge_request",
       requestId,
       method: incoming.method ?? "GET",
-      ...requestMetadata(pathname),
+      ...metadata,
       status: responseStatus,
       durationMs: Math.round(performance.now() - startedAt),
-      bytesWritten,
-      activeRequests,
-      activeMediaRequests,
-      mediaRequestsAtStart,
       outcome,
     }));
   }

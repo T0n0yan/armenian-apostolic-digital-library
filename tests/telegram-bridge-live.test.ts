@@ -160,18 +160,29 @@ test("authorized Teleproto session serves the allowlisted forum end to end", { s
     assert.equal(pollOptionSearch.status, 200);
     assert.ok((await pollOptionSearch.json() as BridgePostPage).posts.some((post) => post.messageId === poll.messageId));
 
-    const rangeCheck = async (post: BridgePost) => {
-      const descriptor = post.media[0];
+    const rangeCheck = async (post: BridgePost, mediaIndex = 0, length = 64) => {
+      const descriptor = post.media[mediaIndex];
       assert.ok(descriptor?.sizeBytes && descriptor.sizeBytes > 64);
-      const head = await app(request(`/media/${chatId}/${post.messageId}/0`, { method: "HEAD" }));
+      const head = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { method: "HEAD" }));
       assert.equal(head.status, 200);
       assert.equal(head.headers.get("accept-ranges"), "bytes");
-      const range = await app(request(`/media/${chatId}/${post.messageId}/0`, { headers: { range: "bytes=0-63" } }));
+      const safeLength = Math.min(length, descriptor.sizeBytes!);
+      const range = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { headers: { range: `bytes=0-${safeLength - 1}` } }));
       assert.equal(range.status, 206);
-      assert.equal((await range.arrayBuffer()).byteLength, 64);
+      assert.equal((await range.arrayBuffer()).byteLength, safeLength);
+      const invalid = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { headers: { range: `bytes=${descriptor.sizeBytes}-` } }));
+      assert.equal(invalid.status, 416);
     };
-    await rangeCheck(audio);
-    await rangeCheck(video);
+    await rangeCheck(audio, 0, 614_400);
+    await rangeCheck(video, 0, 614_400);
+    const richPhoto = uniquePosts.find((post) => (post.topicId === 136 || post.topicId === 205) && post.media.some((media) => media.kind === "photo"));
+    assert.ok(richPhoto, "A RichMessage photo must be available for streaming verification.");
+    await rangeCheck(richPhoto, richPhoto.media.findIndex((media) => media.kind === "photo"));
+    const album = uniquePosts.find((post) => post.contentType === "album" && post.media.length > 1);
+    if (album) await rangeCheck(album, 1);
+    const document = uniquePosts.find((post) => post.media.some((media) => media.kind === "document"));
+    if (document) await rangeCheck(document, document.media.findIndex((media) => media.kind === "document"));
+    assert.deepEqual(await (await app(request("/ready"))).json(), { ready: true });
 
     const unmatchedQuery = "չհամընկնողեզակիբառաշար";
     const topicNoMatch = await app(request(

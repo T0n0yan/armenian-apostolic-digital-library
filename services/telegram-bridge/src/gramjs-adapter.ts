@@ -355,20 +355,36 @@ function inputLocation(source: MediaSource, thumbnail = false) {
   const thumbSize = selected && "type" in selected ? selected.type : "";
   if (photo) {
     const largest = photo.sizes.flatMap((size) => "type" in size ? [size.type] : []).at(-1) ?? "";
-    return new Api.InputPhotoFileLocation({
-      id: photo.id,
-      accessHash: photo.accessHash,
-      fileReference: photo.fileReference,
-      thumbSize: thumbnail ? thumbSize : largest,
-    });
+    return {
+      location: new Api.InputPhotoFileLocation({
+        id: photo.id,
+        accessHash: photo.accessHash,
+        fileReference: photo.fileReference,
+        thumbSize: thumbnail ? thumbSize : largest,
+      }),
+      dcId: photo.dcId,
+    };
   }
-  if (document) return new Api.InputDocumentFileLocation({
-    id: document.id,
-    accessHash: document.accessHash,
-    fileReference: document.fileReference,
-    thumbSize: thumbnail ? thumbSize : "",
-  });
+  if (document) return {
+    location: new Api.InputDocumentFileLocation({
+      id: document.id,
+      accessHash: document.accessHash,
+      fileReference: document.fileReference,
+      thumbSize: thumbnail ? thumbSize : "",
+    }),
+    dcId: document.dcId,
+  };
   return null;
+}
+
+export function teleprotoDownloadParameters(start: number, end: number, dcId?: number) {
+  return {
+    offset: bigInt(start),
+    requestSize: 512 * 1024,
+    // Teleproto's iterator limit is bytes, not the archived GramJS chunk count.
+    limit: end - start + 1,
+    ...(dcId ? { dcId } : {}),
+  };
 }
 
 export class GramJsTelegramAdapter implements TelegramAdapter {
@@ -707,13 +723,10 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   async *streamMedia({ chatId, messageId, mediaIndex, start, end, thumbnail, signal }: MediaRequest) {
     const source = await this.mediaSource(chatId, messageId, mediaIndex);
     if (!source || (thumbnail && !thumbnailFor(source))) return;
-    const file = inputLocation(source, Boolean(thumbnail));
-    if (!file) return;
-    const requestSize = 512 * 1024;
-    const iterator = this.client.iterDownload(file, {
-      offset: bigInt(start),
-      requestSize,
-      limit: Math.ceil((end - start + 1) / requestSize),
+    const resolved = inputLocation(source, Boolean(thumbnail));
+    if (!resolved) return;
+    const iterator = this.client.iterDownload(resolved.location, {
+      ...teleprotoDownloadParameters(start, end, resolved.dcId),
       signal,
     });
     let remaining = end - start + 1;

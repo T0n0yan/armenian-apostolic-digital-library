@@ -1,4 +1,4 @@
-import { createMaterialId, parseMaterialId, type BridgeContentType } from "../../shared/telegram-bridge-contract";
+import { createMaterialId, parseMaterialId, type BridgeContentType, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { normalizeSearchText } from "./material-content.server";
 import { bridgePostToCardPreview, createMaterialExcerpt, type MaterialCardPreview } from "./materials.server";
 import { createSearchExcerpt } from "./search-materials.server";
@@ -24,6 +24,7 @@ export type SavedMaterial = {
   preview: MaterialCardPreview;
   unavailable?: boolean;
   noteSearchMatch?: RankedTelegramSearchMatch;
+  searchHit?: BridgeSearchHit;
 };
 
 export type SavedMaterialGroup = {
@@ -112,6 +113,7 @@ async function hydrateSavedReferences(
         const title = "Հրապարակումն այլևս հասանելի չէ";
         const searchable = notesOnly ? row.personal_note : `${title} ${row.personal_note}`;
         if (normalizedQuery && !normalizeSearchText(searchable).includes(normalizedQuery)) continue;
+        const noteMatch = noteMatches.get(`${row.chat_id}:${row.message_id}`);
         hydrated[index] = {
         id: createMaterialId(row.chat_id, row.message_id),
         title,
@@ -142,7 +144,8 @@ async function hydrateSavedReferences(
           unsupportedType: "unavailable",
         },
         unavailable: true,
-        noteSearchMatch: noteMatches.get(`${row.chat_id}:${row.message_id}`),
+        noteSearchMatch: noteMatch,
+        searchHit: noteMatch?.hit ? { ...noteMatch.hit, source: "personal-note", blockId: null } : undefined,
         };
         continue;
       }
@@ -150,6 +153,7 @@ async function hydrateSavedReferences(
         ? row.personal_note
         : `${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${row.personal_note}`);
       if (normalizedQuery && !searchable.includes(normalizedQuery)) continue;
+      const noteMatch = noteMatches.get(`${row.chat_id}:${row.message_id}`);
       hydrated[index] = {
       id: post.id,
       title: post.title,
@@ -170,7 +174,8 @@ async function hydrateSavedReferences(
         : createMaterialExcerpt(post.contentText || post.captionText || row.personal_note),
       contentType: post.contentType,
       preview: bridgePostToCardPreview(post),
-      noteSearchMatch: noteMatches.get(`${row.chat_id}:${row.message_id}`),
+      noteSearchMatch: noteMatch,
+      searchHit: noteMatch?.hit ? { ...noteMatch.hit, source: "personal-note", blockId: null } : undefined,
       };
     }
   });

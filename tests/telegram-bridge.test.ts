@@ -9,12 +9,13 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
+import { teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
 import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
-import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
-import { normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
+import { createTopicCategoryId, createTopicSlug, isBridgeSearchHit, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
+import { createSearchableTelegramDocument, matchSearchableTelegramDocument, matchSearchableText, normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
 import {
   clearNavigationCache,
   loadNavigationData,
@@ -85,6 +86,40 @@ test("deterministic query normalization and bounded memory index stay explainabl
   assert.equal(second.posts[0]?.searchMatch?.scoreCategory, "fuzzy");
   assert.equal(index.metrics().documents, 1);
   assert.ok(index.metrics().approximateBytes > 0);
+});
+
+test("search hits preserve bounded original UTF-16 spans for exact, transliterated, fuzzy, and emoji text", () => {
+  const richPost = { ...MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 112)!, categoryId: MOCK_TOPIC_ID, categoryName: "Աղոթքներ", categorySlug: MOCK_TOPIC_SLUG };
+  const richMatch = matchSearchableTelegramDocument(createSearchableTelegramDocument(richPost), parseTelegramSearchQuery("Թավ"));
+  assert.equal(richMatch?.hit?.blockId, "block-1");
+  assert.equal(richMatch?.hit?.source, "content");
+  assert.equal(richMatch?.hit?.snippet.slice(richMatch.hit.snippetMatchStart, richMatch.hit.snippetMatchStart + richMatch.hit.snippetMatchLength), "Թավ");
+  assert.ok((richMatch?.hit?.snippet.length ?? 0) <= 262);
+
+  const emoji = matchSearchableText("🙏 Սաղմոս 12 — խաղաղություն", parseTelegramSearchQuery("խաղաղ"));
+  assert.equal("🙏 Սաղմոս 12 — խաղաղություն".slice(emoji!.hit!.start, emoji!.hit!.start + emoji!.hit!.length), "խաղաղ");
+  assert.equal(emoji?.hit?.start, 15, "hit offset must use original UTF-16 code units after a surrogate pair");
+  const normalizedArmenian = matchSearchableText("Տե՛ր, խաղաղություն", parseTelegramSearchQuery("տեր"));
+  assert.equal(normalizedArmenian?.hit?.start, 0);
+  assert.equal(normalizedArmenian?.hit?.length, "Տե՛ր".length);
+
+  const transliteration = matchSearchableText("Սաղմոս 12", parseTelegramSearchQuery("saxmos"));
+  assert.equal(transliteration?.scoreCategory, "transliteration");
+  assert.equal(transliteration?.hit?.length, "Սաղմոս".length);
+  const fuzzy = matchSearchableText("Bacat Caffe", parseTelegramSearchQuery("Bacar"));
+  assert.equal(fuzzy?.scoreCategory, "fuzzy");
+  assert.equal(fuzzy?.hit?.snippet.slice(fuzzy.hit.snippetMatchStart, fuzzy.hit.snippetMatchStart + fuzzy.hit.snippetMatchLength), "Bacat");
+  assert.equal(isBridgeSearchHit(fuzzy?.hit), true);
+  assert.equal(isBridgeSearchHit({ ...fuzzy?.hit, blockId: "../../unsafe" }), false);
+  assert.equal(isBridgeSearchHit({ ...fuzzy?.hit, start: 99_999 }), false);
+});
+
+test("Teleproto media plan uses byte limits and preserves the source DC", () => {
+  const plan = teleprotoDownloadParameters(100, 700_099, 4);
+  assert.equal(plan.limit, 700_000);
+  assert.equal(plan.requestSize, 512 * 1024);
+  assert.equal(plan.offset.toString(), "100");
+  assert.equal(plan.dcId, 4);
 });
 
 test("memory search index enforces configurable document and character ceilings", async () => {
@@ -369,6 +404,25 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   const bytes = new Uint8Array(await range.arrayBuffer());
   assert.equal(bytes.length, 100);
   assert.equal(bytes[0], 100 % 251);
+  const multiChunk = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=0-614399" } }));
+  assert.equal(multiChunk.status, 206);
+  assert.equal((await multiChunk.arrayBuffer()).byteLength, 614_400);
+  for (const [messageId, mediaIndex] of [[112, 0], [102, 0], [103, 1], [113, 0]] as const) {
+    const mediaHead = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/${messageId}/${mediaIndex}`, { method: "HEAD" }));
+    assert.equal(mediaHead.status, 200);
+    const mediaRange = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/${messageId}/${mediaIndex}`, { headers: { range: "bytes=0-63" } }));
+    assert.equal(mediaRange.status, 206);
+    assert.equal((await mediaRange.arrayBuffer()).byteLength, 64);
+  }
+  const audioHead = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/107/0`, { method: "HEAD" }));
+  assert.equal(audioHead.status, 200);
+  const audioFirst = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/107/0`, { headers: { range: "bytes=0-127" } }));
+  assert.equal(audioFirst.status, 206);
+  assert.equal((await audioFirst.arrayBuffer()).byteLength, 128);
+  const audioSeek = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/107/0`, { headers: { range: "bytes=4096-4223" } }));
+  assert.equal(audioSeek.status, 206);
+  assert.equal((await audioSeek.arrayBuffer()).byteLength, 128);
+  assert.equal((await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/107/0`, { headers: { range: "bytes=8192-" } }))).status, 416);
 
   const seek = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=104857600-104857663" } }));
   assert.equal(seek.status, 206);
@@ -387,6 +441,11 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   await reader.cancel();
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
   assert.equal(adapter.stats.abortedStreams, 1);
+  const completedBeforeRetry = adapter.stats.completedStreams;
+  const retry = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=0-63" } }));
+  assert.equal((await retry.arrayBuffer()).byteLength, 64);
+  assert.equal(adapter.stats.completedStreams, completedBeforeRetry + 1, "a retry must open and complete exactly one stream");
+  assert.deepEqual(await (await app(bridgeRequest("/ready"))).json(), { ready: true });
   assert.ok(metrics.includes("topics:ok"));
   assert.ok(metrics.includes("search-index-history:ok"));
   assert.ok(metrics.includes("media-descriptor:ok"));
@@ -399,8 +458,21 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
 
   const mediaSource = readFileSync(resolve(ROOT, "app/components/material-media.tsx"), "utf8");
   const resultCardSource = readFileSync(resolve(ROOT, "app/components/material-result-card.tsx"), "utf8");
+  const materialRouteSource = readFileSync(resolve(ROOT, "app/routes/material.tsx"), "utf8");
+  const richRendererSource = readFileSync(resolve(ROOT, "app/components/telegram-content.tsx"), "utf8");
+  const bridgeAppSource = readFileSync(resolve(ROOT, "services/telegram-bridge/src/app.ts"), "utf8");
+  const bridgeServerSource = readFileSync(resolve(ROOT, "services/telegram-bridge/src/server.ts"), "utf8");
   assert.match(mediaSource, /onError=\{\(\) => setFailed\(true\)\}/u);
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
+  assert.match(resultCardSource, /state=\{material\.searchHit/u);
+  assert.match(resultCardSource, /snippetMatchStart/u);
+  assert.match(materialRouteSource, /prefers-reduced-motion/u);
+  assert.match(materialRouteSource, /scrollIntoView/u);
+  assert.match(materialRouteSource, /isBridgeSearchHit/u);
+  assert.match(richRendererSource, /data-search-hit/u);
+  assert.match(bridgeAppSource, /finishPromise \?\?=/u);
+  assert.match(bridgeServerSource, /reader\.cancel\(error\)/u);
+  assert.match(bridgeServerSource, /outgoing\.off\("drain"/u);
   assert.match(mediaSource, /media\.map\(\(asset, index\)/u);
   assert.match(mediaSource, /մյուս մեդիան շարունակում է աշխատել/u);
   const categorySource = readFileSync(resolve(ROOT, "app/routes/category.tsx"), "utf8");
@@ -747,6 +819,9 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_101"/u);
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_104"/u);
   assert.equal((topicMatchHtml.match(/data-material-id=/gu) ?? []).length, 2);
+  assert.match(topicMatchHtml, /Նյութի տեքստից/u);
+  assert.match(topicMatchHtml, /<mark[^>]*>խաղաղություն<\/mark>/iu);
+  assert.doesNotMatch(topicMatchHtml, /href="\/materials\/[^"?]+\?q=/u);
 
   const session = await mf.dispatchFetch("https://app.fixture/telegram/session", {
     method: "POST",

@@ -170,6 +170,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       contentType: material.contentType,
       preview: material.preview,
       personalNote: material.personalNote,
+      searchHit: material.searchHit,
       matchReasons: noteReasons(material),
       scoreCategory: material.noteSearchMatch?.scoreCategory === "fuzzy" || material.noteSearchMatch?.scoreCategory === "transliteration"
         ? material.noteSearchMatch.scoreCategory
@@ -189,6 +190,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     contentType: material.contentType,
     preview: material.preview,
     personalNote: material.personalNote,
+    searchHit: material.searchHit,
     matchReasons: noteReasons(material),
     scoreCategory: material.noteSearchMatch?.scoreCategory === "fuzzy" || material.noteSearchMatch?.scoreCategory === "transliteration"
       ? material.noteSearchMatch.scoreCategory
@@ -206,6 +208,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       scoreCategory: (searchRank[noteMatch.scoreCategory ?? "personal-note"] ?? 0) > (searchRank[material.scoreCategory ?? "content"] ?? 0)
         ? noteMatch.scoreCategory
         : material.scoreCategory,
+      searchHit: (searchRank[noteMatch.scoreCategory ?? "personal-note"] ?? 0) > (searchRank[material.scoreCategory ?? "content"] ?? 0)
+        ? noteMatch.searchHit
+        : material.searchHit,
     };
   });
   const personalMaterials = [...noteById.values()].sort(stableSearchOrder);
@@ -469,6 +474,9 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ...material,
         personalNote: note.personalNote,
         matchReasons: [...new Set([...(material.matchReasons ?? []), ...(note.matchReasons ?? [])])],
+        searchHit: (searchRank[note.scoreCategory ?? "personal-note"] ?? 0) > (searchRank[material.scoreCategory ?? "content"] ?? 0)
+          ? note.searchHit
+          : material.searchHit,
       } : material);
       noteById.delete(material.id);
     }

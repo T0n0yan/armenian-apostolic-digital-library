@@ -190,7 +190,7 @@ export class TelegramSearchIndex {
     const page = matches.slice(start, start + safeLimit);
     const last = page.at(-1);
     return {
-      posts: page.map(({ post, match }) => ({ ...post, searchMatch: { scoreCategory: match.scoreCategory, reasons: match.reasons } })),
+      posts: page.map(({ post, match }) => ({ ...post, searchMatch: { scoreCategory: match.scoreCategory, reasons: match.reasons, hit: match.hit } })),
       nextCursor: last && start + page.length < matches.length ? encodeCursor(last, parsed, categoryId) : null,
       total: matches.length,
     };

@@ -297,6 +297,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
             scoreCategory: match.scoreCategory,
             reasons: match.reasons,
             matchedMessageId: match.matchedMessageId,
+            hit: match.hit,
           } });
         }
         return json(compactPage({ posts: [...new Map(posts.map((post) => [post.id, post])).values()], nextCursor: null, total: posts.length }));
@@ -369,11 +370,15 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
       const iterator = options.adapter.streamMedia({ chatId, messageId, mediaIndex, start, end, thumbnail, signal })[Symbol.asyncIterator]();
       const streamStartedAt = performance.now();
       let firstChunkMeasured = false;
-      const finish = async () => {
-        const current = release;
-        release = null;
-        current?.();
-        await iterator.return?.();
+      let finishPromise: Promise<void> | null = null;
+      const finish = () => {
+        finishPromise ??= (async () => {
+          const current = release;
+          release = null;
+          current?.();
+          await iterator.return?.();
+        })();
+        return finishPromise;
       };
       const body = new ReadableStream<Uint8Array>({
         async pull(controller) {

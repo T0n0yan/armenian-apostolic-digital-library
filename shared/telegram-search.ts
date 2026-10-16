@@ -1,5 +1,9 @@
 import type {
   BridgePost,
+  BridgeRichBlock,
+  BridgeRichInline,
+  BridgeSearchHit,
+  BridgeSearchHitSource,
   BridgeSearchMatch,
   BridgeSearchMatchReason,
   BridgeSearchScoreCategory,
@@ -23,7 +27,7 @@ export type SearchableTelegramDocument = {
   topicId: number | null;
   mediaGroupId: string | null;
   constituentMessageIds: number[];
-  fields: Array<{ kind: SearchableTelegramFieldKind; value: string; primary: boolean }>;
+  fields: Array<{ kind: SearchableTelegramFieldKind; value: string; primary: boolean; blockId: string | null }>;
 };
 
 export type RankedTelegramSearchMatch = BridgeSearchMatch & { rank: number };
@@ -65,7 +69,8 @@ export function normalizeTelegramSearchText(value: string) {
   return value.normalize("NFKC")
     .replace(/[\u200B-\u200D\uFEFF]/gu, "")
     .replace(/[\u0300-\u036f]/gu, "")
-    .replace(/[՚-՟։֍֎.,!?;:()[\]{}"'`´‘’‚‛“”„‟«»‹›—–-]+/gu, " ")
+    .replace(/[՚-՟]/gu, "")
+    .replace(/[։֍֎.,!?;:()[\]{}"'`´‘’‚‛“”„‟«»‹›—–-]+/gu, " ")
     .replace(/[^\p{L}\p{N}\s]+/gu, " ")
     .replace(/\s+/gu, " ")
     .toLocaleLowerCase("hy-AM")
@@ -102,18 +107,47 @@ export function parseTelegramSearchQuery(value: string): ParsedTelegramSearchQue
   return { original, normalized, tokens: normalized.split(" ").filter(Boolean).slice(0, 12), aliases: searchAliases(normalized), messageIdIntent };
 }
 
-function addField(fields: SearchableTelegramDocument["fields"], kind: SearchableTelegramFieldKind, value: string | null | undefined, primary = primaryKinds.has(kind)) {
+function addField(fields: SearchableTelegramDocument["fields"], kind: SearchableTelegramFieldKind, value: string | null | undefined, primary = primaryKinds.has(kind), blockId: string | null = null) {
   const clean = value?.trim();
-  if (clean) fields.push({ kind, value: Array.from(clean).slice(0, 8_000).join(""), primary });
+  if (clean) fields.push({ kind, value: Array.from(clean).slice(0, 8_000).join(""), primary, blockId });
+}
+
+function inlineText(nodes: BridgeRichInline[]): string {
+  return nodes.map((node) => {
+    if (node.type === "text") return node.text;
+    if (node.type === "line-break") return "\n";
+    if (node.type === "custom-emoji") return node.alt;
+    if (node.type === "unsupported") return "";
+    return inlineText(node.children);
+  }).join("");
+}
+
+function addRichBlockFields(fields: SearchableTelegramDocument["fields"], blocks: BridgeRichBlock[], prefix = "block") {
+  blocks.forEach((block, index) => {
+    const blockId = `${prefix}-${index}`;
+    if (block.type === "heading" || block.type === "paragraph" || block.type === "pre") {
+      addField(fields, block.type === "heading" ? "title" : "body", inlineText(block.content), block.type === "heading", blockId);
+    } else if (block.type === "blockquote") {
+      addField(fields, "caption", inlineText(block.caption), false, `${blockId}-caption`);
+      addRichBlockFields(fields, block.blocks, blockId);
+    } else if (block.type === "list") {
+      block.items.forEach((item, itemIndex) => addRichBlockFields(fields, item, `${blockId}-${itemIndex}`));
+    } else if (block.type === "media") {
+      addField(fields, "caption", inlineText(block.caption), false, `${blockId}-caption`);
+    }
+  });
 }
 
 export function createSearchableTelegramDocument(post: BridgePost, topicTitle = post.categoryName ?? ""): SearchableTelegramDocument {
   const fields: SearchableTelegramDocument["fields"] = [];
   addField(fields, "title", post.title);
-  addField(fields, "body", post.contentText, false);
-  addField(fields, "caption", post.captionText, false);
-  addField(fields, "poll-question", post.poll?.question.text);
-  for (const option of post.poll?.options ?? []) addField(fields, "poll-option", option.text.text, false);
+  if (post.richContent) addRichBlockFields(fields, post.richContent.blocks);
+  else {
+    addField(fields, "body", post.contentText, false, "formatted-text");
+    addField(fields, "caption", post.captionText, false, "formatted-caption");
+  }
+  addField(fields, "poll-question", post.poll?.question.text, true, "poll-question");
+  for (const [index, option] of (post.poll?.options ?? []).entries()) addField(fields, "poll-option", option.text.text, false, `poll-option-${index}`);
   addField(fields, "location", post.location?.title);
   addField(fields, "location", post.location?.address, false);
   for (const media of post.media) {
@@ -160,6 +194,7 @@ function category(rank: number): BridgeSearchScoreCategory {
 export function matchSearchableTelegramDocument(document: SearchableTelegramDocument, parsed: ParsedTelegramSearchQuery): RankedTelegramSearchMatch | null {
   if (!parsed.normalized || parsed.messageIdIntent) return null;
   let bestRank = 0; const reasons = new Set<BridgeSearchMatchReason>(); let usedTransliteration = false; let usedFuzzy = false;
+  let bestHit: BridgeSearchHit | undefined;
   for (const field of document.fields) {
     const normalized = normalizeTelegramSearchText(field.value);
     if (!normalized) continue;
@@ -180,12 +215,20 @@ export function matchSearchableTelegramDocument(document: SearchableTelegramDocu
       const threshold = fuzzyThreshold(term);
       return threshold > 0 && tokens.some((token) => boundedDistance(term, token, threshold) <= threshold);
     })) { fieldRank = 1; usedFuzzy = true; }
-    if (fieldRank) { bestRank = Math.max(bestRank, fieldRank); reasons.add(reasonByField[field.kind]); }
+    if (fieldRank) {
+      reasons.add(reasonByField[field.kind]);
+      const hit = locateSearchHit(field.value, field.kind, field.blockId, parsed, fieldRank);
+      if (fieldRank > bestRank || (fieldRank === bestRank && hit && (
+        !bestHit || (bestHit.blockId === null && hit.blockId !== null) ||
+        (bestHit.blockId === hit.blockId && hit.start < bestHit.start)
+      ))) bestHit = hit ?? bestHit;
+      bestRank = Math.max(bestRank, fieldRank);
+    }
   }
   if (!bestRank) return null;
   if (usedTransliteration && bestRank <= 2) reasons.add("transliteration");
   if (usedFuzzy && bestRank === 1) reasons.add("fuzzy");
-  return { scoreCategory: category(bestRank), reasons: [...reasons], rank: bestRank };
+  return { scoreCategory: category(bestRank), reasons: [...reasons], rank: bestRank, hit: bestHit };
 }
 
 export function messageIdSearchMatch(messageId: number): RankedTelegramSearchMatch {
@@ -195,8 +238,92 @@ export function messageIdSearchMatch(messageId: number): RankedTelegramSearchMat
 export function matchSearchableText(value: string, parsed: ParsedTelegramSearchQuery) {
   return matchSearchableTelegramDocument({
     chatId: "", messageId: 0, topicId: null, mediaGroupId: null, constituentMessageIds: [],
-    fields: [{ kind: "body", value, primary: false }],
+    fields: [{ kind: "body", value, primary: false, blockId: null }],
   }, parsed);
+}
+
+type NormalizedMap = { text: string; starts: number[]; ends: number[] };
+
+function normalizedWithOriginalMap(value: string): NormalizedMap {
+  const characters: Array<{ value: string; start: number; end: number }> = [];
+  let offset = 0;
+  for (const original of value) {
+    const start = offset; offset += original.length;
+    let normalized = original.normalize("NFKC").replace(/[\u0300-\u036f\u200B-\u200D\uFEFF]/gu, "").toLocaleLowerCase("hy-AM");
+    if (/[՚-՟]/u.test(normalized)) normalized = "";
+    else if (/[^\p{L}\p{N}]/u.test(normalized)) normalized = " ";
+    for (const part of normalized) characters.push({ value: part, start, end: offset });
+  }
+  const collapsed: typeof characters = [];
+  for (const character of characters) {
+    if (character.value === " " && (collapsed.length === 0 || collapsed.at(-1)?.value === " ")) continue;
+    collapsed.push(character);
+  }
+  while (collapsed[0]?.value === " ") collapsed.shift();
+  while (collapsed.at(-1)?.value === " ") collapsed.pop();
+  const equivalent: typeof characters = [];
+  for (let index = 0; index < collapsed.length; index += 1) {
+    if (collapsed[index]?.value === "ե" && collapsed[index + 1]?.value === "ւ") {
+      equivalent.push({ value: "և", start: collapsed[index].start, end: collapsed[index + 1].end });
+      index += 1;
+    } else equivalent.push(collapsed[index]);
+  }
+  return { text: equivalent.map((item) => item.value).join(""), starts: equivalent.map((item) => item.start), ends: equivalent.map((item) => item.end) };
+}
+
+function sourceFor(kind: SearchableTelegramFieldKind): BridgeSearchHitSource {
+  if (kind === "body") return "content";
+  if (kind === "poll-question" || kind === "poll-option") return "poll";
+  return kind;
+}
+
+function snippetFor(value: string, start: number, length: number) {
+  const maximum = 260;
+  let snippetStart = Math.max(0, start - 90);
+  let snippetEnd = Math.min(value.length, start + length + 150);
+  while (snippetStart > 0 && !/\s/u.test(value[snippetStart - 1]) && start - snippetStart < 120) snippetStart -= 1;
+  while (snippetEnd < value.length && !/\s/u.test(value[snippetEnd]) && snippetEnd - start < 180) snippetEnd += 1;
+  if (snippetEnd - snippetStart > maximum) snippetEnd = snippetStart + maximum;
+  const prefix = snippetStart > 0 ? "…" : "";
+  return {
+    snippet: `${prefix}${value.slice(snippetStart, snippetEnd)}${snippetEnd < value.length ? "…" : ""}`,
+    snippetStart,
+    snippetMatchStart: prefix.length + start - snippetStart,
+    snippetMatchLength: length,
+  };
+}
+
+function locateSearchHit(value: string, kind: SearchableTelegramFieldKind, blockId: string | null, parsed: ParsedTelegramSearchQuery, rank: number): BridgeSearchHit | undefined {
+  const mapped = normalizedWithOriginalMap(value);
+  let normalizedStart = -1; let normalizedLength = 0;
+  const directCandidates = [parsed.normalized, ...parsed.tokens].filter(Boolean).sort((a, b) => b.length - a.length);
+  if (rank >= 3) {
+    for (const candidate of directCandidates) {
+      const index = mapped.text.indexOf(candidate);
+      if (index >= 0) { normalizedStart = index; normalizedLength = candidate.length; break; }
+    }
+  }
+  if (normalizedStart < 0) {
+    const tokenPattern = /[^\s]+/gu; let tokenMatch: RegExpExecArray | null; let bestDistance = Number.POSITIVE_INFINITY;
+    while ((tokenMatch = tokenPattern.exec(mapped.text))) {
+      const token = tokenMatch[0];
+      const variants = rank === 2 ? [armenianToLatin(token), latinToArmenian(token), token] : [token];
+      for (const query of [parsed.normalized, ...parsed.aliases, ...parsed.tokens]) {
+        for (const variant of variants) {
+          const threshold = rank === 1 ? fuzzyThreshold(query) : 0;
+          const distance = rank === 1 ? boundedDistance(query, variant, threshold) : (variant.includes(query) || query.includes(variant) ? 0 : threshold + 1);
+          if (distance <= threshold && distance < bestDistance) {
+            bestDistance = distance; normalizedStart = tokenMatch.index; normalizedLength = token.length;
+          }
+        }
+      }
+    }
+  }
+  if (normalizedStart < 0 || normalizedLength <= 0) return undefined;
+  const start = mapped.starts[normalizedStart];
+  const end = mapped.ends[Math.min(mapped.ends.length - 1, normalizedStart + normalizedLength - 1)];
+  if (start === undefined || end === undefined || end <= start) return undefined;
+  return { source: sourceFor(kind), blockId, start, length: end - start, ...snippetFor(value, start, end - start) };
 }
 
 export function searchScoreRank(value: BridgeSearchScoreCategory) { return scoreRank[value]; }

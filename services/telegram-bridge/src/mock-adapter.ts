@@ -64,6 +64,7 @@ function post(input: Partial<TelegramPost> & Pick<TelegramPost, "messageId" | "t
 }
 
 export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
+  post({ messageId: 113, title: "Փորձնական փաստաթուղթ", contentText: "Փաստաթղթի նկարագրություն", contentType: "document", media: [media(0, "document", { fileName: "fixture-document.pdf", mimeType: "application/pdf" })] }),
   post({
     messageId: 112,
     title: "Ձևաչափված ընթերցում",

@@ -29,7 +29,7 @@ import {
 } from "react";
 import { Link, useNavigation } from "react-router";
 
-import type { BridgeContentType, BridgeSearchMatchReason } from "../../shared/telegram-bridge-contract";
+import type { BridgeContentType, BridgeSearchHit, BridgeSearchMatchReason } from "../../shared/telegram-bridge-contract";
 import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
@@ -50,6 +50,7 @@ type MaterialResultCardProps = {
     personalNote?: string;
     matchReasons?: Array<"telegram" | "personal-note" | BridgeSearchMatchReason>;
     matchedMessageId?: number;
+    searchHit?: BridgeSearchHit;
   };
   canSave: boolean;
   highlightQuery?: string;
@@ -151,6 +152,22 @@ function highlightText(value: string, pattern: HighlightPattern | null) {
       part
     ),
   );
+}
+
+function highlightHit(hit: BridgeSearchHit) {
+  const start = Math.max(0, Math.min(hit.snippet.length, hit.snippetMatchStart));
+  const end = Math.max(start, Math.min(hit.snippet.length, start + hit.snippetMatchLength));
+  return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
+}
+
+function hitSourceLabel(source: BridgeSearchHit["source"]) {
+  const labels: Record<BridgeSearchHit["source"], string> = {
+    title: "Վերնագրից", content: "Նյութի տեքստից", caption: "Նկարագրությունից",
+    poll: "Հարցումից", location: "Տեղադրությունից", audio: "Աուդիոյից",
+    document: "Փաստաթղթից", topic: "Բաժնից", hashtag: "Պիտակից",
+    "personal-note": "Իմ նշումից",
+  };
+  return labels[source];
 }
 
 type TelegramWindow = Window & {
@@ -289,6 +306,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         <Link
           className={`${interactiveGlassCard} grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] px-[12px] pt-[12px] pb-[52px] text-inherit no-underline active:scale-[.992] min-[560px]:grid-cols-[96px_minmax(0,1fr)]${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
+          state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
@@ -329,7 +347,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
           ) : null}
           <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
-          {material.excerpt || material.preview.performer || material.preview.locationSummary ? (
+          {material.searchHit ? (
+            <span className="grid gap-1 rounded-[10px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/6%)] px-2.5 py-2 text-[12px] leading-[1.5] text-muted">
+              <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-gold">{hitSourceLabel(material.searchHit.source)}</span>
+              <span className="line-clamp-3 overflow-hidden">{highlightHit(material.searchHit)}</span>
+            </span>
+          ) : material.excerpt || material.preview.performer || material.preview.locationSummary ? (
             <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
               {highlightText(material.excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
             </span>

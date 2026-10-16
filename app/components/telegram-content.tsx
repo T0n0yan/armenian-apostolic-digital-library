@@ -8,6 +8,7 @@ import type {
   BridgeRichBlock,
   BridgeRichContent,
   BridgeRichInline,
+  BridgeSearchHit,
   BridgeTextEntity,
 } from "../../shared/telegram-bridge-contract";
 import type { MaterialMedia } from "../data/material-detail.server";
@@ -43,14 +44,21 @@ function entityWrapper(entity: BridgeTextEntity, child: ReactNode, key: string) 
   }
 }
 
-function RichInlineNodes({ nodes }: { nodes: BridgeRichInline[] }) {
+function HitText({ text, start, hit }: { text: string; start: number; hit?: BridgeSearchHit }) {
+  if (!hit || hit.length <= 0 || start >= hit.start + hit.length || start + text.length <= hit.start) return text;
+  const localStart = Math.max(0, hit.start - start);
+  const localEnd = Math.min(text.length, hit.start + hit.length - start);
+  return <>{text.slice(0, localStart)}<mark className="rounded-[4px] bg-[rgb(240_196_88/42%)] px-[2px] text-inherit" data-search-hit>{text.slice(localStart, localEnd)}</mark>{text.slice(localEnd)}</>;
+}
+
+function RichInlineNodes({ nodes, hit, cursor = { value: 0 } }: { nodes: BridgeRichInline[]; hit?: BridgeSearchHit; cursor?: { value: number } }) {
   return nodes.map((node, index): ReactNode => {
     const key = `${node.type}-${index}`;
-    if (node.type === "text") return <Fragment key={key}>{node.text}</Fragment>;
-    if (node.type === "line-break") return <br key={key} />;
-    if (node.type === "custom-emoji") return <span aria-label="Telegram custom emoji" title="Telegram custom emoji" key={key}>{node.alt || "◻"}</span>;
+    if (node.type === "text") { const start = cursor.value; cursor.value += node.text.length; return <Fragment key={key}><HitText text={node.text} start={start} hit={hit} /></Fragment>; }
+    if (node.type === "line-break") { cursor.value += 1; return <br key={key} />; }
+    if (node.type === "custom-emoji") { const alt = node.alt || "◻"; const start = cursor.value; cursor.value += alt.length; return <span aria-label="Telegram custom emoji" title="Telegram custom emoji" key={key}><HitText text={alt} start={start} hit={hit} /></span>; }
     if (node.type === "unsupported") return <span className="sr-only" key={key}>Չաջակցվող ձևաչափ</span>;
-    const child = <RichInlineNodes nodes={node.children} />;
+    const child = <RichInlineNodes nodes={node.children} hit={hit} cursor={cursor} />;
     if (node.type === "bold") return <strong key={key}>{child}</strong>;
     if (node.type === "italic") return <em key={key}>{child}</em>;
     if (node.type === "underline") return <u key={key}>{child}</u>;
@@ -68,40 +76,47 @@ function RichInlineNodes({ nodes }: { nodes: BridgeRichInline[] }) {
   });
 }
 
-function RichBlocks({ blocks, media }: { blocks: BridgeRichBlock[]; media: MaterialMedia[] }) {
+function RichBlocks({ blocks, media, hit, prefix = "block" }: { blocks: BridgeRichBlock[]; media: MaterialMedia[]; hit?: BridgeSearchHit; prefix?: string }) {
   return blocks.map((block, index) => {
     const key = `${block.type}-${index}`;
+    const blockId = `${prefix}-${index}`;
+    const blockHit = hit?.blockId === blockId ? hit : undefined;
+    const targetId = `telegram-${blockId}`;
     if (block.type === "heading") {
       const className = block.level <= 2 ? "m-0 font-serif text-[clamp(1.25rem,4vw,1.8rem)] leading-tight text-ink" : "m-0 font-serif text-[clamp(1.05rem,3vw,1.35rem)] leading-snug text-ink";
-      const content = <RichInlineNodes nodes={block.content} />;
-      if (block.level === 1) return <h2 className={className} key={key}>{content}</h2>;
-      if (block.level === 2) return <h3 className={className} key={key}>{content}</h3>;
-      return <h4 className={className} key={key}>{content}</h4>;
+      const content = <RichInlineNodes nodes={block.content} hit={blockHit} />;
+      if (block.level === 1) return <h2 className={className} id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}>{content}</h2>;
+      if (block.level === 2) return <h3 className={className} id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}>{content}</h3>;
+      return <h4 className={className} id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}>{content}</h4>;
     }
-    if (block.type === "paragraph") return <p className="m-0 whitespace-pre-wrap break-words" key={key}><RichInlineNodes nodes={block.content} /></p>;
-    if (block.type === "pre") return <pre className="m-0 overflow-x-auto rounded-[14px] border border-glass-border bg-subtle p-4 text-[0.86em] leading-relaxed" key={key}><code data-language={block.language ?? undefined}><RichInlineNodes nodes={block.content} /></code></pre>;
+    if (block.type === "paragraph") return <p className="m-0 whitespace-pre-wrap break-words" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><RichInlineNodes nodes={block.content} hit={blockHit} /></p>;
+    if (block.type === "pre") return <pre className="m-0 overflow-x-auto rounded-[14px] border border-glass-border bg-subtle p-4 text-[0.86em] leading-relaxed" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><code data-language={block.language ?? undefined}><RichInlineNodes nodes={block.content} hit={blockHit} /></code></pre>;
     if (block.type === "divider") return <hr className="my-1 w-full border-0 border-t border-gold/25" key={key} />;
     if (block.type === "media") {
       const asset = media[block.mediaIndex];
-      return asset ? <figure className="m-0 grid gap-2" key={key}><MaterialMediaItem asset={asset} />{block.caption.length ? <figcaption className="text-[13px] leading-relaxed text-muted"><RichInlineNodes nodes={block.caption} /></figcaption> : null}</figure> : <p className="m-0 rounded-[12px] border border-dashed border-glass-border p-3 text-[12px] text-muted" key={key}>Մեդիան առայժմ հասանելի չէ։</p>;
+      const captionId = `${blockId}-caption`;
+      const captionHit = hit?.blockId === captionId ? hit : undefined;
+      return asset ? <figure className="m-0 grid gap-2" key={key}><MaterialMediaItem asset={asset} />{block.caption.length ? <figcaption className="text-[13px] leading-relaxed text-muted" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></figcaption> : null}</figure> : <p className="m-0 rounded-[12px] border border-dashed border-glass-border p-3 text-[12px] text-muted" key={key}>Մեդիան առայժմ հասանելի չէ։</p>;
     }
     if (block.type === "list") {
       const List = block.ordered ? "ol" : "ul";
-      return <List className="m-0 grid gap-2 pl-6" start={block.ordered ? block.start ?? undefined : undefined} key={key}>{block.items.map((item, itemIndex) => <li className="pl-1" key={`${key}-${itemIndex}`}><div className="grid gap-2"><RichBlocks blocks={item} media={media} /></div></li>)}</List>;
+      return <List className="m-0 grid gap-2 pl-6" start={block.ordered ? block.start ?? undefined : undefined} key={key}>{block.items.map((item, itemIndex) => <li className="pl-1" key={`${key}-${itemIndex}`}><div className="grid gap-2"><RichBlocks blocks={item} media={media} hit={hit} prefix={`${blockId}-${itemIndex}`} /></div></li>)}</List>;
     }
     if (block.type === "blockquote") {
-      const body = <><div className="grid gap-2"><RichBlocks blocks={block.blocks} media={media} /></div>{block.caption.length ? <footer className="mt-2 text-[12px] text-faint"><RichInlineNodes nodes={block.caption} /></footer> : null}</>;
+      const captionId = `${blockId}-caption`;
+      const captionHit = hit?.blockId === captionId ? hit : undefined;
+      const body = <><div className="grid gap-2"><RichBlocks blocks={block.blocks} media={media} hit={hit} prefix={blockId} /></div>{block.caption.length ? <footer className="mt-2 text-[12px] text-faint" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></footer> : null}</>;
       return block.expandable ? <details className="rounded-r-[14px] border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}><summary className="cursor-pointer font-semibold text-ink">Բացել մեջբերումը</summary><div className="mt-3">{body}</div></details> : <blockquote className="m-0 rounded-r-[14px] border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}>{body}</blockquote>;
     }
     return <p className="m-0 rounded-[12px] border border-dashed border-glass-border p-3 text-[11px] text-muted" key={key}>Այս հատվածի ձևաչափը դեռ ամբողջությամբ չի աջակցվում։</p>;
   });
 }
 
-export function TelegramRichMessage({ value, media }: { value: BridgeRichContent; media: MaterialMedia[] }) {
-  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
+export function TelegramRichMessage({ value, media, hit }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit }) {
+  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
-export function FormattedTelegramText({ value }: { value: BridgeFormattedText }) {
+export function FormattedTelegramText({ value, hit }: { value: BridgeFormattedText; hit?: BridgeSearchHit }) {
   if (!value.text) return null;
   const entities = value.entities.filter((entity) =>
     entity.offset >= 0 && entity.length > 0 && entity.offset + entity.length <= value.text.length,
@@ -113,7 +128,7 @@ export function FormattedTelegramText({ value }: { value: BridgeFormattedText })
     <span className="whitespace-pre-wrap break-words">
       {boundaries.slice(0, -1).map((start, index) => {
         const end = boundaries[index + 1];
-        let node: ReactNode = value.text.slice(start, end);
+        let node: ReactNode = <HitText text={value.text.slice(start, end)} start={start} hit={hit} />;
         const active = entities.filter((entity) => entity.offset <= start && entity.offset + entity.length >= end);
         for (const [entityIndex, entity] of active.entries()) {
           node = entityWrapper(entity, node, `${start}-${end}-${entityIndex}`);

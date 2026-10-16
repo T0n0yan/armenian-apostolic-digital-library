@@ -23,6 +23,7 @@ export type SearchMaterial = {
   matchReasons?: Array<"telegram" | "personal-note" | BridgeSearchMatchReason>;
   scoreCategory?: BridgeSearchScoreCategory | "personal-note";
   matchedMessageId?: number;
+  searchHit?: BridgeSearchHit;
 };
 
 export type SearchMaterialPage = {
@@ -32,5 +33,5 @@ export type SearchMaterialPage = {
   nextCursor: string | null;
 };
 
-import type { BridgeContentType, BridgeSearchMatchReason, BridgeSearchScoreCategory } from "../../shared/telegram-bridge-contract";
+import type { BridgeContentType, BridgeSearchHit, BridgeSearchMatchReason, BridgeSearchScoreCategory } from "../../shared/telegram-bridge-contract";
 import type { MaterialCardPreview } from "./materials.server";
