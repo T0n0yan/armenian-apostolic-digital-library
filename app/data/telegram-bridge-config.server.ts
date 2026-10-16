@@ -3,6 +3,7 @@ export type TelegramBridgeEnvironment = {
   TELEGRAM_BRIDGE_SHARED_SECRET?: string;
   CF_ACCESS_CLIENT_ID?: string;
   CF_ACCESS_CLIENT_SECRET?: string;
+  TELEGRAM_BRIDGE_REQUEST_TIMEOUT_MS?: string;
 };
 
 export class TelegramBridgeError extends Error {
@@ -30,6 +31,11 @@ export function readTelegramBridgeConfiguration(environment: TelegramBridgeEnvir
   if (Boolean(accessClientId) !== Boolean(accessClientSecret)) {
     throw new TelegramBridgeError(503, "Cloudflare Access service token configuration is incomplete.");
   }
+  const configuredTimeout = environment.TELEGRAM_BRIDGE_REQUEST_TIMEOUT_MS?.trim();
+  const requestTimeoutMs = configuredTimeout ? Number(configuredTimeout) : 20_000;
+  if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 100 || requestTimeoutMs > 120_000) {
+    throw new TelegramBridgeError(503, "Telegram Bridge request timeout is invalid.");
+  }
 
   return {
     origin,
@@ -37,5 +43,6 @@ export function readTelegramBridgeConfiguration(environment: TelegramBridgeEnvir
     access: accessClientId && accessClientSecret
       ? { clientId: accessClientId, clientSecret: accessClientSecret }
       : null,
+    requestTimeoutMs,
   };
 }

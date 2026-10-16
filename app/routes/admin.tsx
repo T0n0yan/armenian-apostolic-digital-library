@@ -9,6 +9,7 @@ import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldLabel, panelSection, primaryButton } from "../components/ui-styles";
 import { listActiveCategories } from "../data/categories.server";
 import { listPendingTelegramReviews, resolveTelegramReview } from "../data/telegram-review.server";
+import { invalidateBridgeCaches } from "../data/telegram-bridge.server";
 
 type HashtagMapping = { hashtag: string; categoryId: string };
 
@@ -49,6 +50,7 @@ export async function action({ request }: Route.ActionArgs) {
     if (!(await resolveTelegramReview(env.DB, reviewId, categoryId, forumTopicId))) {
       return data({ error: "Mapping-ը չպահվեց։" }, { status: 409 });
     }
+    invalidateBridgeCaches(env.DB);
     return redirect("/admin?mapped=1");
   }
 
@@ -63,6 +65,7 @@ export async function action({ request }: Route.ActionArgs) {
       "INSERT INTO telegram_hashtag_mappings (hashtag, category_id) VALUES (?, ?) " +
       "ON CONFLICT(hashtag) DO UPDATE SET category_id=excluded.category_id, updated_at=CURRENT_TIMESTAMP",
     ).bind(hashtag, categoryId).run();
+    invalidateBridgeCaches(env.DB);
     return redirect("/admin?hashtag=1");
   }
   return data({ error: "Անհայտ գործողություն։" }, { status: 400 });

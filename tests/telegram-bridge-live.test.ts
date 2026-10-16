@@ -9,7 +9,7 @@ import type { BridgeCategory, BridgePost, BridgePostPage } from "../shared/teleg
 const live = process.env.TELEGRAM_LIVE_TEST === "1";
 const TEST_FIXTURE_CHAT_ID = "-1004427053230";
 
-test("authorized Teleproto session serves the allowlisted forum end to end", { skip: !live, timeout: 120_000 }, async (context) => {
+test("authorized Teleproto session serves the allowlisted forum end to end", { skip: !live, timeout: 180_000 }, async (context) => {
   const config = readBridgeConfig(process.env);
   assert.equal(config.adapter, "gramjs");
   const contentChatIds = activeContentChatIds(config);
@@ -36,6 +36,7 @@ test("authorized Teleproto session serves the allowlisted forum end to end", { s
     sharedSecret: config.sharedSecret,
     mediaConcurrency: 1,
     topicCacheTtlMs: 1_000,
+    operationTimeoutMs: Math.max(1_000, config.requestTimeoutMs - 250),
   });
   const request = (path: string, init: RequestInit = {}) => {
     const headers = new Headers(init.headers);

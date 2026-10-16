@@ -2,6 +2,8 @@
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_BRIDGE_URL=http://127.0.0.1:8788
 TELEGRAM_BRIDGE_SHARED_SECRET=
+# Optional bounded SSR metadata timeout (default 20000 ms).
+TELEGRAM_BRIDGE_REQUEST_TIMEOUT_MS=20000
 
 # Optional as a pair for a Bridge protected by Cloudflare Access.
 CF_ACCESS_CLIENT_ID=

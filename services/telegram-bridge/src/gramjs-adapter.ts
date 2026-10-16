@@ -22,6 +22,7 @@ import type {
 } from "./adapter";
 import { InvalidPaginationCursorError } from "./adapter";
 import { mapRichMessage, type RichMediaSource } from "./rich-message";
+import { SharedOperationRegistry } from "../../../shared/async-lifecycle";
 
 type GramConfig = {
   apiId: number;
@@ -431,9 +432,9 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   private readonly messageGroupCache = new Map<string, { expiresAt: number; messages: Api.Message[] }>();
   private readonly messageGroupInflight = new Map<string, Promise<Api.Message[] | null>>();
   private readonly searchHistoryCache = new Map<string, { expiresAt: number; messages: Api.Message[] }>();
-  private readonly searchHistoryInflight = new Map<string, Promise<Api.Message[]>>();
+  private readonly searchHistoryOperations = new SharedOperationRegistry<string, Api.Message[]>(30_000);
   private readonly mediaSizeCache = new Map<string, { expiresAt: number; size: number }>();
-  private readonly mediaSizeInflight = new Map<string, Promise<number | null>>();
+  private readonly mediaSizeOperations = new SharedOperationRegistry<string, number | null>(60_000);
 
   constructor(private readonly config: GramConfig) {
     this.client = new TelegramClient(new StringSession(config.session), config.apiId, config.apiHash, {
@@ -456,6 +457,12 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
 
   async close() {
     await this.client.disconnect();
+  }
+
+  runtimeState() {
+    return {
+      inflightOperations: this.messageGroupInflight.size + this.searchHistoryOperations.size + this.mediaSizeOperations.size,
+    };
   }
 
   private async username(chatId: string) {
@@ -568,17 +575,18 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   private async recentSearchMessages(chatId: string, signal: AbortSignal) {
     const cached = this.searchHistoryCache.get(chatId);
     if (cached && cached.expiresAt > Date.now()) return cached.messages;
-    const existing = this.searchHistoryInflight.get(chatId);
-    if (existing) return existing;
-    const pending = (async () => {
-      signal.throwIfAborted();
+    return this.searchHistoryOperations.run(`search-history:${chatId}`, signal, async (operationSignal) => {
+      operationSignal.throwIfAborted();
       const messages = (await this.client.getMessages(chatId, { limit: 500 })).filter(isMessage);
-      signal.throwIfAborted();
+      operationSignal.throwIfAborted();
       this.searchHistoryCache.set(chatId, { expiresAt: Date.now() + 30_000, messages });
+      while (this.searchHistoryCache.size > 8) {
+        const oldest = this.searchHistoryCache.keys().next().value as string | undefined;
+        if (!oldest) break;
+        this.searchHistoryCache.delete(oldest);
+      }
       return messages;
-    })().finally(() => this.searchHistoryInflight.delete(chatId));
-    this.searchHistoryInflight.set(chatId, pending);
-    return pending;
+    });
   }
 
   private async toPost(chatId: string, messages: Api.Message[], signal?: AbortSignal): Promise<TelegramPost> {
@@ -761,23 +769,19 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   ) {
     const cached = this.mediaSizeCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.size;
-    const existing = this.mediaSizeInflight.get(cacheKey);
-    if (existing) return existing;
-    const pending = probeUnknownMediaSize((offset) => this.readMediaProbeChunk(resolved, offset, signal))
-      .then((size) => {
-        if (size && size > 0) {
-          this.mediaSizeCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, size });
-          while (this.mediaSizeCache.size > 500) {
-            const oldest = this.mediaSizeCache.keys().next().value as string | undefined;
-            if (!oldest) break;
-            this.mediaSizeCache.delete(oldest);
-          }
+    return this.mediaSizeOperations.run(`media-size:${cacheKey}`, signal, async (operationSignal) => {
+      const size = await probeUnknownMediaSize((offset) => this.readMediaProbeChunk(resolved, offset, operationSignal));
+      operationSignal.throwIfAborted();
+      if (size && size > 0) {
+        this.mediaSizeCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, size });
+        while (this.mediaSizeCache.size > 500) {
+          const oldest = this.mediaSizeCache.keys().next().value as string | undefined;
+          if (!oldest) break;
+          this.mediaSizeCache.delete(oldest);
         }
-        return size;
-      })
-      .finally(() => this.mediaSizeInflight.delete(cacheKey));
-    this.mediaSizeInflight.set(cacheKey, pending);
-    return pending;
+      }
+      return size;
+    });
   }
 
   async getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail = false) {

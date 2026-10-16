@@ -30,6 +30,7 @@ const application = createBridgeApplication({
   searchIndexMaximumDocuments: config.searchIndexMaximumDocuments,
   searchIndexMaximumTextCharacters: config.searchIndexMaximumTextCharacters,
   searchIndexBuildTimeoutMs: config.searchIndexBuildTimeoutMs,
+  operationTimeoutMs: Math.max(1_000, config.requestTimeoutMs - 250),
   isReady: () => ready,
   onMetric: (metric) => console.info(JSON.stringify({ event: "telegram_metric", ...metric })),
 });

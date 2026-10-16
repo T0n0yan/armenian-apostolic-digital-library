@@ -11,6 +11,7 @@ import { InvalidPaginationCursorError, type TelegramAdapter, type TelegramPost }
 import { DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS } from "./config";
 import { parseRangeHeader } from "./range";
 import { TelegramSearchIndex } from "./search-index";
+import { SharedOperationRegistry, SharedOperationTimeoutError } from "../../../shared/async-lifecycle";
 
 type BridgeApplicationOptions = {
   adapter: TelegramAdapter;
@@ -23,14 +24,24 @@ type BridgeApplicationOptions = {
   searchIndexMaximumDocuments?: number;
   searchIndexMaximumTextCharacters?: number;
   searchIndexBuildTimeoutMs?: number;
+  operationTimeoutMs?: number;
   isReady?: () => boolean;
   onMetric?: (metric: { operation: string; durationMs: number; outcome: "ok" | "error" }) => void;
 };
+
+export type BridgeApplication = (request: Request) => Promise<Response>;
+export type BridgeRuntimeState = { activeMediaSlots: number; inflightOperations: number };
+const runtimeStates = new WeakMap<BridgeApplication, () => BridgeRuntimeState>();
+
+export function readBridgeApplicationState(application: BridgeApplication): BridgeRuntimeState {
+  return runtimeStates.get(application)?.() ?? { activeMediaSlots: 0, inflightOperations: 0 };
+}
 
 class Semaphore {
   private active = 0;
   private readonly waiters: Array<() => void> = [];
   constructor(private readonly maximum: number) {}
+  get activeCount() { return this.active; }
 
   async acquire(signal: AbortSignal) {
     if (this.active >= this.maximum) {
@@ -97,7 +108,7 @@ function categorizePost(post: TelegramPost, topics: BridgeCategory[]): BridgePos
   };
 }
 
-export function createBridgeApplication(options: BridgeApplicationOptions) {
+export function createBridgeApplication(options: BridgeApplicationOptions): BridgeApplication {
   if (!/^[a-zA-Z0-9_-]{32,256}$/u.test(options.sharedSecret)) {
     throw new Error("TELEGRAM_BRIDGE_SHARED_SECRET must contain 32-256 URL-safe characters.");
   }
@@ -105,10 +116,12 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
   const timeoutMs = Math.max(1_000, options.mediaTimeoutMs ?? 120_000);
   const topicCacheTtlMs = Math.max(1_000, options.topicCacheTtlMs ?? 15_000);
   let topicCache: { expiresAt: number; value: BridgeCategory[] } | null = null;
-  let topicInflight: Promise<BridgeCategory[]> | null = null;
+  const operationTimeoutMs = Math.max(50, options.operationTimeoutMs ?? 20_000);
+  const topicOperations = new SharedOperationRegistry<string, BridgeCategory[]>(operationTimeoutMs);
   let searchIndex: TelegramSearchIndex | null = null;
   const postCache = new Map<string, { expiresAt: number; value: TelegramPost | null }>();
-  const postInflight = new Map<string, Promise<TelegramPost | null>>();
+  const postOperations = new SharedOperationRegistry<string, TelegramPost | null>(operationTimeoutMs);
+  const sourceScope = [...options.allowedChatIds].sort().join(",");
 
   async function telegramCall<T>(operation: string, action: () => Promise<T>) {
     const startedAt = performance.now();
@@ -124,26 +137,24 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
 
   async function topics(refresh: boolean, signal: AbortSignal) {
     if (!refresh && topicCache && topicCache.expiresAt > Date.now()) return topicCache.value;
-    if (!refresh && topicInflight) return topicInflight;
-    const pending = telegramCall("topics", () => options.adapter.listTopics({ refresh, signal })).then((value) => {
+    const key = `${sourceScope}:topics:${refresh ? "refresh" : "cached"}`;
+    return topicOperations.run(key, signal, async (operationSignal) => {
+      const value = await telegramCall("topics", () => options.adapter.listTopics({ refresh, signal: operationSignal }));
+      operationSignal.throwIfAborted();
       const allowed = value.filter((topic) => topic.chatId && options.allowedChatIds.has(topic.chatId));
       topicCache = { expiresAt: Date.now() + topicCacheTtlMs, value: allowed };
       if (refresh) searchIndex?.invalidate();
       return allowed;
-    }).finally(() => {
-      if (topicInflight === pending) topicInflight = null;
     });
-    topicInflight = pending;
-    return pending;
   }
 
   async function rawPost(chatId: string, messageId: number, signal: AbortSignal) {
     const key = `${chatId}:${messageId}`;
     const cached = postCache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
-    const existing = postInflight.get(key);
-    if (existing) return existing;
-    const pending = telegramCall("post", () => options.adapter.getPost(chatId, messageId, signal)).then((value) => {
+    return postOperations.run(`${sourceScope}:post:${key}`, signal, async (operationSignal) => {
+      const value = await telegramCall("post", () => options.adapter.getPost(chatId, messageId, operationSignal));
+      operationSignal.throwIfAborted();
       postCache.set(key, { expiresAt: Date.now() + (value ? 15_000 : 3_000), value });
       while (postCache.size > 300) {
         const oldest = postCache.keys().next().value as string | undefined;
@@ -151,9 +162,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
         postCache.delete(oldest);
       }
       return value;
-    }).finally(() => postInflight.delete(key));
-    postInflight.set(key, pending);
-    return pending;
+    });
   }
 
   searchIndex = new TelegramSearchIndex({
@@ -241,7 +250,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     return { ...page, posts: page.posts.map((post) => post.richContent ? { ...post, richContent: null } : post) };
   }
 
-  return async function handleBridgeRequest(request: Request): Promise<Response> {
+  const handleBridgeRequest = async function handleBridgeRequest(request: Request): Promise<Response> {
     const authorization = request.headers.get("authorization") ?? "";
     if (!authorization.startsWith("Bearer ") || !secureEqual(authorization.slice(7), options.sharedSecret)) {
       return new Response("Unauthorized", { status: 401 });
@@ -406,7 +415,13 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     return new Response("Not Found", { status: 404 });
     } catch (error) {
       if (error instanceof InvalidPaginationCursorError) return json({ error: "invalid_cursor" }, 400);
+      if (error instanceof SharedOperationTimeoutError) return json({ error: "temporarily_unavailable" }, 503);
       throw error;
     }
   };
+  runtimeStates.set(handleBridgeRequest, () => ({
+      activeMediaSlots: semaphore.activeCount,
+      inflightOperations: topicOperations.size + postOperations.size + (options.adapter.runtimeState?.().inflightOperations ?? 0),
+  }));
+  return handleBridgeRequest;
 }

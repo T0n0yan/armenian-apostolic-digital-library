@@ -56,4 +56,5 @@ export interface TelegramAdapter {
   getPost(chatId: string, messageId: number, signal: AbortSignal): Promise<TelegramPost | null>;
   getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail?: boolean): Promise<MediaDescriptor | null>;
   streamMedia(request: MediaRequest): AsyncIterable<Uint8Array>;
+  runtimeState?(): { inflightOperations: number };
 }

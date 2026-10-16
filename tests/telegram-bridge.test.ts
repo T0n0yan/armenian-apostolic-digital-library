@@ -10,7 +10,9 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { mediaPlaybackStateForEvent } from "../app/utils/media-playback";
 import { isPendingNavigation } from "../shared/navigation-state";
-import { createBridgeApplication } from "../services/telegram-bridge/src/app";
+import { loadResolvedValue, ResolvedTtlCache, SharedOperationRegistry } from "../shared/async-lifecycle";
+import { createBridgeApplication, readBridgeApplicationState } from "../services/telegram-bridge/src/app";
+import type { TelegramAdapter } from "../services/telegram-bridge/src/adapter";
 import { probeUnknownMediaSize, teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
 import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
@@ -40,6 +42,15 @@ const mappings: BridgeCategoryMappings = {
   posts: {},
 };
 const mappingHeader = Buffer.from(JSON.stringify(mappings)).toString("base64url");
+
+function delayedValue<T>(value: T, signal: AbortSignal, delayMs = 20) {
+  return new Promise<T>((resolvePromise, reject) => {
+    const timer = setTimeout(() => { cleanup(); resolvePromise(value); }, delayMs);
+    const aborted = () => { clearTimeout(timer); cleanup(); reject(signal.reason); };
+    const cleanup = () => signal.removeEventListener("abort", aborted);
+    signal.addEventListener("abort", aborted, { once: true });
+  });
+}
 
 function bridgeRequest(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -88,6 +99,156 @@ test("deterministic query normalization and bounded memory index stay explainabl
   assert.equal(second.posts[0]?.searchMatch?.scoreCategory, "fuzzy");
   assert.equal(index.metrics().documents, 1);
   assert.ok(index.metrics().approximateBytes > 0);
+});
+
+test("resolved-only Worker caches never share pending request operations", async () => {
+  const cache = new ResolvedTtlCache<string, ReadonlyArray<string>>(4);
+  let loads = 0;
+  const controllers = Array.from({ length: 10 }, () => new AbortController());
+  const requests = controllers.map((controller) => loadResolvedValue(cache, "staging:main:categories", 50, async () => {
+    loads += 1;
+    return delayedValue(Object.freeze(["topic"]), controller.signal);
+  }));
+  controllers[0].abort(new Error("first SSR request cancelled"));
+  await assert.rejects(requests[0], /cancelled/u);
+  assert.deepEqual(await Promise.all(requests.slice(1)), Array.from({ length: 9 }, () => ["topic"]));
+  assert.equal(loads, 10, "concurrent cache misses must own independent Worker I/O");
+  assert.deepEqual(await loadResolvedValue(cache, "staging:main:categories", 50, async () => {
+    throw new Error("resolved cache miss");
+  }), ["topic"]);
+  cache.invalidate("staging:main:categories");
+  assert.deepEqual(await loadResolvedValue(cache, "staging:main:categories", 1, async () => ["refreshed"]), ["refreshed"]);
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 2));
+  assert.deepEqual(await loadResolvedValue(cache, "staging:main:categories", 50, async () => ["expired"]), ["expired"]);
+
+  const mappingCache = new ResolvedTtlCache<string, string>(2);
+  let mappingLoads = 0;
+  await Promise.all(Array.from({ length: 3 }, () => loadResolvedValue(mappingCache, "db:source", 50, async () => {
+    mappingLoads += 1;
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 5));
+    return "mapping";
+  })));
+  assert.equal(mappingLoads, 3, "pending D1 mapping promises must not cross request boundaries");
+});
+
+test("shared operations isolate caller aborts, clean failures, and retry safely", async () => {
+  const registry = new SharedOperationRegistry<string, string>(1_000);
+  let operations = 0;
+  const controllers = Array.from({ length: 10 }, () => new AbortController());
+  const waiters = controllers.map((controller) => registry.run("main:topics", controller.signal, async (signal) => {
+    operations += 1;
+    return delayedValue("topics", signal, 30);
+  }));
+  controllers[0].abort(new Error("caller left"));
+  await assert.rejects(waiters[0], /caller left/u);
+  assert.deepEqual(await Promise.all(waiters.slice(1)), Array(9).fill("topics"));
+  assert.equal(operations, 1);
+  assert.equal(registry.size, 0);
+
+  let attempts = 0;
+  await assert.rejects(registry.run("main:post:42", new AbortController().signal, async () => {
+    attempts += 1;
+    throw new Error("temporary Telegram failure");
+  }), /temporary/u);
+  assert.equal(registry.size, 0, "rejected operations must not remain inflight");
+  assert.equal(await registry.run("main:post:42", new AbortController().signal, async () => {
+    attempts += 1;
+    return "retried";
+  }), "retried");
+  assert.equal(attempts, 2);
+
+  for (const key of ["main:search-history", "main:media-size:66:0"] as const) {
+    const first = new AbortController();
+    const second = new AbortController();
+    const left = registry.run(key, first.signal, (signal) => delayedValue(key, signal, 20));
+    const right = registry.run(key, second.signal, (signal) => delayedValue(key, signal, 20));
+    first.abort(new Error("individual request aborted"));
+    await assert.rejects(left, /individual/u);
+    assert.equal(await right, key);
+  }
+  assert.equal(registry.size, 0);
+
+  const timed = new SharedOperationRegistry<string, string>(10);
+  await assert.rejects(timed.run("slow", new AbortController().signal, async (signal) =>
+    delayedValue("late", signal, 500)
+  ), /timed out/u);
+  assert.equal(timed.size, 0);
+});
+
+test("Bridge topics and posts keep concurrent waiters alive when one caller aborts", async () => {
+  const adapter = new MockTelegramAdapter();
+  let topicCalls = 0;
+  const originalTopics = adapter.listTopics.bind(adapter);
+  (adapter as TelegramAdapter).listTopics = async ({ signal }) => {
+    topicCalls += 1;
+    await delayedValue(undefined, signal, 30);
+    return originalTopics();
+  };
+  const app = createBridgeApplication({
+    adapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    operationTimeoutMs: 1_000,
+  });
+  const topicControllers = Array.from({ length: 10 }, () => new AbortController());
+  const topics = topicControllers.map((controller) => app(bridgeRequest("/categories", { signal: controller.signal })));
+  topicControllers[0].abort(new Error("topic caller aborted"));
+  await assert.rejects(topics[0], /topic caller aborted/u);
+  assert.deepEqual((await Promise.all(topics.slice(1))).map((response) => response.status), Array(9).fill(200));
+  assert.equal(topicCalls, 1);
+
+  let postCalls = 0;
+  const originalPost = adapter.getPost.bind(adapter);
+  adapter.getPost = async (chatId, messageId, signal) => {
+    postCalls += 1;
+    await delayedValue(undefined, signal, 30);
+    return originalPost(chatId, messageId, signal);
+  };
+  const postControllers = Array.from({ length: 10 }, () => new AbortController());
+  const posts = postControllers.map((controller) => app(bridgeRequest(`/posts/${MOCK_CHAT_ID}/101`, { signal: controller.signal })));
+  postControllers[0].abort(new Error("post caller aborted"));
+  await assert.rejects(posts[0], /post caller aborted/u);
+  assert.deepEqual((await Promise.all(posts.slice(1))).map((response) => response.status), Array(9).fill(200));
+  assert.equal(postCalls, 1);
+
+  const slowAdapter = new MockTelegramAdapter();
+  (slowAdapter as TelegramAdapter).listTopics = async ({ signal }) => delayedValue([], signal, 5_000);
+  const slowApp = createBridgeApplication({
+    adapter: slowAdapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    operationTimeoutMs: 100,
+  });
+  const startedAt = performance.now();
+  const unavailable = await slowApp(bridgeRequest("/categories"));
+  assert.equal(unavailable.status, 503);
+  assert.ok(performance.now() - startedAt < 1_000, "slow Bridge metadata must fail within a bounded interval");
+});
+
+test("search-index build keeps its own lifecycle when one waiter aborts", async () => {
+  let builds = 0;
+  const post = {
+    ...MOCK_TELEGRAM_POSTS[0],
+    categoryId: MOCK_TOPIC_ID,
+    categoryName: "Աղոթքներ",
+    categorySlug: MOCK_TOPIC_SLUG,
+  };
+  const index = new TelegramSearchIndex({
+    ttlMs: 10_000,
+    buildTimeoutMs: 1_000,
+    load: async (signal) => {
+      builds += 1;
+      return delayedValue([post], signal, 30);
+    },
+  });
+  const first = new AbortController();
+  const second = new AbortController();
+  const aborted = index.search("Փորձնական", null, null, 20, first.signal);
+  const successful = index.search("Փորձնական", null, null, 20, second.signal);
+  first.abort(new Error("search waiter left"));
+  await assert.rejects(aborted, /waiter left/u);
+  assert.equal((await successful).posts.length, 1);
+  assert.equal(builds, 1);
 });
 
 test("search hits preserve bounded original UTF-16 spans for exact, transliterated, fuzzy, and emoji text", () => {
@@ -994,4 +1155,89 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.ok(analytics.results.length > 0);
   assert.ok(analytics.results.every((row: { query_hash: string; query_count: number; zero_result_count: number }) =>
     /^[a-f0-9]{64}$/u.test(row.query_hash) && row.query_count > 0 && row.zero_result_count >= 0));
+});
+
+test("production-like SSR bursts isolate client aborts without hanging healthy requests", async (context) => {
+  const adapter = new MockTelegramAdapter();
+  const bridge = createBridgeApplication({
+    adapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    operationTimeoutMs: 2_000,
+  });
+  const serverRoot = resolve(ROOT, "build/server");
+  const serverModules = readdirSync(serverRoot, { recursive: true })
+    .filter((path): path is string => typeof path === "string" && path.endsWith(".js"))
+    .map((path) => ({ type: "ESModule" as const, path, contents: readFileSync(resolve(serverRoot, path), "utf8") }));
+  let bridgeUnavailable = false;
+  const mf = new Miniflare(convertV4MiniflareOptions({
+    workers: [{
+      name: "bridge-worker-stress",
+      compatibilityDate: "2026-10-06",
+      modules: serverModules,
+      d1Databases: { DB: "stress-db" },
+      bindings: {
+        TELEGRAM_BOT_TOKEN: BOT_TOKEN,
+        TELEGRAM_BRIDGE_URL: "https://bridge.fixture",
+        TELEGRAM_BRIDGE_SHARED_SECRET: BRIDGE_SECRET,
+        TELEGRAM_BRIDGE_REQUEST_TIMEOUT_MS: "2000",
+      },
+      outboundService: (request: Request) => bridgeUnavailable
+        ? delayedValue(new Response("late"), request.signal, 5_000)
+        : bridge(request),
+    }],
+  } as unknown as Parameters<typeof convertV4MiniflareOptions>[0]));
+  context.after(() => mf.dispose());
+  const database = await mf.getD1Database("DB");
+  for (const migration of readdirSync(resolve(ROOT, "migrations")).filter((name) => name.endsWith(".sql")).sort()) {
+    const statements = readFileSync(resolve(ROOT, "migrations", migration), "utf8")
+      .replace(/^\s*--.*$/gmu, "").split(";").map((statement) => statement.trim()).filter(Boolean);
+    for (const statement of statements) await database.prepare(statement).run();
+  }
+
+  const routes = [
+    "/",
+    `/categories/${MOCK_TOPIC_SLUG}`,
+    "/materials/material_tg_n100900_101",
+    `/search?q=${encodeURIComponent("Սաղմ")}`,
+  ];
+  let completed = 0;
+  let intentionalAborts = 0;
+  for (let burst = 0; burst < 3; burst += 1) {
+    const controllers = Array.from({ length: 50 }, () => new AbortController());
+    const pending = controllers.map(async (controller, index) => {
+      try {
+        const response = await mf.dispatchFetch("https://app.fixture/", {
+          signal: controller.signal,
+        });
+        if (index >= 10) {
+          assert.equal(response.status, 200);
+          completed += 1;
+        }
+      } catch (error) {
+        if (index >= 10) throw error;
+      }
+    });
+    for (let index = 0; index < 10; index += 1) {
+      controllers[index].abort(new Error("intentional stress abort"));
+      intentionalAborts += 1;
+    }
+    await Promise.all(pending);
+    const mixed = await Promise.all(Array.from({ length: 30 }, (_, index) =>
+      mf.dispatchFetch(`https://app.fixture${routes[index % routes.length]}`)
+    ));
+    assert.ok(mixed.every((response) => response.status === 200));
+    completed += mixed.length;
+  }
+  assert.equal(completed, 210);
+  assert.equal(intentionalAborts, 30);
+  assert.equal((await bridge(bridgeRequest("/health"))).status, 200);
+  assert.equal((await bridge(bridgeRequest("/ready"))).status, 200);
+  assert.deepEqual(readBridgeApplicationState(bridge), { activeMediaSlots: 0, inflightOperations: 0 });
+  bridgeUnavailable = true;
+  const unavailableStartedAt = performance.now();
+  const unavailable = await mf.dispatchFetch("https://app.fixture/?refresh=1");
+  assert.equal(unavailable.status, 503);
+  assert.ok(performance.now() - unavailableStartedAt < 3_000, "SSR must return a bounded failure instead of hanging");
+  assert.match(await unavailable.text(), /Կրկին փորձել/u);
 });

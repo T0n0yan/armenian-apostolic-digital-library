@@ -11,6 +11,7 @@ import {
   TelegramBridgeError,
   type TelegramBridgeEnvironment,
 } from "./telegram-bridge-config.server";
+import { loadResolvedValue, ResolvedTtlCache } from "../../shared/async-lifecycle";
 
 export { TelegramBridgeError } from "./telegram-bridge-config.server";
 
@@ -25,18 +26,50 @@ function base64Url(value: string) {
   return btoa(binary).replace(/\+/gu, "-").replace(/\//gu, "_").replace(/=+$/u, "");
 }
 
-let mappingCache: { expiresAt: number; value: BridgeCategoryMappings } | null = null;
-let mappingInflight: Promise<BridgeCategoryMappings> | null = null;
-let categoryCache: { expiresAt: number; value: BridgeCategory[] } | null = null;
-let categoryInflight: Promise<BridgeCategory[]> | null = null;
+const mappingCaches = new WeakMap<D1Database, ResolvedTtlCache<string, BridgeCategoryMappings>>();
+const mappingGenerations = new WeakMap<D1Database, number>();
+const databaseScopes = new WeakMap<D1Database, string>();
+const categoryCache = new ResolvedTtlCache<string, readonly BridgeCategory[]>(16);
+let nextDatabaseScope = 1;
+
+function mappingCache(database: D1Database) {
+  let cache = mappingCaches.get(database);
+  if (!cache) {
+    cache = new ResolvedTtlCache(8);
+    mappingCaches.set(database, cache);
+  }
+  return cache;
+}
+
+function bridgeScope() {
+  return configuration().origin.href;
+}
+
+function databaseScope(database: D1Database) {
+  let scope = databaseScopes.get(database);
+  if (!scope) {
+    scope = `db-${nextDatabaseScope++}`;
+    databaseScopes.set(database, scope);
+  }
+  return scope;
+}
+
+export function invalidateBridgeCaches(database: D1Database) {
+  mappingCache(database).invalidate();
+  mappingGenerations.set(database, (mappingGenerations.get(database) ?? 0) + 1);
+  categoryCache.invalidate();
+}
 
 export async function loadBridgeMappings(database: D1Database): Promise<BridgeCategoryMappings> {
-  if (mappingCache && mappingCache.expiresAt > Date.now()) return mappingCache.value;
-  if (mappingInflight) return mappingInflight;
-  mappingInflight = readBridgeMappings(database).finally(() => { mappingInflight = null; });
-  const value = await mappingInflight;
-  mappingCache = { expiresAt: Date.now() + 30_000, value };
-  return value;
+  const scope = bridgeScope();
+  return loadResolvedValue(mappingCache(database), scope, 30_000, async () => {
+    const loaded = await readBridgeMappings(database);
+    return Object.freeze({
+      topics: Object.freeze({ ...loaded.topics }),
+      hashtags: Object.freeze({ ...loaded.hashtags }),
+      posts: Object.freeze({ ...loaded.posts }),
+    });
+  });
 }
 
 async function readBridgeMappings(database: D1Database): Promise<BridgeCategoryMappings> {
@@ -63,10 +96,10 @@ async function bridgeFetch(
   database: D1Database,
   init: RequestInit = {},
   acceptError = false,
-  timeoutMs = 20_000,
+  timeoutMs?: number,
 ) {
   const startedAt = performance.now();
-  const { origin, secret, access } = configuration();
+  const { origin, secret, access, requestTimeoutMs } = configuration();
   const mappingsStartedAt = performance.now();
   const mappings = await loadBridgeMappings(database);
   const mappingsDurationMs = Math.round(performance.now() - mappingsStartedAt);
@@ -77,7 +110,7 @@ async function bridgeFetch(
     headers.set("CF-Access-Client-Secret", access.clientSecret);
   }
   headers.set("x-telegram-category-mappings", base64Url(JSON.stringify(mappings)));
-  const timeout = AbortSignal.timeout(timeoutMs);
+  const timeout = AbortSignal.timeout(timeoutMs ?? requestTimeoutMs);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
   let status = 0;
   let outcome: "ok" | "error" | "aborted" = "ok";
@@ -88,6 +121,9 @@ async function bridgeFetch(
     return response;
   } catch (error) {
     outcome = signal.aborted ? "aborted" : "error";
+    if (!init.signal?.aborted) {
+      throw error instanceof TelegramBridgeError ? error : new TelegramBridgeError(503);
+    }
     throw error;
   } finally {
     console.info(JSON.stringify({
@@ -113,19 +149,15 @@ function bridgeRequestKind(path: string) {
 }
 
 export async function listBridgeCategories(database: D1Database, refresh = false, signal?: AbortSignal) {
-  if (!refresh && categoryCache && categoryCache.expiresAt > Date.now()) return categoryCache.value;
-  if (!refresh && categoryInflight) return categoryInflight;
+  const scope = `${bridgeScope()}|${databaseScope(database)}|mapping:${mappingGenerations.get(database) ?? 0}`;
   const query = refresh ? "?refresh=1" : "";
-  const pending = bridgeFetch(`/categories${query}`, database, { signal }).then(async (response) =>
-    await response.json() as BridgeCategory[]
-  ).then((value) => {
-    categoryCache = { expiresAt: Date.now() + 15_000, value };
-    return value;
-  }).finally(() => {
-    if (categoryInflight === pending) categoryInflight = null;
-  });
-  categoryInflight = pending;
-  return pending;
+  const load = async () => {
+    const loaded = await (await bridgeFetch(`/categories${query}`, database, { signal })).json() as BridgeCategory[];
+    return Object.freeze(loaded.map((category) => Object.freeze({ ...category })));
+  };
+  const value = refresh ? await load() : await loadResolvedValue(categoryCache, scope, 15_000, load);
+  if (refresh) categoryCache.set(scope, value, 15_000);
+  return [...value];
 }
 
 export async function listBridgeCategoryPosts(database: D1Database, slug: string, cursor: string | null, signal?: AbortSignal) {
