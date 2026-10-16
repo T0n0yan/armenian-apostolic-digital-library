@@ -86,14 +86,30 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
   const pollDetail = await app(request(`/posts/${chatId}/64`));
   assert.equal(pollDetail.status, 200);
   assert.equal((await pollDetail.json() as BridgePost).contentType, "poll");
+  const pollQuestionSearch = await app(request(`/search?q=${encodeURIComponent("կլոր")}`));
+  assert.ok((await pollQuestionSearch.json() as BridgePostPage).posts.some((post) => post.messageId === 64));
+  const pollOptionQuery = poll?.poll?.options.find((option) => Array.from(option.text.text.trim()).length >= 2)?.text.text;
+  if (pollOptionQuery) {
+    const pollOptionSearch = await app(request(`/search?q=${encodeURIComponent(pollOptionQuery)}`));
+    assert.ok((await pollOptionSearch.json() as BridgePostPage).posts.some((post) => post.messageId === 64));
+  }
 
-  const album = uniquePosts.find((post) => post.contentType === "album")!;
+  const album = uniquePosts.find((post) => post.contentType === "album" && post.topicId !== 1)!;
   assert.deepEqual(album.media.map((media) => media.index), album.media.map((_, index) => index));
   assert.equal(new Set(album.media.map((media) => media.index)).size, album.media.length);
   assert.ok(album.media.every((media) => media.hasThumbnail), "Album photos should expose bounded Telegram thumbnails.");
   const detail = await app(request(`/posts/${chatId}/${album.messageId}`));
   assert.equal(detail.status, 200);
   assert.equal((await detail.json() as BridgePost).mediaGroupId, album.mediaGroupId);
+  const albumChildId = album.constituentMessageIds.find((messageId) => messageId !== album.messageId);
+  if (albumChildId) {
+    const childSearch = await app(request(`/search?q=${encodeURIComponent(`#${albumChildId}`)}`));
+    const childPage = await childSearch.json() as BridgePostPage;
+    assert.ok(
+      childPage.posts.some((post) => post.messageId === album.messageId),
+      `Album child ${albumChildId} should resolve to canonical ${album.messageId}; returned IDs: ${childPage.posts.map((post) => post.messageId).join(",") || "none"}.`,
+    );
+  }
 
   const video = uniquePosts.find((post) => post.contentType === "video")!;
   const descriptor = video.media[0];
@@ -137,6 +153,23 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
     assert.equal(search.status, 200);
     assert.ok((await search.json() as BridgePostPage).posts.some((post) => post.messageId === 66));
   }
+  const liveSearchCases = [
+    ["#67", 67],
+    ["id:67", 67],
+    ["Bacat", 68],
+    ["Bacar", 68],
+    ["Բացատ", 68],
+    ["saxmos", 66],
+  ] as const;
+  for (const [query, messageId] of liveSearchCases) {
+    const response = await app(request(`/search?q=${encodeURIComponent(query)}`));
+    assert.equal(response.status, 200);
+    assert.ok((await response.json() as BridgePostPage).posts.some((post) => post.messageId === messageId), `${query} should find ${messageId}`);
+  }
+  const descriptionSearch = await app(request(`/search?q=${encodeURIComponent("Նկարագրություն")}`));
+  assert.ok((await descriptionSearch.json() as BridgePostPage).posts.length > 0);
+  const unrelatedSearch = await app(request(`/search?q=${encodeURIComponent("բոլորովինանհամապատասխանբառ")}`));
+  assert.equal((await unrelatedSearch.json() as BridgePostPage).posts.length, 0);
 
   const topicThree = topics.find((topic) => topic.topicId === 50);
   assert.ok(topicThree, "The read-only test fixture must expose Topic 3.");

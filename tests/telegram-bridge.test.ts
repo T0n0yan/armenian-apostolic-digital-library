@@ -9,10 +9,12 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
+import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
 import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
+import { normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const BRIDGE_SECRET = "fixture_bridge_secret_000000000000000000";
@@ -43,6 +45,40 @@ function telegramInitData(user: object, authDate = Math.floor(Date.now() / 1_000
   return values.toString();
 }
 
+test("deterministic query normalization and bounded memory index stay explainable", async () => {
+  assert.equal(normalizeTelegramSearchText("  ԵՒ\u0301  աղօթք—TEST  "), "և աղօթք test");
+  assert.ok(searchAliases("Սաղմոս").includes("saxmos"));
+  assert.ok(searchAliases("Bacat").includes("բացատ"));
+  for (const value of ["#67", "67", "id:67", "tg:67"]) {
+    assert.equal(parseTelegramSearchQuery(value).messageIdIntent?.messageId, 67);
+  }
+  assert.equal(parseTelegramSearchQuery("67-րդ").messageIdIntent, null);
+
+  let loads = 0;
+  const indexedPost = {
+    ...MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 108)!,
+    categoryId: MOCK_TOPIC_ID,
+    categoryName: "Աղոթքներ",
+    categorySlug: MOCK_TOPIC_SLUG,
+  };
+  const index = new TelegramSearchIndex({
+    ttlMs: 60_000,
+    maximumDocuments: 10,
+    maximumTextCharacters: 10_000,
+    load: async () => { loads += 1; await new Promise((resolvePromise) => setTimeout(resolvePromise, 5)); return [indexedPost]; },
+  });
+  const signal = new AbortController().signal;
+  const [first, second] = await Promise.all([
+    index.search("Bacat", null, null, 30, signal),
+    index.search("Bacar", null, null, 30, signal),
+  ]);
+  assert.equal(loads, 1, "concurrent cold searches must share one index build");
+  assert.equal(first.posts[0]?.searchMatch?.scoreCategory, "exact-token");
+  assert.equal(second.posts[0]?.searchMatch?.scoreCategory, "fuzzy");
+  assert.equal(index.metrics().documents, 1);
+  assert.ok(index.metrics().approximateBytes > 0);
+});
+
 test("mock adapter and authenticated Bridge API cover pagination, search, posts and streaming", async () => {
   const adapter = new MockTelegramAdapter();
   const metrics: string[] = [];
@@ -71,7 +107,7 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.notEqual(second.posts[0].messageId, first.posts[0].messageId);
 
   const categories = await (await app(bridgeRequest("/categories"))).json() as Array<{ id: string; materialCount: number }>;
-  assert.equal(categories.find((item) => item.id === MOCK_TOPIC_ID)?.materialCount, 9);
+  assert.equal(categories.find((item) => item.id === MOCK_TOPIC_ID)?.materialCount, 10);
   assert.equal(categories.length, 7);
   const page = await (await app(bridgeRequest(`/categories/${MOCK_TOPIC_SLUG}/posts`))).json() as BridgePostPage;
   assert.ok(page.posts.some((post) => post.messageId === 101 && post.contentText.includes("խաղաղություն")));
@@ -93,6 +129,35 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
     assert.equal(response.status, 200);
     assert.ok((await response.json() as BridgePostPage).posts.some((post) => /սաղմ/iu.test(post.title)));
   }
+  const expectedSearches = [
+    ["Նկարագրություն", 102, "caption"],
+    ["կլոր", 109, "poll-question"],
+    ["Սաղմոս 50", 109, "poll-option"],
+    ["Bacat", 108, "location"],
+    ["Bacar", 108, "fuzzy"],
+    ["Բացատ", 108, "transliteration"],
+    ["saxmos", 107, "transliteration"],
+    ["Խմբագրված", 104, "title"],
+  ] as const;
+  for (const [query, messageId, reason] of expectedSearches) {
+    const response = await app(bridgeRequest(`/search?q=${encodeURIComponent(query)}`));
+    assert.equal(response.status, 200);
+    const result = (await response.json() as BridgePostPage).posts.find((post) => post.messageId === messageId);
+    assert.ok(result, `${query} should find Telegram message ${messageId}`);
+    assert.ok(result.searchMatch?.reasons.includes(reason));
+  }
+  for (const query of ["#67", "67", "id:67", "tg:67"]) {
+    const response = await app(bridgeRequest(`/search?q=${encodeURIComponent(query)}`));
+    assert.deepEqual((await response.json() as BridgePostPage).posts.map((post) => post.messageId), [67]);
+  }
+  const wrongTopicId = await app(bridgeRequest(
+    `/search?q=${encodeURIComponent("#67")}&category=${encodeURIComponent(createTopicCategoryId(MOCK_CHAT_ID, 701))}`,
+  ));
+  assert.equal((await wrongTopicId.json() as BridgePostPage).posts.length, 0);
+  const albumChild = await app(bridgeRequest(`/search?q=${encodeURIComponent("#111")}`));
+  assert.deepEqual((await albumChild.json() as BridgePostPage).posts.map((post) => post.messageId), [103]);
+  const unrelated = await app(bridgeRequest(`/search?q=${encodeURIComponent("բոլորովին անհամապատասխան")}`));
+  assert.equal((await unrelated.json() as BridgePostPage).posts.length, 0);
   const topicNoMatch = await app(bridgeRequest(
     `/search?q=${encodeURIComponent("օրինակ")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
   ));
@@ -102,7 +167,7 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
     `/search?q=${encodeURIComponent("խաղաղություն")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
   ));
   const topicMatchPosts = (await topicMatch.json() as BridgePostPage).posts;
-  assert.deepEqual(topicMatchPosts.map((post) => post.messageId), [101]);
+  assert.deepEqual(topicMatchPosts.map((post) => post.messageId), [101, 104]);
 
   const broadAdapter = new MockTelegramAdapter();
   broadAdapter.search = (options) => broadAdapter.listHistory(options);
@@ -117,7 +182,7 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.equal((await defensiveNoMatch.json() as BridgePostPage).posts.length, 0);
 
   const generalPostAdapter = new MockTelegramAdapter();
-  generalPostAdapter.search = async ({ signal }) => {
+  generalPostAdapter.listHistory = async ({ signal }) => {
     signal.throwIfAborted();
     return { posts: [{ ...MOCK_TELEGRAM_POSTS[0], topicId: 1, forumTopicId: 1 }], nextCursor: null };
   };
@@ -135,6 +200,12 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.equal(unauthorized.status, 401);
   assert.doesNotMatch(await unauthorized.text(), /fixture_bridge_secret/u);
   assert.equal((await app(bridgeRequest("/posts/-100999/101"))).status, 404);
+  let deniedAdapterCalls = 0;
+  const deniedAdapter = new MockTelegramAdapter();
+  deniedAdapter.getPost = async (...arguments_) => { deniedAdapterCalls += 1; return adapter.getPost(...arguments_); };
+  const denialApp = createBridgeApplication({ adapter: deniedAdapter, allowedChatIds: new Set([MOCK_CHAT_ID]), sharedSecret: BRIDGE_SECRET });
+  assert.equal((await denialApp(bridgeRequest("/posts/-100999/101"))).status, 404);
+  assert.equal(deniedAdapterCalls, 0, "non-allowlisted chat IDs must be rejected before adapter access");
   assert.deepEqual(await (await app(bridgeRequest("/health"))).json(), { ok: true });
   assert.deepEqual(await (await app(bridgeRequest("/ready"))).json(), { ready: true });
 
@@ -176,7 +247,7 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
   assert.equal(adapter.stats.abortedStreams, 1);
   assert.ok(metrics.includes("topics:ok"));
-  assert.ok(metrics.includes("search:ok"));
+  assert.ok(metrics.includes("search-index-history:ok"));
   assert.ok(metrics.includes("media-descriptor:ok"));
   assert.ok(metrics.includes("media-first-byte:ok"));
 });
@@ -186,7 +257,9 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.equal(isPendingNavigation("idle", undefined, "/materials/example"), false);
 
   const mediaSource = readFileSync(resolve(ROOT, "app/components/material-media.tsx"), "utf8");
+  const resultCardSource = readFileSync(resolve(ROOT, "app/components/material-result-card.tsx"), "utf8");
   assert.match(mediaSource, /onError=\{\(\) => setFailed\(true\)\}/u);
+  assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(mediaSource, /media\.map\(\(asset, index\)/u);
   assert.match(mediaSource, /մյուս մեդիան շարունակում է աշխատել/u);
 
@@ -376,7 +449,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const prefixSearch = await mf.dispatchFetch(`https://app.fixture/search?q=${encodeURIComponent("Սաղմ")}`);
   const prefixSearchHtml = await prefixSearch.text();
   assert.equal(prefixSearch.status, 200);
-  assert.match(prefixSearchHtml, /Ո՞ր սաղմոսն ես կարդում այսօր/u);
+  assert.match(prefixSearchHtml, /Սաղմոս 12/u);
   assert.match(prefixSearchHtml, /Հարցում/u);
   const searchCallsBeforeLanding = bridgeRequestPaths.filter((path) => path.startsWith("/search?")).length;
   const searchLanding = await mf.dispatchFetch("https://app.fixture/search");
@@ -393,14 +466,16 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   );
   const topicNoMatchHtml = await topicNoMatch.text();
   assert.equal(topicNoMatch.status, 200);
-  assert.match(topicNoMatchHtml, /Համապատասխան նյութ չգտնվեց/u);
   assert.doesNotMatch(topicNoMatchHtml, /data-material-id=/u);
+  assert.match(topicNoMatchHtml, /Այս թեմայում արդյունք չգտնվեց/u);
+  assert.match(topicNoMatchHtml, /Փնտրել բոլոր թեմաներում/u);
   const topicMatch = await mf.dispatchFetch(
     `https://app.fixture/search?q=${encodeURIComponent("խաղաղություն")}&category=${encodeURIComponent(MOCK_TOPIC_ID)}`,
   );
   const topicMatchHtml = await topicMatch.text();
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_101"/u);
-  assert.equal((topicMatchHtml.match(/data-material-id=/gu) ?? []).length, 1);
+  assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_104"/u);
+  assert.equal((topicMatchHtml.match(/data-material-id=/gu) ?? []).length, 2);
 
   const session = await mf.dispatchFetch("https://app.fixture/telegram/session", {
     method: "POST",
@@ -417,6 +492,12 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal(save.status, 200);
   const savedReference = await database.prepare("SELECT user_id,chat_id,message_id,personal_note FROM saved_materials").first();
   assert.deepEqual(savedReference, { user_id: "telegram:70001", chat_id: MOCK_CHAT_ID, message_id: 101, personal_note: "Իմ օրինակ խաղաղություն նշումը" });
+  const saveDescription = await mf.dispatchFetch("https://app.fixture/saved", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://app.fixture", cookie },
+    body: new URLSearchParams({ intent: "save", materialId: "material_tg_n100900_102", personalNote: "Նկարագրություն՝ իմ անձնական նշումից" }),
+  });
+  assert.equal(saveDescription.status, 200);
 
   const userBSession = await mf.dispatchFetch("https://app.fixture/telegram/session", {
     method: "POST",
@@ -442,6 +523,16 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.match(authenticatedNoteHtml, /data-material-id="material_tg_n100900_101"/u);
   assert.doesNotMatch(authenticatedNoteHtml, /data-material-id="material_tg_n100900_102"/u);
 
+  const mergedDescription = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("Նկարագրություն")}`,
+    { headers: { cookie } },
+  );
+  const mergedDescriptionHtml = await mergedDescription.text();
+  assert.equal((mergedDescriptionHtml.match(/data-material-id="material_tg_n100900_102"/gu) ?? []).length, 1);
+  assert.match(mergedDescriptionHtml, /Telegram նյութ/u);
+  assert.match(mergedDescriptionHtml, /Իմ նշումից/u);
+  assert.match(mergedDescriptionHtml, /Համընկնում՝ նկարագրության մեջ/u);
+
   const guestNoteSearch = await mf.dispatchFetch(
     `https://app.fixture/search?q=${encodeURIComponent("օրինակ")}`,
   );
@@ -464,4 +555,21 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   const savedHtml = await savedPage.text();
   assert.match(savedHtml, /Առավոտյան աղոթք/u);
   assert.match(savedHtml, /Հրապարակումն այլևս հասանելի չէ/u);
+  const unavailableNoteSearch = await mf.dispatchFetch(
+    `https://app.fixture/search?q=${encodeURIComponent("Հին նշում")}`,
+    { headers: { cookie } },
+  );
+  const unavailableNoteHtml = await unavailableNoteSearch.text();
+  assert.match(unavailableNoteHtml, /Հրապարակումն այլևս հասանելի չէ/u);
+  assert.match(unavailableNoteHtml, /Իմ նշումից/u);
+
+  const analyticsColumns = await database.prepare("PRAGMA table_info(search_query_aggregates)").all<{ name: string }>();
+  assert.ok(analyticsColumns.results.some((column: { name: string }) => column.name === "query_hash"));
+  assert.ok(!analyticsColumns.results.some((column: { name: string }) => /query_text|user_id|ip_address/u.test(column.name)));
+  const analytics = await database.prepare(
+    "SELECT query_hash, query_count, zero_result_count FROM search_query_aggregates LIMIT 100",
+  ).all<{ query_hash: string; query_count: number; zero_result_count: number }>();
+  assert.ok(analytics.results.length > 0);
+  assert.ok(analytics.results.every((row: { query_hash: string; query_count: number; zero_result_count: number }) =>
+    /^[a-f0-9]{64}$/u.test(row.query_hash) && row.query_count > 0 && row.zero_result_count >= 0));
 });

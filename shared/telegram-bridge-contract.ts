@@ -97,10 +97,41 @@ export type BridgeContentType =
   | "animation"
   | "unsupported";
 
+export type BridgeSearchMatchReason =
+  | "telegram-id"
+  | "title"
+  | "body"
+  | "caption"
+  | "poll-question"
+  | "poll-option"
+  | "location"
+  | "audio"
+  | "document"
+  | "topic"
+  | "hashtag"
+  | "transliteration"
+  | "fuzzy";
+
+export type BridgeSearchScoreCategory =
+  | "message-id"
+  | "exact-primary"
+  | "exact-token"
+  | "prefix"
+  | "content"
+  | "transliteration"
+  | "fuzzy";
+
+export type BridgeSearchMatch = {
+  scoreCategory: BridgeSearchScoreCategory;
+  reasons: BridgeSearchMatchReason[];
+  matchedMessageId?: number;
+};
+
 export type BridgePost = {
   id: string;
   chatId: string;
   messageId: number;
+  constituentMessageIds: number[];
   topicId: number | null;
   forumTopicId: number | null;
   mediaGroupId: string | null;
@@ -124,6 +155,7 @@ export type BridgePost = {
   numberValue: number | null;
   media: BridgeMedia[];
   deleted: boolean;
+  searchMatch?: BridgeSearchMatch;
 };
 
 export type BridgePostPage = {

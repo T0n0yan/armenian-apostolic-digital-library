@@ -513,6 +513,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       id: createMaterialId(chatId, messageId),
       chatId,
       messageId,
+      constituentMessageIds: ordered.map((message) => message.id),
       topicId: resolvedTopicId,
       forumTopicId: resolvedTopicId,
       mediaGroupId: groupedId(ordered[0]),

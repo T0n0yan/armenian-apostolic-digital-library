@@ -38,6 +38,7 @@ function post(input: Partial<TelegramPost> & Pick<TelegramPost, "messageId" | "t
   return {
     id: createMaterialId(CHAT_ID, input.messageId),
     chatId: CHAT_ID,
+    constituentMessageIds: [input.messageId],
     topicId: 700,
     forumTopicId: 700,
     mediaGroupId: null,
@@ -64,11 +65,11 @@ export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
   post({ messageId: 110, title: "Չաջակցվող նյութ", contentText: "", contentType: "unsupported", unsupportedType: "MessageMediaUnsupported" }),
   post({
     messageId: 109,
-    title: "Ո՞ր սաղմոսն ես կարդում այսօր",
+    title: "Ո՞ր կլոր տարբերակն ես ընտրում",
     contentText: "",
     contentType: "poll",
     poll: {
-      question: { text: "Ո՞ր սաղմոսն ես կարդում այսօր", entities: [] },
+      question: { text: "Ո՞ր կլոր տարբերակն ես ընտրում", entities: [] },
       options: [
         { text: { text: "Սաղմոս 12", entities: [] }, voterCount: 3 },
         { text: { text: "Սաղմոս 50", entities: [] }, voterCount: 5 },
@@ -82,14 +83,14 @@ export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
   }),
   post({
     messageId: 108,
-    title: "Մայր Աթոռ Սուրբ Էջմիածին",
+    title: "Bacat Caffe",
     contentText: "",
     contentType: "location",
     location: {
       latitude: 40.1619,
       longitude: 44.2911,
-      title: "Մայր Աթոռ Սուրբ Էջմիածին",
-      address: "Վաղարշապատ",
+      title: "Bacat Caffe",
+      address: "Երևան",
       provider: "fixture",
       venueId: "fixture-venue",
       venueType: "church",
@@ -100,12 +101,13 @@ export const MOCK_TELEGRAM_POSTS: TelegramPost[] = [
       expiresAt: null,
     },
   }),
-  post({ messageId: 107, title: "Ձայնային սաղմոս", contentText: "", contentType: "voice", media: [media(0, "voice")] }),
+  post({ messageId: 107, title: "Սաղմոս 12", contentText: "", contentType: "audio", media: [media(0, "audio", { title: "Սաղմոս 12", performer: "Փորձնական կատարող" })] }),
   post({ messageId: 106, title: "Մեծ տեսանյութ", contentText: "120 MB-ից մեծ հոգևոր տեսանյութ։", contentType: "video", tags: ["աղոթք"], media: [media(0, "video")] }),
   post({ messageId: 105, title: "Ջնջված հրապարակում", contentText: "", deleted: true }),
   post({ messageId: 104, title: "Խմբագրված խաղաղության խոսք", contentText: "Խմբագրված հայկական տեքստ և խաղաղության պատգամ։", editedAt: "2026-10-15T10:30:00.000Z" }),
-  post({ messageId: 103, title: "Պատկերաշար", contentText: "Երկու նկարով Telegram album։", contentType: "album", mediaGroupId: "fixture-album", media: [media(0, "photo"), media(1, "photo")] }),
-  post({ messageId: 102, title: "Սուրբ պատկերի պատմություն", contentText: "Նկարով հրապարակման ամբողջ տեքստը։", captionText: "Նկարով հրապարակման ամբողջ տեքստը։", formattedCaption: { text: "Նկարով հրապարակման ամբողջ տեքստը։", entities: [] }, contentType: "photo", media: [media(0, "photo")] }),
+  post({ messageId: 103, constituentMessageIds: [103, 111], title: "Պատկերաշար", contentText: "Երկու նկարով Telegram album։", contentType: "album", mediaGroupId: "fixture-album", media: [media(0, "photo"), media(1, "photo")] }),
+  post({ messageId: 102, title: "Սուրբ պատկերի պատմություն", contentText: "Նկարագրություն՝ հրապարակման ամբողջ տեքստը։", captionText: "Նկարագրություն՝ հրապարակման ամբողջ տեքստը։", formattedCaption: { text: "Նկարագրություն՝ հրապարակման ամբողջ տեքստը։", entities: [] }, contentType: "photo", media: [media(0, "photo")] }),
+  post({ messageId: 67, title: "Telegram նյութ #67", contentText: "Փորձնական ID որոնման նյութ։" }),
   post({ messageId: 101, title: "Առավոտյան աղոթք", contentText: "Տե՛ր, խաղաղություն պարգևիր մեր ժողովրդին։", formattedText: { text: "Տե՛ր, խաղաղություն պարգևիր մեր ժողովրդին։", entities: [{ type: "bold", offset: 0, length: 4, url: null }] }, tags: ["աղոթք"] }),
 ];
 
@@ -202,7 +204,7 @@ export class MockTelegramAdapter implements TelegramAdapter {
 
   async getPost(chatId: string, messageId: number, signal: AbortSignal) {
     signal.throwIfAborted();
-    return MOCK_TELEGRAM_POSTS.find((item) => item.chatId === chatId && item.messageId === messageId) ?? null;
+    return MOCK_TELEGRAM_POSTS.find((item) => item.chatId === chatId && item.constituentMessageIds.includes(messageId)) ?? null;
   }
 
   async getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail = false) {

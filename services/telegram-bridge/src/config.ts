@@ -12,6 +12,10 @@ export type BridgeConfig = {
   mediaConcurrency: number;
   mediaTimeoutMs: number;
   shutdownGraceMs: number;
+  searchIndexTtlMs: number;
+  searchIndexMaximumDocuments: number;
+  searchIndexMaximumTextCharacters: number;
+  searchIndexBuildTimeoutMs: number;
 };
 
 function integer(environment: NodeJS.ProcessEnv, name: string, fallback: number, maximum = Number.MAX_SAFE_INTEGER) {
@@ -50,6 +54,10 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     mediaConcurrency: integer(environment, "TELEGRAM_MEDIA_CONCURRENCY", 3, 100),
     mediaTimeoutMs: integer(environment, "TELEGRAM_MEDIA_TIMEOUT_MS", 120_000, 3_600_000),
     shutdownGraceMs: integer(environment, "TELEGRAM_SHUTDOWN_GRACE_MS", 30_000, 300_000),
+    searchIndexTtlMs: integer(environment, "TELEGRAM_SEARCH_INDEX_TTL_MS", 30_000, 3_600_000),
+    searchIndexMaximumDocuments: integer(environment, "TELEGRAM_SEARCH_MAX_DOCUMENTS", 2_000, 20_000),
+    searchIndexMaximumTextCharacters: integer(environment, "TELEGRAM_SEARCH_MAX_TEXT_CHARACTERS", 4_000_000, 40_000_000),
+    searchIndexBuildTimeoutMs: integer(environment, "TELEGRAM_SEARCH_BUILD_TIMEOUT_MS", 60_000, 600_000),
   };
   if (!/^[a-zA-Z0-9_-]{32,256}$/u.test(config.sharedSecret)) {
     throw new Error("TELEGRAM_BRIDGE_SHARED_SECRET is required and must be URL-safe.");

@@ -9,11 +9,6 @@ export function normalizeContentText(value: string) {
 }
 
 export function normalizeSearchText(value: string) {
-  return normalizeContentText(value)
-    .replace(/[՚-՟]/gu, "")
-    .replace(/[։֍֎.,!?;:()[\]{}"'«»—–-]+/gu, " ")
-    .replace(/\s+/g, " ")
-    .toLocaleLowerCase("hy-AM")
-    .replace(/եւ/gu, "և")
-    .trim();
+  return normalizeTelegramSearchText(normalizeContentText(value));
 }
+import { normalizeTelegramSearchText } from "../../shared/telegram-search";

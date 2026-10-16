@@ -25,6 +25,10 @@ const application = createBridgeApplication({
   sharedSecret: config.sharedSecret,
   mediaConcurrency: config.mediaConcurrency,
   mediaTimeoutMs: config.mediaTimeoutMs,
+  searchIndexTtlMs: config.searchIndexTtlMs,
+  searchIndexMaximumDocuments: config.searchIndexMaximumDocuments,
+  searchIndexMaximumTextCharacters: config.searchIndexMaximumTextCharacters,
+  searchIndexBuildTimeoutMs: config.searchIndexBuildTimeoutMs,
   isReady: () => ready,
   onMetric: (metric) => console.info(JSON.stringify({ event: "telegram_metric", ...metric })),
 });

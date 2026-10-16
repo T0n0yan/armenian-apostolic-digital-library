@@ -41,12 +41,34 @@ import {
 import {
   searchMaterials,
 } from "../data/search-materials.server";
+import { recordSearchAggregate } from "../data/search-analytics.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+const searchRank = {
+  "message-id": 9,
+  "exact-primary": 8,
+  "personal-note": 7,
+  "exact-token": 6,
+  prefix: 5,
+  content: 4,
+  transliteration: 3,
+  fuzzy: 2,
+} as const;
+
+function stableSearchOrder(left: SearchMaterial, right: SearchMaterial) {
+  const scoreDifference = (searchRank[right.scoreCategory ?? "content"] ?? 0) - (searchRank[left.scoreCategory ?? "content"] ?? 0);
+  return scoreDifference || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || left.id.localeCompare(right.id);
+}
+
+function noteReasons(material: Awaited<ReturnType<typeof searchSavedMaterialNotes>>[number]): SearchMaterial["matchReasons"] {
+  const details = material.noteSearchMatch?.reasons.filter((reason) => reason === "transliteration" || reason === "fuzzy") ?? [];
+  return ["personal-note", ...details];
 }
 
 export function getPageHref(filters: SearchFilters, page: number, cursor: string | null = null) {
@@ -139,7 +161,10 @@ export async function loader({ request }: Route.LoaderArgs) {
       contentType: material.contentType,
       preview: material.preview,
       personalNote: material.personalNote,
-      matchReasons: ["personal-note"],
+      matchReasons: noteReasons(material),
+      scoreCategory: material.noteSearchMatch?.scoreCategory === "fuzzy" || material.noteSearchMatch?.scoreCategory === "transliteration"
+        ? material.noteSearchMatch.scoreCategory
+        : "personal-note",
     }));
   const noteMaterials: SearchMaterial[] = personalNoteMatches.map((material) => ({
     id: material.id,
@@ -155,24 +180,42 @@ export async function loader({ request }: Route.LoaderArgs) {
     contentType: material.contentType,
     preview: material.preview,
     personalNote: material.personalNote,
-    matchReasons: ["personal-note"],
+    matchReasons: noteReasons(material),
+    scoreCategory: material.noteSearchMatch?.scoreCategory === "fuzzy" || material.noteSearchMatch?.scoreCategory === "transliteration"
+      ? material.noteSearchMatch.scoreCategory
+      : "personal-note",
   }));
   const noteById = new Map(noteMaterials.map((material) => [material.id, material]));
   const telegramMaterials = libraryPage.materials.map((material) => {
     const noteMatch = noteById.get(material.id);
-    if (!noteMatch) return { ...material, matchReasons: ["telegram"] as const };
+    if (!noteMatch) return material;
     noteById.delete(material.id);
     return {
       ...material,
       personalNote: noteMatch.personalNote,
-      matchReasons: ["telegram", "personal-note"] as Array<"telegram" | "personal-note">,
+      matchReasons: [...new Set([...(material.matchReasons ?? ["telegram"]), ...(noteMatch.matchReasons ?? ["personal-note"])])],
+      scoreCategory: (searchRank[noteMatch.scoreCategory ?? "personal-note"] ?? 0) > (searchRank[material.scoreCategory ?? "content"] ?? 0)
+        ? noteMatch.scoreCategory
+        : material.scoreCategory,
     };
   });
-  const personalMaterials = [...noteById.values()];
-  const materials = scope === "saved" ? savedPageMaterials : telegramMaterials;
+  const personalMaterials = [...noteById.values()].sort(stableSearchOrder);
+  const materials = (scope === "saved" ? savedPageMaterials : telegramMaterials).sort(stableSearchOrder);
   const total = scope === "saved"
     ? savedMatches.length
     : telegramMaterials.length + personalMaterials.length;
+
+  if (hasSearchQuery && scope === "library") {
+    await recordSearchAggregate(
+      env.DB,
+      resolvedQuery.normalized,
+      categoryId,
+      total,
+      env.TELEGRAM_BRIDGE_SHARED_SECRET,
+    ).catch(() => {
+      console.warn(JSON.stringify({ event: "search_analytics_write", outcome: "error" }));
+    });
+  }
 
   return {
     categories,
@@ -385,7 +428,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
 
       {loaderData.correctedQuery ? (
         <p className="mx-1 mt-3 mb-0 text-[13px] text-muted [&_strong]:text-gold-bright" role="status">
-          Հասկացանք նաև՝ <strong>{loaderData.correctedQuery}</strong>
+          Որոնումը ներառում է նաև տառադարձումը՝ <strong>{loaderData.correctedQuery}</strong>
         </p>
       ) : null}
 
@@ -404,8 +447,20 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Կարող ես որոնել նաև բաժնով, ամսաթվով կամ Telegram հղումով։</p>
           </EmptyState>
         ) : personalMaterials.length === 0 && materials.length === 0 ? (
-          <EmptyState icon={<SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />} title="Համապատասխան նյութ չգտնվեց">
+          <EmptyState
+            icon={<SearchIcon aria-hidden="true" size={26} strokeWidth={1.6} />}
+            title={filters.categoryId ? "Այս թեմայում արդյունք չգտնվեց" : "Համապատասխան նյութ չգտնվեց"}
+          >
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
+            {filters.categoryId && filters.query ? (
+              <Link
+                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-4 py-2.5 text-[13px] font-[760] text-[#fffaf3] no-underline shadow-glass active:scale-[.985]"
+                to={getPageHref({ ...filters, categoryId: "" }, 1)}
+                prefetch="intent"
+              >
+                Փնտրել բոլոր թեմաներում <ArrowRight aria-hidden="true" size={16} />
+              </Link>
+            ) : null}
           </EmptyState>
         ) : !filters.categoryId && filters.scope !== "saved" ? (
           <div className="grid gap-3">

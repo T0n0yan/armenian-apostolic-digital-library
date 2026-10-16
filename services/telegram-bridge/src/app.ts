@@ -6,8 +6,10 @@ import {
   type BridgePost,
   type BridgePostPage,
 } from "../../../shared/telegram-bridge-contract";
+import { messageIdSearchMatch, parseTelegramSearchQuery } from "../../../shared/telegram-search";
 import type { TelegramAdapter, TelegramPost } from "./adapter";
 import { parseRangeHeader } from "./range";
+import { TelegramSearchIndex } from "./search-index";
 
 type BridgeApplicationOptions = {
   adapter: TelegramAdapter;
@@ -16,6 +18,10 @@ type BridgeApplicationOptions = {
   mediaConcurrency?: number;
   mediaTimeoutMs?: number;
   topicCacheTtlMs?: number;
+  searchIndexTtlMs?: number;
+  searchIndexMaximumDocuments?: number;
+  searchIndexMaximumTextCharacters?: number;
+  searchIndexBuildTimeoutMs?: number;
   isReady?: () => boolean;
   onMetric?: (metric: { operation: string; durationMs: number; outcome: "ok" | "error" }) => void;
 };
@@ -73,29 +79,6 @@ function allowedPost(post: TelegramPost, allowedChatIds: ReadonlySet<string>) {
   return allowedChatIds.has(post.chatId) && !post.deleted;
 }
 
-function normalizeSearch(value: string) {
-  return value
-    .normalize("NFC")
-    .replace(/[\u200B-\u200D\uFEFF]/gu, "")
-    .replace(/[՚-՟։֍֎.,!?;:()[\]{}"'«»—–-]+/gu, " ")
-    .replace(/\s+/gu, " ")
-    .toLocaleLowerCase("hy-AM")
-    .replace(/եւ/gu, "և")
-    .trim();
-}
-
-function matchesSearch(post: BridgePost, query: string) {
-  const needle = normalizeSearch(query);
-  if (!needle) return true;
-  const pollQuestion = post.poll?.question.text ?? "";
-  const location = post.location
-    ? `${post.location.title ?? ""} ${post.location.address ?? ""}`
-    : "";
-  return normalizeSearch(
-    `${post.title} ${post.contentText} ${post.captionText} ${post.tags.join(" ")} ${pollQuestion} ${location}`,
-  ).includes(needle);
-}
-
 function topicForPost(post: TelegramPost, topics: BridgeCategory[]) {
   const topicId = post.topicId ?? post.forumTopicId ?? 1;
   return topics.find((topic) => topic.chatId === post.chatId && topic.topicId === topicId) ?? null;
@@ -122,6 +105,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
   const topicCacheTtlMs = Math.max(1_000, options.topicCacheTtlMs ?? 15_000);
   let topicCache: { expiresAt: number; value: BridgeCategory[] } | null = null;
   let topicInflight: Promise<BridgeCategory[]> | null = null;
+  let searchIndex: TelegramSearchIndex | null = null;
   const postCache = new Map<string, { expiresAt: number; value: TelegramPost | null }>();
   const postInflight = new Map<string, Promise<TelegramPost | null>>();
 
@@ -143,6 +127,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     const pending = telegramCall("topics", () => options.adapter.listTopics({ refresh, signal })).then((value) => {
       const allowed = value.filter((topic) => topic.chatId && options.allowedChatIds.has(topic.chatId));
       topicCache = { expiresAt: Date.now() + topicCacheTtlMs, value: allowed };
+      if (refresh) searchIndex?.invalidate();
       return allowed;
     }).finally(() => {
       if (topicInflight === pending) topicInflight = null;
@@ -170,6 +155,41 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     return pending;
   }
 
+  searchIndex = new TelegramSearchIndex({
+    ttlMs: options.searchIndexTtlMs,
+    maximumDocuments: options.searchIndexMaximumDocuments,
+    maximumTextCharacters: options.searchIndexMaximumTextCharacters,
+    buildTimeoutMs: options.searchIndexBuildTimeoutMs,
+    load: async (signal) => {
+      const availableTopics = (await topics(false, signal)).filter((topic) => !topic.isGeneral && topic.topicId !== 1);
+      const maximum = Math.max(1, options.searchIndexMaximumDocuments ?? 2_000);
+      const byId = new Map<string, BridgePost>();
+      let nextTopic = 0;
+      const workers = Array.from({ length: Math.min(2, availableTopics.length) }, async () => {
+        while (nextTopic < availableTopics.length && byId.size < maximum) {
+          const topic = availableTopics[nextTopic++];
+          if (!topic.chatId || !topic.topicId) continue;
+          let cursor: string | null = null;
+          for (let pageNumber = 0; pageNumber < 100 && byId.size < maximum; pageNumber += 1) {
+            signal.throwIfAborted();
+            const page = await telegramCall("search-index-history", () => options.adapter.listHistory({
+              cursor, limit: Math.min(100, maximum - byId.size), chatId: topic.chatId!, topicId: topic.topicId!, signal,
+            }));
+            for (const raw of page.posts) {
+              if (!allowedPost(raw, options.allowedChatIds)) continue;
+              const post = categorizePost(raw, availableTopics);
+              if (post.categoryId && post.topicId !== 1) byId.set(post.id, post);
+            }
+            cursor = page.nextCursor;
+            if (!cursor) break;
+          }
+        }
+      });
+      await Promise.all(workers);
+      return [...byId.values()];
+    },
+  });
+
   async function filteredPage(
     availableTopics: BridgeCategory[],
     cursor: string | null,
@@ -179,23 +199,14 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     includeUnclassified = false,
   ): Promise<BridgePostPage> {
     const category = categorySlug ? availableTopics.find((item) => item.slug === categorySlug) ?? null : null;
+    if (query) return searchIndex!.search(query, category?.id ?? null, cursor, 30, signal);
     const posts: BridgePost[] = [];
     let adapterCursor = cursor;
     let loops = 0;
     do {
       const categoryChatId = category?.chatId ?? null;
       const categoryTopicId = category?.topicId ?? null;
-      const page = query
-        ? await telegramCall("search", () => options.adapter.search({
-            cursor: adapterCursor,
-            limit: 30,
-            query,
-            signal,
-            ...(categoryChatId && categoryTopicId
-              ? { chatId: categoryChatId, topicId: categoryTopicId }
-              : {}),
-          }))
-        : categoryChatId && categoryTopicId
+      const page = categoryChatId && categoryTopicId
           ? await telegramCall("topic-history", () => options.adapter.listHistory({ cursor: adapterCursor, limit: 30, chatId: categoryChatId, topicId: categoryTopicId, signal }))
           : await telegramCall("history", () => options.adapter.listHistory({ cursor: adapterCursor, limit: 30, signal }));
       adapterCursor = page.nextCursor;
@@ -204,9 +215,6 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
         const post = categorizePost(raw, availableTopics);
         if (includeUnclassified ? post.categorySlug : !post.categorySlug) continue;
         if (categorySlug && post.categorySlug !== categorySlug) continue;
-        // Telegram may ignore or broaden a combined search + forum-topic
-        // request. Never let topic history become a search fallback.
-        if (query && !matchesSearch(post, query)) continue;
         posts.push(post);
       }
       loops += 1;
@@ -254,6 +262,25 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
       }
       const category = availableTopics.find((topic) => topic.slug === categorySlug || topic.id === categorySlug) ?? null;
       if ((!query || Array.from(query).length < 2) && !category) return json({ posts: [], nextCursor: null, total: 0 } satisfies BridgePostPage);
+      const parsedQuery = parseTelegramSearchQuery(query);
+      if (parsedQuery.messageIdIntent) {
+        const posts: BridgePost[] = [];
+        for (const chatId of options.allowedChatIds) {
+          const raw = await rawPost(chatId, parsedQuery.messageIdIntent.messageId, request.signal);
+          if (!raw || raw.deleted) continue;
+          const post = categorizePost(raw, availableTopics);
+          if (!post.categoryId || post.topicId === 1) continue;
+          if (category && post.categoryId !== category.id) continue;
+          if (!post.constituentMessageIds.includes(parsedQuery.messageIdIntent.messageId)) continue;
+          const match = messageIdSearchMatch(parsedQuery.messageIdIntent.messageId);
+          posts.push({ ...post, searchMatch: {
+            scoreCategory: match.scoreCategory,
+            reasons: match.reasons,
+            matchedMessageId: match.matchedMessageId,
+          } });
+        }
+        return json({ posts: [...new Map(posts.map((post) => [post.id, post])).values()], nextCursor: null, total: posts.length } satisfies BridgePostPage);
+      }
       return json(await filteredPage(availableTopics, url.searchParams.get("cursor"), query, category?.slug ?? null, request.signal));
     }
 

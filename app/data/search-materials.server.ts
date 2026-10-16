@@ -41,6 +41,15 @@ export function createSearchExcerpt(value: string, normalizedQuery: string) {
   return `${windowStart > sentenceStart ? "…" : ""}${characters.slice(windowStart, windowEnd).join("").trim()}${windowEnd < sentenceEnd ? "…" : ""}`;
 }
 
+function searchablePreview(post: BridgePost) {
+  return [
+    post.contentText, post.captionText, post.poll?.question.text,
+    ...(post.poll?.options.map((option) => option.text.text) ?? []),
+    post.location?.title, post.location?.address,
+    ...post.media.flatMap((media) => [media.title, media.performer, media.fileName]),
+  ].filter(Boolean).join(" ");
+}
+
 function matchesDate(post: BridgePost, filters: SearchFilters) {
   const date = post.dateValue || post.publishedAt?.slice(0, 10) || "";
   return (!filters.dateFrom || date >= filters.dateFrom) && (!filters.dateTo || date <= filters.dateTo);
@@ -55,7 +64,7 @@ export async function searchMaterials(
   signal?: AbortSignal,
 ): Promise<SearchMaterialPage> {
   const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
-  const bridgeQuery = filters.query ? resolved.correctedQuery || resolved.original : "";
+  const bridgeQuery = filters.query ? resolved.original : "";
   const page = await searchBridgePosts(
     database,
     bridgeQuery,
@@ -75,9 +84,12 @@ export async function searchMaterials(
       dateValue: post.dateValue,
       publishedAt: post.publishedAt,
       mediaTypes: [...new Set(post.media.map((asset) => asset.kind))],
-      excerpt: createSearchExcerpt(post.contentText || post.captionText, resolved.highlightQuery),
+      excerpt: createSearchExcerpt(searchablePreview(post), resolved.highlightQuery),
       contentType: post.contentType,
       preview: bridgePostToCardPreview(post),
+      matchReasons: ["telegram", ...(post.searchMatch?.reasons ?? [])],
+      scoreCategory: post.searchMatch?.scoreCategory,
+      matchedMessageId: post.searchMatch?.matchedMessageId,
     })),
     total: page.total ?? posts.length + (page.nextCursor ? 1 : 0),
     highlightQuery: resolved.highlightQuery,

@@ -4,6 +4,7 @@ import { bridgePostToCardPreview, createMaterialExcerpt, type MaterialCardPrevie
 import { createSearchExcerpt } from "./search-materials.server";
 import type { ResolvedSearchQuery } from "./search-query.server";
 import { getBridgePost } from "./telegram-bridge.server";
+import { matchSearchableText, type RankedTelegramSearchMatch } from "../../shared/telegram-search";
 
 export type SavedMaterial = {
   id: string;
@@ -22,6 +23,7 @@ export type SavedMaterial = {
   contentType: BridgeContentType;
   preview: MaterialCardPreview;
   unavailable?: boolean;
+  noteSearchMatch?: RankedTelegramSearchMatch;
 };
 
 export type SavedMaterialGroup = {
@@ -72,15 +74,21 @@ export async function searchSavedMaterialNotes(
   resolvedQuery: ResolvedSearchQuery,
   signal?: AbortSignal,
 ): Promise<SavedMaterial[]> {
-  const normalizedQuery = resolvedQuery.normalized;
-  if (Array.from(normalizedQuery).length < 2) return [];
+  if (Array.from(resolvedQuery.normalized).length < 2) return [];
   const { results } = await database.prepare(
     `SELECT chat_id, message_id, personal_note, personal_note_search, saved_at
      FROM saved_materials
-     WHERE user_id = ? AND instr(personal_note_search, ?) > 0
+     WHERE user_id = ?
      ORDER BY saved_at DESC LIMIT 500`,
-  ).bind(userId, normalizedQuery).all<SavedReferenceRow>();
-  return hydrateSavedReferences(database, results, normalizedQuery, signal, true);
+  ).bind(userId).all<SavedReferenceRow>();
+  const matches = new Map<string, RankedTelegramSearchMatch>();
+  const matchingRows = results.filter((row) => {
+    const match = matchSearchableText(row.personal_note, resolvedQuery);
+    if (!match) return false;
+    matches.set(`${row.chat_id}:${row.message_id}`, match);
+    return true;
+  });
+  return hydrateSavedReferences(database, matchingRows, resolvedQuery.normalized, signal, true, matches);
 }
 
 async function hydrateSavedReferences(
@@ -89,6 +97,7 @@ async function hydrateSavedReferences(
   normalizedQuery: string,
   signal: AbortSignal | undefined,
   notesOnly: boolean,
+  noteMatches: ReadonlyMap<string, RankedTelegramSearchMatch> = new Map(),
 ) {
   const hydrated: Array<SavedMaterial | null> = new Array(results.length).fill(null);
   let nextIndex = 0;
@@ -133,6 +142,7 @@ async function hydrateSavedReferences(
           unsupportedType: "unavailable",
         },
         unavailable: true,
+        noteSearchMatch: noteMatches.get(`${row.chat_id}:${row.message_id}`),
         };
         continue;
       }
@@ -160,6 +170,7 @@ async function hydrateSavedReferences(
         : createMaterialExcerpt(post.contentText || post.captionText || row.personal_note),
       contentType: post.contentType,
       preview: bridgePostToCardPreview(post),
+      noteSearchMatch: noteMatches.get(`${row.chat_id}:${row.message_id}`),
       };
     }
   });

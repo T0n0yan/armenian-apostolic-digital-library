@@ -29,7 +29,7 @@ import {
 } from "react";
 import { Link, useNavigation } from "react-router";
 
-import type { BridgeContentType } from "../../shared/telegram-bridge-contract";
+import type { BridgeContentType, BridgeSearchMatchReason } from "../../shared/telegram-bridge-contract";
 import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
@@ -48,7 +48,8 @@ type MaterialResultCardProps = {
     contentType: BridgeContentType;
     preview: MaterialCardPreview;
     personalNote?: string;
-    matchReasons?: Array<"telegram" | "personal-note">;
+    matchReasons?: Array<"telegram" | "personal-note" | BridgeSearchMatchReason>;
+    matchedMessageId?: number;
   };
   canSave: boolean;
   highlightQuery?: string;
@@ -80,6 +81,29 @@ function contentTypeMeta(type: BridgeContentType, count: number) {
     case "animation": return { label: "Շարժապատկեր", Icon: Play };
     case "unsupported": return { label: "Այլ նյութ", Icon: FileQuestion };
     default: return { label: "Տեքստ", Icon: AlignLeft };
+  }
+}
+
+function matchReasonLabel(
+  reason: NonNullable<MaterialResultCardProps["material"]["matchReasons"]>[number],
+  material: MaterialResultCardProps["material"],
+) {
+  switch (reason) {
+    case "telegram": return "Telegram նյութ";
+    case "personal-note": return "Իմ նշումից";
+    case "telegram-id": return `Համընկնում՝ Telegram #${material.matchedMessageId ?? material.id.split("_").at(-1) ?? ""}`;
+    case "title": return "Համընկնում՝ վերնագրում";
+    case "body": return "Համընկնում՝ տեքստում";
+    case "caption": return "Համընկնում՝ նկարագրության մեջ";
+    case "poll-question":
+    case "poll-option": return "Համընկնում՝ հարցման մեջ";
+    case "location": return "Համընկնում՝ վայրում";
+    case "audio": return "Համընկնում՝ աուդիոյում";
+    case "document": return "Համընկնում՝ փաստաթղթում";
+    case "topic": return "Համընկնում՝ թեմայում";
+    case "hashtag": return "Համընկնում՝ պիտակում";
+    case "transliteration": return "Տառադարձմամբ";
+    case "fuzzy": return "Մոտավոր համընկնում";
   }
 }
 
@@ -159,6 +183,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const [isNoteMounted, setIsNoteMounted] = useState(false);
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const navigation = useNavigation();
   const targetPath = `/materials/${material.id}`;
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
@@ -271,7 +296,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           onClick={(event) => { if (isOpening) event.preventDefault(); }}
         >
         <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle">
-          {material.preview.thumbnailUrl ? (
+          {material.preview.thumbnailUrl && !thumbnailFailed ? (
             <img
               className="h-full w-full object-cover"
               src={material.preview.thumbnailUrl}
@@ -281,6 +306,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               loading="lazy"
               decoding="async"
               alt=""
+              onError={() => setThumbnailFailed(true)}
             />
           ) : (
             <span className="grid h-full w-full place-items-center text-gold"><TypeIcon aria-hidden="true" size={25} strokeWidth={1.55} /></span>
@@ -294,7 +320,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span>
             {material.matchReasons?.map((reason) => (
               <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum" key={reason}>
-                {reason === "personal-note" ? "Իմ նշումից" : "Telegram նյութ"}
+                {matchReasonLabel(reason, material)}
               </span>
             ))}
             {date ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
