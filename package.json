@@ -2,8 +2,13 @@
 	"name": "armenian-apostolic-digital-library",
 	"private": true,
 	"type": "module",
+	"packageManager": "pnpm@10.28.0",
+	"engines": {
+		"node": ">=22"
+	},
 	"scripts": {
 		"build": "react-router build",
+		"postbuild": "node scripts/sanitize-build-output.mjs",
 		"lint": "tsc -p services/telegram-bridge/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit",
 		"test": "pnpm build && tsx --test tests/*.test.ts",
 		"test:telegram-live": "TELEGRAM_LIVE_TEST=1 node --env-file=services/telegram-bridge/.env.local --import tsx --test tests/telegram-bridge-live.test.ts",
@@ -15,8 +20,8 @@
 		"bridge:typecheck": "tsc -p services/telegram-bridge/tsconfig.json --noEmit",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"db:migrations:list:local": "wrangler d1 migrations list DB --local",
-		"db:migrate:staging": "wrangler d1 migrations apply DB --remote --env staging",
-		"db:migrate:production": "wrangler d1 migrations apply DB --remote --env production",
+		"db:migrate:staging": "wrangler d1 migrations apply armenian-apostolic-digital-library-staging --remote --env staging",
+		"db:migrate:production": "wrangler d1 migrations apply armenian-apostolic-digital-library-production --remote --env production",
 		"typecheck": "wrangler types && react-router typegen && tsc -b && pnpm bridge:typecheck",
 		"deploy": "pnpm run build && wrangler deploy",
 		"deploy:staging": "CLOUDFLARE_ENV=staging pnpm run build && wrangler deploy --env staging",

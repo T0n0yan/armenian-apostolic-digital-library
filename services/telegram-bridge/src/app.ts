@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 import {
   parseTopicSlug,
@@ -16,6 +16,7 @@ type BridgeApplicationOptions = {
   mediaConcurrency?: number;
   mediaTimeoutMs?: number;
   topicCacheTtlMs?: number;
+  isReady?: () => boolean;
 };
 
 class Semaphore {
@@ -49,9 +50,9 @@ class Semaphore {
 }
 
 function secureEqual(left: string, right: string) {
-  const leftBytes = Buffer.from(left);
-  const rightBytes = Buffer.from(right);
-  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
+  const leftDigest = createHash("sha256").update(left).digest();
+  const rightDigest = createHash("sha256").update(right).digest();
+  return timingSafeEqual(leftDigest, rightDigest);
 }
 
 function json(value: unknown, status = 200, cacheControl = "private, no-store") {
@@ -144,6 +145,11 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     const url = new URL(request.url);
 
     if (request.method === "GET" && url.pathname === "/health") return json({ ok: true });
+    if (request.method === "GET" && url.pathname === "/ready") {
+      return options.isReady?.() === false
+        ? json({ ready: false }, 503)
+        : json({ ready: true });
+    }
 
     if (request.method === "GET" && (url.pathname === "/categories" || url.pathname === "/topics")) {
       const refresh = url.searchParams.get("refresh") === "1";

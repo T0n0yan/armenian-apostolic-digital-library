@@ -94,6 +94,9 @@ Production adapter-ի variables՝
 - `TELEGRAM_BRIDGE_SHARED_SECRET`
 - optional `TELEGRAM_MEDIA_CONCURRENCY`
 - optional `TELEGRAM_MEDIA_TIMEOUT_MS`
+- optional `TELEGRAM_REQUEST_CONCURRENCY`
+- optional `TELEGRAM_REQUEST_TIMEOUT_MS`
+- optional `TELEGRAM_SHUTDOWN_GRACE_MS`
 
 Գործարկում՝
 
@@ -104,6 +107,7 @@ pnpm bridge:start
 Bridge API՝
 
 - `GET /health`
+- `GET /ready`
 - `GET /categories`
 - `GET /categories/:slug/posts?cursor=...`
 - `GET /posts/:chatId/:messageId`
@@ -111,6 +115,14 @@ Bridge API՝
 - `GET|HEAD /media/:chatId/:messageId/:mediaIndex`
 
 Բոլոր endpoints-ը պահանջում են service authentication։ Bridge-ը մերժում է allowlist-ից դուրս chat ID-ները։
+
+Staging/production environment contract-ը, Docker deployment-ը, անվտանգ rollout-ը և
+rollback-ը նկարագրված են [`docs/deployment-runbook.md`](docs/deployment-runbook.md)-ում։
+Bridge image-ի local build command-ը՝
+
+```bash
+docker build -f services/telegram-bridge/Dockerfile -t telegram-bridge:local .
+```
 
 ## Category mapping
 

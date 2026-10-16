@@ -7,34 +7,49 @@ export type BridgeConfig = {
   apiId: number | null;
   apiHash: string | null;
   session: string | null;
+  requestConcurrency: number;
+  requestTimeoutMs: number;
   mediaConcurrency: number;
   mediaTimeoutMs: number;
+  shutdownGraceMs: number;
 };
 
-function integer(value: string | undefined, fallback: number) {
+function integer(environment: NodeJS.ProcessEnv, name: string, fallback: number, maximum = Number.MAX_SAFE_INTEGER) {
+  const value = environment[name];
+  if (value === undefined || value.trim() === "") return fallback;
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > maximum) {
+    throw new Error(`${name} must be a positive integer no greater than ${maximum}.`);
+  }
+  return parsed;
 }
 
 export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): BridgeConfig {
   const adapter = environment.TELEGRAM_BRIDGE_ADAPTER === "mock" ? "mock" : "gramjs";
   const sharedSecret = environment.TELEGRAM_BRIDGE_SHARED_SECRET?.trim() ?? "";
-  const allowedChatIds = (environment.TELEGRAM_ALLOWED_CHAT_IDS ?? "")
+  const configuredChatIds = (environment.TELEGRAM_ALLOWED_CHAT_IDS ?? "")
     .split(",")
     .map((value) => value.trim())
-    .filter((value) => /^-?\d{1,20}$/u.test(value));
+    .filter(Boolean);
+  if (configuredChatIds.some((value) => !/^-?\d{1,20}$/u.test(value))) {
+    throw new Error("TELEGRAM_ALLOWED_CHAT_IDS contains an invalid Telegram chat ID.");
+  }
+  const allowedChatIds = [...new Set(configuredChatIds)];
   const apiId = Number(environment.TELEGRAM_API_ID);
   const config: BridgeConfig = {
     host: environment.TELEGRAM_BRIDGE_HOST?.trim() || "127.0.0.1",
-    port: integer(environment.TELEGRAM_BRIDGE_PORT, 8788),
+    port: integer(environment, "TELEGRAM_BRIDGE_PORT", 8788, 65_535),
     adapter,
     sharedSecret,
     allowedChatIds,
     apiId: Number.isSafeInteger(apiId) && apiId > 0 ? apiId : null,
     apiHash: environment.TELEGRAM_API_HASH?.trim() || null,
     session: environment.TELEGRAM_SESSION?.trim() || null,
-    mediaConcurrency: integer(environment.TELEGRAM_MEDIA_CONCURRENCY, 3),
-    mediaTimeoutMs: integer(environment.TELEGRAM_MEDIA_TIMEOUT_MS, 120_000),
+    requestConcurrency: integer(environment, "TELEGRAM_REQUEST_CONCURRENCY", 32, 1_000),
+    requestTimeoutMs: integer(environment, "TELEGRAM_REQUEST_TIMEOUT_MS", 30_000, 600_000),
+    mediaConcurrency: integer(environment, "TELEGRAM_MEDIA_CONCURRENCY", 3, 100),
+    mediaTimeoutMs: integer(environment, "TELEGRAM_MEDIA_TIMEOUT_MS", 120_000, 3_600_000),
+    shutdownGraceMs: integer(environment, "TELEGRAM_SHUTDOWN_GRACE_MS", 30_000, 300_000),
   };
   if (!/^[a-zA-Z0-9_-]{32,256}$/u.test(config.sharedSecret)) {
     throw new Error("TELEGRAM_BRIDGE_SHARED_SECRET is required and must be URL-safe.");

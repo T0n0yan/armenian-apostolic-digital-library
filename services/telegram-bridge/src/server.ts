@@ -15,7 +15,9 @@ const adapter = config.adapter === "mock"
       session: config.session!,
       allowedChatIds: config.allowedChatIds,
     });
+let ready = false;
 await adapter.connect();
+ready = true;
 
 const application = createBridgeApplication({
   adapter,
@@ -23,10 +25,26 @@ const application = createBridgeApplication({
   sharedSecret: config.sharedSecret,
   mediaConcurrency: config.mediaConcurrency,
   mediaTimeoutMs: config.mediaTimeoutMs,
+  isReady: () => ready,
 });
 
+let activeRequests = 0;
 const server = createServer(async (incoming, outgoing) => {
+  if (activeRequests >= config.requestConcurrency) {
+    outgoing.writeHead(503, {
+      "cache-control": "no-store",
+      "content-type": "text/plain; charset=utf-8",
+      "retry-after": "1",
+    });
+    outgoing.end("Bridge is busy");
+    return;
+  }
+  activeRequests += 1;
   const abort = new AbortController();
+  const pathname = new URL(incoming.url || "/", "http://bridge.invalid").pathname;
+  const timeoutMs = pathname.startsWith("/media/") ? config.mediaTimeoutMs : config.requestTimeoutMs;
+  const timeout = setTimeout(() => abort.abort(new Error("Bridge request timed out.")), timeoutMs);
+  timeout.unref();
   incoming.once("aborted", () => abort.abort(new Error("Client disconnected.")));
   outgoing.once("close", () => {
     if (!outgoing.writableEnded) abort.abort(new Error("Client disconnected."));
@@ -48,15 +66,28 @@ const server = createServer(async (incoming, outgoing) => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        if (!outgoing.write(value)) await once(outgoing, "drain");
+        if (!outgoing.write(value)) {
+          await Promise.race([once(outgoing, "drain"), once(outgoing, "close")]);
+          if (outgoing.destroyed) throw new Error("Client disconnected.");
+        }
       }
       outgoing.end();
     } finally {
       reader.releaseLock();
     }
   } catch {
-    if (!outgoing.headersSent) outgoing.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-    outgoing.end("Bridge request failed");
+    if (!outgoing.destroyed) {
+      if (!outgoing.headersSent) {
+        outgoing.writeHead(abort.signal.aborted ? 504 : 500, {
+          "cache-control": "no-store",
+          "content-type": "text/plain; charset=utf-8",
+        });
+      }
+      outgoing.end(abort.signal.aborted ? "Bridge request timed out" : "Bridge request failed");
+    }
+  } finally {
+    clearTimeout(timeout);
+    activeRequests -= 1;
   }
 });
 
@@ -64,9 +95,25 @@ server.listen(config.port, config.host, () => {
   console.log(`Telegram Bridge listening on http://${config.host}:${config.port}`);
 });
 
-async function shutdown() {
-  server.close();
-  await adapter.close();
+let shutdownPromise: Promise<void> | null = null;
+function shutdown() {
+  shutdownPromise ??= (async () => {
+    ready = false;
+    const forceClose = setTimeout(() => server.closeAllConnections(), config.shutdownGraceMs);
+    forceClose.unref();
+    server.close();
+    server.closeIdleConnections();
+    await once(server, "close");
+    clearTimeout(forceClose);
+    await adapter.close();
+    console.log("Telegram Bridge shutdown complete.");
+  })();
+  return shutdownPromise;
 }
-process.once("SIGINT", () => void shutdown());
-process.once("SIGTERM", () => void shutdown());
+function requestShutdown() {
+  void shutdown().catch(() => {
+    process.exitCode = 1;
+  });
+}
+process.once("SIGINT", requestShutdown);
+process.once("SIGTERM", requestShutdown);

@@ -8,6 +8,7 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
+import { readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
 import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
 
@@ -83,6 +84,16 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.equal(unauthorized.status, 401);
   assert.doesNotMatch(await unauthorized.text(), /fixture_bridge_secret/u);
   assert.equal((await app(bridgeRequest("/posts/-100999/101"))).status, 404);
+  assert.deepEqual(await (await app(bridgeRequest("/health"))).json(), { ok: true });
+  assert.deepEqual(await (await app(bridgeRequest("/ready"))).json(), { ready: true });
+
+  const unavailable = createBridgeApplication({
+    adapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    isReady: () => false,
+  });
+  assert.equal((await unavailable(bridgeRequest("/ready"))).status, 503);
 
   const head = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { method: "HEAD" }));
   assert.equal(head.status, 200);
@@ -113,6 +124,26 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   await reader.cancel();
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 0));
   assert.equal(adapter.stats.abortedStreams, 1);
+});
+
+test("Bridge environment validation rejects unsafe deployment settings", () => {
+  const base = {
+    TELEGRAM_BRIDGE_ADAPTER: "mock",
+    TELEGRAM_BRIDGE_SHARED_SECRET: BRIDGE_SECRET,
+    TELEGRAM_ALLOWED_CHAT_IDS: MOCK_CHAT_ID,
+  } satisfies NodeJS.ProcessEnv;
+  const config = readBridgeConfig(base);
+  assert.equal(config.requestConcurrency, 32);
+  assert.equal(config.requestTimeoutMs, 30_000);
+  assert.equal(config.shutdownGraceMs, 30_000);
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_ALLOWED_CHAT_IDS: `${MOCK_CHAT_ID},not-a-chat` }),
+    /invalid Telegram chat ID/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_REQUEST_CONCURRENCY: "0" }),
+    /TELEGRAM_REQUEST_CONCURRENCY/u,
+  );
 });
 
 test("Bridge flows through Worker loaders, SSR, bookmark references and media proxy", async (context) => {
