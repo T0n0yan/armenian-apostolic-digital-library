@@ -35,7 +35,7 @@ Tracked, դատարկ օրինակները գտնվում են `deployment/` պ�
 
 | Scope | Required values |
 |---|---|
-| staging Bridge | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION`, `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_BRIDGE_SHARED_SECRET` |
+| staging Bridge | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION`, `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_CONTENT_CHAT_ID`, `TELEGRAM_BRIDGE_SHARED_SECRET` |
 | staging Worker | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BRIDGE_URL`, `TELEGRAM_BRIDGE_SHARED_SECRET`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` |
 | staging platform | `DB` → staging D1, test Mini App public HTTPS URL |
 | production Bridge | նույն անուններով առանձին production values |
@@ -49,10 +49,17 @@ Runtime-ի համար դրանք կարելի է կարգավորել այդ ս�
 memory-only է, build timeout-ը կառավարում է `TELEGRAM_SEARCH_BUILD_TIMEOUT_MS`-ը,
 իսկ restart-ից հետո այն նորից կառուցվում է Telegram history-ից։
 
-Staging Bridge allowlist-ը պետք է ունենա միայն հաստատված test forum chat ID-ն։
-Production allowlist/session արժեքները staging deploy-ի մաս չեն։ Shared secret-ի
+Staging Bridge allowlist-ը պետք է ունենա միայն այս environment-ի համար հաստատված
+read-only forum chat ID-ները, իսկ active source-ը ընտրում է `TELEGRAM_CONTENT_CHAT_ID`-ն։
+Production deployment-ի allowlist/session արժեքները staging deploy-ի մաս չեն։ Shared secret-ի
 արժեքը նույն environment-ի Worker-ում և Bridge-ում նույնն է, բայց environments-ի
 միջև տարբեր է։ Որևէ secret `VITE_` prefix չունի։
+
+`TELEGRAM_CONTENT_CHAT_ID`-ը ընտրում է տվյալ Bridge instance-ի միակ active source-ը
+և պարտադիր ներառված է `TELEGRAM_ALLOWED_CHAT_IDS`-ում։ Եթե allowlist-ում մի քանի
+թույլատրված read-only forum կա, adapter-ը topics/history/search/media հարցնում է միայն
+active source-ից, ուստի test և main forum նյութերը չեն միավորվում։ Source-ը փոխվում է
+միայն environment configuration-ով, ոչ application code-ով։
 
 ## Bridge hosting տարբերակներ
 

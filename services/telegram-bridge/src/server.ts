@@ -2,18 +2,19 @@ import { createServer, type ServerResponse } from "node:http";
 import { once } from "node:events";
 
 import { createBridgeApplication } from "./app";
-import { readBridgeConfig } from "./config";
+import { activeContentChatIds, readBridgeConfig } from "./config";
 import { GramJsTelegramAdapter } from "./gramjs-adapter";
 import { MockTelegramAdapter } from "./mock-adapter";
 
 const config = readBridgeConfig();
+const contentChatIds = activeContentChatIds(config);
 const adapter = config.adapter === "mock"
   ? new MockTelegramAdapter()
   : new GramJsTelegramAdapter({
       apiId: config.apiId!,
       apiHash: config.apiHash!,
       session: config.session!,
-      allowedChatIds: config.allowedChatIds,
+      allowedChatIds: contentChatIds,
     });
 let ready = false;
 await adapter.connect();
@@ -21,7 +22,7 @@ ready = true;
 
 const application = createBridgeApplication({
   adapter,
-  allowedChatIds: new Set(config.allowedChatIds),
+  allowedChatIds: new Set(contentChatIds),
   sharedSecret: config.sharedSecret,
   mediaConcurrency: config.mediaConcurrency,
   mediaTimeoutMs: config.mediaTimeoutMs,

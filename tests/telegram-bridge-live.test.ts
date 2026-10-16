@@ -2,22 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
-import { readBridgeConfig } from "../services/telegram-bridge/src/config";
+import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { GramJsTelegramAdapter } from "../services/telegram-bridge/src/gramjs-adapter";
 import type { BridgeCategory, BridgePost, BridgePostPage } from "../shared/telegram-bridge-contract";
 
 const live = process.env.TELEGRAM_LIVE_TEST === "1";
+const TEST_FIXTURE_CHAT_ID = "-1004427053230";
 
 test("authorized GramJS session serves the allowlisted forum end to end", { skip: !live, timeout: 120_000 }, async (context) => {
   const config = readBridgeConfig(process.env);
   assert.equal(config.adapter, "gramjs");
-  assert.equal(config.allowedChatIds.length, 1, "Live verification requires exactly one explicitly allowlisted test chat.");
-  const chatId = config.allowedChatIds[0];
+  const contentChatIds = activeContentChatIds(config);
+  assert.equal(contentChatIds.length, 1, "Live verification must use exactly one active content source.");
+  const chatId = contentChatIds[0];
   const adapter = new GramJsTelegramAdapter({
     apiId: config.apiId!,
     apiHash: config.apiHash!,
     session: config.session!,
-    allowedChatIds: config.allowedChatIds,
+    allowedChatIds: contentChatIds,
   });
   await adapter.connect();
   context.after(() => adapter.close());
@@ -30,7 +32,7 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
 
   const app = createBridgeApplication({
     adapter,
-    allowedChatIds: new Set(config.allowedChatIds),
+    allowedChatIds: new Set(contentChatIds),
     sharedSecret: config.sharedSecret,
     mediaConcurrency: 1,
     topicCacheTtlMs: 1_000,
@@ -66,6 +68,74 @@ test("authorized GramJS session serves the allowlisted forum end to end", { skip
     }
   }
   const uniquePosts = [...new Map(posts.map((post) => [post.id, post])).values()];
+  if (chatId !== TEST_FIXTURE_CHAT_ID) {
+    const visibleTopics = topics.filter((topic) => !topic.isGeneral && topic.topicId !== 1);
+    assert.equal(visibleTopics.length, 6, "The active main forum should expose six visible content topics.");
+    assert.ok(uniquePosts.length > 0, "The active main forum should expose readable materials.");
+    assert.ok(uniquePosts.every((post) => post.chatId === chatId), "No material may leak from another allowlisted forum.");
+
+    const text = uniquePosts.find((post) => post.contentType === "text");
+    const poll = uniquePosts.find((post) => post.contentType === "poll" && post.poll?.options.length);
+    const audio = uniquePosts.find((post) => post.contentType === "audio");
+    const video = uniquePosts.find((post) => post.contentType === "video");
+    assert.ok(text, "The main forum should expose a text material.");
+    assert.ok(poll, "The main forum should expose a poll material.");
+    assert.ok(audio, "The main forum should expose an audio material.");
+    assert.ok(video, "The main forum should expose a video material.");
+    const pollData = poll.poll;
+    assert.ok(pollData);
+    assert.doesNotMatch(JSON.stringify(pollData), /chosen|correct|explanation|solution/iu);
+
+    const detail = await app(request(`/posts/${chatId}/${text.messageId}`));
+    assert.equal(detail.status, 200);
+    assert.equal((await detail.json() as BridgePost).messageId, text.messageId);
+    const unavailable = await app(request(`/posts/${chatId}/2147483647`));
+    assert.equal(unavailable.status, 404);
+    const testForumDenied = await app(request(`/posts/${TEST_FIXTURE_CHAT_ID}/1`));
+    assert.equal(testForumDenied.status, 404);
+
+    const idSearch = await app(request(`/search?q=${encodeURIComponent(`#${video.messageId}`)}`));
+    assert.equal(idSearch.status, 200);
+    assert.ok((await idSearch.json() as BridgePostPage).posts.some((post) => post.messageId === video.messageId));
+    for (const query of ["Սաղմոս", "Սաղմ", "saxmos"]) {
+      const search = await app(request(`/search?q=${encodeURIComponent(query)}`));
+      assert.equal(search.status, 200);
+      assert.ok((await search.json() as BridgePostPage).posts.length > 0, `${query} should find a main-forum material.`);
+    }
+
+    const pollQuestionSearch = await app(request(`/search?q=${encodeURIComponent(pollData.question.text)}`));
+    assert.equal(pollQuestionSearch.status, 200);
+    assert.ok((await pollQuestionSearch.json() as BridgePostPage).posts.some((post) => post.messageId === poll.messageId));
+    const pollOption = pollData.options.find((option) => Array.from(option.text.text.trim()).length >= 2);
+    assert.ok(pollOption);
+    const pollOptionSearch = await app(request(`/search?q=${encodeURIComponent(pollOption.text.text)}`));
+    assert.equal(pollOptionSearch.status, 200);
+    assert.ok((await pollOptionSearch.json() as BridgePostPage).posts.some((post) => post.messageId === poll.messageId));
+
+    const rangeCheck = async (post: BridgePost) => {
+      const descriptor = post.media[0];
+      assert.ok(descriptor?.sizeBytes && descriptor.sizeBytes > 64);
+      const head = await app(request(`/media/${chatId}/${post.messageId}/0`, { method: "HEAD" }));
+      assert.equal(head.status, 200);
+      assert.equal(head.headers.get("accept-ranges"), "bytes");
+      const range = await app(request(`/media/${chatId}/${post.messageId}/0`, { headers: { range: "bytes=0-63" } }));
+      assert.equal(range.status, 206);
+      assert.equal((await range.arrayBuffer()).byteLength, 64);
+    };
+    await rangeCheck(audio);
+    await rangeCheck(video);
+
+    const unmatchedQuery = "չհամընկնողեզակիբառաշար";
+    const topicNoMatch = await app(request(
+      `/search?q=${encodeURIComponent(unmatchedQuery)}&category=${encodeURIComponent(visibleTopics[0].id)}`,
+    ));
+    assert.equal(topicNoMatch.status, 200);
+    assert.equal((await topicNoMatch.json() as BridgePostPage).posts.length, 0);
+    const globalNoMatch = await app(request(`/search?q=${encodeURIComponent(unmatchedQuery)}`));
+    assert.equal(globalNoMatch.status, 200);
+    assert.equal((await globalNoMatch.json() as BridgePostPage).posts.length, 0);
+    return;
+  }
   assert.ok(uniquePosts.some((post) => post.contentType === "text"));
   assert.ok(uniquePosts.some((post) => post.contentType === "photo"));
   assert.ok(uniquePosts.some((post) => post.contentType === "album" && post.media.length > 1));

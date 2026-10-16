@@ -11,7 +11,7 @@ import { isPendingNavigation } from "../shared/navigation-state";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
 import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
-import { readBridgeConfig } from "../services/telegram-bridge/src/config";
+import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
 import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
 import { normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
@@ -389,6 +389,7 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   assert.equal(config.requestConcurrency, 32);
   assert.equal(config.requestTimeoutMs, 30_000);
   assert.equal(config.shutdownGraceMs, 30_000);
+  assert.equal(config.contentChatId, MOCK_CHAT_ID);
   assert.equal(config.searchIndexMaximumDocuments, 10_000);
   assert.equal(config.searchIndexMaximumTextCharacters, 20_000_000);
   const expandedIndex = readBridgeConfig({
@@ -401,6 +402,23 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   assert.throws(
     () => readBridgeConfig({ ...base, TELEGRAM_ALLOWED_CHAT_IDS: `${MOCK_CHAT_ID},not-a-chat` }),
     /invalid Telegram chat ID/u,
+  );
+  const secondaryChatId = "-100901";
+  const selectedSource = readBridgeConfig({
+    ...base,
+    TELEGRAM_ALLOWED_CHAT_IDS: `${MOCK_CHAT_ID},${secondaryChatId}`,
+    TELEGRAM_CONTENT_CHAT_ID: secondaryChatId,
+  });
+  assert.deepEqual(selectedSource.allowedChatIds, [MOCK_CHAT_ID, secondaryChatId]);
+  assert.equal(selectedSource.contentChatId, secondaryChatId);
+  assert.deepEqual(activeContentChatIds(selectedSource), [secondaryChatId]);
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_ALLOWED_CHAT_IDS: `${MOCK_CHAT_ID},${secondaryChatId}` }),
+    /TELEGRAM_CONTENT_CHAT_ID is required/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_CONTENT_CHAT_ID: secondaryChatId }),
+    /must be included/u,
   );
   assert.throws(
     () => readBridgeConfig({ ...base, TELEGRAM_REQUEST_CONCURRENCY: "0" }),

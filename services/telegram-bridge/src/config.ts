@@ -4,6 +4,7 @@ export type BridgeConfig = {
   adapter: "gramjs" | "mock";
   sharedSecret: string;
   allowedChatIds: string[];
+  contentChatId: string;
   apiId: number | null;
   apiHash: string | null;
   session: string | null;
@@ -22,6 +23,10 @@ export const DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS = 10_000;
 export const DEFAULT_SEARCH_INDEX_MAX_CHARACTERS = 20_000_000;
 export const MAXIMUM_SEARCH_INDEX_MAX_DOCUMENTS = 50_000;
 export const MAXIMUM_SEARCH_INDEX_MAX_CHARACTERS = 100_000_000;
+
+export function activeContentChatIds(config: Pick<BridgeConfig, "contentChatId">) {
+  return [config.contentChatId];
+}
 
 function integer(
   environment: NodeJS.ProcessEnv,
@@ -50,6 +55,11 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     throw new Error("TELEGRAM_ALLOWED_CHAT_IDS contains an invalid Telegram chat ID.");
   }
   const allowedChatIds = [...new Set(configuredChatIds)];
+  const configuredContentChatId = environment.TELEGRAM_CONTENT_CHAT_ID?.trim() ?? "";
+  if (configuredContentChatId && !/^-?\d{1,20}$/u.test(configuredContentChatId)) {
+    throw new Error("TELEGRAM_CONTENT_CHAT_ID contains an invalid Telegram chat ID.");
+  }
+  const contentChatId = configuredContentChatId || (allowedChatIds.length === 1 ? allowedChatIds[0] : "");
   const apiId = Number(environment.TELEGRAM_API_ID);
   const config: BridgeConfig = {
     host: environment.TELEGRAM_BRIDGE_HOST?.trim() || "127.0.0.1",
@@ -57,6 +67,7 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     adapter,
     sharedSecret,
     allowedChatIds,
+    contentChatId,
     apiId: Number.isSafeInteger(apiId) && apiId > 0 ? apiId : null,
     apiHash: environment.TELEGRAM_API_HASH?.trim() || null,
     session: environment.TELEGRAM_SESSION?.trim() || null,
@@ -85,6 +96,12 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     throw new Error("TELEGRAM_BRIDGE_SHARED_SECRET is required and must be URL-safe.");
   }
   if (config.allowedChatIds.length === 0) throw new Error("TELEGRAM_ALLOWED_CHAT_IDS is required.");
+  if (!config.contentChatId) {
+    throw new Error("TELEGRAM_CONTENT_CHAT_ID is required when more than one Telegram chat is allowlisted.");
+  }
+  if (!config.allowedChatIds.includes(config.contentChatId)) {
+    throw new Error("TELEGRAM_CONTENT_CHAT_ID must be included in TELEGRAM_ALLOWED_CHAT_IDS.");
+  }
   if (adapter === "gramjs" && (!config.apiId || !config.apiHash || !config.session)) {
     throw new Error("GramJS requires TELEGRAM_API_ID, TELEGRAM_API_HASH and TELEGRAM_SESSION.");
   }

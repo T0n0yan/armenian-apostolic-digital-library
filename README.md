@@ -93,6 +93,9 @@ Production adapter-ի variables՝
 - `TELEGRAM_API_HASH`
 - `TELEGRAM_SESSION`
 - `TELEGRAM_ALLOWED_CHAT_IDS`՝ comma-separated allowlist
+- `TELEGRAM_CONTENT_CHAT_ID`՝ տվյալ environment-ի միակ active content forum-ը։ Այն
+  պետք է ներառված լինի allowlist-ում։ Մեկ-chat allowlist-ի դեպքում այդ միակ արժեքը
+  backward-compatible fallback է, իսկ բազմաչատ allowlist-ը պահանջում է explicit արժեք։
 - `TELEGRAM_BRIDGE_SHARED_SECRET`
 - optional `TELEGRAM_MEDIA_CONCURRENCY`
 - optional `TELEGRAM_MEDIA_TIMEOUT_MS`
