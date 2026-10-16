@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
+import { mediaPlaybackStateForEvent } from "../app/utils/media-playback";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
-import { teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
+import { probeUnknownMediaSize, teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
 import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
@@ -114,12 +116,30 @@ test("search hits preserve bounded original UTF-16 spans for exact, transliterat
   assert.equal(isBridgeSearchHit({ ...fuzzy?.hit, start: 99_999 }), false);
 });
 
-test("Teleproto media plan uses byte limits and preserves the source DC", () => {
+test("Teleproto media plan aligns arbitrary browser ranges and preserves the source DC", () => {
   const plan = teleprotoDownloadParameters(100, 700_099, 4);
-  assert.equal(plan.limit, 700_000);
+  assert.equal(plan.limit, 700_100);
   assert.equal(plan.requestSize, 512 * 1024);
-  assert.equal(plan.offset.toString(), "100");
+  assert.equal(plan.offset.toString(), "0");
+  assert.equal(plan.leadingBytesToSkip, 100);
   assert.equal(plan.dcId, 4);
+
+  const seek = teleprotoDownloadParameters(13_508_608, 13_574_143, 2);
+  assert.equal(Number(seek.offset.toString()) % seek.requestSize, 0);
+  assert.equal(Number(seek.offset.toString()) + seek.leadingBytesToSkip, 13_508_608);
+});
+
+test("unknown Telegram media size probing is bounded and does not buffer the whole file", async () => {
+  const chunkSize = 512;
+  const fileSize = 2_345;
+  const offsets: number[] = [];
+  const size = await probeUnknownMediaSize(async (offset) => {
+    offsets.push(offset);
+    return Math.max(0, Math.min(chunkSize, fileSize - offset));
+  }, chunkSize, 16 * chunkSize);
+  assert.equal(size, fileSize);
+  assert.ok(offsets.length < Math.ceil(fileSize / chunkSize), "probing should locate the tail without reading every chunk");
+  assert.ok(offsets.every((offset) => offset % chunkSize === 0));
 });
 
 test("memory search index enforces configurable document and character ceilings", async () => {
@@ -406,7 +426,14 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.equal(bytes[0], 100 % 251);
   const multiChunk = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=0-614399" } }));
   assert.equal(multiChunk.status, 206);
+  assert.equal(multiChunk.headers.get("content-length"), "614400");
+  assert.equal(multiChunk.headers.get("content-range"), `bytes 0-614399/${MOCK_VIDEO_SIZE}`);
   assert.equal((await multiChunk.arrayBuffer()).byteLength, 614_400);
+  const sequential = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=614400-679935" } }));
+  assert.equal(sequential.status, 206);
+  assert.equal(sequential.headers.get("content-length"), "65536");
+  assert.equal(sequential.headers.get("content-range"), `bytes 614400-679935/${MOCK_VIDEO_SIZE}`);
+  assert.equal((await sequential.arrayBuffer()).byteLength, 65_536);
   for (const [messageId, mediaIndex] of [[112, 0], [102, 0], [103, 1], [113, 0]] as const) {
     const mediaHead = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/${messageId}/${mediaIndex}`, { method: "HEAD" }));
     assert.equal(mediaHead.status, 200);
@@ -426,6 +453,8 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
 
   const seek = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=104857600-104857663" } }));
   assert.equal(seek.status, 206);
+  assert.equal(seek.headers.get("content-length"), "64");
+  assert.equal(seek.headers.get("content-range"), `bytes 104857600-104857663/${MOCK_VIDEO_SIZE}`);
   assert.equal((await seek.arrayBuffer()).byteLength, 64);
   const invalid = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: `bytes=${MOCK_VIDEO_SIZE}-` } }));
   assert.equal(invalid.status, 416);
@@ -455,6 +484,14 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
 test("pending navigation, media failure isolation, and metadata abort remain safe", async () => {
   assert.equal(isPendingNavigation("loading", "/materials/example", "/materials/example"), true);
   assert.equal(isPendingNavigation("idle", undefined, "/materials/example"), false);
+  assert.equal(mediaPlaybackStateForEvent("initial", "load-start"), "metadata");
+  assert.equal(mediaPlaybackStateForEvent("metadata", "waiting"), "buffering");
+  assert.equal(mediaPlaybackStateForEvent("buffering", "seeking"), "seeking");
+  assert.equal(mediaPlaybackStateForEvent("seeking", "seeked", { paused: false }), "playing");
+  assert.equal(mediaPlaybackStateForEvent("playing", "pause", { seeking: true, hasCurrentData: true }), "playing");
+  assert.equal(mediaPlaybackStateForEvent("playing", "pause", { seeking: false, hasCurrentData: true }), "paused");
+  assert.equal(mediaPlaybackStateForEvent("paused", "error"), "error");
+  assert.equal(mediaPlaybackStateForEvent("error", "retry"), "initial");
 
   const mediaSource = readFileSync(resolve(ROOT, "app/components/material-media.tsx"), "utf8");
   const resultCardSource = readFileSync(resolve(ROOT, "app/components/material-result-card.tsx"), "utf8");
@@ -463,6 +500,14 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   const bridgeAppSource = readFileSync(resolve(ROOT, "services/telegram-bridge/src/app.ts"), "utf8");
   const bridgeServerSource = readFileSync(resolve(ROOT, "services/telegram-bridge/src/server.ts"), "utf8");
   assert.match(mediaSource, /onError=\{\(\) => setFailed\(true\)\}/u);
+  assert.match(mediaSource, /data-media-state=\{state\}/u);
+  assert.match(mediaSource, /onWaiting/u);
+  assert.match(mediaSource, /onSeeking/u);
+  assert.match(mediaSource, /onSeeked/u);
+  assert.match(mediaSource, /element\.load\(\)/u);
+  assert.match(mediaSource, /src: asset\.url/u);
+  assert.doesNotMatch(mediaSource, /key=\{(?:state|retry|retryKey)/u, "playback state must not remount the media element");
+  assert.doesNotMatch(mediaSource, /currentTime\s*=/u, "rerenders must not reset playback position");
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(resultCardSource, /state=\{material\.searchHit/u);
   assert.match(resultCardSource, /snippetMatchStart/u);
@@ -519,6 +564,31 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
     headers: { range: "bytes=0-63" },
   }));
   await assert.rejects(timedOutMedia.arrayBuffer(), /timeout|aborted/iu);
+
+  const truncatedAdapter = new MockTelegramAdapter();
+  truncatedAdapter.streamMedia = async function* () {
+    yield new Uint8Array(16);
+    throw new Error("Telegram media stream ended before the requested range was complete.");
+  };
+  const truncatedApp = createBridgeApplication({
+    adapter: truncatedAdapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+  });
+  const truncatedMedia = await truncatedApp(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, {
+    headers: { range: "bytes=0-63" },
+  }));
+  await assert.rejects(truncatedMedia.arrayBuffer(), /ended before|stream/iu);
+  assert.deepEqual(await (await truncatedApp(bridgeRequest("/ready"))).json(), { ready: true });
+
+  const previewStatus = spawnSync(process.execPath, ["scripts/staging-preview.mjs", "status"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  assert.equal(previewStatus.status, 0);
+  assert.match(previewStatus.stdout, /Supervisor: (?:running|stopped)/u);
+  assert.match(previewStatus.stdout, /Bridge: (?:running|stopped)/u);
+  assert.match(previewStatus.stdout, /Tunnel: (?:running|stopped)/u);
 });
 
 test("bounded navigation cache preserves loaded pages and isolates topic, query, and viewer scope", async () => {

@@ -1,7 +1,8 @@
-import { AlertCircle, Expand, FileText, Headphones, ImageIcon, RotateCw, Video } from "lucide-react";
-import { memo, useState } from "react";
+import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, RotateCw, Video } from "lucide-react";
+import { memo, useCallback, useRef, useState, type SyntheticEvent } from "react";
 
 import type { MaterialMedia } from "../data/material-detail.server";
+import { mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
 
 function durationLabel(seconds: number | null) {
   if (!seconds || seconds < 0) return null;
@@ -18,6 +19,88 @@ function Waveform({ encoded }: { encoded: string }) {
   } catch { /* Invalid Telegram waveform metadata is ignored safely. */ }
   if (values.length === 0) return null;
   return <span className="flex h-7 items-center gap-px overflow-hidden" aria-hidden="true">{values.map((value, index) => <span className="w-1 shrink-0 rounded-full bg-gold/55" style={{ height: `${Math.max(3, Math.round(value / 255 * 26))}px` }} key={`${index}-${value}`} />)}</span>;
+}
+
+function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry: () => void }) {
+  const busy = state === "initial" || state === "metadata" || state === "buffering" || state === "seeking";
+  return (
+    <div
+      className="flex min-h-10 items-center justify-between gap-3 border-t border-white/10 bg-[rgb(10_7_12/88%)] px-3 py-2 text-[11px] text-white/78"
+      data-media-state={state}
+      aria-busy={busy}
+    >
+      <span className="inline-flex min-w-0 items-center gap-2" role="status" aria-live="polite" aria-atomic="true">
+        {busy ? <LoaderCircle className="shrink-0 motion-safe:animate-spin" aria-hidden="true" size={14} /> : state === "error" ? <AlertCircle className="shrink-0 text-gold" aria-hidden="true" size={14} /> : null}
+        <span>{mediaPlaybackLabel(state)}</span>
+      </span>
+      {state === "error" ? (
+        <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] border border-white/15 bg-white/8 px-3 font-bold text-white" type="button" onClick={onRetry}>
+          <RotateCw aria-hidden="true" size={14} /> Կրկին փորձել
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "audio" | "video"; ratio?: string }) {
+  const elementRef = useRef<HTMLMediaElement | null>(null);
+  const [state, setState] = useState<MediaPlaybackState>("initial");
+  const ref = useCallback((element: HTMLMediaElement | null) => { elementRef.current = element; }, []);
+  const updateFromCanPlay = (event: SyntheticEvent<HTMLMediaElement>) => {
+    setState((current) => mediaPlaybackStateForEvent(current, "can-play", { paused: event.currentTarget.paused }));
+  };
+  const retry = () => {
+    const element = elementRef.current;
+    if (!element) return;
+    setState((current) => mediaPlaybackStateForEvent(current, "retry"));
+    element.load();
+  };
+  const common = {
+    src: asset.url ?? undefined,
+    controls: true,
+    preload: "metadata" as const,
+    onLoadStart: () => setState((current) => mediaPlaybackStateForEvent(current, "load-start")),
+    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setState((current) => mediaPlaybackStateForEvent(current, "metadata-ready", { paused: event.currentTarget.paused })),
+    onCanPlay: updateFromCanPlay,
+    onWaiting: () => setState((current) => mediaPlaybackStateForEvent(current, "waiting")),
+    onStalled: () => setState((current) => mediaPlaybackStateForEvent(current, "stalled")),
+    onSeeking: () => setState((current) => mediaPlaybackStateForEvent(current, "seeking")),
+    onSeeked: (event: SyntheticEvent<HTMLMediaElement>) => setState((current) => mediaPlaybackStateForEvent(current, "seeked", { paused: event.currentTarget.paused })),
+    onPlaying: () => setState((current) => mediaPlaybackStateForEvent(current, "playing")),
+    onPause: (event: SyntheticEvent<HTMLMediaElement>) => {
+      setState((current) => mediaPlaybackStateForEvent(current, "pause", {
+        seeking: event.currentTarget.seeking,
+        hasCurrentData: event.currentTarget.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+      }));
+    },
+    onError: () => setState((current) => mediaPlaybackStateForEvent(current, "error")),
+  };
+
+  return (
+    <div className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[#100c10] shadow-card" : "grid min-w-0 gap-2.5"}>
+      {kind === "video" ? (
+        <video
+          {...common}
+          ref={ref}
+          className="block max-h-[74svh] w-full object-contain"
+          playsInline
+          poster={asset.thumbnailUrl ?? undefined}
+          style={{ aspectRatio: ratio }}
+          aria-label={asset.altText || "Telegram հրապարակման տեսանյութ"}
+        >
+          Բրաուզերդ չի աջակցում տեսանյութը։
+        </video>
+      ) : (
+        <audio
+          {...common}
+          ref={ref}
+          className="w-full"
+          aria-label={asset.altText || (asset.kind === "voice" ? "Telegram ձայնային հաղորդագրություն" : "Telegram հրապարակման աուդիո")}
+        />
+      )}
+      <PlaybackStatus state={state} onRetry={retry} />
+    </div>
+  );
 }
 
 function PendingMedia({ asset }: { asset: MaterialMedia }) {
@@ -101,22 +184,7 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
   }
 
   if (asset.kind === "video" || asset.kind === "animation") {
-    return (
-      <div className="overflow-hidden rounded-[18px] border border-glass-border bg-[#100c10] shadow-card">
-        <video
-          className="block max-h-[74svh] w-full object-contain"
-          controls
-          playsInline
-          preload="metadata"
-          poster={asset.thumbnailUrl ?? undefined}
-          style={{ aspectRatio: ratio }}
-          aria-label={asset.altText || "Telegram հրապարակման տեսանյութ"}
-        >
-          <source src={asset.url} type={asset.mimeType ?? undefined} />
-          Բրաուզերդ չի աջակցում տեսանյութը։
-        </video>
-      </div>
-    );
+    return <StreamingMedia asset={asset} kind="video" ratio={ratio} />;
   }
 
   if (asset.kind === "audio" || asset.kind === "voice") {
@@ -130,9 +198,7 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
           </span>
           {asset.performer ? <span className="text-[11px] text-muted">{asset.performer}</span> : null}
           {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}
-          <audio className="w-full" controls preload="metadata" aria-label={asset.altText || (asset.kind === "voice" ? "Telegram ձայնային հաղորդագրություն" : "Telegram հրապարակման աուդիո")}>
-            <source src={asset.url} type={asset.mimeType ?? undefined} />
-          </audio>
+          <StreamingMedia asset={asset} kind="audio" />
         </div>
       </div>
     );

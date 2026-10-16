@@ -162,22 +162,49 @@ test("authorized Teleproto session serves the allowlisted forum end to end", { s
 
     const rangeCheck = async (post: BridgePost, mediaIndex = 0, length = 64) => {
       const descriptor = post.media[mediaIndex];
-      assert.ok(descriptor?.sizeBytes && descriptor.sizeBytes > 64);
+      assert.ok(descriptor);
       const head = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { method: "HEAD" }));
       assert.equal(head.status, 200);
       assert.equal(head.headers.get("accept-ranges"), "bytes");
-      const safeLength = Math.min(length, descriptor.sizeBytes!);
+      const resolvedSize = Number(head.headers.get("content-length"));
+      assert.ok(resolvedSize > 64);
+      const safeLength = Math.min(length, resolvedSize);
       const range = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { headers: { range: `bytes=0-${safeLength - 1}` } }));
       assert.equal(range.status, 206);
+      assert.equal(range.headers.get("content-length"), String(safeLength));
+      assert.equal(range.headers.get("content-range"), `bytes 0-${safeLength - 1}/${resolvedSize}`);
       assert.equal((await range.arrayBuffer()).byteLength, safeLength);
-      const invalid = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { headers: { range: `bytes=${descriptor.sizeBytes}-` } }));
+      const invalid = await app(request(`/media/${chatId}/${post.messageId}/${mediaIndex}`, { headers: { range: `bytes=${resolvedSize}-` } }));
       assert.equal(invalid.status, 416);
+      return resolvedSize;
     };
     await rangeCheck(audio, 0, 614_400);
     await rangeCheck(video, 0, 614_400);
-    const richPhoto = uniquePosts.find((post) => (post.topicId === 136 || post.topicId === 205) && post.media.some((media) => media.kind === "photo"));
-    assert.ok(richPhoto, "A RichMessage photo must be available for streaming verification.");
-    await rangeCheck(richPhoto, richPhoto.media.findIndex((media) => media.kind === "photo"));
+    const richPhoto = uniquePosts.find((post) => post.topicId === 136 && post.media.some((media) => media.kind === "photo"));
+    assert.ok(richPhoto, "Topic 136 must expose a RichMessage photo for streaming verification.");
+    const richPhotoIndex = richPhoto.media.findIndex((media) => media.kind === "photo");
+    await rangeCheck(richPhoto, richPhotoIndex);
+    const richThumbnailHead = await app(request(`/media/${chatId}/${richPhoto.messageId}/${richPhotoIndex}?thumbnail=1`, { method: "HEAD" }));
+    assert.equal(richThumbnailHead.status, 200);
+    const richThumbnailSize = Number(richThumbnailHead.headers.get("content-length"));
+    assert.ok(richThumbnailSize > 64);
+    const richThumbnailRange = await app(request(`/media/${chatId}/${richPhoto.messageId}/${richPhotoIndex}?thumbnail=1`, { headers: { range: "bytes=0-63" } }));
+    assert.equal(richThumbnailRange.status, 206);
+    assert.equal((await richThumbnailRange.arrayBuffer()).byteLength, 64);
+    const richVideo = topic205Posts.find((post) => post.media.some((media) => media.kind === "video"));
+    assert.ok(richVideo, "Topic 205 must expose a RichMessage video for seek verification.");
+    const richVideoIndex = richVideo.media.findIndex((media) => media.kind === "video");
+    const richVideoSize = await rangeCheck(richVideo, richVideoIndex, 65_536);
+    for (const [start, end] of [[65_536, 131_071], [Math.floor(richVideoSize / 2), Math.floor(richVideoSize / 2) + 65_535]]) {
+      const boundedEnd = Math.min(end, richVideoSize - 1);
+      const response = await app(request(`/media/${chatId}/${richVideo.messageId}/${richVideoIndex}`, {
+        headers: { range: `bytes=${start}-${boundedEnd}` },
+      }));
+      assert.equal(response.status, 206);
+      assert.equal(response.headers.get("content-length"), String(boundedEnd - start + 1));
+      assert.equal(response.headers.get("content-range"), `bytes ${start}-${boundedEnd}/${richVideoSize}`);
+      assert.equal((await response.arrayBuffer()).byteLength, boundedEnd - start + 1);
+    }
     const album = uniquePosts.find((post) => post.contentType === "album" && post.media.length > 1);
     if (album) await rangeCheck(album, 1);
     const document = uniquePosts.find((post) => post.media.some((media) => media.kind === "document"));

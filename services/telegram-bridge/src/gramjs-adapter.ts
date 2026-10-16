@@ -377,14 +377,51 @@ function inputLocation(source: MediaSource, thumbnail = false) {
   return null;
 }
 
+const TELEGRAM_DOWNLOAD_CHUNK_SIZE = 512 * 1024;
+const UNKNOWN_MEDIA_SIZE_PROBE_LIMIT = 64 * 1024 * 1024;
+
 export function teleprotoDownloadParameters(start: number, end: number, dcId?: number) {
+  const alignedOffset = Math.floor(start / TELEGRAM_DOWNLOAD_CHUNK_SIZE) * TELEGRAM_DOWNLOAD_CHUNK_SIZE;
   return {
-    offset: bigInt(start),
-    requestSize: 512 * 1024,
+    offset: bigInt(alignedOffset),
+    requestSize: TELEGRAM_DOWNLOAD_CHUNK_SIZE,
     // Teleproto's iterator limit is bytes, not the archived GramJS chunk count.
-    limit: end - start + 1,
+    limit: end - alignedOffset + 1,
+    leadingBytesToSkip: start - alignedOffset,
     ...(dcId ? { dcId } : {}),
   };
+}
+
+export async function probeUnknownMediaSize(
+  readChunk: (offset: number) => Promise<number>,
+  chunkSize = TELEGRAM_DOWNLOAD_CHUNK_SIZE,
+  maximumSize = UNKNOWN_MEDIA_SIZE_PROBE_LIMIT,
+) {
+  const maximumChunk = Math.ceil(maximumSize / chunkSize);
+  const first = await readChunk(0);
+  if (first < chunkSize) return first;
+
+  let lowerFullChunk = 0;
+  let upperTerminalChunk = 1;
+  while (upperTerminalChunk <= maximumChunk) {
+    const bytes = await readChunk(upperTerminalChunk * chunkSize);
+    if (bytes < chunkSize) {
+      if (bytes > 0) return upperTerminalChunk * chunkSize + bytes;
+      break;
+    }
+    lowerFullChunk = upperTerminalChunk;
+    upperTerminalChunk *= 2;
+  }
+  if (upperTerminalChunk > maximumChunk) return null;
+
+  while (upperTerminalChunk - lowerFullChunk > 1) {
+    const candidate = Math.floor((lowerFullChunk + upperTerminalChunk) / 2);
+    const bytes = await readChunk(candidate * chunkSize);
+    if (bytes === chunkSize) lowerFullChunk = candidate;
+    else upperTerminalChunk = candidate;
+  }
+  const tail = await readChunk(upperTerminalChunk * chunkSize);
+  return tail > 0 ? upperTerminalChunk * chunkSize + tail : (lowerFullChunk + 1) * chunkSize;
 }
 
 export class GramJsTelegramAdapter implements TelegramAdapter {
@@ -395,6 +432,8 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   private readonly messageGroupInflight = new Map<string, Promise<Api.Message[] | null>>();
   private readonly searchHistoryCache = new Map<string, { expiresAt: number; messages: Api.Message[] }>();
   private readonly searchHistoryInflight = new Map<string, Promise<Api.Message[]>>();
+  private readonly mediaSizeCache = new Map<string, { expiresAt: number; size: number }>();
+  private readonly mediaSizeInflight = new Map<string, Promise<number | null>>();
 
   constructor(private readonly config: GramConfig) {
     this.client = new TelegramClient(new StringSession(config.session), config.apiId, config.apiHash, {
@@ -694,19 +733,72 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     return messages[mediaIndex] ?? null;
   }
 
+  private async readMediaProbeChunk(
+    resolved: NonNullable<ReturnType<typeof inputLocation>>,
+    offset: number,
+    signal: AbortSignal,
+  ) {
+    signal.throwIfAborted();
+    const iterator = this.client.iterDownload(resolved.location, {
+      offset: bigInt(offset),
+      requestSize: TELEGRAM_DOWNLOAD_CHUNK_SIZE,
+      limit: TELEGRAM_DOWNLOAD_CHUNK_SIZE,
+      ...(resolved.dcId ? { dcId: resolved.dcId } : {}),
+      signal,
+    });
+    try {
+      const chunk = await iterator.next();
+      return chunk.done ? 0 : chunk.value.length;
+    } finally {
+      await iterator.return(undefined);
+    }
+  }
+
+  private async mediaSize(
+    cacheKey: string,
+    resolved: NonNullable<ReturnType<typeof inputLocation>>,
+    signal: AbortSignal,
+  ) {
+    const cached = this.mediaSizeCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.size;
+    const existing = this.mediaSizeInflight.get(cacheKey);
+    if (existing) return existing;
+    const pending = probeUnknownMediaSize((offset) => this.readMediaProbeChunk(resolved, offset, signal))
+      .then((size) => {
+        if (size && size > 0) {
+          this.mediaSizeCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60_000, size });
+          while (this.mediaSizeCache.size > 500) {
+            const oldest = this.mediaSizeCache.keys().next().value as string | undefined;
+            if (!oldest) break;
+            this.mediaSizeCache.delete(oldest);
+          }
+        }
+        return size;
+      })
+      .finally(() => this.mediaSizeInflight.delete(cacheKey));
+    this.mediaSizeInflight.set(cacheKey, pending);
+    return pending;
+  }
+
   async getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail = false) {
     signal.throwIfAborted();
     const source = await this.mediaSource(chatId, messageId, mediaIndex);
     if (!source) return null;
     const asset = mediaFor(source, mediaIndex, source instanceof Api.Message ? source.message || `Telegram media #${messageId}` : `Telegram media #${messageId}`);
     if (!asset) return null;
-    if (!thumbnail) return { ...asset, chatId, messageId };
+    const resolved = inputLocation(source, thumbnail);
+    const resolveSize = async (declaredSize: number | null) => declaredSize && declaredSize > 0
+      ? declaredSize
+      : resolved
+        ? await this.mediaSize(`${chatId}:${messageId}:${mediaIndex}:${thumbnail ? "thumbnail" : "original"}`, resolved, signal)
+        : null;
+    if (!thumbnail) return { ...asset, sizeBytes: await resolveSize(asset.sizeBytes), chatId, messageId };
     const thumb = thumbnailFor(source);
     return thumb ? {
       ...asset,
       mimeType: "image/jpeg",
       fileName: `${asset.fileName ?? `telegram-${messageId}`}-thumbnail.jpg`,
-      sizeBytes: thumb.size,
+      sizeBytes: await resolveSize(thumb.size),
       width: thumb.width,
       height: thumb.height,
       duration: null,
@@ -725,19 +817,29 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     if (!source || (thumbnail && !thumbnailFor(source))) return;
     const resolved = inputLocation(source, Boolean(thumbnail));
     if (!resolved) return;
+    const plan = teleprotoDownloadParameters(start, end, resolved.dcId);
+    const { leadingBytesToSkip, ...downloadParameters } = plan;
     const iterator = this.client.iterDownload(resolved.location, {
-      ...teleprotoDownloadParameters(start, end, resolved.dcId),
+      ...downloadParameters,
       signal,
     });
     let remaining = end - start + 1;
+    let skip = leadingBytesToSkip;
     try {
       for await (const chunk of iterator) {
         signal.throwIfAborted();
         if (remaining <= 0) break;
-        const output = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+        if (skip >= chunk.length) {
+          skip -= chunk.length;
+          continue;
+        }
+        const available = skip > 0 ? chunk.subarray(skip) : chunk;
+        skip = 0;
+        const output = available.length > remaining ? available.subarray(0, remaining) : available;
         remaining -= output.length;
         yield new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
       }
+      if (remaining > 0 && !signal.aborted) throw new Error("Telegram media stream ended before the requested range was complete.");
     } finally {
       await iterator.return(undefined);
     }
