@@ -119,12 +119,14 @@ Bridge API՝
 Բոլոր endpoints-ը պահանջում են service authentication։ Bridge-ը մերժում է allowlist-ից դուրս chat ID-ները։
 
 Search-ը deterministic է և AI provider չի օգտագործում։ Bridge-ը lazy կերպով կառուցում է
-մինչև 2,000 Telegram material / մոտ 4,000,000 searchable character պարունակող
-memory-only index։ Default TTL-ը 30 վայրկյան է, նույն build-ի concurrent request-ները
+default 10,000 Telegram material / 20,000,000 searchable character պարունակող
+memory-only index։ Configurable hard ceiling-ները համապատասխանաբար 50,000 և
+100,000,000 են։ Default TTL-ը 30 վայրկյան է, նույն build-ի concurrent request-ները
 deduplicate են արվում, իսկ restart-ից հետո index-ը նորից է կառուցվում Telegram-ից։
 Index-ը disk/D1/R2 content mirror չէ։ Նոր, խմբագրված և ջնջված նյութերը երևում են
-հաջորդ TTL refresh-ից հետո։ Սահմանները կարգավորվում են `TELEGRAM_SEARCH_*`
-environment variables-ով։
+հաջորդ TTL refresh-ից հետո։ Սահմանները server-only
+`TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS` և `TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS`
+environment variables-ով կարող են միայն նվազեցվել սահմանափակ runtime-ների համար։
 
 D1-ի `search_query_aggregates` table-ը պահում է միայն server-keyed HMAC-SHA-256 query key, scope,
 day bucket և aggregate counters։ Query text, user ID, IP, initData, note կամ Telegram

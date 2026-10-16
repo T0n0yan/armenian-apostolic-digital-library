@@ -79,6 +79,88 @@ test("deterministic query normalization and bounded memory index stay explainabl
   assert.ok(index.metrics().approximateBytes > 0);
 });
 
+test("memory search index enforces configurable document and character ceilings", async () => {
+  const template = {
+    ...MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 101)!,
+    categoryId: MOCK_TOPIC_ID,
+    categoryName: "Աղոթքներ",
+    categorySlug: MOCK_TOPIC_SLUG,
+  };
+  const posts = Array.from({ length: 12 }, (_, index) => ({
+    ...template,
+    id: `${template.id}-${index}`,
+    messageId: 1_000 + index,
+    constituentMessageIds: [1_000 + index],
+    title: `Փնտրելի նյութ ${index}`,
+    contentText: `Փնտրելի բովանդակություն ${index}`,
+  }));
+  const signal = new AbortController().signal;
+  const documentBounded = new TelegramSearchIndex({
+    maximumDocuments: 10,
+    maximumTextCharacters: 1_000_000,
+    load: async () => posts,
+  });
+  await documentBounded.search("փնտրելի", null, null, 30, signal);
+  assert.equal(documentBounded.metrics().documents, 10);
+
+  const singleDocumentCharacters = 10_000;
+  const characterBounded = new TelegramSearchIndex({
+    maximumDocuments: 10,
+    maximumTextCharacters: singleDocumentCharacters,
+    load: async () => posts.map((post) => ({ ...post, contentText: "ա".repeat(6_000) })),
+  });
+  await characterBounded.search("փնտրելի", null, null, 30, signal);
+  assert.equal(characterBounded.metrics().documents, 1);
+  assert.ok(characterBounded.metrics().approximateBytes <= singleDocumentCharacters * 2);
+});
+
+test("Bridge search index paginates beyond two thousand canonical materials", async () => {
+  const adapter = new MockTelegramAdapter();
+  const template = MOCK_TELEGRAM_POSTS.find((post) => post.messageId === 101)!;
+  const history = Array.from({ length: 2_105 }, (_, index) => ({
+    ...template,
+    id: `${template.id}-history-${index}`,
+    messageId: 10_000 + index,
+    constituentMessageIds: [10_000 + index],
+    title: `Երկար պատմության փնտրելի նյութ ${index}`,
+    contentText: `Երկար պատմության փնտրելի բովանդակություն ${index}`,
+  }));
+  let historyCalls = 0;
+  adapter.listTopics = async () => [{
+    id: MOCK_TOPIC_ID,
+    slug: MOCK_TOPIC_SLUG,
+    name: "Աղոթքներ",
+    defaultSort: "title-asc",
+    materialCount: history.length,
+    messageCount: history.length,
+    chatId: MOCK_CHAT_ID,
+    topicId: 700,
+    status: "open",
+    iconColor: null,
+    iconEmojiId: null,
+    isGeneral: false,
+  }];
+  adapter.listHistory = async ({ cursor, limit }) => {
+    historyCalls += 1;
+    const offset = cursor ? Number(cursor) : 0;
+    const posts = history.slice(offset, offset + limit);
+    const nextOffset = offset + posts.length;
+    return { posts, nextCursor: nextOffset < history.length ? String(nextOffset) : null };
+  };
+  const app = createBridgeApplication({
+    adapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    searchIndexMaximumDocuments: 2_105,
+    searchIndexMaximumTextCharacters: 5_000_000,
+  });
+  const response = await app(bridgeRequest(`/search?q=${encodeURIComponent("փնտրելի")}`));
+  const page = await response.json() as BridgePostPage;
+  assert.equal(response.status, 200);
+  assert.equal(page.total, history.length);
+  assert.ok(historyCalls > 20, "history loader must continue past the former 2,000-document boundary");
+});
+
 test("mock adapter and authenticated Bridge API cover pagination, search, posts and streaming", async () => {
   const adapter = new MockTelegramAdapter();
   const metrics: string[] = [];
@@ -307,6 +389,15 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   assert.equal(config.requestConcurrency, 32);
   assert.equal(config.requestTimeoutMs, 30_000);
   assert.equal(config.shutdownGraceMs, 30_000);
+  assert.equal(config.searchIndexMaximumDocuments, 10_000);
+  assert.equal(config.searchIndexMaximumTextCharacters, 20_000_000);
+  const expandedIndex = readBridgeConfig({
+    ...base,
+    TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS: "25000",
+    TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS: "50000000",
+  });
+  assert.equal(expandedIndex.searchIndexMaximumDocuments, 25_000);
+  assert.equal(expandedIndex.searchIndexMaximumTextCharacters, 50_000_000);
   assert.throws(
     () => readBridgeConfig({ ...base, TELEGRAM_ALLOWED_CHAT_IDS: `${MOCK_CHAT_ID},not-a-chat` }),
     /invalid Telegram chat ID/u,
@@ -314,6 +405,18 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   assert.throws(
     () => readBridgeConfig({ ...base, TELEGRAM_REQUEST_CONCURRENCY: "0" }),
     /TELEGRAM_REQUEST_CONCURRENCY/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS: "50001" }),
+    /TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS: "100000001" }),
+    /TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS: "9999" }),
+    /TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS/u,
   );
 });
 

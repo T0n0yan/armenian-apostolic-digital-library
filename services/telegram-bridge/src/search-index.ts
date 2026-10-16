@@ -6,6 +6,10 @@ import {
   type ParsedTelegramSearchQuery,
   type SearchableTelegramDocument,
 } from "../../../shared/telegram-search";
+import {
+  DEFAULT_SEARCH_INDEX_MAX_CHARACTERS,
+  DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS,
+} from "./config";
 
 type IndexedPost = { post: BridgePost; document: SearchableTelegramDocument };
 type IndexSnapshot = {
@@ -67,8 +71,8 @@ export class TelegramSearchIndex {
 
   constructor(private readonly options: SearchIndexOptions) {
     this.ttlMs = Math.max(5_000, options.ttlMs ?? 30_000);
-    this.maximumDocuments = Math.max(1, options.maximumDocuments ?? 2_000);
-    this.maximumTextCharacters = Math.max(10_000, options.maximumTextCharacters ?? 4_000_000);
+    this.maximumDocuments = Math.max(1, options.maximumDocuments ?? DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS);
+    this.maximumTextCharacters = Math.max(10_000, options.maximumTextCharacters ?? DEFAULT_SEARCH_INDEX_MAX_CHARACTERS);
     this.buildTimeoutMs = Math.max(5_000, options.buildTimeoutMs ?? 60_000);
   }
 

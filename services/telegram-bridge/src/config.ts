@@ -18,12 +18,23 @@ export type BridgeConfig = {
   searchIndexBuildTimeoutMs: number;
 };
 
-function integer(environment: NodeJS.ProcessEnv, name: string, fallback: number, maximum = Number.MAX_SAFE_INTEGER) {
+export const DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS = 10_000;
+export const DEFAULT_SEARCH_INDEX_MAX_CHARACTERS = 20_000_000;
+export const MAXIMUM_SEARCH_INDEX_MAX_DOCUMENTS = 50_000;
+export const MAXIMUM_SEARCH_INDEX_MAX_CHARACTERS = 100_000_000;
+
+function integer(
+  environment: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+  maximum = Number.MAX_SAFE_INTEGER,
+  minimum = 1,
+) {
   const value = environment[name];
   if (value === undefined || value.trim() === "") return fallback;
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed <= 0 || parsed > maximum) {
-    throw new Error(`${name} must be a positive integer no greater than ${maximum}.`);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}.`);
   }
   return parsed;
 }
@@ -55,8 +66,19 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     mediaTimeoutMs: integer(environment, "TELEGRAM_MEDIA_TIMEOUT_MS", 120_000, 3_600_000),
     shutdownGraceMs: integer(environment, "TELEGRAM_SHUTDOWN_GRACE_MS", 30_000, 300_000),
     searchIndexTtlMs: integer(environment, "TELEGRAM_SEARCH_INDEX_TTL_MS", 30_000, 3_600_000),
-    searchIndexMaximumDocuments: integer(environment, "TELEGRAM_SEARCH_MAX_DOCUMENTS", 2_000, 20_000),
-    searchIndexMaximumTextCharacters: integer(environment, "TELEGRAM_SEARCH_MAX_TEXT_CHARACTERS", 4_000_000, 40_000_000),
+    searchIndexMaximumDocuments: integer(
+      environment,
+      "TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS",
+      DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS,
+      MAXIMUM_SEARCH_INDEX_MAX_DOCUMENTS,
+    ),
+    searchIndexMaximumTextCharacters: integer(
+      environment,
+      "TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS",
+      DEFAULT_SEARCH_INDEX_MAX_CHARACTERS,
+      MAXIMUM_SEARCH_INDEX_MAX_CHARACTERS,
+      10_000,
+    ),
     searchIndexBuildTimeoutMs: integer(environment, "TELEGRAM_SEARCH_BUILD_TIMEOUT_MS", 60_000, 600_000),
   };
   if (!/^[a-zA-Z0-9_-]{32,256}$/u.test(config.sharedSecret)) {

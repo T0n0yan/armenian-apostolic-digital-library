@@ -42,6 +42,13 @@ Tracked, դատարկ օրինակները գտնվում են `deployment/` պ�
 | production Worker | նույն անուններով առանձին production values |
 | production platform | `DB` → production D1, main Mini App public HTTPS URL |
 
+Bridge search index-ի server-only սահմաններն են
+`TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS` (default՝ 10,000, max՝ 50,000) և
+`TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS` (default՝ 20,000,000, max՝ 100,000,000)։
+Runtime-ի համար դրանք կարելի է կարգավորել այդ սահմաններում (character minimum՝ 10,000)։ Index-ը lazy,
+memory-only է, build timeout-ը կառավարում է `TELEGRAM_SEARCH_BUILD_TIMEOUT_MS`-ը,
+իսկ restart-ից հետո այն նորից կառուցվում է Telegram history-ից։
+
 Staging Bridge allowlist-ը պետք է ունենա միայն հաստատված test forum chat ID-ն։
 Production allowlist/session արժեքները staging deploy-ի մաս չեն։ Shared secret-ի
 արժեքը նույն environment-ի Worker-ում և Bridge-ում նույնն է, բայց environments-ի

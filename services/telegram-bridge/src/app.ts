@@ -8,6 +8,7 @@ import {
 } from "../../../shared/telegram-bridge-contract";
 import { messageIdSearchMatch, parseTelegramSearchQuery } from "../../../shared/telegram-search";
 import type { TelegramAdapter, TelegramPost } from "./adapter";
+import { DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS } from "./config";
 import { parseRangeHeader } from "./range";
 import { TelegramSearchIndex } from "./search-index";
 
@@ -162,7 +163,7 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
     buildTimeoutMs: options.searchIndexBuildTimeoutMs,
     load: async (signal) => {
       const availableTopics = (await topics(false, signal)).filter((topic) => !topic.isGeneral && topic.topicId !== 1);
-      const maximum = Math.max(1, options.searchIndexMaximumDocuments ?? 2_000);
+      const maximum = Math.max(1, options.searchIndexMaximumDocuments ?? DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS);
       const byId = new Map<string, BridgePost>();
       let nextTopic = 0;
       const workers = Array.from({ length: Math.min(2, availableTopics.length) }, async () => {
@@ -170,12 +171,17 @@ export function createBridgeApplication(options: BridgeApplicationOptions) {
           const topic = availableTopics[nextTopic++];
           if (!topic.chatId || !topic.topicId) continue;
           let cursor: string | null = null;
-          for (let pageNumber = 0; pageNumber < 100 && byId.size < maximum; pageNumber += 1) {
+          const seenCursors = new Set<string>();
+          while (byId.size < maximum) {
             signal.throwIfAborted();
+            const cursorIdentity = cursor ?? "initial";
+            if (seenCursors.has(cursorIdentity)) break;
+            seenCursors.add(cursorIdentity);
             const page = await telegramCall("search-index-history", () => options.adapter.listHistory({
               cursor, limit: Math.min(100, maximum - byId.size), chatId: topic.chatId!, topicId: topic.topicId!, signal,
             }));
             for (const raw of page.posts) {
+              if (byId.size >= maximum) break;
               if (!allowedPost(raw, options.allowedChatIds)) continue;
               const post = categorizePost(raw, availableTopics);
               if (post.categoryId && post.topicId !== 1) byId.set(post.id, post);
