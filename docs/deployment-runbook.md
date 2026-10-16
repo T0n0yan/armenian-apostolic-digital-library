@@ -36,7 +36,7 @@ Tracked, դատարկ օրինակները գտնվում են `deployment/` պ�
 | Scope | Required values |
 |---|---|
 | staging Bridge | `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION`, `TELEGRAM_ALLOWED_CHAT_IDS`, `TELEGRAM_BRIDGE_SHARED_SECRET` |
-| staging Worker | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BRIDGE_URL`, `TELEGRAM_BRIDGE_SHARED_SECRET` |
+| staging Worker | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BRIDGE_URL`, `TELEGRAM_BRIDGE_SHARED_SECRET`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` |
 | staging platform | `DB` → staging D1, test Mini App public HTTPS URL |
 | production Bridge | նույն անուններով առանձին production values |
 | production Worker | նույն անուններով առանձին production values |
@@ -98,11 +98,13 @@ staging container-ը։
    չդնելով.
 
    ```bash
+   read -rs CF_ACCESS_CLIENT_ID
+   read -rs CF_ACCESS_CLIENT_SECRET
    read -rs TELEGRAM_BRIDGE_SHARED_SECRET
-   export TELEGRAM_BRIDGE_SHARED_SECRET
-   node -e "fetch(process.env.TELEGRAM_BRIDGE_URL+'/health',{headers:{authorization:'Bearer '+process.env.TELEGRAM_BRIDGE_SHARED_SECRET}}).then(async r=>{console.log(r.status,await r.text());process.exit(r.ok?0:1)})"
-   node -e "fetch(process.env.TELEGRAM_BRIDGE_URL+'/ready',{headers:{authorization:'Bearer '+process.env.TELEGRAM_BRIDGE_SHARED_SECRET}}).then(async r=>{console.log(r.status,await r.text());process.exit(r.ok?0:1)})"
-   unset TELEGRAM_BRIDGE_SHARED_SECRET
+   export CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET TELEGRAM_BRIDGE_SHARED_SECRET
+   node -e "const h={'CF-Access-Client-Id':process.env.CF_ACCESS_CLIENT_ID,'CF-Access-Client-Secret':process.env.CF_ACCESS_CLIENT_SECRET,authorization:'Bearer '+process.env.TELEGRAM_BRIDGE_SHARED_SECRET};fetch(process.env.TELEGRAM_BRIDGE_URL+'/health',{headers:h}).then(async r=>{console.log(r.status,await r.text());process.exit(r.ok?0:1)})"
+   node -e "const h={'CF-Access-Client-Id':process.env.CF_ACCESS_CLIENT_ID,'CF-Access-Client-Secret':process.env.CF_ACCESS_CLIENT_SECRET,authorization:'Bearer '+process.env.TELEGRAM_BRIDGE_SHARED_SECRET};fetch(process.env.TELEGRAM_BRIDGE_URL+'/ready',{headers:h}).then(async r=>{console.log(r.status,await r.text());process.exit(r.ok?0:1)})"
+   unset CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET TELEGRAM_BRIDGE_SHARED_SECRET
    ```
 
 4. Նախ read-only տեսնել staging D1 migration վիճակը.
@@ -123,6 +125,8 @@ staging container-ը։
    pnpm exec wrangler secret put TELEGRAM_BOT_TOKEN --env staging
    pnpm exec wrangler secret put TELEGRAM_BRIDGE_URL --env staging
    pnpm exec wrangler secret put TELEGRAM_BRIDGE_SHARED_SECRET --env staging
+   pnpm exec wrangler secret put CF_ACCESS_CLIENT_ID --env staging
+   pnpm exec wrangler secret put CF_ACCESS_CLIENT_SECRET --env staging
    ```
 
 7. Deploy անել միայն staging Worker-ը և browser-ով ստուգել home/topic/material/media

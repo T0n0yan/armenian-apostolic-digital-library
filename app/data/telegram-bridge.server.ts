@@ -6,31 +6,16 @@ import type {
   BridgePost,
   BridgePostPage,
 } from "../../shared/telegram-bridge-contract";
+import {
+  readTelegramBridgeConfiguration,
+  TelegramBridgeError,
+  type TelegramBridgeEnvironment,
+} from "./telegram-bridge-config.server";
 
-type BridgeEnvironment = Env & {
-  TELEGRAM_BRIDGE_URL?: string;
-  TELEGRAM_BRIDGE_SHARED_SECRET?: string;
-};
-
-export class TelegramBridgeError extends Error {
-  constructor(public readonly status: number, message = "Telegram Bridge request failed.") {
-    super(message);
-    this.name = "TelegramBridgeError";
-  }
-}
+export { TelegramBridgeError } from "./telegram-bridge-config.server";
 
 function configuration() {
-  const url = (env as BridgeEnvironment).TELEGRAM_BRIDGE_URL?.trim();
-  const secret = (env as BridgeEnvironment).TELEGRAM_BRIDGE_SHARED_SECRET?.trim();
-  if (!url || !secret || !/^[a-zA-Z0-9_-]{32,256}$/u.test(secret)) {
-    throw new TelegramBridgeError(503, "Telegram Bridge is not configured.");
-  }
-  let origin: URL;
-  try { origin = new URL(url); } catch { throw new TelegramBridgeError(503, "Telegram Bridge is not configured."); }
-  if (origin.protocol !== "https:" && !["localhost", "127.0.0.1", "::1"].includes(origin.hostname)) {
-    throw new TelegramBridgeError(503, "Telegram Bridge URL must use HTTPS.");
-  }
-  return { origin, secret };
+  return readTelegramBridgeConfiguration(env as Env & TelegramBridgeEnvironment);
 }
 
 function base64Url(value: string) {
@@ -60,10 +45,14 @@ export async function loadBridgeMappings(database: D1Database): Promise<BridgeCa
 }
 
 async function bridgeFetch(path: string, database: D1Database, init: RequestInit = {}, acceptError = false) {
-  const { origin, secret } = configuration();
+  const { origin, secret, access } = configuration();
   const mappings = await loadBridgeMappings(database);
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${secret}`);
+  if (access) {
+    headers.set("CF-Access-Client-Id", access.clientId);
+    headers.set("CF-Access-Client-Secret", access.clientSecret);
+  }
   headers.set("x-telegram-category-mappings", base64Url(JSON.stringify(mappings)));
   const response = await fetch(new URL(path, origin), { ...init, headers });
   if (!response.ok && !acceptError) throw new TelegramBridgeError(response.status);

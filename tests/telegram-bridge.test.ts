@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
+import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { createBridgeApplication } from "../services/telegram-bridge/src/app";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { readBridgeConfig } from "../services/telegram-bridge/src/config";
@@ -15,6 +16,8 @@ import { createTopicCategoryId, createTopicSlug, type BridgeCategoryMappings, ty
 const ROOT = resolve(import.meta.dirname, "..");
 const BRIDGE_SECRET = "fixture_bridge_secret_000000000000000000";
 const BOT_TOKEN = "000000000:fixture-token-not-a-secret";
+const ACCESS_CLIENT_ID = "fixture-access-client-id";
+const ACCESS_CLIENT_SECRET = "fixture-access-client-secret";
 const MOCK_TOPIC_SLUG = createTopicSlug(MOCK_CHAT_ID, 700);
 const MOCK_TOPIC_ID = createTopicCategoryId(MOCK_CHAT_ID, 700);
 const mappings: BridgeCategoryMappings = {
@@ -146,6 +149,31 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   );
 });
 
+test("Worker Bridge configuration requires paired Cloudflare Access service-token credentials", () => {
+  const base = {
+    TELEGRAM_BRIDGE_URL: "https://bridge.fixture",
+    TELEGRAM_BRIDGE_SHARED_SECRET: BRIDGE_SECRET,
+  };
+  assert.equal(readTelegramBridgeConfiguration(base).access, null);
+  assert.deepEqual(readTelegramBridgeConfiguration({
+    ...base,
+    CF_ACCESS_CLIENT_ID: ACCESS_CLIENT_ID,
+    CF_ACCESS_CLIENT_SECRET: ACCESS_CLIENT_SECRET,
+  }).access, { clientId: ACCESS_CLIENT_ID, clientSecret: ACCESS_CLIENT_SECRET });
+  assert.throws(
+    () => readTelegramBridgeConfiguration({ ...base, CF_ACCESS_CLIENT_ID: ACCESS_CLIENT_ID }),
+    /configuration is incomplete/u,
+  );
+  assert.throws(
+    () => readTelegramBridgeConfiguration({
+      TELEGRAM_BRIDGE_URL: base.TELEGRAM_BRIDGE_URL,
+      CF_ACCESS_CLIENT_ID: ACCESS_CLIENT_ID,
+      CF_ACCESS_CLIENT_SECRET: ACCESS_CLIENT_SECRET,
+    }),
+    /Telegram Bridge is not configured/u,
+  );
+});
+
 test("Bridge flows through Worker loaders, SSR, bookmark references and media proxy", async (context) => {
   const adapter = new MockTelegramAdapter();
   const bridge = createBridgeApplication({ adapter, allowedChatIds: new Set([MOCK_CHAT_ID]), sharedSecret: BRIDGE_SECRET });
@@ -163,8 +191,15 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
         TELEGRAM_BOT_TOKEN: BOT_TOKEN,
         TELEGRAM_BRIDGE_URL: "https://bridge.fixture",
         TELEGRAM_BRIDGE_SHARED_SECRET: BRIDGE_SECRET,
+        CF_ACCESS_CLIENT_ID: ACCESS_CLIENT_ID,
+        CF_ACCESS_CLIENT_SECRET: ACCESS_CLIENT_SECRET,
       },
-      outboundService: (request: Request) => bridge(request),
+      outboundService: (request: Request) => {
+        assert.equal(request.headers.get("CF-Access-Client-Id"), ACCESS_CLIENT_ID);
+        assert.equal(request.headers.get("CF-Access-Client-Secret"), ACCESS_CLIENT_SECRET);
+        assert.equal(request.headers.get("authorization"), `Bearer ${BRIDGE_SECRET}`);
+        return bridge(request);
+      },
     }],
   } as unknown as Parameters<typeof convertV4MiniflareOptions>[0];
   const mf = new Miniflare(convertV4MiniflareOptions(options));
@@ -210,7 +245,10 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.match(await unsupportedPage.text(), /MessageMediaUnsupported/u);
   const voicePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_107");
   assert.match(await voicePage.text(), /<audio/u);
-  assert.doesNotMatch(`${imageHtml}${videoHtml}`, /fixture_bridge_secret|TELEGRAM_SESSION|TELEGRAM_API_HASH/u);
+  assert.doesNotMatch(
+    `${imageHtml}${videoHtml}`,
+    /fixture_bridge_secret|fixture-access-client|TELEGRAM_SESSION|TELEGRAM_API_HASH/u,
+  );
 
   const proxiedRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { headers: { range: "bytes=2048-4095" } });
   assert.equal(proxiedRange.status, 206);

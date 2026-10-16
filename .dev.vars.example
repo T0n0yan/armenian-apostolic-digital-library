@@ -3,6 +3,10 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_BRIDGE_URL=http://127.0.0.1:8788
 TELEGRAM_BRIDGE_SHARED_SECRET=
 
+# Optional as a pair for a Bridge protected by Cloudflare Access.
+CF_ACCESS_CLIENT_ID=
+CF_ACCESS_CLIENT_SECRET=
+
 # Optional Cloudflare Access fallback for /admin.
 CF_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
 CF_ACCESS_AUD=

@@ -4,5 +4,10 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../services/telegram-bridge/src/**/*.ts", "../shared/**/*.ts"]
+  "include": [
+    "./**/*.ts",
+    "../app/data/telegram-bridge-config.server.ts",
+    "../services/telegram-bridge/src/**/*.ts",
+    "../shared/**/*.ts"
+  ]
 }

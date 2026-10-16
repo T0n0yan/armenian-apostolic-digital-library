@@ -48,6 +48,8 @@ Local URL՝ `http://127.0.0.1:5173/`։ Mock Bridge-ը լսում է `http://127.
 | `TELEGRAM_BOT_TOKEN` | Telegram Mini App `initData` server-side validation |
 | `TELEGRAM_BRIDGE_URL` | Internal HTTPS Bridge origin |
 | `TELEGRAM_BRIDGE_SHARED_SECRET` | Worker → Bridge Bearer authentication |
+| `CF_ACCESS_CLIENT_ID` | Optional Cloudflare Access service-token client ID; configure only with its secret |
+| `CF_ACCESS_CLIENT_SECRET` | Optional Cloudflare Access service-token secret; configure only with its ID |
 | `CF_ACCESS_TEAM_DOMAIN` | Optional Cloudflare Access issuer for `/admin` |
 | `CF_ACCESS_AUD` | Optional Cloudflare Access audience |
 
