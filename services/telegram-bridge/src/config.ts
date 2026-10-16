@@ -11,6 +11,10 @@ export type BridgeConfig = {
   requestConcurrency: number;
   requestTimeoutMs: number;
   mediaConcurrency: number;
+  mediaQueueLimit: number;
+  mediaPerAssetConcurrency: number;
+  mediaPerClientConcurrency: number;
+  mediaRangeWindowBytes: number;
   mediaTimeoutMs: number;
   shutdownGraceMs: number;
   searchIndexTtlMs: number;
@@ -74,6 +78,10 @@ export function readBridgeConfig(environment: NodeJS.ProcessEnv = process.env): 
     requestConcurrency: integer(environment, "TELEGRAM_REQUEST_CONCURRENCY", 32, 1_000),
     requestTimeoutMs: integer(environment, "TELEGRAM_REQUEST_TIMEOUT_MS", 30_000, 600_000),
     mediaConcurrency: integer(environment, "TELEGRAM_MEDIA_CONCURRENCY", 3, 100),
+    mediaQueueLimit: integer(environment, "TELEGRAM_MEDIA_QUEUE_LIMIT", 12, 100),
+    mediaPerAssetConcurrency: integer(environment, "TELEGRAM_MEDIA_PER_ASSET_CONCURRENCY", 2, 8),
+    mediaPerClientConcurrency: integer(environment, "TELEGRAM_MEDIA_PER_CLIENT_CONCURRENCY", 2, 8),
+    mediaRangeWindowBytes: integer(environment, "TELEGRAM_MEDIA_RANGE_WINDOW_BYTES", 2 * 1024 * 1024, 8 * 1024 * 1024, 64 * 1024),
     mediaTimeoutMs: integer(environment, "TELEGRAM_MEDIA_TIMEOUT_MS", 120_000, 3_600_000),
     shutdownGraceMs: integer(environment, "TELEGRAM_SHUTDOWN_GRACE_MS", 30_000, 300_000),
     searchIndexTtlMs: integer(environment, "TELEGRAM_SEARCH_INDEX_TTL_MS", 30_000, 3_600_000),

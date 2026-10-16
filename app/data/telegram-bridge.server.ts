@@ -206,10 +206,14 @@ export function proxyBridgeMedia(
   messageId: number,
   mediaIndex: number,
   request: Request,
+  mediaClientKey?: string,
 ) {
   const headers = new Headers();
   const range = request.headers.get("range");
   if (range) headers.set("range", range);
+  if (mediaClientKey && /^[a-zA-Z0-9_-]{16,64}$/u.test(mediaClientKey)) {
+    headers.set("x-telegram-media-client", mediaClientKey);
+  }
   const thumbnail = new URL(request.url).searchParams.get("thumbnail") === "1" ? "?thumbnail=1" : "";
   return bridgeFetch(`/media/${encodeURIComponent(chatId)}/${messageId}/${mediaIndex}${thumbnail}`, database, {
     method: request.method === "HEAD" ? "HEAD" : "GET",

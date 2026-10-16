@@ -8,10 +8,12 @@ import test from "node:test";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
+import { getMediaClient } from "../app/auth/media-client.server";
 import { mediaPlaybackStateForEvent } from "../app/utils/media-playback";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { loadResolvedValue, ResolvedTtlCache, SharedOperationRegistry } from "../shared/async-lifecycle";
 import { createBridgeApplication, readBridgeApplicationState } from "../services/telegram-bridge/src/app";
+import { MediaQueueOverloadedError, MediaScheduler } from "../services/telegram-bridge/src/media-scheduler";
 import type { TelegramAdapter } from "../services/telegram-bridge/src/adapter";
 import { probeUnknownMediaSize, teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
 import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
@@ -585,6 +587,15 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   const bytes = new Uint8Array(await range.arrayBuffer());
   assert.equal(bytes.length, 100);
   assert.equal(bytes[0], 100 % 251);
+  const browserInitial = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=0-" } }));
+  assert.equal(browserInitial.status, 206);
+  assert.equal(browserInitial.headers.get("content-range"), `bytes 0-2097151/${MOCK_VIDEO_SIZE}`);
+  assert.equal(browserInitial.headers.get("content-length"), String(2 * 1024 * 1024));
+  assert.equal((await browserInitial.arrayBuffer()).byteLength, 2 * 1024 * 1024);
+  const browserFollowup = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=2097152-" } }));
+  assert.equal(browserFollowup.status, 206);
+  assert.equal(browserFollowup.headers.get("content-range"), `bytes 2097152-4194303/${MOCK_VIDEO_SIZE}`);
+  assert.equal((await browserFollowup.arrayBuffer()).byteLength, 2 * 1024 * 1024);
   const multiChunk = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=0-614399" } }));
   assert.equal(multiChunk.status, 206);
   assert.equal(multiChunk.headers.get("content-length"), "614400");
@@ -640,6 +651,81 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
   assert.ok(metrics.includes("search-index-history:ok"));
   assert.ok(metrics.includes("media-descriptor:ok"));
   assert.ok(metrics.includes("media-first-byte:ok"));
+});
+
+test("fair bounded media scheduling keeps metadata responsive and releases aborted slots", async () => {
+  const firstIdentity = getMediaClient(new Request("https://app.fixture/"));
+  assert.ok(firstIdentity.cookie);
+  assert.match(firstIdentity.key, /^[a-zA-Z0-9_-]{16,64}$/u);
+  const repeatedIdentity = getMediaClient(new Request("https://app.fixture/", {
+    headers: { cookie: firstIdentity.cookie!.split(";", 1)[0] },
+  }));
+  assert.equal(repeatedIdentity.key, firstIdentity.key);
+  assert.equal(repeatedIdentity.cookie, null);
+
+  const scheduler = new MediaScheduler(1, 2, 1, 1);
+  const firstRelease = await scheduler.acquire("video", "client-a", new AbortController().signal);
+  const secondVideo = scheduler.acquire("video", "client-a", new AbortController().signal);
+  const audio = scheduler.acquire("audio", "client-b", new AbortController().signal);
+  firstRelease();
+  const audioRelease = await audio;
+  assert.equal(scheduler.activeCount, 1, "a different media key must get the next fair slot");
+  audioRelease();
+  const secondRelease = await secondVideo;
+  secondRelease();
+  assert.equal(scheduler.activeCount, 0);
+  assert.equal(scheduler.queuedCount, 0);
+
+  const full = new MediaScheduler(1, 1, 1, 1);
+  const held = await full.acquire("held", "client-a", new AbortController().signal);
+  const queuedController = new AbortController();
+  const queued = full.acquire("queued", "client-a", queuedController.signal);
+  await assert.rejects(full.acquire("overflow", "client-b", new AbortController().signal), MediaQueueOverloadedError);
+  queuedController.abort(new Error("fixture disconnect"));
+  await assert.rejects(queued, /fixture disconnect/u);
+  held();
+  assert.equal(full.activeCount, 0);
+  assert.equal(full.queuedCount, 0);
+
+  const perClient = new MediaScheduler(3, 3, 2, 1);
+  const clientAFirst = await perClient.acquire("video", "client-a", new AbortController().signal);
+  const clientASecond = perClient.acquire("audio", "client-a", new AbortController().signal);
+  const clientB = await perClient.acquire("audio", "client-b", new AbortController().signal);
+  assert.equal(perClient.activeCount, 2, "one client must not consume another client's available slot");
+  clientB();
+  clientAFirst();
+  const clientASecondRelease = await clientASecond;
+  clientASecondRelease();
+
+  const adapter = new MockTelegramAdapter();
+  const originalStream = adapter.streamMedia.bind(adapter);
+  adapter.streamMedia = async function* (options) {
+    for await (const chunk of originalStream(options)) {
+      await delayedValue(undefined, options.signal, 5);
+      yield chunk;
+    }
+  };
+  const app = createBridgeApplication({
+    adapter,
+    allowedChatIds: new Set([MOCK_CHAT_ID]),
+    sharedSecret: BRIDGE_SECRET,
+    mediaConcurrency: 2,
+    mediaQueueLimit: 4,
+    mediaPerAssetConcurrency: 1,
+    mediaPerClientConcurrency: 2,
+    mediaRangeWindowBytes: 64 * 1024,
+  });
+  const video = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/106/0`, { headers: { range: "bytes=0-" } }));
+  const audioResponse = await app(bridgeRequest(`/media/${MOCK_CHAT_ID}/107/0`, { headers: { range: "bytes=0-" } }));
+  const videoReader = video.body!.getReader();
+  const audioReader = audioResponse.body!.getReader();
+  await Promise.all([videoReader.read(), audioReader.read()]);
+  assert.equal((await app(bridgeRequest(`/posts/${MOCK_CHAT_ID}/101`))).status, 200, "metadata must not wait for media slots");
+  assert.equal((await app(bridgeRequest(`/categories/${MOCK_TOPIC_SLUG}/posts`))).status, 200);
+  await Promise.all([videoReader.cancel(), audioReader.cancel()]);
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 10));
+  assert.deepEqual(readBridgeApplicationState(app), { activeMediaSlots: 0, queuedMediaRequests: 0, inflightOperations: 0 });
+  assert.equal((await app(bridgeRequest("/ready"))).status, 200);
 });
 
 test("pending navigation, media failure isolation, and metadata abort remain safe", async () => {
@@ -809,6 +895,11 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   const config = readBridgeConfig(base);
   assert.equal(config.requestConcurrency, 32);
   assert.equal(config.requestTimeoutMs, 30_000);
+  assert.equal(config.mediaConcurrency, 3);
+  assert.equal(config.mediaQueueLimit, 12);
+  assert.equal(config.mediaPerAssetConcurrency, 2);
+  assert.equal(config.mediaPerClientConcurrency, 2);
+  assert.equal(config.mediaRangeWindowBytes, 2 * 1024 * 1024);
   assert.equal(config.shutdownGraceMs, 30_000);
   assert.equal(config.contentChatId, MOCK_CHAT_ID);
   assert.equal(config.searchIndexMaximumDocuments, 10_000);
@@ -844,6 +935,14 @@ test("Bridge environment validation rejects unsafe deployment settings", () => {
   assert.throws(
     () => readBridgeConfig({ ...base, TELEGRAM_REQUEST_CONCURRENCY: "0" }),
     /TELEGRAM_REQUEST_CONCURRENCY/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_MEDIA_QUEUE_LIMIT: "101" }),
+    /TELEGRAM_MEDIA_QUEUE_LIMIT/u,
+  );
+  assert.throws(
+    () => readBridgeConfig({ ...base, TELEGRAM_MEDIA_RANGE_WINDOW_BYTES: "65535" }),
+    /TELEGRAM_MEDIA_RANGE_WINDOW_BYTES/u,
   );
   assert.throws(
     () => readBridgeConfig({ ...base, TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS: "50001" }),
@@ -1233,7 +1332,7 @@ test("production-like SSR bursts isolate client aborts without hanging healthy r
   assert.equal(intentionalAborts, 30);
   assert.equal((await bridge(bridgeRequest("/health"))).status, 200);
   assert.equal((await bridge(bridgeRequest("/ready"))).status, 200);
-  assert.deepEqual(readBridgeApplicationState(bridge), { activeMediaSlots: 0, inflightOperations: 0 });
+  assert.deepEqual(readBridgeApplicationState(bridge), { activeMediaSlots: 0, queuedMediaRequests: 0, inflightOperations: 0 });
   bridgeUnavailable = true;
   const unavailableStartedAt = performance.now();
   const unavailable = await mf.dispatchFetch("https://app.fixture/?refresh=1");

@@ -34,7 +34,11 @@ test("authorized Teleproto session serves the allowlisted forum end to end", { s
     adapter,
     allowedChatIds: new Set(contentChatIds),
     sharedSecret: config.sharedSecret,
-    mediaConcurrency: 1,
+    mediaConcurrency: 2,
+    mediaQueueLimit: 8,
+    mediaPerAssetConcurrency: 2,
+    mediaPerClientConcurrency: 2,
+    mediaRangeWindowBytes: 2 * 1024 * 1024,
     topicCacheTtlMs: 1_000,
     operationTimeoutMs: Math.max(1_000, config.requestTimeoutMs - 250),
   });
@@ -206,6 +210,32 @@ test("authorized Teleproto session serves the allowlisted forum end to end", { s
       assert.equal(response.headers.get("content-range"), `bytes ${start}-${boundedEnd}/${richVideoSize}`);
       assert.equal((await response.arrayBuffer()).byteLength, boundedEnd - start + 1);
     }
+    assert.ok(audio.media[0]?.duration && audio.media[0].duration > 0, "audio metadata must retain a playable duration");
+    assert.ok(richVideo.media[richVideoIndex]?.duration && richVideo.media[richVideoIndex].duration! > 0, "video metadata must retain a playable duration");
+    const browserAudio = await app(request(`/media/${chatId}/${audio.messageId}/0`, { headers: { range: "bytes=0-" } }));
+    const browserVideo = await app(request(`/media/${chatId}/${richVideo.messageId}/${richVideoIndex}`, { headers: { range: "bytes=0-" } }));
+    assert.equal(browserAudio.status, 206);
+    assert.equal(browserVideo.status, 206);
+    const audioWindow = Number(browserAudio.headers.get("content-length"));
+    const videoWindow = Number(browserVideo.headers.get("content-length"));
+    assert.ok(audioWindow > 0 && audioWindow <= 2 * 1024 * 1024);
+    assert.ok(videoWindow > 0 && videoWindow <= 2 * 1024 * 1024);
+    const concurrentMetadata = app(request(`/posts/${chatId}/${text.messageId}`));
+    const [audioBytes, videoBytes, metadataResponse] = await Promise.all([
+      browserAudio.arrayBuffer(),
+      browserVideo.arrayBuffer(),
+      concurrentMetadata,
+    ]);
+    assert.equal(audioBytes.byteLength, audioWindow);
+    assert.equal(videoBytes.byteLength, videoWindow);
+    assert.equal(metadataResponse.status, 200, "metadata must remain responsive while audio and video stream concurrently");
+    const followupStart = videoWindow;
+    const followup = await app(request(`/media/${chatId}/${richVideo.messageId}/${richVideoIndex}`, {
+      headers: { range: `bytes=${followupStart}-` },
+    }));
+    assert.equal(followup.status, 206);
+    assert.ok(Number(followup.headers.get("content-length")) <= 2 * 1024 * 1024);
+    assert.equal((await followup.arrayBuffer()).byteLength, Number(followup.headers.get("content-length")));
     const album = uniquePosts.find((post) => post.contentType === "album" && post.media.length > 1);
     if (album) await rangeCheck(album, 1);
     const document = uniquePosts.find((post) => post.media.some((media) => media.kind === "document"));

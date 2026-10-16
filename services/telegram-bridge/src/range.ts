@@ -21,3 +21,13 @@ export function parseRangeHeader(header: string | null, size: number): ByteRange
   }
   return { start, end: Math.min(end, size - 1) };
 }
+
+export function boundOpenEndedRange(
+  header: string | null,
+  range: ByteRange | null,
+  maximumBytes: number,
+): ByteRange | null {
+  if (!range || !header || !/^bytes=\d+-$/u.test(header.trim())) return range;
+  const boundedEnd = Math.min(range.end, range.start + Math.max(1, maximumBytes) - 1);
+  return { start: range.start, end: boundedEnd };
+}

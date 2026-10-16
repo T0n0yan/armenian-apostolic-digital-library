@@ -98,6 +98,10 @@ Production adapter-ի variables՝
   backward-compatible fallback է, իսկ բազմաչատ allowlist-ը պահանջում է explicit արժեք։
 - `TELEGRAM_BRIDGE_SHARED_SECRET`
 - optional `TELEGRAM_MEDIA_CONCURRENCY`
+- optional `TELEGRAM_MEDIA_QUEUE_LIMIT`
+- optional `TELEGRAM_MEDIA_PER_ASSET_CONCURRENCY`
+- optional `TELEGRAM_MEDIA_PER_CLIENT_CONCURRENCY`
+- optional `TELEGRAM_MEDIA_RANGE_WINDOW_BYTES` (defaults to a 2 MiB window for open-ended browser ranges)
 - optional `TELEGRAM_MEDIA_TIMEOUT_MS`
 - optional `TELEGRAM_REQUEST_CONCURRENCY`
 - optional `TELEGRAM_REQUEST_TIMEOUT_MS`

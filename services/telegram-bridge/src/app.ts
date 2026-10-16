@@ -9,7 +9,8 @@ import {
 import { messageIdSearchMatch, parseTelegramSearchQuery } from "../../../shared/telegram-search";
 import { InvalidPaginationCursorError, type TelegramAdapter, type TelegramPost } from "./adapter";
 import { DEFAULT_SEARCH_INDEX_MAX_DOCUMENTS } from "./config";
-import { parseRangeHeader } from "./range";
+import { MediaQueueOverloadedError, MediaScheduler } from "./media-scheduler";
+import { boundOpenEndedRange, parseRangeHeader } from "./range";
 import { TelegramSearchIndex } from "./search-index";
 import { SharedOperationRegistry, SharedOperationTimeoutError } from "../../../shared/async-lifecycle";
 
@@ -18,6 +19,10 @@ type BridgeApplicationOptions = {
   allowedChatIds: ReadonlySet<string>;
   sharedSecret: string;
   mediaConcurrency?: number;
+  mediaQueueLimit?: number;
+  mediaPerAssetConcurrency?: number;
+  mediaPerClientConcurrency?: number;
+  mediaRangeWindowBytes?: number;
   mediaTimeoutMs?: number;
   topicCacheTtlMs?: number;
   searchIndexTtlMs?: number;
@@ -30,42 +35,11 @@ type BridgeApplicationOptions = {
 };
 
 export type BridgeApplication = (request: Request) => Promise<Response>;
-export type BridgeRuntimeState = { activeMediaSlots: number; inflightOperations: number };
+export type BridgeRuntimeState = { activeMediaSlots: number; queuedMediaRequests: number; inflightOperations: number };
 const runtimeStates = new WeakMap<BridgeApplication, () => BridgeRuntimeState>();
 
 export function readBridgeApplicationState(application: BridgeApplication): BridgeRuntimeState {
-  return runtimeStates.get(application)?.() ?? { activeMediaSlots: 0, inflightOperations: 0 };
-}
-
-class Semaphore {
-  private active = 0;
-  private readonly waiters: Array<() => void> = [];
-  constructor(private readonly maximum: number) {}
-  get activeCount() { return this.active; }
-
-  async acquire(signal: AbortSignal) {
-    if (this.active >= this.maximum) {
-      await new Promise<void>((resolve, reject) => {
-        const ready = () => { signal.removeEventListener("abort", aborted); resolve(); };
-        const aborted = () => {
-          const index = this.waiters.indexOf(ready);
-          if (index >= 0) this.waiters.splice(index, 1);
-          reject(signal.reason);
-        };
-        signal.addEventListener("abort", aborted, { once: true });
-        this.waiters.push(ready);
-      });
-    }
-    signal.throwIfAborted();
-    this.active += 1;
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.active -= 1;
-      this.waiters.shift()?.();
-    };
-  }
+  return runtimeStates.get(application)?.() ?? { activeMediaSlots: 0, queuedMediaRequests: 0, inflightOperations: 0 };
 }
 
 function secureEqual(left: string, right: string) {
@@ -112,7 +86,13 @@ export function createBridgeApplication(options: BridgeApplicationOptions): Brid
   if (!/^[a-zA-Z0-9_-]{32,256}$/u.test(options.sharedSecret)) {
     throw new Error("TELEGRAM_BRIDGE_SHARED_SECRET must contain 32-256 URL-safe characters.");
   }
-  const semaphore = new Semaphore(Math.max(1, options.mediaConcurrency ?? 3));
+  const mediaScheduler = new MediaScheduler(
+    Math.max(1, options.mediaConcurrency ?? 3),
+    Math.max(1, options.mediaQueueLimit ?? 12),
+    Math.max(1, options.mediaPerAssetConcurrency ?? 2),
+    Math.max(1, options.mediaPerClientConcurrency ?? 2),
+  );
+  const mediaRangeWindowBytes = Math.max(64 * 1024, options.mediaRangeWindowBytes ?? 2 * 1024 * 1024);
   const timeoutMs = Math.max(1_000, options.mediaTimeoutMs ?? 120_000);
   const topicCacheTtlMs = Math.max(1_000, options.topicCacheTtlMs ?? 15_000);
   let topicCache: { expiresAt: number; value: BridgeCategory[] } | null = null;
@@ -355,10 +335,12 @@ export function createBridgeApplication(options: BridgeApplicationOptions): Brid
         options.adapter.getMediaDescriptor(chatId, messageId, mediaIndex, request.signal, thumbnail)
       );
       if (!descriptor?.sizeBytes) return new Response("Not Found", { status: 404 });
-      const range = parseRangeHeader(request.headers.get("range"), descriptor.sizeBytes);
-      if (range === "invalid") {
+      const rangeHeader = request.headers.get("range");
+      const parsedRange = parseRangeHeader(rangeHeader, descriptor.sizeBytes);
+      if (parsedRange === "invalid") {
         return new Response(null, { status: 416, headers: { "content-range": `bytes */${descriptor.sizeBytes}`, "accept-ranges": "bytes" } });
       }
+      const range = boundOpenEndedRange(rangeHeader, parsedRange, mediaRangeWindowBytes);
       const start = range?.start ?? 0;
       const end = range?.end ?? descriptor.sizeBytes - 1;
       const headers = new Headers({
@@ -375,7 +357,10 @@ export function createBridgeApplication(options: BridgeApplicationOptions): Brid
       const timeout = AbortSignal.timeout(timeoutMs);
       const streamAbort = new AbortController();
       const signal = AbortSignal.any([request.signal, timeout, streamAbort.signal]);
-      let release: (() => void) | null = await semaphore.acquire(signal);
+      const mediaKey = `${chatId}:${messageId}:${mediaIndex}:${thumbnail ? "thumbnail" : "original"}`;
+      const mediaClientKey = request.headers.get("x-telegram-media-client")?.trim();
+      const clientKey = mediaClientKey && /^[a-zA-Z0-9_-]{16,64}$/u.test(mediaClientKey) ? mediaClientKey : "anonymous";
+      let release: (() => void) | null = await mediaScheduler.acquire(mediaKey, clientKey, signal);
       const iterator = options.adapter.streamMedia({ chatId, messageId, mediaIndex, start, end, thumbnail, signal })[Symbol.asyncIterator]();
       const streamStartedAt = performance.now();
       let firstChunkMeasured = false;
@@ -415,12 +400,16 @@ export function createBridgeApplication(options: BridgeApplicationOptions): Brid
     return new Response("Not Found", { status: 404 });
     } catch (error) {
       if (error instanceof InvalidPaginationCursorError) return json({ error: "invalid_cursor" }, 400);
+      if (error instanceof MediaQueueOverloadedError) {
+        return new Response("Media queue is busy", { status: 429, headers: { "cache-control": "no-store", "retry-after": "1" } });
+      }
       if (error instanceof SharedOperationTimeoutError) return json({ error: "temporarily_unavailable" }, 503);
       throw error;
     }
   };
   runtimeStates.set(handleBridgeRequest, () => ({
-      activeMediaSlots: semaphore.activeCount,
+      activeMediaSlots: mediaScheduler.activeCount,
+      queuedMediaRequests: mediaScheduler.queuedCount,
       inflightOperations: topicOperations.size + postOperations.size + (options.adapter.runtimeState?.().inflightOperations ?? 0),
   }));
   return handleBridgeRequest;

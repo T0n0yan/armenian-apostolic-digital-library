@@ -1,7 +1,7 @@
 import { createServer, type ServerResponse } from "node:http";
 import { once } from "node:events";
 
-import { createBridgeApplication } from "./app";
+import { createBridgeApplication, readBridgeApplicationState } from "./app";
 import { activeContentChatIds, readBridgeConfig } from "./config";
 import { GramJsTelegramAdapter } from "./gramjs-adapter";
 import { MockTelegramAdapter } from "./mock-adapter";
@@ -25,6 +25,10 @@ const application = createBridgeApplication({
   allowedChatIds: new Set(contentChatIds),
   sharedSecret: config.sharedSecret,
   mediaConcurrency: config.mediaConcurrency,
+  mediaQueueLimit: config.mediaQueueLimit,
+  mediaPerAssetConcurrency: config.mediaPerAssetConcurrency,
+  mediaPerClientConcurrency: config.mediaPerClientConcurrency,
+  mediaRangeWindowBytes: config.mediaRangeWindowBytes,
   mediaTimeoutMs: config.mediaTimeoutMs,
   searchIndexTtlMs: config.searchIndexTtlMs,
   searchIndexMaximumDocuments: config.searchIndexMaximumDocuments,
@@ -37,6 +41,7 @@ const application = createBridgeApplication({
 
 let activeRequests = 0;
 let activeMediaRequests = 0;
+let activeMetadataRequests = 0;
 let requestSequence = 0;
 
 function waitForDrainOrClose(outgoing: ServerResponse) {
@@ -66,8 +71,13 @@ function requestMetadata(pathname: string) {
 }
 
 const server = createServer(async (incoming, outgoing) => {
-  if (activeRequests >= config.requestConcurrency) {
-    outgoing.writeHead(503, {
+  const pathname = new URL(incoming.url || "/", "http://bridge.invalid").pathname;
+  const isMediaRequest = pathname.startsWith("/media/");
+  const admissionExceeded = isMediaRequest
+    ? activeMediaRequests >= config.mediaConcurrency + config.mediaQueueLimit + 8
+    : activeMetadataRequests >= config.requestConcurrency;
+  if (admissionExceeded) {
+    outgoing.writeHead(isMediaRequest ? 429 : 503, {
       "cache-control": "no-store",
       "content-type": "text/plain; charset=utf-8",
       "retry-after": "1",
@@ -77,9 +87,8 @@ const server = createServer(async (incoming, outgoing) => {
   }
   activeRequests += 1;
   const abort = new AbortController();
-  const pathname = new URL(incoming.url || "/", "http://bridge.invalid").pathname;
-  const isMediaRequest = pathname.startsWith("/media/");
   if (isMediaRequest) activeMediaRequests += 1;
+  else activeMetadataRequests += 1;
   const mediaRequestsAtStart = activeMediaRequests;
   const requestId = ++requestSequence;
   const startedAt = performance.now();
@@ -88,6 +97,7 @@ const server = createServer(async (incoming, outgoing) => {
   let outcome = "ok";
   let abortReason: "client-disconnect" | "timeout" | null = null;
   let mediaType: string | null = null;
+  let upstreamIteratorState: "not-started" | "open" | "closed" | "aborted" | "error" | null = isMediaRequest ? "not-started" : null;
   const timeoutMs = pathname.startsWith("/media/") ? config.mediaTimeoutMs : config.requestTimeoutMs;
   const timeout = setTimeout(() => abort.abort(new Error("Bridge request timed out.")), timeoutMs);
   timeout.unref();
@@ -113,10 +123,11 @@ const server = createServer(async (incoming, outgoing) => {
     outgoing.writeHead(response.status, Object.fromEntries(responseHeaders.entries()));
     if (!response.body || incoming.method === "HEAD") { outgoing.end(); return; }
     const reader = response.body.getReader();
+    if (isMediaRequest) upstreamIteratorState = "open";
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) { if (isMediaRequest) upstreamIteratorState = "closed"; break; }
         bytesWritten += value.byteLength;
         if (!outgoing.write(value)) {
           await waitForDrainOrClose(outgoing);
@@ -125,6 +136,7 @@ const server = createServer(async (incoming, outgoing) => {
       }
       outgoing.end();
     } catch (error) {
+      if (isMediaRequest) upstreamIteratorState = abort.signal.aborted ? "aborted" : "error";
       await reader.cancel(error).catch(() => undefined);
       throw error;
     } finally {
@@ -137,7 +149,7 @@ const server = createServer(async (incoming, outgoing) => {
         : "timeout"
       : "error";
     abortReason = outcome === "aborted" ? "client-disconnect" : outcome === "timeout" ? "timeout" : null;
-    responseStatus = abort.signal.aborted ? 504 : 500;
+    if (!outgoing.headersSent) responseStatus = abort.signal.aborted ? 504 : 500;
     if (!outgoing.destroyed) {
       if (!outgoing.headersSent) {
         outgoing.writeHead(abort.signal.aborted ? 504 : 500, {
@@ -151,7 +163,9 @@ const server = createServer(async (incoming, outgoing) => {
     clearTimeout(timeout);
     activeRequests -= 1;
     if (isMediaRequest) activeMediaRequests -= 1;
+    else activeMetadataRequests -= 1;
     const metadata = requestMetadata(pathname);
+    const runtimeState = readBridgeApplicationState(application);
     console.info(JSON.stringify(isMediaRequest ? {
       event: "bridge_media_request",
       requestId,
@@ -165,6 +179,10 @@ const server = createServer(async (incoming, outgoing) => {
       abortReason,
       activeStreamCount: activeMediaRequests,
       activeStreamCountAtStart: mediaRequestsAtStart,
+      activeMediaSlots: runtimeState.activeMediaSlots,
+      queuedMediaRequests: runtimeState.queuedMediaRequests,
+      activeMetadataRequests,
+      upstreamIteratorState,
     } : {
       event: "bridge_request",
       requestId,
