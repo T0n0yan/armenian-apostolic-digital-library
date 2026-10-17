@@ -230,7 +230,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
       <SectionHeader
         backTo="/"
         backLabel="Բաժիններ"
-        imageSrc={getCategoryImage(category.id)}
+        imageSrc={getCategoryImage(category.id, category.name)}
         title={category.name}
         description={categoryDescription}
         query={loaderData.query}

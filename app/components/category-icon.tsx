@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { memo } from "react";
 
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+
 function HarpIcon({ size = 22, strokeWidth = 1.8, ...props }: LucideProps) {
   const outlineWidth = Number(strokeWidth) * 9;
 
@@ -51,8 +53,10 @@ const categoryIcons: Record<string, React.ComponentType<LucideProps>> = {
 
 export const CategoryIcon = memo(function CategoryIcon({
   categoryId,
+  categoryName,
   ...props
-}: LucideProps & { categoryId: string }) {
-  const Icon = categoryIcons[categoryId] ?? Sparkles;
+}: LucideProps & { categoryId: string; categoryName?: string | null }) {
+  const resolved = resolveContentCategoryId(categoryId, categoryName);
+  const Icon = (resolved && categoryIcons[resolved]) || Sparkles;
   return <Icon {...props} />;
 });

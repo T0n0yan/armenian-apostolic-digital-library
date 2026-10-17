@@ -14,6 +14,7 @@ import myCornerImage from "../assets/my-corner.webp";
 import prayersImage from "../assets/prayers.webp";
 import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
 import { PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
@@ -44,8 +45,9 @@ type SectionHeaderProps = {
 
 export const MY_CORNER_IMAGE = myCornerImage;
 
-export function getCategoryImage(categoryId: string) {
-  return CATEGORY_IMAGES[categoryId] ?? saintsLivesImage;
+export function getCategoryImage(categoryId: string, categoryName?: string | null) {
+  const resolved = resolveContentCategoryId(categoryId, categoryName);
+  return (resolved && CATEGORY_IMAGES[resolved]) || saintsLivesImage;
 }
 
 function BotanicalDivider() {

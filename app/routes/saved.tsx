@@ -121,7 +121,7 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   return (
     <details className="group overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_48%),var(--glass)] shadow-card animate-glass-enter" open={open}>
       <summary className="grid min-h-[66px] cursor-pointer list-none grid-cols-[34px_minmax(0,1fr)_auto_20px] items-center gap-2.5 px-[13px] py-[11px] outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-[rgb(217_181_111/42%)]">
-        <CategoryIcon categoryId={group.categoryId} size={20} strokeWidth={1.8} />
+        <CategoryIcon categoryId={group.categoryId} categoryName={group.categoryName} size={20} strokeWidth={1.8} />
         <span className="grid gap-0.5">
           <strong className="text-[13px]">{group.categoryName}</strong>
           <small className="text-[11px] text-faint">{materials.length} պահված նյութ</small>

@@ -277,6 +277,19 @@ export function categoryById(id: string | null | undefined) {
   return CONTENT_CATEGORIES.find((category) => category.id === id) ?? null;
 }
 
+function normalizeCategoryName(value: string) {
+  return value.normalize("NFC").trim().toLocaleLowerCase("hy");
+}
+
+/** Maps a dynamic Telegram topic to a known content category by ID, then by its display name. */
+export function resolveContentCategoryId(id: string | null | undefined, name?: string | null): ContentCategoryId | null {
+  const byId = categoryById(id);
+  if (byId) return byId.id;
+  if (!name) return null;
+  const normalized = normalizeCategoryName(name);
+  return CONTENT_CATEGORIES.find((category) => normalizeCategoryName(category.name) === normalized)?.id ?? null;
+}
+
 export function categoryBySlug(slug: string | null | undefined) {
   return CONTENT_CATEGORIES.find((category) => category.slug === slug) ?? null;
 }

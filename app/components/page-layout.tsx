@@ -63,7 +63,8 @@ export function PageTitle({title}: { title: ReactNode }) {
     const [firstLetter, ...rest] = Array.from(title);
 
     return (<>
-        <span className="font-trchnatar inline-block align-[0.04em] text-[50px] leading-none font-normal">
+        {/* WebKit leaks the color font's palette into following text unless the glyph gets its own layer. */}
+        <span className="font-trchnatar relative isolate inline-block align-[0.04em] text-[50px] leading-none font-normal">
             {firstLetter}
         </span>
         <span className="font-noto">{rest.join("")}</span>

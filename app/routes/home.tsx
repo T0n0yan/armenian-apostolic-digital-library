@@ -47,7 +47,7 @@ const CategoryCard = memo(function CategoryCard({category}: { category: Category
             style={{"--topic-color": topicColor} as React.CSSProperties}
             data-telegram-emoji-id={category.iconEmojiId ?? undefined}
             aria-hidden="true">
-          <CategoryIcon categoryId={category.id} size={20} strokeWidth={1}/>
+          <CategoryIcon categoryId={category.id} categoryName={category.name} size={20} strokeWidth={1}/>
         </span>
             <span className="grid min-w-0 flex-1 gap-1">
           <strong
