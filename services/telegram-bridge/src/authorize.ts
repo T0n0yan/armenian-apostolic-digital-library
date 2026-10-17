@@ -73,9 +73,9 @@ function promptLine(label: string, hidden: boolean): Promise<string> {
   });
 }
 
-async function promptUntil(label: string, valid: (value: string) => boolean) {
+async function promptUntil(label: string, valid: (value: string) => boolean, hidden = true) {
   while (true) {
-    const value = await promptLine(label, true);
+    const value = (await promptLine(label, hidden)).trim();
     if (valid(value)) return value;
     stdout.write("Invalid value. Please try again.\n");
   }
@@ -121,7 +121,9 @@ async function authorize() {
   let rejectedSteps = 0;
   try {
     await client.start({
-      phoneNumber: () => promptUntil("Telegram account phone number (international format): ", (value) => /^\+\d{7,15}$/u.test(value)),
+      // The phone number is not secret, so it is echoed: typing into a hidden prompt confused people.
+      phoneNumber: () => promptUntil("Telegram account phone number (international format, e.g. +374...): ", (value) => /^\+\d{7,15}$/u.test(value.replace(/[\s()-]/gu, "")), false)
+        .then((value) => value.replace(/[\s()-]/gu, "")),
       phoneCode: () => promptUntil("Telegram login code: ", (value) => /^\d{4,8}$/u.test(value)),
       password: () => promptUntil("Telegram 2FA password: ", (value) => value.length > 0),
       firstAndLastNames: async () => { throw new ExistingAccountRequiredError("Account creation is disabled."); },
