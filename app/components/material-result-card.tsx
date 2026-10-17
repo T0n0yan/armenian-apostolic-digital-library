@@ -1,7 +1,6 @@
 import {
   AlignLeft,
   BarChart3,
-  Church,
   Bookmark,
   Check,
   ExternalLink,
@@ -62,6 +61,8 @@ type MaterialResultCardProps = {
    * "video": full-width 16:9 poster on top (gospel teachings).
    */
   variant?: "default" | "text" | "video";
+  /** The topic's usual content type (e.g. polls in Bible questions); its badge is redundant there. */
+  typicalType?: BridgeContentType;
   isSaved: boolean;
   isSaving?: boolean;
   allowNoteEditing?: boolean;
@@ -203,6 +204,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   canSave,
   highlightQuery = "",
   variant = "default",
+  typicalType,
   isSaved,
   isSaving = false,
   allowNoteEditing = false,
@@ -300,9 +302,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           <span className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
             {material.preview.thumbnailUrl && !thumbnailFailed ? (
               <img className="h-full w-full object-cover opacity-90" src={material.preview.thumbnailUrl} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} onLoad={(event) => { if (isNearlyBlackImage(event.currentTarget)) setThumbnailFailed(true); }} />
-            ) : (
-              <span className="absolute inset-0 grid place-items-center text-[rgb(217_181_111/22%)]" aria-hidden="true"><Church size={64} strokeWidth={1} /></span>
-            )}
+            ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgb(10_5_14/70%))]" aria-hidden="true" />
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
             {duration ? <span className="absolute right-2 bottom-2 rounded-full bg-[rgb(17_8_22/80%)] px-2 py-1 text-[11px] font-bold text-white tabular-nums">{duration}</span> : null}
@@ -331,7 +331,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         )}
         <span className="relative z-1 grid min-w-0 gap-[6px]">
           <span className="flex flex-wrap items-center gap-2">
-            {variant === "default" || (variant === "text" && material.contentType !== "text") ? <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span> : null}
+            {variant === "default" || (variant === "text" && material.contentType !== "text" && material.contentType !== typicalType) ? <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span> : null}
             {extraMatchReason ? (
               <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum">
                 {matchReasonLabel(extraMatchReason, material)}

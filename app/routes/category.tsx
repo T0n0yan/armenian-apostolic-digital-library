@@ -157,6 +157,7 @@ const MaterialsList = memo(function MaterialsList({
   const gridItems = isGridItem ? materials.filter(isGridItem) : [];
   const listItems = isGridItem ? materials.filter((material) => !isGridItem(material)) : materials;
   const listVariant = isGridItem ? "text" : layout === "text" || layout === "video" ? layout : "default";
+  const typicalType = layout === "text" && materials.length > 0 && materials.every((material) => material.contentType === "poll") ? "poll" : undefined;
 
   const list = listItems.length > 0 ? (
     <ol className="m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2">
@@ -165,6 +166,7 @@ const MaterialsList = memo(function MaterialsList({
             key={material.id}
             material={material}
             variant={listVariant}
+            typicalType={typicalType}
             highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}

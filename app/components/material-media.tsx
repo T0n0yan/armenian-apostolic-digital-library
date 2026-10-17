@@ -235,8 +235,8 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
           : <span className="grid aspect-square w-32 place-items-center rounded-[20px] bg-subtle text-gold"><Headphones aria-hidden="true" size={40} strokeWidth={1.4} /></span>}
         <div className="grid gap-1">
           <strong className="font-noto text-[19px] leading-tight font-semibold text-gold-bright">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</strong>
-          {asset.performer || durationLabel(asset.duration) ? (
-            <span className="text-[12px] text-muted">{[asset.performer, durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
+          {asset.performer?.trim() || durationLabel(asset.duration) ? (
+            <span className="text-[12px] text-muted">{[asset.performer?.trim(), durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
           ) : null}
         </div>
         {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}
