@@ -1,6 +1,7 @@
 import {
   AlignLeft,
   BarChart3,
+  Church,
   Bookmark,
   Check,
   ExternalLink,
@@ -34,6 +35,8 @@ import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
+import { isNearlyBlackImage } from "../utils/image-darkness";
+import { ShareButton } from "./share-button";
 
 type MaterialResultCardProps = {
   material: {
@@ -54,6 +57,11 @@ type MaterialResultCardProps = {
   };
   canSave: boolean;
   highlightQuery?: string;
+  /**
+   * "text": no thumbnail column or type badge (prayers, Bible questions).
+   * "video": full-width 16:9 poster on top (gospel teachings).
+   */
+  variant?: "default" | "text" | "video";
   isSaved: boolean;
   isSaving?: boolean;
   allowNoteEditing?: boolean;
@@ -194,6 +202,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   material,
   canSave,
   highlightQuery = "",
+  variant = "default",
   isSaved,
   isSaving = false,
   allowNoteEditing = false,
@@ -203,7 +212,6 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
   const [isNoteMounted, setIsNoteMounted] = useState(false);
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
-  const [shareStatus, setShareStatus] = useState<"idle" | "copied">("idle");
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const navigation = useNavigation();
   const targetPath = `/materials/${material.id}`;
@@ -219,6 +227,13 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         ? material.preview.mediaTitle
         : null;
   const duration = durationLabel(material.preview.duration);
+  // Excerpts usually begin with the title shown right above them; don't repeat it.
+  const excerpt = useMemo(() => {
+    const value = material.excerpt?.trim() ?? "";
+    const title = material.title.replace(/[\u200B-\u200D\uFEFF]/gu, "").trim();
+    const clean = value.replace(/^[\u200B-\u200D\uFEFF]+/u, "");
+    return title && clean.startsWith(title) ? clean.slice(title.length).replace(/^[\s.,:;։՝-]+/u, "") || null : value || null;
+  }, [material.excerpt, material.title]);
   const shareResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteTransitionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightPattern = useMemo(
@@ -267,49 +282,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     [closeNoteComposer, material.id, noteDraft, onSavedChange],
   );
 
-  const handleShare = useCallback(async () => {
-    const shareText = material.excerpt
-      ? `${material.title}\n\n${material.excerpt}`
-      : material.title;
-    const text = `${shareText}\n\n${material.telegramUrl}`;
-    const shareData = {
-      title: material.title,
-      text,
-    };
-    try {
-      if (
-        navigator.share &&
-        (!navigator.canShare || navigator.canShare(shareData))
-      ) {
-        await navigator.share(shareData);
-        return;
-      }
-      const shareWindow = window.open(
-        `https://t.me/share/url?url=${encodeURIComponent(material.telegramUrl)}&text=${encodeURIComponent(shareText)}`,
-        "_blank",
-        "noopener,noreferrer",
-      );
-      if (shareWindow) return;
-
-      await navigator.clipboard.writeText(text);
-      setShareStatus("copied");
-      if (shareResetRef.current) clearTimeout(shareResetRef.current);
-      shareResetRef.current = setTimeout(() => setShareStatus("idle"), 1_800);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      window.open(
-        `https://t.me/share/url?url=${encodeURIComponent(material.telegramUrl)}&text=${encodeURIComponent(material.title)}`,
-        "_blank",
-        "noopener,noreferrer",
-      );
-    }
-  }, [material.excerpt, material.telegramUrl, material.title]);
 
   return (
     <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] px-[12px] pt-[12px] pb-[52px] text-inherit no-underline active:scale-[.992] min-[560px]:grid-cols-[96px_minmax(0,1fr)]${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} grid items-start gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : "min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]"}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
@@ -318,29 +296,42 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           aria-busy={isOpening || undefined}
           onClick={(event) => { if (isOpening) event.preventDefault(); }}
         >
-        <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle">
-          {material.preview.thumbnailUrl && !thumbnailFailed ? (
-            <img
-              className="h-full w-full object-cover"
-              src={material.preview.thumbnailUrl}
-              width={material.preview.width ?? 320}
-              height={material.preview.height ?? 240}
-              sizes="(min-width: 560px) 96px, 78px"
-              loading="lazy"
-              decoding="async"
-              alt=""
-              onError={() => setThumbnailFailed(true)}
-            />
-          ) : (
-            <span className="grid h-full w-full place-items-center text-gold"><TypeIcon aria-hidden="true" size={25} strokeWidth={1.55} /></span>
-          )}
-          {material.contentType === "video" ? <span className="absolute inset-0 grid place-items-center bg-black/15 text-white"><span className="grid size-9 place-items-center rounded-full bg-black/55"><Play aria-hidden="true" size={18} fill="currentColor" /></span></span> : null}
-          {material.contentType === "album" ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white">{material.preview.mediaCount} նկար</span> : null}
-          {duration ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white tabular-nums">{duration}</span> : null}
-        </span>
+        {variant === "video" ? (
+          <span className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
+            {material.preview.thumbnailUrl && !thumbnailFailed ? (
+              <img className="h-full w-full object-cover opacity-90" src={material.preview.thumbnailUrl} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} onLoad={(event) => { if (isNearlyBlackImage(event.currentTarget)) setThumbnailFailed(true); }} />
+            ) : (
+              <span className="absolute inset-0 grid place-items-center text-[rgb(217_181_111/22%)]" aria-hidden="true"><Church size={64} strokeWidth={1} /></span>
+            )}
+            <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgb(10_5_14/70%))]" aria-hidden="true" />
+            <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
+            {duration ? <span className="absolute right-2 bottom-2 rounded-full bg-[rgb(17_8_22/80%)] px-2 py-1 text-[11px] font-bold text-white tabular-nums">{duration}</span> : null}
+          </span>
+        ) : variant === "text" ? null : (
+          <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle">
+            {material.preview.thumbnailUrl && !thumbnailFailed ? (
+              <img
+                className="h-full w-full object-cover"
+                src={material.preview.thumbnailUrl}
+                width={material.preview.width ?? 320}
+                height={material.preview.height ?? 240}
+                sizes="(min-width: 560px) 96px, 78px"
+                loading="lazy"
+                decoding="async"
+                alt=""
+                onError={() => setThumbnailFailed(true)}
+              />
+            ) : (
+              <span className="grid h-full w-full place-items-center text-gold"><TypeIcon aria-hidden="true" size={25} strokeWidth={1.55} /></span>
+            )}
+            {material.contentType === "video" ? <span className="absolute inset-0 grid place-items-center bg-black/15 text-white"><span className="grid size-9 place-items-center rounded-full bg-black/55"><Play aria-hidden="true" size={18} fill="currentColor" /></span></span> : null}
+            {material.contentType === "album" ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white">{material.preview.mediaCount} նկար</span> : null}
+            {duration ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white tabular-nums">{duration}</span> : null}
+          </span>
+        )}
         <span className="relative z-1 grid min-w-0 gap-[6px]">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span>
+            {variant === "default" || (variant === "text" && material.contentType !== "text") ? <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span> : null}
             {extraMatchReason ? (
               <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum">
                 {matchReasonLabel(extraMatchReason, material)}
@@ -357,9 +348,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-gold">{hitSourceLabel(material.searchHit.source)}</span>
               <span className="line-clamp-3 overflow-hidden">{highlightHit(material.searchHit)}</span>
             </span>
-          ) : material.excerpt || material.preview.performer || material.preview.locationSummary ? (
+          ) : excerpt || material.preview.performer || material.preview.locationSummary ? (
             <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
-              {highlightText(material.excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
+              {highlightText(excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
             </span>
           ) : null}
           {material.personalNote ? (
@@ -412,21 +403,13 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           >
             <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
           </a>
-          <button
+          <ShareButton
             className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-gold`}
-            type="button"
-            onClick={handleShare}
-            aria-label={
-              shareStatus === "copied" ? "Հղումը պատճենված է" : "Կիսվել նյութով"
-            }
-            title={shareStatus === "copied" ? "Պատճենվեց" : "Կիսվել"}
-          >
-            {shareStatus === "copied" ? (
-              <Check aria-hidden="true" size={17} strokeWidth={2} />
-            ) : (
-              <Share2 aria-hidden="true" size={17} strokeWidth={1.9} />
-            )}
-          </button>
+            title={material.title}
+            text={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
+            url={material.telegramUrl}
+            pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
+          />
         </span>
       ) : null}
       </div>

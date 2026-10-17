@@ -11,9 +11,11 @@ import {
   TelegramRichMessage,
   TelegramLocationCard,
   TelegramPollCard,
+  TimestampSeekContext,
   TelegramUnsupportedCard,
 } from "../components/telegram-content";
 import { leadingTitleLength } from "../utils/material-title";
+import { ShareButton } from "../components/share-button";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
@@ -80,6 +82,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         title={material.title}
         ornate={resolveContentCategoryId(null, material.categoryName) === "category_prayers"}
       />
+      <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className="grid gap-4">
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} /> : <MaterialMediaGallery media={material.media} />}
 
@@ -115,8 +118,17 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           <a className="inline-flex min-h-11 items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-muted no-underline hover:text-gold-bright" href={material.telegramUrl} target="_blank" rel="noreferrer">
             <ExternalLink aria-hidden="true" size={17} /> Բացել սկզբնականը Telegram-ում
           </a>
+          <ShareButton
+            className="grid size-11 cursor-pointer place-items-center rounded-[13px] border border-glass-border bg-subtle text-gold-bright"
+            title={material.title}
+            text={material.title}
+            url={material.telegramUrl}
+            pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
+            menuAlign="left"
+          />
         </div>
       </article>
+      </TimestampSeekContext.Provider>
     </PageShell>
   );
 }

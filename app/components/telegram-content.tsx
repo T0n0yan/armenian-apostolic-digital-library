@@ -1,5 +1,5 @@
 import { BarChart3, ExternalLink, MapPin, TriangleAlert } from "lucide-react";
-import { Fragment, type ReactNode } from "react";
+import { createContext, Fragment, useContext, type ReactNode } from "react";
 
 import type {
   BridgeFormattedText,
@@ -45,8 +45,43 @@ function entityWrapper(entity: BridgeTextEntity, child: ReactNode, key: string) 
   }
 }
 
+/** True on pages with a playable video/audio: "01:21"-style times in the text then seek the player. */
+export const TimestampSeekContext = createContext(false);
+
+const timestampPattern = /(?<![\d:])(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)(?![\d:])/gu;
+
+export function seekMediaTo(seconds: number) {
+  window.dispatchEvent(new CustomEvent("library:seek", { detail: { seconds } }));
+}
+
+function TimestampText({ text }: { text: string }) {
+  const enabled = useContext(TimestampSeekContext);
+  if (!enabled || !/\d:\d\d/u.test(text)) return text;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  for (const match of text.matchAll(timestampPattern)) {
+    const index = match.index ?? 0;
+    const seconds = Number(match[1] ?? 0) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    if (index > last) parts.push(text.slice(last, index));
+    parts.push(
+      <button
+        key={`${index}-${match[0]}`}
+        className="inline cursor-pointer rounded-[6px] border-0 bg-[rgb(217_181_111/14%)] px-1 py-0 font-bold text-gold-bright tabular-nums underline decoration-[rgb(217_181_111/45%)] underline-offset-3 hover:bg-[rgb(217_181_111/24%)]"
+        type="button"
+        onClick={() => seekMediaTo(seconds)}
+        aria-label={`Դիտել ${match[0]}-ից`}
+      >
+        {match[0]}
+      </button>,
+    );
+    last = index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
+}
+
 function HitText({ text, start, hit }: { text: string; start: number; hit?: BridgeSearchHit }) {
-  if (!hit || hit.length <= 0 || start >= hit.start + hit.length || start + text.length <= hit.start) return text;
+  if (!hit || hit.length <= 0 || start >= hit.start + hit.length || start + text.length <= hit.start) return <TimestampText text={text} />;
   const localStart = Math.max(0, hit.start - start);
   const localEnd = Math.min(text.length, hit.start + hit.length - start);
   return <>{text.slice(0, localStart)}<mark className="rounded-[4px] bg-[rgb(240_196_88/42%)] px-[2px] text-inherit" data-search-hit>{text.slice(localStart, localEnd)}</mark>{text.slice(localEnd)}</>;

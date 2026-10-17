@@ -294,7 +294,8 @@ export async function listCloudLibraryCategoryPosts(
   cursor: string | null,
   limit = 12,
 ): Promise<BridgePostPage> {
-  const safeLimit = Math.min(20, Math.max(1, limit));
+  // Up to 200 so a numbered topic like Psalms (151) can load in one page for its grid.
+  const safeLimit = Math.min(200, Math.max(1, limit));
   const topic = await database.prepare("SELECT id FROM library_topics WHERE slug = ? AND is_general = 0 AND status != 'hidden'")
     .bind(slug).first<{ id: string }>();
   if (!topic) return { posts: [], nextCursor: null, total: 0 };

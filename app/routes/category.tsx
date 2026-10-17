@@ -16,6 +16,9 @@ import {
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug } from "../data/categories.server";
+import { PsalmGrid, SaintGrid } from "../components/category-cards";
+import { psalmNumber } from "../utils/psalm-number";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
 import { listPublicMaterialPageByCategory } from "../data/materials.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
@@ -26,6 +29,19 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
+type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video";
+
+/** Each content category browses in its own layout; search results always use the standard cards. */
+function categoryLayout(category: { id: string; name: string }): CategoryLayout {
+  switch (resolveContentCategoryId(category.id, category.name)) {
+    case "category_psalms": return "psalm-grid";
+    case "category_saints_lives": return "portrait";
+    case "category_prayers":
+    case "category_bible_questions": return "text";
+    case "category_gospel_teachings": return "video";
+    default: return "default";
+  }
+}
 
 const CATEGORY_SEARCH_PLACEHOLDERS: Record<string, string> = {
   category_saints_lives: "Փնտրել սրբի անունով…",
@@ -82,7 +98,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const [materialResult, savedMaterialIds] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
-      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
+      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal,
+        // The psalm grid sorts by number, so it needs every psalm at once (at most 151).
+        categoryLayout(category) === "psalm-grid" ? 200 : 12),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
   const materials = materialResult.materials;
@@ -110,11 +128,13 @@ clientLoader.hydrate = true as const;
 
 const MaterialsList = memo(function MaterialsList({
   canSave,
+  layout,
   materials,
   savedMaterialIds,
   highlightQuery,
 }: {
   canSave: boolean;
+  layout: CategoryLayout;
   materials: CategoryMaterial[];
   savedMaterialIds: string[];
   highlightQuery?: string;
@@ -127,12 +147,24 @@ const MaterialsList = memo(function MaterialsList({
     [setSaved],
   );
 
-  return (
+  // Posts that don't fit the grid (a topic's intro, a psalm without a number, a saint without a
+  // picture) are listed as text cards above it instead of as broken tiles.
+  const isGridItem = layout === "psalm-grid"
+    ? (material: CategoryMaterial) => psalmNumber(material) !== null
+    : layout === "portrait"
+      ? (material: CategoryMaterial) => Boolean(material.preview.imageUrl ?? material.preview.thumbnailUrl)
+      : null;
+  const gridItems = isGridItem ? materials.filter(isGridItem) : [];
+  const listItems = isGridItem ? materials.filter((material) => !isGridItem(material)) : materials;
+  const listVariant = isGridItem ? "text" : layout === "text" || layout === "video" ? layout : "default";
+
+  const list = listItems.length > 0 ? (
     <ol className="m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2">
-      {materials.map((material) =>
+      {listItems.map((material) =>
           <MaterialResultCard
             key={material.id}
             material={material}
+            variant={listVariant}
             highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}
@@ -141,6 +173,14 @@ const MaterialsList = memo(function MaterialsList({
           />
       )}
     </ol>
+  ) : null;
+
+  if (!isGridItem) return list;
+  return (
+    <div className="grid gap-3">
+      {list}
+      {gridItems.length > 0 ? layout === "psalm-grid" ? <PsalmGrid materials={gridItems} /> : <SaintGrid materials={gridItems} /> : null}
+    </div>
   );
 });
 
@@ -269,6 +309,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         ) : (
           <MaterialsList
             canSave={loaderData.canSave}
+            layout={loaderData.query ? "default" : categoryLayout(category)}
             materials={materials}
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}

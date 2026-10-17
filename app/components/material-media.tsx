@@ -1,7 +1,8 @@
 import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, RotateCw, Video } from "lucide-react";
-import { memo, useCallback, useRef, useState, type SyntheticEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import type { MaterialMedia } from "../data/material-detail.server";
+import { isNearlyBlackImage } from "../utils/image-darkness";
 import { isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
 
 function durationLabel(seconds: number | null) {
@@ -49,11 +50,34 @@ function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry
 function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "audio" | "video"; ratio?: string }) {
   const elementRef = useRef<HTMLMediaElement | null>(null);
   const [state, setState] = useState<MediaPlaybackState>("initial");
+  // Skip posters that are an all-black first frame; the styled background reads better.
+  const [poster, setPoster] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (kind !== "video" || !asset.thumbnailUrl) return;
+    let active = true;
+    const image = new Image();
+    image.onload = () => { if (active && !isNearlyBlackImage(image)) setPoster(asset.thumbnailUrl ?? undefined); };
+    image.src = asset.thumbnailUrl;
+    return () => { active = false; };
+  }, [asset.thumbnailUrl, kind]);
   const ref = useCallback((element: HTMLMediaElement | null) => { elementRef.current = element; }, []);
   const updateFromCanPlay = (event: SyntheticEvent<HTMLMediaElement>) => {
     const paused = event.currentTarget.paused;
     setState((current) => mediaPlaybackStateForEvent(current, "can-play", { paused }));
   };
+  // Follow "01:21"-style links in the text; only the page's first player responds.
+  useEffect(() => {
+    const onSeek = (event: Event) => {
+      const element = elementRef.current;
+      const seconds = (event as CustomEvent<{ seconds: number }>).detail?.seconds;
+      if (!element || typeof seconds !== "number" || document.querySelector("video, audio") !== element) return;
+      element.currentTime = Math.max(0, Math.min(seconds, Number.isFinite(element.duration) ? element.duration - 0.5 : seconds));
+      element.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+      void element.play().catch(() => {});
+    };
+    window.addEventListener("library:seek", onSeek);
+    return () => window.removeEventListener("library:seek", onSeek);
+  }, []);
   const retry = () => {
     const element = elementRef.current;
     if (!element) return;
@@ -93,14 +117,14 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   };
 
   return (
-    <div className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[#100c10] shadow-card" : "grid min-w-0 gap-2.5"}>
+    <div className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
       {kind === "video" ? (
         <video
           {...common}
           ref={ref}
-          className="block max-h-[74svh] w-full object-contain"
+          className="block max-h-[74svh] w-full bg-transparent object-contain"
           playsInline
-          poster={asset.thumbnailUrl ?? undefined}
+          poster={poster}
           style={{ aspectRatio: ratio }}
           aria-label={asset.altText || "Telegram հրապարակման տեսանյութ"}
         >
@@ -205,17 +229,18 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
 
   if (asset.kind === "audio" || asset.kind === "voice") {
     return (
-      <div className="grid gap-3 rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_48%),var(--glass)] p-4 shadow-card min-[560px]:grid-cols-[96px_1fr]">
-        {asset.thumbnailUrl ? <img className="aspect-square w-full max-w-24 rounded-[14px] object-cover" src={asset.thumbnailUrl} width={192} height={192} loading="lazy" decoding="async" alt={asset.title ? `${asset.title} շապիկ` : "Telegram աուդիոյի շապիկ"} /> : <span className="grid aspect-square w-20 place-items-center rounded-[14px] bg-subtle text-gold"><Headphones aria-hidden="true" size={30} /></span>}
-        <div className="grid min-w-0 gap-2.5">
-          <span className="flex min-w-0 items-start justify-between gap-3 text-[13px] font-bold text-gold-bright">
-            <span className="min-w-0 truncate">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</span>
-            {durationLabel(asset.duration) ? <span className="shrink-0 text-[11px] font-normal tabular-nums text-faint">{durationLabel(asset.duration)}</span> : null}
-          </span>
-          {asset.performer ? <span className="text-[11px] text-muted">{asset.performer}</span> : null}
-          {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}
-          <StreamingMedia asset={asset} kind="audio" />
+      <div className="grid justify-items-center gap-4 rounded-[22px] border border-glass-border bg-[radial-gradient(circle_at_50%_0%,rgb(217_181_111/16%),transparent_60%),var(--glass)] px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
+        {asset.thumbnailUrl
+          ? <img className="aspect-square w-40 rounded-[20px] object-cover shadow-[0_18px_40px_rgb(10_4_14/40%)] min-[560px]:w-48" src={asset.thumbnailUrl} width={384} height={384} loading="lazy" decoding="async" alt={asset.title ? `${asset.title} շապիկ` : "Telegram աուդիոյի շապիկ"} />
+          : <span className="grid aspect-square w-32 place-items-center rounded-[20px] bg-subtle text-gold"><Headphones aria-hidden="true" size={40} strokeWidth={1.4} /></span>}
+        <div className="grid gap-1">
+          <strong className="font-noto text-[19px] leading-tight font-semibold text-gold-bright">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</strong>
+          {asset.performer || durationLabel(asset.duration) ? (
+            <span className="text-[12px] text-muted">{[asset.performer, durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
+          ) : null}
         </div>
+        {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}
+        <div className="w-full"><StreamingMedia asset={asset} kind="audio" /></div>
       </div>
     );
   }

@@ -131,6 +131,7 @@ async function hydrateSavedReferences(
         contentType: "unsupported",
         preview: {
           thumbnailUrl: null,
+          imageUrl: null,
           width: null,
           height: null,
           mediaCount: 0,

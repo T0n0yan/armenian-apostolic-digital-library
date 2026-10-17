@@ -16,6 +16,8 @@ export type PublicMaterial = {
 
 export type MaterialCardPreview = {
   thumbnailUrl: string | null;
+  /** Full-size first photo, for cards that use the picture as a background. */
+  imageUrl: string | null;
   width: number | null;
   height: number | null;
   mediaCount: number;
@@ -64,6 +66,9 @@ export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
     thumbnailUrl: asset && canPreview
       ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1`
       : null,
+    imageUrl: asset?.kind === "photo"
+      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}`
+      : null,
     width: asset?.width ?? null,
     height: asset?.height ?? null,
     mediaCount: post.media.length,
@@ -86,10 +91,11 @@ export async function listPublicMaterialPageByCategory(
   _defaultSort: "title-asc" | "manual" | "number-asc" | "date-desc",
   cursor: string | null,
   _signal?: AbortSignal,
+  limit = 12,
 ): Promise<PublicMaterialPage> {
   const category = (await listCloudLibraryCategories(database)).find((item) => item.id === categoryId);
   if (!category) return { materials: [], total: 0, nextCursor: null };
-  const page = await listCloudLibraryCategoryPosts(database, category.slug, cursor, 12);
+  const page = await listCloudLibraryCategoryPosts(database, category.slug, cursor, limit);
   return {
     materials: page.posts.map(bridgePostToPublic),
     total: page.total ?? page.posts.length + (page.nextCursor ? 1 : 0),

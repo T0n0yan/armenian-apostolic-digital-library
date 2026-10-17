@@ -961,7 +961,9 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(mediaSource, /element\.load\(\)/u);
   assert.match(mediaSource, /src: asset\.url/u);
   assert.doesNotMatch(mediaSource, /key=\{(?:state|retry|retryKey)/u, "playback state must not remount the media element");
-  assert.doesNotMatch(mediaSource, /currentTime\s*=/u, "rerenders must not reset playback position");
+  // Only an explicit timestamp click (the "library:seek" handler) may move the playhead.
+  const mediaSourceOutsideSeek = mediaSource.replace(/const onSeek = [\s\S]*?window\.addEventListener\("library:seek", onSeek\);/u, "");
+  assert.doesNotMatch(mediaSourceOutsideSeek, /currentTime\s*=/u, "rerenders must not reset playback position");
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(resultCardSource, /state=\{material\.searchHit/u);
   assert.match(resultCardSource, /snippetMatchStart/u);
@@ -1262,11 +1264,12 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const category = await mf.dispatchFetch(`https://app.fixture/categories/${MOCK_TOPIC_SLUG}`);
   const categoryHtml = await category.text();
   assert.match(categoryHtml, /Առավոտյան աղոթք/u);
-  for (const label of ["Տեքստ", "Նկար", "2 նկար", "Տեսանյութ", "Հարցում", "Տեղադրություն", "Այլ նյութ"]) {
+  // Prayers use the compact text layout: no thumbnail column, and a type badge only for non-text posts.
+  for (const label of ["Նկար", "2 նկար", "Տեսանյութ", "Հարցում", "Տեղադրություն", "Այլ նյութ"]) {
     assert.match(categoryHtml, new RegExp(label, "u"));
   }
-  assert.match(categoryHtml, /loading="lazy"/u);
-  assert.match(categoryHtml, /thumbnail=1/u);
+  assert.doesNotMatch(categoryHtml, />Տեքստ</u);
+  assert.doesNotMatch(categoryHtml, /aspect-\[4\/3\]/u);
   assert.match(categoryHtml, /Բեռնել ավելին/u);
   const firstCategoryPage = await mf.dispatchFetch(`https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts`);
   const firstCategoryData = await firstCategoryPage.json() as { materials: Array<{ id: string }>; nextCursor: string | null };
