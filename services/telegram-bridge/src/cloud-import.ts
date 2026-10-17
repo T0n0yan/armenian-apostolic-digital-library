@@ -49,9 +49,22 @@ async function watch(target: WranglerCloudSyncTarget) {
       }
     });
   };
-  const reconcile = () => enqueue("reconcile", () => syncTelegramLibrary({
-    adapter, target, chatId, mode: "reconcile", pageSize: 50, maximumMaterials: 10_000, signal: abort.signal,
-  }));
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  // A failed or partial reconcile (network outage, a file Telegram would not serve) is retried in
+  // 5 minutes instead of waiting for the next 6-hour round.
+  const reconcile = () => enqueue("reconcile", async () => {
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    try {
+      const result = await syncTelegramLibrary({
+        adapter, target, chatId, mode: "reconcile", pageSize: 50, maximumMaterials: 10_000, signal: abort.signal,
+      });
+      if (result.failed) retryTimer = setTimeout(reconcile, 5 * 60_000);
+      return result;
+    } catch (error) {
+      if (!abort.signal.aborted) retryTimer = setTimeout(reconcile, 5 * 60_000);
+      throw error;
+    }
+  });
   const flush = () => {
     timer = null;
     const changes = pending;
@@ -83,6 +96,7 @@ async function watch(target: WranglerCloudSyncTarget) {
   await new Promise<void>((resolve) => abort.signal.addEventListener("abort", () => resolve(), { once: true }));
   clearInterval(interval);
   clearInterval(publisherPoll);
+  if (retryTimer) clearTimeout(retryTimer);
   if (timer) clearTimeout(timer);
   unsubscribe();
   await queue;

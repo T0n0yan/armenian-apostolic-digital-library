@@ -39,7 +39,26 @@ function sql(value: string | number | null | undefined) {
 
 function json(value: unknown) { return sql(JSON.stringify(value)); }
 
+const transientWranglerError = /Unable to resolve|ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|ETIMEDOUT|fetch failed|socket hang up|timed? ?out|Service Unavailable|Bad Gateway|Internal server error|\(50[234]\)|status 5\d\d/iu;
+
+/**
+ * Runs Wrangler, retrying network blips (up to 4 attempts with backoff). Streaming uploads are not
+ * retried here because their body is already consumed; a failed upload is recorded and the next
+ * sync retries it.
+ */
 async function wrangler(args: string[], stdin?: AsyncIterable<Uint8Array>) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await wranglerOnce(args, stdin);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (stdin || attempt >= 4 || !transientWranglerError.test(message)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 2_000 * 2 ** (attempt - 1)));
+    }
+  }
+}
+
+async function wranglerOnce(args: string[], stdin?: AsyncIterable<Uint8Array>) {
   const child = spawn(process.execPath, [join(process.cwd(), "node_modules/wrangler/bin/wrangler.js"), ...args], {
     cwd: process.cwd(), stdio: [stdin ? "pipe" : "ignore", "pipe", "pipe"], env: process.env,
   });
