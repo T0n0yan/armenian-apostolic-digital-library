@@ -16,7 +16,7 @@ import {
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug } from "../data/categories.server";
-import { PsalmGrid, SaintGrid } from "../components/category-cards";
+import { PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
@@ -98,9 +98,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const [materialResult, savedMaterialIds] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
-      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal,
-        // The psalm grid sorts by number, so it needs every psalm at once (at most 151).
-        categoryLayout(category) === "psalm-grid" ? 200 : 12),
+      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
   const materials = materialResult.materials;
@@ -180,7 +178,7 @@ const MaterialsList = memo(function MaterialsList({
   if (!isGridItem) return list;
   return (
     <div className="grid gap-3">
-      {list}
+      {listItems.map((material) => <TopicIntro key={material.id} material={material} />)}
       {gridItems.length > 0 ? layout === "psalm-grid" ? <PsalmGrid materials={gridItems} /> : <SaintGrid materials={gridItems} /> : null}
     </div>
   );

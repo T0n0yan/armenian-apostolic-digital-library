@@ -95,9 +95,10 @@ function HomeTitle() {
         <h1 className="hero-rise hero-rise-delay m-0 font-noto text-[33px] leading-[1.12] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[36px] min-[560px]:text-[46px] min-[960px]:text-[56px]">
             Հոգևոր ժառանգություն
         </h1>
-        <p className="hero-rise hero-rise-delay-2 m-0 inline-flex items-center gap-2 rounded-full border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3.5 py-1.5 text-[12px] font-semibold tracking-[0.2px] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)] min-[560px]:text-[13px]">
-            <ArmenianCross/>
+        <p className="hero-rise hero-rise-delay-2 m-0 inline-flex max-w-full items-center gap-2 rounded-full border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3 py-1.5 text-[11px] font-semibold tracking-[0.1px] whitespace-nowrap text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)] min-[380px]:text-[12px] min-[560px]:px-4 min-[560px]:text-[13px]">
+            <ArmenianCross size={13}/>
             Նվիրված Հայ Առաքելական Սուրբ Եկեղեցուն
+            <ArmenianCross size={13}/>
         </p>
     </header>);
 }
@@ -122,7 +123,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
             </div>
         </div>
         <HomeTitle/>
-        <Form className="hero-rise hero-rise-delay-2 mt-2 mb-1 flex min-h-[50px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[14px] text-faint shadow-card backdrop-blur-md focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search">
+        <Form className="hero-rise hero-rise-delay-2 mt-2 mb-1 flex min-h-[50px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search">
             <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
             <input className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"/>
         </Form>

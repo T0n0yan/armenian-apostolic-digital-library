@@ -293,17 +293,20 @@ export async function listCloudLibraryCategoryPosts(
   slug: string,
   cursor: string | null,
   limit = 12,
+  order: "asc" | "desc" = "desc",
 ): Promise<BridgePostPage> {
   // Up to 200 so a numbered topic like Psalms (151) can load in one page for its grid.
   const safeLimit = Math.min(200, Math.max(1, limit));
   const topic = await database.prepare("SELECT id FROM library_topics WHERE slug = ? AND is_general = 0 AND status != 'hidden'")
     .bind(slug).first<{ id: string }>();
   if (!topic) return { posts: [], nextCursor: null, total: 0 };
-  const scope = `feed:${topic.id}`;
+  const scope = `feed:${topic.id}:${order}`;
   const position = decodeCursor<FeedCursor>(cursor, scope);
+  const comparison = order === "asc" ? ">" : "<";
   const cursorClause = position
-    ? "AND (COALESCE(materials.published_at, '') < ? OR (COALESCE(materials.published_at, '') = ? AND materials.message_id < ?))"
+    ? `AND (COALESCE(materials.published_at, '') ${comparison} ? OR (COALESCE(materials.published_at, '') = ? AND materials.message_id ${comparison} ?))`
     : "";
+  const direction = order === "asc" ? "ASC" : "DESC";
   const bindings: unknown[] = [topic.id];
   if (position) bindings.push(position.publishedAt, position.publishedAt, position.messageId);
   bindings.push(safeLimit + 1);
@@ -311,7 +314,7 @@ export async function listCloudLibraryCategoryPosts(
     `${materialSelect()}
      WHERE materials.topic_key = ? AND materials.sync_state = 'ready' AND materials.deleted_at IS NULL
      ${cursorClause}
-     ORDER BY COALESCE(materials.published_at, '') DESC, materials.message_id DESC
+     ORDER BY COALESCE(materials.published_at, '') ${direction}, materials.message_id ${direction}
      LIMIT ?`,
   ).bind(...bindings).all<MaterialRow>();
   const hasMore = result.results.length > safeLimit;

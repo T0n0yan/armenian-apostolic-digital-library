@@ -123,18 +123,15 @@ function loadTelegramSdk() {
 function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
   const safe = webApp.safeAreaInset ?? {};
-  const content = webApp.contentSafeAreaInset ?? safe;
+  const content = webApp.contentSafeAreaInset ?? {};
   for (const side of ["top", "right", "bottom", "left"] as const) {
-    if (typeof safe[side] === "number") {
-      root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safe[side]}px`);
-    }
-    const contentValue = content[side] ?? safe[side];
-    if (typeof contentValue === "number") {
-      root.style.setProperty(
-        `--tg-content-safe-area-inset-${side}`,
-        `${contentValue}px`,
-      );
-    }
+    const safeValue = typeof safe[side] === "number" ? safe[side] : 0;
+    const contentValue = typeof content[side] === "number" ? content[side] : 0;
+    root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
+    root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
+    // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the
+    // device safe area (status bar, notch), so the page must clear both.
+    root.style.setProperty(`--tg-inset-${side}`, `${safeValue + contentValue}px`);
   }
   if (typeof webApp.viewportHeight === "number") {
     root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`);

@@ -55,6 +55,8 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     ? (location.state as { searchHit: BridgeSearchHit }).searchHit
     : undefined;
   const [activeHit, setActiveHit] = useState(stateHit);
+  // Prayers open with a bird-letter initial, as in old manuscripts.
+  const isPrayer = resolveContentCategoryId(null, material.categoryName) === "category_prayers";
   // The header already shows the title, so don't repeat it as the first line of the text.
   const textTitleLength = leadingTitleLength(material.formattedText.text, material.title);
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
@@ -80,11 +82,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         backLabel={material.categoryName}
         eyebrow={date ? `${material.categoryName} · ${date}` : material.categoryName}
         title={material.title}
-        ornate={resolveContentCategoryId(null, material.categoryName) === "category_prayers"}
       />
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className="grid gap-4">
-        {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} /> : <MaterialMediaGallery media={material.media} />}
+        {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
@@ -102,7 +103,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
 
         {!material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
-            <FormattedTelegramText value={material.formattedText} from={textTitleLength} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+            <FormattedTelegramText value={material.formattedText} from={textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
           <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>

@@ -82,3 +82,16 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
     </ol>
   );
 });
+
+/** A topic's introduction post, shown as plain text above its grid: not a link, no actions. */
+export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial }) {
+  const title = material.title.replace(/[​-‍﻿]/gu, "").trim();
+  const excerpt = material.excerpt?.replace(/[​-‍﻿]/gu, "").trim() ?? "";
+  const body = excerpt.startsWith(title) ? excerpt.slice(title.length).replace(/^[\s.,:;։՝-]+/u, "") : excerpt;
+  return (
+    <section className="frosted-panel grid gap-1.5 px-5 py-4 text-center">
+      <h3 className="m-0 font-noto text-[15px] font-semibold tracking-[0.4px] text-gold-bright">{title}</h3>
+      {body ? <p className="m-0 text-[13px] leading-[1.6] text-muted">{body}</p> : null}
+    </section>
+  );
+});

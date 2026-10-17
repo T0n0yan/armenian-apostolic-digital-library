@@ -1302,12 +1302,13 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   // The leading rich heading repeats the page title, so it renders once in the header, not again in the body.
   assert.match(richHtml, /<h1[^>]*>.*աչափված ընթերցում<\/span><\/h1>/su);
   assert.doesNotMatch(richHtml, /<h2[^>]*>Ձևաչափված ընթերցում<\/h2>/u);
-  assert.match(richHtml, /<strong>Թավ տեքստ<\/strong>/u);
+  // The fixture topic is Prayers, so the first letter is a bird-letter initial.
+  assert.match(richHtml, /<strong><span class="ornate-initial">Թ<\/span>ավ տեքստ<\/strong>/u);
   assert.match(richHtml, /<blockquote/u);
   assert.match(richHtml, /Նկարի բացատրություն/u);
   assert.doesNotMatch(richHtml, /dangerouslySetInnerHTML|javascript:/u);
   const formattedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_101");
-  assert.match(await formattedPage.text(), /<strong>Տե՛ր<\/strong>/u);
+  assert.match(await formattedPage.text(), /<strong><span class="ornate-initial">Տ<\/span><\/strong><strong>ե՛ր<\/strong>/u);
   const videoPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_106");
   const videoHtml = await videoPage.text();
   assert.match(videoHtml, /<video/u);

@@ -12,7 +12,7 @@ import pathlib
 import numpy as np
 from PIL import Image
 
-WIDTH, HEIGHT = 1080, 1920
+WIDTH, HEIGHT = 720, 1280
 rng = np.random.default_rng(1744)
 y, x = np.mgrid[0:HEIGHT, 0:WIDTH].astype(np.float32)
 x /= WIDTH
@@ -56,11 +56,15 @@ def shading(field: np.ndarray, scale: float) -> np.ndarray:
 fibers = rng.normal(0, 1, (HEIGHT // 3, WIDTH // 3)).astype(np.float32)
 fibers = np.array(Image.fromarray(fibers).resize((WIDTH, HEIGHT), Image.BICUBIC))
 
-shade = 0.88 * shading(height, 9000.0) + 0.22 * shading(fibers, 0.6)
+shade = 0.92 * shading(height, 6000.0) + 0.12 * shading(fibers, 0.6)
 
-# Neutral map around white: 1.0 leaves the parchment untouched, lower darkens creases slightly.
-value = np.clip(0.94 + shade * 0.04, 0.8, 1.0)
-gray = (value * 255).astype(np.uint8)
+# Creases as a translucent sepia layer (darkness -> alpha), so the page can stack it over the paper
+# color with plain alpha blending. A blend mode such as multiply would be re-composited on every
+# scroll frame and make phones stutter.
+darkness = np.clip(-shade * 0.05 + 0.02, 0.0, 0.2)
+alpha = (darkness / 0.2 * 70).astype(np.uint8)
+rgba = np.zeros((HEIGHT, WIDTH, 4), np.uint8)
+rgba[..., 0], rgba[..., 1], rgba[..., 2], rgba[..., 3] = 92, 62, 26, alpha
 out = pathlib.Path(__file__).resolve().parent.parent / "app" / "assets" / "parchment-creases.webp"
-Image.fromarray(gray).save(out, "WEBP", quality=72, method=6)
+Image.fromarray(rgba).save(out, "WEBP", quality=60, alpha_quality=45, method=6)
 print(out, out.stat().st_size // 1024, "KB")

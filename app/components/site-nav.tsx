@@ -27,29 +27,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const [isTucked, setIsTucked] = useState(false);
-
   useEffect(() => setIsOpen(false), [location.pathname]);
-
-  // Tuck the floating trigger away while reading downward so it never covers text or card actions.
-  useEffect(() => {
-    let lastY = window.scrollY;
-    let frame = 0;
-    const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const y = window.scrollY;
-        const nearBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 24;
-        if (y < 80 || nearBottom || y < lastY - 6) setIsTucked(false);
-        else if (y > lastY + 6) setIsTucked(true);
-        lastY = y;
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
-  }, []);
-  useEffect(() => setIsTucked(false), [location.pathname]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -97,7 +75,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
       <nav
         ref={dialogRef}
-        className={`fixed right-[calc(var(--tg-content-safe-area-inset-right,0px)+12px)] bottom-[calc(var(--tg-content-safe-area-inset-bottom,0px)+12px)] z-50 grid justify-items-end transition-transform duration-200 min-[960px]:right-[calc(var(--tg-content-safe-area-inset-right,0px)+max(24px,calc((100vw-1180px)/2+24px)))] ${isOpen ? "" : "pointer-events-none"}`}
+        className={`fixed right-[calc(var(--tg-inset-right,0px)+12px)] bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-50 grid justify-items-end transition-transform duration-200 min-[960px]:right-[calc(var(--tg-inset-right,0px)+max(24px,calc((100vw-1180px)/2+24px)))] ${isOpen ? "" : "pointer-events-none"}`}
         aria-label="Հիմնական նավիգացիա"
         aria-modal={isOpen || undefined}
         role={isOpen ? "dialog" : undefined}
@@ -152,11 +130,10 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
         <button
           ref={triggerRef}
-          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] p-0 shadow-[var(--fab-shadow)] backdrop-blur-xl outline-none transition-[transform,opacity] duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 ${isTucked && !isOpen ? "pointer-events-none translate-y-[calc(100%+28px)] opacity-0" : "pointer-events-auto hover:-translate-y-0.5"}`}
+          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] p-0 shadow-[var(--fab-shadow)] backdrop-blur-xl outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
           type="button"
           aria-label={isOpen ? "Փակել մենյուն" : "Բացել մենյուն"}
           aria-expanded={isOpen}
-          onFocus={() => setIsTucked(false)}
           onClick={() => setIsOpen((open) => !open)}
         >
           <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_60s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
