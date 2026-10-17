@@ -152,7 +152,7 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false }:
 
 export function TelegramRichMessage({ value, media, hit, title }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit; title?: string }) {
   const skipFirst = title ? richContentStartsWithTitle(value, title) : false;
-  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
+  return <section className="grid gap-4 frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
 export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number }) {
@@ -182,7 +182,7 @@ export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeF
 
 export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; telegramUrl: string }) {
   return (
-    <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-5 shadow-card" aria-label="Telegram հարցում">
+    <section className="grid gap-4 frosted-panel p-5 shadow-card" aria-label="Telegram հարցում">
       <header className="flex items-start gap-3">
         <BarChart3 className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={21} />
         <div className="grid gap-1">
@@ -212,7 +212,7 @@ export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; tele
 export function TelegramLocationCard({ location }: { location: BridgeLocation }) {
   const mapUrl = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(location.latitude)}&mlon=${encodeURIComponent(location.longitude)}#map=16/${encodeURIComponent(location.latitude)}/${encodeURIComponent(location.longitude)}`;
   return (
-    <section className="grid gap-3 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-5 shadow-card" aria-label="Telegram տեղադրություն">
+    <section className="grid gap-3 frosted-panel p-5 shadow-card" aria-label="Telegram տեղադրություն">
       <header className="flex items-start gap-3"><MapPin className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={22} /><div><h2 className="m-0 text-[16px] leading-[1.5] text-ink">{location.title || "Տեղադրություն"}</h2>{location.address ? <p className="mt-1 mb-0 text-[13px] leading-[1.55] text-muted">{location.address}</p> : null}</div></header>
       <p className="m-0 font-mono text-[11px] text-faint">{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}{location.live ? " · live location" : ""}</p>
       <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright no-underline" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել քարտեզում</a>

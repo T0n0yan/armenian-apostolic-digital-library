@@ -198,14 +198,15 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   stateKeyRef.current = stateKey;
   const requestedCursorRef = useRef<string | null>(null);
   const seenCursorsRef = useRef(new Set<string>());
-  const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[category.id] ??
+  const contentCategory = resolveContentCategoryId(category.id, category.name) ?? category.id;
+  const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[contentCategory] ??
     "Փնտրել այս թեմայում…";
-  const categoryDescription = CATEGORY_DESCRIPTIONS[category.id]
+  const categoryDescription = CATEGORY_DESCRIPTIONS[contentCategory]
     ?? (category.isGeneral
       ? "Telegram ֆորումի հիմնական թեմայի հրապարակումները։"
       : category.status === "closed"
         ? "Այս Telegram թեման փակված է, սակայն հրապարակումները հասանելի են ընթերցման համար։"
-        : "Telegram ֆորումի այս թեմայի հրապարակումները։");
+        : "Այս բաժնի բոլոր նյութերը։");
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
     navigation.location?.pathname === `/categories/${category.slug}`;

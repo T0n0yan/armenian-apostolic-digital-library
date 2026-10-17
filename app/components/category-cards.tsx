@@ -24,7 +24,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
         return (
           <li key={material.id}>
             <Link
-              className={`relative grid aspect-square place-items-center rounded-[14px] border text-inherit no-underline shadow-card transition-[transform,border-color,background] duration-150 active:scale-95 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)] ${isOpening ? "border-[rgb(217_181_111/55%)] bg-glass-strong" : "border-glass-border bg-[linear-gradient(150deg,var(--glass-highlight),transparent_55%),var(--card-glass)] hover:border-[rgb(217_181_111/40%)]"}`}
+              className={`frosted-card grid aspect-square place-items-center rounded-[16px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
               to={targetPath}
               prefetch="intent"
               aria-label={number ? `Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}` : material.title}

@@ -116,7 +116,7 @@ export const SectionHeader = memo(function SectionHeader({
         </div>
         {/*min-[768px]:justify-items-start min-[768px]:text-left*/}
         <div className="grid justify-items-center gap-[9px] text-center ">
-          <h1 className="m-0 w-full text-[30px] leading-[36px] font-normal tracking-[-0.7px] text-balance min-[390px]:text-[34px] min-[390px]:leading-[40px] min-[768px]:text-[44px] min-[768px]:leading-[50px] min-[960px]:text-[50px] min-[960px]:leading-[56px]">
+          <h1 className="m-0 w-full text-[32px] leading-[38px] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[34px] min-[390px]:leading-[40px] min-[768px]:text-[44px] min-[768px]:leading-[50px] min-[960px]:text-[50px] min-[960px]:leading-[56px]">
             <PageTitle title={title} />
           </h1>
           {/*<BotanicalDivider />*/}

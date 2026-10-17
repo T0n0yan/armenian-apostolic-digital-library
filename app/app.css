@@ -254,6 +254,7 @@
 @keyframes candle-out { to { transform: scale(.1, .2) translateY(6px); opacity: 0; } }
 @keyframes candle-smoke { 0% { opacity: 0; transform: translateY(0) scaleX(.6); } 20% { opacity: .55; } 100% { opacity: 0; transform: translateY(-46px) translateX(6px) scaleX(1.6); } }
 
+@layer components {
 /* Apple-style frosted glass card: colorless, translucent, hairline border and a soft top sheen. */
 .frosted-card {
   position: relative;
@@ -280,6 +281,19 @@
 .frosted-card:active { transform: scale(.985); }
 .frosted-card:focus-visible { outline: 3px solid rgb(217 181 111 / 45%); outline-offset: 2px; }
 .frosted-card.is-opening { background: var(--frost-bg-hover); box-shadow: inset 0 0 0 1px rgb(217 181 111 / 45%), var(--frost-shadow); }
+
+/* Same frosted glass for static panels (material text, search form, empty states): no hover lift. */
+.frosted-panel {
+  position: relative;
+  isolation: isolate;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 10%), transparent 50%), var(--frost-bg);
+  border: 0.5px solid var(--frost-border);
+  box-shadow: inset 0 0 0 0.5px var(--frost-edge), var(--frost-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+}
 
 /*
  * Light theme: crumpled parchment. A generated crease map (scripts/generate-parchment-texture.py,

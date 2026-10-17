@@ -228,15 +228,17 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
   }
 
   if (asset.kind === "audio" || asset.kind === "voice") {
+    // Telegram metadata can hold only invisible characters (soft hyphen, zero-width space).
+    const performer = asset.performer?.replace(/[\u00AD\u200B-\u200F\u2060\uFEFF]/gu, "").trim() || null;
     return (
-      <div className="grid justify-items-center gap-4 rounded-[22px] border border-glass-border bg-[radial-gradient(circle_at_50%_0%,rgb(217_181_111/16%),transparent_60%),var(--glass)] px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
+      <div className="grid justify-items-center gap-4 frosted-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
         {asset.thumbnailUrl
           ? <img className="aspect-square w-40 rounded-[20px] object-cover shadow-[0_18px_40px_rgb(10_4_14/40%)] min-[560px]:w-48" src={asset.thumbnailUrl} width={384} height={384} loading="lazy" decoding="async" alt={asset.title ? `${asset.title} շապիկ` : "Telegram աուդիոյի շապիկ"} />
           : <span className="grid aspect-square w-32 place-items-center rounded-[20px] bg-subtle text-gold"><Headphones aria-hidden="true" size={40} strokeWidth={1.4} /></span>}
         <div className="grid gap-1">
           <strong className="font-noto text-[19px] leading-tight font-semibold text-gold-bright">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</strong>
-          {asset.performer?.trim() || durationLabel(asset.duration) ? (
-            <span className="text-[12px] text-muted">{[asset.performer?.trim(), durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
+          {performer || durationLabel(asset.duration) ? (
+            <span className="text-[12px] text-muted">{[performer, durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
           ) : null}
         </div>
         {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}
