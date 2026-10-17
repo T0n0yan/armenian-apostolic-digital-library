@@ -1,4 +1,4 @@
-import { Bookmark, Church, Search, Settings, X } from "lucide-react";
+import { Bookmark, Church, Search, Settings, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -6,6 +6,7 @@ import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
+import { INSTALL_REQUEST_EVENT, isInstalledApp } from "./install-prompt";
 import { ReadingSettings } from "./reading-settings";
 
 type SiteNavProps = { showAdminLink?: boolean };
@@ -23,6 +24,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
   const topicItems = rootData?.categories ?? [];
   const [isOpen, setIsOpen] = useState(false);
+  // Hidden once the library already runs as an installed app.
+  const [canInstall, setCanInstall] = useState(false);
+  useEffect(() => setCanInstall(!isInstalledApp()), []);
   const location = useLocation();
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -121,6 +125,12 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
               <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
               <ReadingSettings />
+              {canInstall ? (
+                <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => { setIsOpen(false); window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT)); }}>
+                  <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Smartphone aria-hidden="true" size={17} /></span>
+                  Ավելացնել գլխավոր էկրանին
+                </button>
+              ) : null}
               {canManage ? (
                 <NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink>
               ) : null}
