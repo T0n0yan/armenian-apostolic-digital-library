@@ -23,6 +23,19 @@ export type TelegramUserIdentity = Omit<SessionPayload, "expiresAt"> & {
   source: "telegram" | "local-development";
 };
 
+export type TelegramUserState =
+  | { status: "authenticated"; user: TelegramUserIdentity }
+  | { status: "guest" | "invalid" | "unavailable"; user: null };
+
+export async function getTelegramUserCacheScope(user: TelegramUserIdentity | null) {
+  if (!user) return "guest";
+  const botToken = getBotToken();
+  if (!botToken) return "guest";
+  const key = await getSessionKey(botToken);
+  const signature = await signHmac(key, encoder.encode(user.id));
+  return `telegram:${toHex(signature).slice(0, 32)}`;
+}
+
 const SESSION_COOKIE = "library_telegram_session";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const INIT_DATA_MAX_AGE_SECONDS = 60 * 60 * 24;
@@ -201,22 +214,27 @@ async function readSignedSession(request: Request, botToken: string) {
 export async function getOptionalTelegramUser(
   request: Request,
 ): Promise<TelegramUserIdentity | null> {
+  return (await getTelegramUserState(request)).user;
+}
+
+export async function getTelegramUserState(request: Request): Promise<TelegramUserState> {
   if (isLocalDevelopmentRequest(request)) {
-    return {
+    return { status: "authenticated", user: {
       id: "local-development",
       telegramId: "local-development",
       displayName: "Փորձնական օգտվող",
       username: null,
       source: "local-development",
-    };
+    } };
   }
 
   const botToken = getBotToken();
-  if (!botToken) return null;
+  if (!botToken) return { status: "unavailable", user: null };
+  if (!readCookie(request, SESSION_COOKIE)) return { status: "guest", user: null };
   const payload = await readSignedSession(request, botToken);
-  if (!payload) return null;
+  if (!payload) return { status: "invalid", user: null };
 
-  return { ...payload, source: "telegram" };
+  return { status: "authenticated", user: { ...payload, source: "telegram" } };
 }
 
 export async function requireTelegramUser(request: Request) {

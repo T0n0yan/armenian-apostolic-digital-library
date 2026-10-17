@@ -7,16 +7,19 @@ import {
 import { memo } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
-import bibleQuestionsImage from "../assets/bible-questions.png";
-import dailyReadingsImage from "../assets/daily-readings.png";
-import gospelTeachingImage from "../assets/gospel-teaching.png";
-import myCornerImage from "../assets/my-corner.png";
-import prayersImage from "../assets/prayers.png";
-import psalmsImage from "../assets/psalms.png";
-import saintsLivesImage from "../assets/saints-lives.png";
+import bibleQuestionsImage from "../assets/bible-questions.webp";
+import dailyReadingsImage from "../assets/daily-readings.webp";
+import gospelTeachingImage from "../assets/gospel-teaching.webp";
+import myCornerImage from "../assets/my-corner.webp";
+import prayersImage from "../assets/prayers.webp";
+import psalmsImage from "../assets/psalms.webp";
+import saintsLivesImage from "../assets/saints-lives.webp";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
-import { PageTitle } from "./page-layout";
+import { HeaderSearchLink, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
+
+import divider2 from "../assets/divider2.webp";
 
 const CATEGORY_IMAGES: Record<string, string> = {
   category_saints_lives: saintsLivesImage,
@@ -27,10 +30,24 @@ const CATEGORY_IMAGES: Record<string, string> = {
   category_daily_readings: dailyReadingsImage,
 };
 
+type SectionHeaderProps = {
+  backLabel: string;
+  backTo: string;
+  imageSrc: string;
+  query?: string;
+  searchAction: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  showSearch?: boolean;
+  title: string;
+  description?: string;
+};
+
 export const MY_CORNER_IMAGE = myCornerImage;
 
-export function getCategoryImage(categoryId: string) {
-  return CATEGORY_IMAGES[categoryId] ?? saintsLivesImage;
+export function getCategoryImage(categoryId: string, categoryName?: string | null) {
+  const resolved = resolveContentCategoryId(categoryId, categoryName);
+  return (resolved && CATEGORY_IMAGES[resolved]) || saintsLivesImage;
 }
 
 function BotanicalDivider() {
@@ -54,18 +71,6 @@ function BotanicalDivider() {
   );
 }
 
-type SectionHeaderProps = {
-  backLabel: string;
-  backTo: string;
-  imageSrc: string;
-  query?: string;
-  searchAction: string;
-  searchLabel: string;
-  searchPlaceholder: string;
-  showSearch?: boolean;
-  title: string;
-};
-
 export const SectionHeader = memo(function SectionHeader({
   backLabel,
   backTo,
@@ -76,38 +81,48 @@ export const SectionHeader = memo(function SectionHeader({
   searchPlaceholder,
   showSearch = true,
   title,
+  description,
 }: SectionHeaderProps) {
   const { cancelPending, formRef, scheduleSubmit } =
-    useDebouncedFormSubmit(650);
+    useDebouncedFormSubmit(320, 2);
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === searchAction;
 
   return (
     <header className="mb-[14px] grid gap-[10px] min-[768px]:mb-[18px] min-[768px]:gap-[14px]">
-      <Link
-        className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-[10px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
-        to={backTo}
-      >
-        <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
-        {backLabel}
-      </Link>
-
-      <div className="grid items-center gap-[10px] min-[768px]:grid-cols-[minmax(0,0.92fr)_minmax(320px,1.08fr)] min-[768px]:gap-[28px]">
-        <div className="flex h-[140px] w-full items-center justify-center min-[390px]:h-[150px] min-[768px]:h-[190px] min-[960px]:h-[210px]">
+      <div className="flex items-center gap-2">
+        <Link
+          className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-[10px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
+          to={backTo}
+        >
+          <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
+          {backLabel}
+        </Link>
+        <HeaderSearchLink />
+      </div>
+      {/*min-[768px]:grid-cols-[minmax(0,0.92fr)_minmax(320px,1.08fr)] min-[768px]:gap-[28px]*/}
+      <div className="grid items-center gap-[10px] ">
+        {/*[190px] min-[960px]:h-full*/}
+        <div className="flex min-h-[160px] w-full items-center justify-center min-[390px]:min-h-[180px] min-[768px]:h-full">
           <img
-            className="block h-full w-full object-contain"
+            className="block h-full w-full object-cover"
             src={imageSrc}
-            alt=""
             width={1774}
             height={887}
+            fetchPriority="high"
+            decoding="async"
+            alt=""
           />
         </div>
-
-        <div className="grid justify-items-center gap-[9px] text-center min-[768px]:justify-items-start min-[768px]:text-left">
+        {/*min-[768px]:justify-items-start min-[768px]:text-left*/}
+        <div className="grid justify-items-center gap-[9px] text-center ">
           <h1 className="m-0 w-full text-[30px] leading-[36px] font-normal tracking-[-0.7px] text-balance min-[390px]:text-[34px] min-[390px]:leading-[40px] min-[768px]:text-[44px] min-[768px]:leading-[50px] min-[960px]:text-[50px] min-[960px]:leading-[56px]">
             <PageTitle title={title} />
           </h1>
-          <BotanicalDivider />
+          {/*<BotanicalDivider />*/}
+          <img src={divider2} alt="" width={1200} height={126} decoding="async" className='w-full h-[40px] object-contain'/>
+
+          {description ? <p className="m-0 max-w-[620px] text-[13px] leading-[1.65] text-muted min-[768px]:text-[14px]">{description}</p> : null}
 
           {showSearch ? (
             <Form
@@ -118,6 +133,7 @@ export const SectionHeader = memo(function SectionHeader({
               method="get"
               role="search"
               onSubmit={cancelPending}
+              aria-busy={isSearching || undefined}
             >
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
               <input
@@ -128,6 +144,7 @@ export const SectionHeader = memo(function SectionHeader({
                 placeholder={searchPlaceholder}
                 aria-label={searchLabel}
                 autoComplete="off"
+                minLength={2}
                 onInput={scheduleSubmit}
               />
               {query ? (

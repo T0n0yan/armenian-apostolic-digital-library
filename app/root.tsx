@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import {env} from "cloudflare:workers";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   isRouteErrorResponse,
   Links,
@@ -10,7 +11,63 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
+import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
+import { CandleLoader } from "./components/candle-loader";
+import { PageShell, RouteErrorState } from "./components/page-layout";
+import { SiteNav } from "./components/site-nav";
+import {listActiveCategories} from "./data/categories.server";
+import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
+import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import "./app.css";
+
+// Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
+// the phone's light/dark setting; elsewhere the browser's prefers-color-scheme does.
+const initialThemeScript = `(() => {
+  try {
+    const root = document.documentElement;
+    let telegramTheme = null;
+    try {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const color = JSON.parse(params.get("tgWebAppThemeParams") || "{}").bg_color || "";
+      const match = /^#?([0-9a-f]{6})$/i.exec(color);
+      if (params.has("tgWebAppData") && match) {
+        const value = parseInt(match[1], 16);
+        telegramTheme = (0.2126 * ((value >> 16) & 255) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255)) < 128 ? "dark" : "light";
+        root.dataset.telegramContext = "true";
+        root.dataset.telegramTheme = telegramTheme;
+      }
+    } catch {}
+    let preference = "system";
+    let textSize = "normal";
+    try {
+      const value = localStorage.getItem("library-theme-v1");
+      if (value === "light" || value === "dark") preference = value;
+      const size = localStorage.getItem("library-text-size-v1");
+      if (size === "large" || size === "xlarge") textSize = size;
+    } catch {}
+    const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference;
+    root.dataset.themePreference = preference;
+    root.dataset.theme = theme;
+    root.dataset.textSize = textSize;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f2ebf4");
+  } catch {}
+})();`;
+
+export async function loader({request}: Route.LoaderArgs) {
+  const [telegramAdmin, categories, telegramUser] = await Promise.all([
+    getOptionalTelegramAdmin(request, env.DB),
+    listActiveCategories(env.DB, false, request.signal).catch(() => []),
+    getOptionalTelegramUser(request),
+  ]);
+
+  const value = {
+    showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
+    categories,
+    navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
+  };
+  return value;
+}
 
 type TelegramWebApp = {
   initData?: string;
@@ -18,6 +75,13 @@ type TelegramWebApp = {
   expand?: () => void;
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
+  colorScheme?: "light" | "dark";
+  themeParams?: Record<string, string | undefined>;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  setBottomBarColor?: (color: string) => void;
   onEvent?: (event: string, callback: () => void) => void;
   offEvent?: (event: string, callback: () => void) => void;
 };
@@ -72,32 +136,59 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
       );
     }
   }
+  if (typeof webApp.viewportHeight === "number") {
+    root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`);
+  }
+  if (typeof webApp.viewportStableHeight === "number") {
+    root.style.setProperty("--tg-viewport-stable-height", `${webApp.viewportStableHeight}px`);
+  }
+  const background = webApp.themeParams?.bg_color;
+  const text = webApp.themeParams?.text_color;
+  if (background) root.style.setProperty("--tg-theme-bg", background);
+  if (text) root.style.setProperty("--tg-theme-text", text);
+}
+
+function syncTelegramTheme(webApp: TelegramWebApp) {
+  // telegram-web-app.js can expose a stub in ordinary Safari/Chrome. Only a
+  // validated WebView context may influence the system preference.
+  if (!webApp.initData || (webApp.colorScheme !== "light" && webApp.colorScheme !== "dark")) return;
+  const root = document.documentElement;
+  root.dataset.telegramContext = "true";
+  root.dataset.telegramTheme = webApp.colorScheme;
+  applyThemePreference(readStoredThemePreference());
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hy">
+    <html lang="hy" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#f2ebf4" />
         <Meta />
         <Links />
+        <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
       </head>
       <body>
         {children}
-        <ScrollRestoration />
+        <ScrollRestoration getKey={({ pathname, search }) => `${pathname}${search}`} />
         <Scripts />
       </body>
     </html>
   );
 }
 
-export default function App() {
+export default function App({ loaderData }: Route.ComponentProps) {
   const revalidator = useRevalidator();
   const sessionAttempted = useRef(false);
+
+  useLayoutEffect(() => {
+    setNavigationCacheScope(loaderData.navigationCacheScope);
+  }, [loaderData.navigationCacheScope]);
 
   useEffect(() => {
     if (sessionAttempted.current) return;
@@ -107,12 +198,18 @@ export default function App() {
     const handleSafeArea = () => {
       if (webAppForCleanup) syncTelegramSafeArea(webAppForCleanup);
     };
+    const handleTheme = () => {
+      if (webAppForCleanup) syncTelegramTheme(webAppForCleanup);
+    };
     void loadTelegramSdk().then(async (webApp) => {
       if (!active || !webApp) return;
       webAppForCleanup = webApp;
       syncTelegramSafeArea(webApp);
+      syncTelegramTheme(webApp);
       webApp.onEvent?.("safeAreaChanged", handleSafeArea);
       webApp.onEvent?.("contentSafeAreaChanged", handleSafeArea);
+      webApp.onEvent?.("viewportChanged", handleSafeArea);
+      webApp.onEvent?.("themeChanged", handleTheme);
       webApp.ready?.();
       webApp.expand?.();
       if (!webApp.initData) return;
@@ -122,43 +219,44 @@ export default function App() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ initData: webApp.initData }),
       }).catch(() => null);
-      if (active && response?.ok) revalidator.revalidate();
+      if (active && response?.ok) {
+        clearNavigationCache();
+        revalidator.revalidate();
+      }
     });
     return () => {
       active = false;
       webAppForCleanup?.offEvent?.("safeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("contentSafeAreaChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("viewportChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("themeChanged", handleTheme);
     };
   }, [revalidator]);
 
-  return <Outlet />;
+  return <>
+    <Outlet />
+    <CandleLoader />
+  </>;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Սխալ";
-  let details = "Տեղի է ունեցել անսպասելի սխալ։";
-  let stack: string | undefined;
+  let message = "Էջը չհաջողվեց բացել";
+  let details = "Տեղի է ունեցել ժամանակավոր սխալ։ Փորձիր կրկին։";
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Սխալ";
+    message = error.status === 404 ? "Էջը չի գտնվել" : message;
     details =
       error.status === 404
         ? "Պահանջված էջը չի գտնվել։"
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
     details = error.message;
-    stack = error.stack;
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
-    </main>
+    <PageShell>
+      <SiteNav />
+      <RouteErrorState title={message} description={details} />
+    </PageShell>
   );
 }

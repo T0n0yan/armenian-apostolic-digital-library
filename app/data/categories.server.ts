@@ -1,75 +1,27 @@
-export type CategorySummary = {
-  id: string;
-  slug: string;
-  name: string;
-  defaultSort: "title-asc" | "manual" | "number-asc" | "date-desc";
-  materialCount: number;
-};
+import type { BridgeCategory } from "../../shared/telegram-bridge-contract";
+import { listCloudLibraryCategories } from "./cloud-library.server";
 
-type CategoryRow = {
-  id: string;
-  slug: string;
-  name: string;
-  default_sort: CategorySummary["defaultSort"];
-  material_count: number;
-};
+export type CategorySummary = BridgeCategory;
 
-type CategoryDetailRow = Omit<CategoryRow, "material_count">;
+export function isNavigableCategory(category: CategorySummary) {
+  return !category.isGeneral && category.topicId !== 1;
+}
 
 export async function listActiveCategories(
   database: D1Database,
+  _refresh = false,
+  _signal?: AbortSignal,
 ): Promise<CategorySummary[]> {
-  const { results } = await database
-    .prepare(
-      `SELECT
-         categories.id,
-         categories.slug,
-         categories.name,
-         categories.default_sort,
-         COUNT(materials.id) AS material_count
-       FROM categories
-       LEFT JOIN materials
-         ON materials.category_id = categories.id
-        AND materials.visibility = 'visible'
-       WHERE categories.is_active = 1
-       GROUP BY
-         categories.id,
-         categories.slug,
-         categories.name,
-         categories.default_sort,
-         categories.sort_order
-       ORDER BY categories.sort_order ASC`,
-    )
-    .all<CategoryRow>();
-
-  return results.map((category) => ({
-    id: category.id,
-    slug: category.slug,
-    name: category.name,
-    defaultSort: category.default_sort,
-    materialCount: Number(category.material_count),
-  }));
+  return (await listCloudLibraryCategories(database)).filter(isNavigableCategory);
 }
 
 export async function getActiveCategoryBySlug(
   database: D1Database,
   slug: string,
+  _signal?: AbortSignal,
 ): Promise<Omit<CategorySummary, "materialCount"> | null> {
-  const category = await database
-    .prepare(
-      `SELECT id, slug, name, default_sort
-       FROM categories
-       WHERE slug = ? AND is_active = 1`,
-    )
-    .bind(slug)
-    .first<CategoryDetailRow>();
-
-  if (!category) return null;
-
-  return {
-    id: category.id,
-    slug: category.slug,
-    name: category.name,
-    defaultSort: category.default_sort,
-  };
+  const category = (await listCloudLibraryCategories(database))
+    .filter(isNavigableCategory)
+    .find((item) => item.slug === slug);
+  return category ?? null;
 }

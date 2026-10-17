@@ -15,6 +15,12 @@
 			"migrations_dir": "migrations"
 		}
 	],
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "armenian-apostolic-library-media-local"
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
@@ -29,6 +35,12 @@
 					"database_id": "cdd921dc-f70c-494a-a7f4-6e0b18c3fd14",
 					"migrations_dir": "migrations"
 				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "MEDIA",
+					"bucket_name": "armenian-apostolic-library-media-staging"
+				}
 			]
 		},
 		"production": {
@@ -39,6 +51,12 @@
 					"database_name": "armenian-apostolic-digital-library-production",
 					"database_id": "a6141d10-fdf4-4fca-85a2-11d7c8628958",
 					"migrations_dir": "migrations"
+				}
+			],
+			"r2_buckets": [
+				{
+					"binding": "MEDIA",
+					"bucket_name": "armenian-apostolic-library-media-production"
 				}
 			]
 		}

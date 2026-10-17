@@ -1,7 +1,11 @@
 .DS_Store
 .idea/
 .vscode/
-.env
+.env*
+services/telegram-bridge/.env.local
+.local-backups/
+.local-artifacts/
+.cloudflared-staging/
 /node_modules/
 *.tsbuildinfo
 

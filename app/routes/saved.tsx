@@ -5,14 +5,14 @@ import { Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
-  getOptionalTelegramUser,
+  getTelegramUserState,
   requireSameOriginUserRequest,
   requireTelegramUser,
   upsertAppUser,
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
-import { EmptyState, PageShell } from "../components/page-layout";
+import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
 import {
   MY_CORNER_IMAGE,
   SectionHeader,
@@ -25,13 +25,14 @@ import {
   setMaterialSaved,
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
+import { getCloudLibraryPost } from "../data/cloud-library.server";
+import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 
 export function meta({}: Route.MetaArgs) {
   return [
     { title: "Իմ անկյունը — Հոգևոր ժառանգություն" },
     { name: "robots", content: "noindex, nofollow, noarchive" },
-    { name: "theme-color", content: "#100817" },
   ];
 }
 
@@ -39,12 +40,28 @@ export async function loader({ request }: Route.LoaderArgs) {
   const query = (new URL(request.url).searchParams.get("q") ?? "")
     .trim()
     .slice(0, 120);
-  const user = await getOptionalTelegramUser(request);
-  if (!user) return { user: null, groups: [], query, total: 0 };
-  await upsertAppUser(env.DB, user);
-  const materials = await listSavedMaterials(env.DB, user.id, query);
+  const auth = await getTelegramUserState(request);
+  const user = auth.user;
+  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0 };
+  try {
+    await upsertAppUser(env.DB, user);
+  } catch {
+    console.error(JSON.stringify({ event: "saved_loader_error", kind: "database" }));
+    return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0 };
+  }
+  let materials;
+  try {
+    materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
+  } catch (error) {
+    if (request.signal.aborted) throw error;
+    const errorKind = "database" as const;
+    console.error(JSON.stringify({ event: "saved_loader_error", kind: errorKind }));
+    return { user, authStatus: auth.status, errorKind, groups: [], query, total: 0 };
+  }
   return {
     user,
+    authStatus: auth.status,
+    errorKind: null,
     groups: groupSavedMaterials(materials),
     query,
     total: materials.length,
@@ -61,7 +78,7 @@ export async function action({ request }: Route.ActionArgs) {
   if (
     (intent !== "save" && intent !== "remove") ||
     typeof materialId !== "string" ||
-    !/^material_[a-zA-Z0-9_-]{1,100}$/.test(materialId) ||
+    !parseMaterialId(materialId) ||
     typeof personalNote !== "string" ||
     Array.from(personalNote).length > 160
   ) {
@@ -69,6 +86,10 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   await upsertAppUser(env.DB, user);
+  const reference = parseMaterialId(materialId)!;
+  if (intent === "save" && !(await getCloudLibraryPost(env.DB, reference.chatId, reference.messageId))) {
+    return Response.json({ saved: false, error: "material-unavailable" }, { status: 404 });
+  }
   const saved = await setMaterialSaved(
     env.DB,
     user.id,
@@ -100,7 +121,7 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   return (
     <details className="group overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_48%),var(--glass)] shadow-card animate-glass-enter" open={open}>
       <summary className="grid min-h-[66px] cursor-pointer list-none grid-cols-[34px_minmax(0,1fr)_auto_20px] items-center gap-2.5 px-[13px] py-[11px] outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-[rgb(217_181_111/42%)]">
-        <CategoryIcon categoryId={group.categoryId} size={20} strokeWidth={1.8} />
+        <CategoryIcon categoryId={group.categoryId} categoryName={group.categoryName} size={20} strokeWidth={1.8} />
         <span className="grid gap-0.5">
           <strong className="text-[13px]">{group.categoryName}</strong>
           <small className="text-[11px] text-faint">{materials.length} պահված նյութ</small>
@@ -142,9 +163,18 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         showSearch={Boolean(loaderData.user)}
       />
 
-      {!loaderData.user ? (
-        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title="Բացիր գրադարանը Telegram-ից">
-          <p>Այդպես քո պահած նյութերը կապվում են հենց քո Telegram հաշվի հետ։</p>
+      {loaderData.errorKind ? (
+        <RouteErrorState
+          title="Պահված նյութերը չհաջողվեց բեռնել"
+          description="Տվյալների պահոցի հետ կապը չհաջողվեց։ Փորձիր կրկին։"
+        />
+      ) : !loaderData.user ? (
+        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title={loaderData.authStatus === "invalid" ? "Telegram նույնականացման ժամկետն ավարտվել է" : "Իմ անկյունը հասանելի է Telegram-ում"}>
+          <p>{loaderData.authStatus === "invalid"
+            ? "Փակիր և նորից բացիր Mini App-ը Telegram-ից։"
+            : loaderData.authStatus === "unavailable"
+              ? "Telegram նույնականացումը այս միջավայրում կազմաձևված չէ։"
+              : "Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս։"}</p>
         </EmptyState>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
@@ -188,4 +218,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
       )}
     </PageShell>
   );
+}
+
+export function ErrorBoundary({}: Route.ErrorBoundaryProps) {
+  return <PageShell><SiteNav /><RouteErrorState title="Իմ անկյունը չբացվեց" /></PageShell>;
 }

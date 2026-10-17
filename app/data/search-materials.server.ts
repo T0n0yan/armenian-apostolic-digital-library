@@ -1,279 +1,99 @@
-import type {
-  SearchCategoryGroup,
-  SearchFilters,
-  SearchMaterialPage,
-} from "./search-materials";
-import {
-  resolveSearchQuery,
-  type ResolvedSearchQuery,
-} from "./search-query.server";
-
-type SearchMaterialRow = {
-  id: string;
-  title: string;
-  telegram_url: string;
-  category_name: string;
-  category_slug: string;
-  number_value: number | null;
-  date_value: string | null;
-  published_at: string | null;
-  media_types: string;
-  content_text: string;
-};
-
-function escapeLike(value: string) {
-  return value.replace(/[\\%_]/g, "\\$&");
-}
-
-function parseMediaTypes(value: string) {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
+import type { BridgePost } from "../../shared/telegram-bridge-contract";
+import { bridgePostToCardPreview } from "./materials.server";
+import { searchCloudLibraryPosts } from "./cloud-library.server";
+import type { SearchFilters, SearchMaterialPage } from "./search-materials";
+import { resolveSearchQuery, type ResolvedSearchQuery } from "./search-query.server";
 
 const sentenceEndings = new Set(["։", ".", "!", "?", "…"]);
 
 function findSequence(haystack: string[], needle: string[]) {
   if (needle.length === 0 || needle.length > haystack.length) return -1;
-
   for (let index = 0; index <= haystack.length - needle.length; index += 1) {
-    let matches = true;
-    for (let offset = 0; offset < needle.length; offset += 1) {
-      if (haystack[index + offset] !== needle[offset]) {
-        matches = false;
-        break;
-      }
-    }
-    if (matches) return index;
+    if (needle.every((character, offset) => haystack[index + offset] === character)) return index;
   }
-
   return -1;
 }
 
 export function createSearchExcerpt(value: string, normalizedQuery: string) {
-  const compact = value.replace(/\s+/g, " ").trim();
+  const compact = value.replace(/\s+/gu, " ").trim();
   if (!compact) return null;
   const characters = Array.from(compact);
   const normalizedCharacters = Array.from(compact.toLocaleLowerCase("hy-AM"));
-  const candidates = [
-    normalizedQuery,
-    ...normalizedQuery
-      .split(" ")
-      .filter((term) => Array.from(term).length >= 2)
-      .sort((first, second) => second.length - first.length),
-  ].filter(Boolean);
-
+  const candidates = [normalizedQuery, ...normalizedQuery.split(" ").filter((term) => Array.from(term).length >= 2)]
+    .filter(Boolean).sort((left, right) => right.length - left.length);
   let matchStart = -1;
   let matchLength = 0;
   for (const candidate of candidates) {
     const candidateCharacters = Array.from(candidate);
     const index = findSequence(normalizedCharacters, candidateCharacters);
-    if (index >= 0) {
-      matchStart = index;
-      matchLength = candidateCharacters.length;
-      break;
-    }
+    if (index >= 0) { matchStart = index; matchLength = candidateCharacters.length; break; }
   }
-
-  if (matchStart < 0) {
-    return characters.length > 220
-      ? `${characters.slice(0, 217).join("")}…`
-      : compact;
-  }
-
+  if (matchStart < 0) return characters.length > 220 ? `${characters.slice(0, 217).join("")}…` : compact;
   let sentenceStart = matchStart;
-  while (
-    sentenceStart > 0 &&
-    !sentenceEndings.has(characters[sentenceStart - 1])
-  ) {
-    sentenceStart -= 1;
-  }
+  while (sentenceStart > 0 && !sentenceEndings.has(characters[sentenceStart - 1])) sentenceStart -= 1;
   let sentenceEnd = matchStart + matchLength;
-  while (
-    sentenceEnd < characters.length &&
-    !sentenceEndings.has(characters[sentenceEnd])
-  ) {
-    sentenceEnd += 1;
-  }
+  while (sentenceEnd < characters.length && !sentenceEndings.has(characters[sentenceEnd])) sentenceEnd += 1;
   if (sentenceEnd < characters.length) sentenceEnd += 1;
-
   const sentence = characters.slice(sentenceStart, sentenceEnd);
   if (sentence.length <= 280) return sentence.join("").trim();
-
   const windowStart = Math.max(sentenceStart, matchStart - 90);
   const windowEnd = Math.min(sentenceEnd, matchStart + matchLength + 150);
-  return `${windowStart > sentenceStart ? "…" : ""}${characters
-    .slice(windowStart, windowEnd)
-    .join("")
-    .trim()}${windowEnd < sentenceEnd ? "…" : ""}`;
+  return `${windowStart > sentenceStart ? "…" : ""}${characters.slice(windowStart, windowEnd).join("").trim()}${windowEnd < sentenceEnd ? "…" : ""}`;
 }
 
-function createSearchWhere(
-  filters: SearchFilters,
-  includeCategory: boolean,
-  resolved: ResolvedSearchQuery,
-) {
-  const clauses = ["materials.visibility = 'visible'", "categories.is_active = 1"];
-  const values: string[] = [];
-
-  if (resolved.telegramUrlKey) {
-    clauses.push("materials.telegram_url_key = ?");
-    values.push(resolved.telegramUrlKey);
-  }
-  for (const variants of resolved.termGroups) {
-    const variantClauses: string[] = [];
-    for (const term of variants) {
-      const pattern = `%${escapeLike(term)}%`;
-      variantClauses.push(
-        "materials.search_title LIKE ? ESCAPE '\\'",
-        "materials.search_body LIKE ? ESCAPE '\\'",
-      );
-      values.push(pattern, pattern);
-    }
-    clauses.push(`(${variantClauses.join(" OR ")})`);
-  }
-
-  if (includeCategory && filters.categoryId) {
-    clauses.push("materials.category_id = ?");
-    values.push(filters.categoryId);
-  }
-
-  if (filters.dateFrom) {
-    clauses.push("COALESCE(materials.date_value, substr(materials.published_at, 1, 10)) >= ?");
-    values.push(filters.dateFrom);
-  }
-  if (filters.dateTo) {
-    clauses.push("COALESCE(materials.date_value, substr(materials.published_at, 1, 10)) <= ?");
-    values.push(filters.dateTo);
-  }
-
-  return { clauses, normalizedQuery: resolved.highlightQuery, values };
+function searchablePreview(post: BridgePost) {
+  return [
+    post.contentText, post.captionText, post.poll?.question.text,
+    ...(post.poll?.options.map((option) => option.text.text) ?? []),
+    post.location?.title, post.location?.address,
+    ...post.media.flatMap((media) => [media.title, media.performer, media.fileName]),
+  ].filter(Boolean).join(" ");
 }
 
-export async function searchMaterialGroups(
-  database: D1Database,
-  filters: SearchFilters,
-  resolvedQuery?: ResolvedSearchQuery,
-): Promise<SearchCategoryGroup[]> {
-  const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
-  const { clauses, values } = createSearchWhere(filters, false, resolved);
-  const { results } = await database
-    .prepare(
-      `SELECT
-         categories.id,
-         categories.slug,
-         categories.name,
-         COUNT(materials.id) AS material_count
-       FROM materials
-       INNER JOIN categories ON categories.id = materials.category_id
-       WHERE ${clauses.join(" AND ")}
-       GROUP BY categories.id, categories.slug, categories.name, categories.sort_order
-       HAVING COUNT(materials.id) > 0
-       ORDER BY categories.sort_order ASC`,
-    )
-    .bind(...values)
-    .all<{
-      id: string;
-      slug: string;
-      name: string;
-      material_count: number;
-    }>();
-
-  return results.map((row) => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    materialCount: Number(row.material_count),
-  }));
+function matchesDate(post: BridgePost, filters: SearchFilters) {
+  const date = post.dateValue || post.publishedAt?.slice(0, 10) || "";
+  return (!filters.dateFrom || date >= filters.dateFrom) && (!filters.dateTo || date <= filters.dateTo);
 }
 
 export async function searchMaterials(
   database: D1Database,
   filters: SearchFilters,
-  page: number,
-  pageSize = 30,
+  cursor: string | null,
+  _pageSize = 30,
   resolvedQuery?: ResolvedSearchQuery,
+  _signal?: AbortSignal,
 ): Promise<SearchMaterialPage> {
   const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
-  const {
-    clauses,
-    normalizedQuery,
-    values: whereValues,
-  } = createSearchWhere(filters, true, resolved);
-
-  const rankValues: string[] = [];
-  let relevance = "0";
-  if (normalizedQuery) {
-    relevance = `CASE
-      WHEN materials.search_title = ? THEN 0
-      WHEN materials.search_title LIKE ? ESCAPE '\\' THEN 1
-      WHEN materials.search_title LIKE ? ESCAPE '\\' THEN 2
-      ELSE 3
-    END`;
-    rankValues.push(
-      normalizedQuery,
-      `${escapeLike(normalizedQuery)}%`,
-      `%${escapeLike(normalizedQuery)}%`,
-    );
-  }
-
-  const selectStatement = database.prepare(
-      `SELECT
-         materials.id,
-         materials.title,
-         materials.telegram_url,
-         materials.number_value,
-         materials.date_value,
-         materials.published_at,
-         materials.media_types,
-         materials.content_text,
-         categories.name AS category_name,
-         categories.slug AS category_slug,
-         ${relevance} AS relevance
-       FROM materials
-       INNER JOIN categories ON categories.id = materials.category_id
-       WHERE ${clauses.join(" AND ")}
-       ORDER BY
-         relevance ASC,
-         COALESCE(materials.date_value, materials.published_at, materials.created_at) DESC,
-         materials.title COLLATE NOCASE ASC
-       LIMIT ? OFFSET ?`,
-    );
-  const countStatement = database.prepare(
-    `SELECT COUNT(*) AS material_count
-     FROM materials
-     INNER JOIN categories ON categories.id = materials.category_id
-     WHERE ${clauses.join(" AND ")}`,
+  const bridgeQuery = filters.query ? resolved.original : "";
+  const page = await searchCloudLibraryPosts(
+    database,
+    bridgeQuery,
+    filters.categoryId,
+    cursor,
+    20,
   );
-  const offset = (Math.max(page, 1) - 1) * pageSize;
-  const [{ results }, countRow] = await Promise.all([
-    selectStatement
-      .bind(...rankValues, ...whereValues, pageSize, offset)
-      .all<SearchMaterialRow>(),
-    countStatement
-      .bind(...whereValues)
-      .first<{ material_count: number }>(),
-  ]);
-
+  const posts = page.posts.filter((post) => matchesDate(post, filters));
   return {
-    materials: results.map((row) => ({
-      id: row.id,
-      title: row.title,
-      telegramUrl: row.telegram_url,
-      categoryName: row.category_name,
-      categorySlug: row.category_slug,
-      numberValue: row.number_value,
-      dateValue: row.date_value,
-      publishedAt: row.published_at,
-      mediaTypes: parseMediaTypes(row.media_types),
-      excerpt: createSearchExcerpt(row.content_text, normalizedQuery),
+    materials: posts.map((post) => ({
+      id: post.id,
+      title: post.title,
+      telegramUrl: post.telegramUrl,
+      categoryName: post.categoryName ?? "",
+      categorySlug: post.categorySlug ?? "",
+      numberValue: post.numberValue,
+      dateValue: post.dateValue,
+      publishedAt: post.publishedAt,
+      mediaTypes: [...new Set(post.media.map((asset) => asset.kind))],
+      excerpt: post.searchMatch?.hit?.snippet ?? createSearchExcerpt(searchablePreview(post), resolved.highlightQuery),
+      contentType: post.contentType,
+      preview: bridgePostToCardPreview(post),
+      matchReasons: ["telegram", ...(post.searchMatch?.reasons ?? [])],
+      scoreCategory: post.searchMatch?.scoreCategory,
+      matchedMessageId: post.searchMatch?.matchedMessageId,
+      searchHit: post.searchMatch?.hit,
     })),
-    total: Number(countRow?.material_count ?? 0),
+    total: page.total ?? posts.length + (page.nextCursor ? 1 : 0),
     highlightQuery: resolved.highlightQuery,
+    nextCursor: page.nextCursor,
   };
 }

@@ -1,0 +1,19 @@
+# Server-only. Create .dev.vars locally and never commit real values.
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_BRIDGE_URL=http://127.0.0.1:8788
+TELEGRAM_BRIDGE_SHARED_SECRET=
+# Optional bounded SSR metadata timeout (default 20000 ms).
+TELEGRAM_BRIDGE_REQUEST_TIMEOUT_MS=20000
+
+# Optional as a pair for a Bridge protected by Cloudflare Access.
+CF_ACCESS_CLIENT_ID=
+CF_ACCESS_CLIENT_SECRET=
+
+# Optional Cloudflare Access fallback for /admin.
+CF_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+CF_ACCESS_AUD=
+
+# Optional local/CI Cloudflare CLI credentials. Prefer `wrangler login`;
+# API-token variables are only needed in non-interactive CI environments.
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=

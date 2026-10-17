@@ -1,0 +1,19 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "./**/*.ts",
+    "../app/auth/media-client.server.ts",
+    "../app/data/cloud-media.server.ts",
+    "./cloud-bindings.d.ts",
+    "../app/data/telegram-bridge-config.server.ts",
+    "../app/utils/material-title.ts",
+    "../app/utils/media-playback.ts",
+    "../app/utils/navigation-cache.ts",
+    "../services/telegram-bridge/src/**/*.ts",
+    "../shared/**/*.ts"
+  ]
+}

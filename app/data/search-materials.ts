@@ -17,19 +17,21 @@ export type SearchMaterial = {
   publishedAt: string | null;
   mediaTypes: string[];
   excerpt: string | null;
+  contentType: BridgeContentType;
+  preview: MaterialCardPreview;
   personalNote?: string;
+  matchReasons?: Array<"telegram" | "personal-note" | BridgeSearchMatchReason>;
+  scoreCategory?: BridgeSearchScoreCategory | "personal-note";
+  matchedMessageId?: number;
+  searchHit?: BridgeSearchHit;
 };
 
 export type SearchMaterialPage = {
   materials: SearchMaterial[];
   total: number;
   highlightQuery: string;
+  nextCursor: string | null;
 };
 
-export type SearchCategoryGroup = {
-  id: string;
-  slug: string;
-  name: string;
-  materialCount: number;
-  isPersonal?: boolean;
-};
+import type { BridgeContentType, BridgeSearchHit, BridgeSearchMatchReason, BridgeSearchScoreCategory } from "../../shared/telegram-bridge-contract";
+import type { MaterialCardPreview } from "./materials.server";
