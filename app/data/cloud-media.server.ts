@@ -38,7 +38,7 @@ export async function readCloudMedia(
   messageId: number,
   mediaIndex: number,
   request: Request,
-) {
+): Promise<Response> {
   const row = await database.prepare(
     `SELECT media.r2_key, media.thumbnail_r2_key, media.mime_type
      FROM library_media AS media
@@ -55,7 +55,8 @@ export async function readCloudMedia(
 
   const head = await bucket.head(key);
   if (!head) return new Response("Media not found", { status: 404 });
-  const headers = mediaHeaders(head, row.mime_type);
+  // Thumbnails are always JPEG; the row's MIME type describes the original asset.
+  const headers = mediaHeaders(head, thumbnail ? "image/jpeg" : row.mime_type);
   if (request.method === "HEAD") {
     headers.set("Content-Length", String(head.size));
     return new Response(null, { status: 200, headers });

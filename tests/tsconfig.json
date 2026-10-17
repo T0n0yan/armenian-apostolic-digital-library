@@ -7,6 +7,8 @@
   "include": [
     "./**/*.ts",
     "../app/auth/media-client.server.ts",
+    "../app/data/cloud-media.server.ts",
+    "./cloud-bindings.d.ts",
     "../app/data/telegram-bridge-config.server.ts",
     "../app/utils/media-playback.ts",
     "../app/utils/navigation-cache.ts",
