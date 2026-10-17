@@ -484,6 +484,7 @@ export async function searchCloudLibraryPosts(
     return match ? [{ document, match, rank: match.rank }] : [];
   }).sort((left, right) =>
     right.rank - left.rank ||
+    (right.match.strength ?? 0) - (left.match.strength ?? 0) ||
     (right.document.publishedAt ?? "").localeCompare(left.document.publishedAt ?? "") ||
     right.document.messageId - left.document.messageId,
   );

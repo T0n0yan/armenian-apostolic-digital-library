@@ -30,7 +30,8 @@ export type SearchableTelegramDocument = {
   fields: Array<{ kind: SearchableTelegramFieldKind; value: string; primary: boolean; blockId: string | null }>;
 };
 
-export type RankedTelegramSearchMatch = BridgeSearchMatch & { rank: number };
+/** `strength` breaks ties within a rank: 2 = title/primary field, 1 = topic or hashtag, 0 = body only. */
+export type RankedTelegramSearchMatch = BridgeSearchMatch & { rank: number; strength?: number };
 
 const primaryKinds = new Set<SearchableTelegramFieldKind>(["title", "poll-question", "location", "audio"]);
 const reasonByField: Record<SearchableTelegramFieldKind, BridgeSearchMatchReason> = {
@@ -52,7 +53,7 @@ const armenianToLatinPairs: Array<[string, string]> = [
   ["ց", "c"], ["փ", "p"], ["ք", "q"], ["օ", "o"], ["ֆ", "f"],
 ];
 const latinToArmenianPairs: Array<[string, string]> = [
-  ["sh", "շ"], ["zh", "ժ"], ["kh", "խ"], ["ts", "ծ"], ["dz", "ձ"], ["ch", "չ"], ["ev", "և"],
+  ["gh", "ղ"], ["ou", "ու"], ["tch", "ճ"], ["sh", "շ"], ["zh", "ժ"], ["kh", "խ"], ["ts", "ծ"], ["dz", "ձ"], ["ch", "չ"], ["ev", "և"],
   ["a", "ա"], ["b", "բ"], ["c", "ց"], ["d", "դ"], ["e", "ե"], ["f", "ֆ"], ["g", "գ"],
   ["h", "հ"], ["i", "ի"], ["j", "ջ"], ["k", "կ"], ["l", "լ"], ["m", "մ"], ["n", "ն"],
   ["o", "ո"], ["p", "պ"], ["q", "ք"], ["r", "ր"], ["s", "ս"], ["t", "տ"], ["u", "ու"],
@@ -86,12 +87,18 @@ export function latinToArmenian(value: string) {
   return replacePairs(normalizeTelegramSearchText(value), latinToArmenianPairs).replace(/\s+/gu, " ").trim();
 }
 
+// Common informal Latin spellings mapped to the canonical forms that armenianToLatin indexes.
+const latinSpellingPairs: Array<[string, string]> = [["gh", "x"], ["ou", "u"], ["tch", "ch"]];
+
 export function searchAliases(value: string) {
   const normalized = normalizeTelegramSearchText(value);
   if (!normalized) return [];
   const aliases = new Set<string>();
   if (/\p{Script=Armenian}/u.test(normalized)) aliases.add(armenianToLatin(normalized));
-  if (/\p{Script=Latin}/u.test(normalized)) aliases.add(latinToArmenian(normalized));
+  if (/\p{Script=Latin}/u.test(normalized)) {
+    aliases.add(latinToArmenian(normalized));
+    aliases.add(replacePairs(normalized, latinSpellingPairs));
+  }
   aliases.delete(""); aliases.delete(normalized);
   return [...aliases];
 }
@@ -181,6 +188,22 @@ function boundedDistance(first: string, second: string, maximum: number) {
 }
 
 function tokenBoundaryIncludes(value: string, query: string) { return ` ${value} `.includes(` ${query} `); }
+function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"); }
+const numericToken = /^\p{N}+$/u;
+// Substring containment that never splits a number ("սաղմոս 1" must not hit "սաղմոս 14").
+function includesWhole(value: string, query: string) {
+  if (!/\p{N}/u.test(query)) return value.includes(query);
+  return new RegExp(`(?<!\\p{N})${escapeRegExp(query)}(?!\\p{N})`, "u").test(value);
+}
+// Numbers never prefix-match ("1" must not find 10–19). In multi-word queries a number must
+// follow the word before it ("սաղմոս 1"), so verse numbers elsewhere in a text don't match.
+function prefixMatches(normalized: string, tokens: string[], terms: string[]) {
+  return terms.every((term, index) => {
+    if (!numericToken.test(term)) return tokens.some((token) => token.startsWith(term));
+    if (index === 0) return tokens.includes(term);
+    return new RegExp(`(?:^| )${escapeRegExp(terms[index - 1])}\\S* ${term}(?: |$)`, "u").test(normalized);
+  });
+}
 function fuzzyThreshold(token: string) { const length = Array.from(token).length; return length >= 8 ? 2 : length >= 4 ? 1 : 0; }
 function category(rank: number): BridgeSearchScoreCategory {
   if (rank >= 7) return "exact-primary";
@@ -194,7 +217,7 @@ function category(rank: number): BridgeSearchScoreCategory {
 export function matchSearchableTelegramDocument(document: SearchableTelegramDocument, parsed: ParsedTelegramSearchQuery): RankedTelegramSearchMatch | null {
   if (!parsed.normalized || parsed.messageIdIntent) return null;
   let bestRank = 0; const reasons = new Set<BridgeSearchMatchReason>(); let usedTransliteration = false; let usedFuzzy = false;
-  let bestHit: BridgeSearchHit | undefined;
+  let bestHit: BridgeSearchHit | undefined; let strength = 0;
   for (const field of document.fields) {
     const normalized = normalizeTelegramSearchText(field.value);
     if (!normalized) continue;
@@ -202,12 +225,12 @@ export function matchSearchableTelegramDocument(document: SearchableTelegramDocu
     let fieldRank = 0;
     if (normalized === parsed.normalized && field.primary) fieldRank = 7;
     else if (tokenBoundaryIncludes(normalized, parsed.normalized)) fieldRank = 5;
-    else if (parsed.tokens.length && parsed.tokens.every((term) => tokens.some((token) => token.startsWith(term)))) fieldRank = 4;
-    else if (normalized.includes(parsed.normalized)) fieldRank = 3;
+    else if (parsed.tokens.length && prefixMatches(normalized, tokens, parsed.tokens)) fieldRank = 4;
+    else if (includesWhole(normalized, parsed.normalized)) fieldRank = 3;
     if (!fieldRank) {
       const fieldAliases = searchAliases(normalized); const queryVariants = [parsed.normalized, ...parsed.aliases];
-      if (fieldAliases.some((alias) => queryVariants.some((query) => tokenBoundaryIncludes(alias, query) || alias.includes(query))) ||
-          parsed.aliases.some((alias) => tokenBoundaryIncludes(normalized, alias) || normalized.includes(alias))) {
+      if (fieldAliases.some((alias) => queryVariants.some((query) => tokenBoundaryIncludes(alias, query) || includesWhole(alias, query))) ||
+          parsed.aliases.some((alias) => tokenBoundaryIncludes(normalized, alias) || includesWhole(normalized, alias))) {
         fieldRank = 2; usedTransliteration = true;
       }
     }
@@ -222,13 +245,16 @@ export function matchSearchableTelegramDocument(document: SearchableTelegramDocu
         !bestHit || (bestHit.blockId === null && hit.blockId !== null) ||
         (bestHit.blockId === hit.blockId && hit.start < bestHit.start)
       ))) bestHit = hit ?? bestHit;
+      const fieldStrength = field.primary ? 2 : field.kind === "topic" || field.kind === "hashtag" ? 1 : 0;
+      if (fieldRank > bestRank) strength = fieldStrength;
+      else if (fieldRank === bestRank) strength = Math.max(strength, fieldStrength);
       bestRank = Math.max(bestRank, fieldRank);
     }
   }
   if (!bestRank) return null;
   if (usedTransliteration && bestRank <= 2) reasons.add("transliteration");
   if (usedFuzzy && bestRank === 1) reasons.add("fuzzy");
-  return { scoreCategory: category(bestRank), reasons: [...reasons], rank: bestRank, hit: bestHit };
+  return { scoreCategory: category(bestRank), reasons: [...reasons], rank: bestRank, strength, hit: bestHit };
 }
 
 export function messageIdSearchMatch(messageId: number): RankedTelegramSearchMatch {
