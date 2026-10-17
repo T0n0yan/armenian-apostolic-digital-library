@@ -21,6 +21,7 @@ import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
 import { cloudMediaObjectKey, syncTelegramLibrary, telegramMaterialContentHash, type CloudLibrarySyncTarget, type SyncMaterial, type SyncMediaUpload } from "../services/telegram-bridge/src/cloud-sync";
+import { cloudMaterialSyncState } from "../services/telegram-bridge/src/wrangler-cloud-target";
 import { createTopicCategoryId, createTopicSlug, isBridgeSearchHit, type BridgeCategory, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
 import { createSearchableTelegramDocument, matchSearchableTelegramDocument, matchSearchableText, normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
 import {
@@ -186,7 +187,7 @@ test("cloud importer is deterministic, idempotent, resumable and dry-run safe", 
   );
 });
 
-test("cloud importer preserves a material when one media reference is unavailable", async () => {
+test("cloud importer preserves metadata but does not publish material with unavailable required media", async () => {
   class PartiallyUnavailableAdapter extends MockTelegramAdapter {
     override async getMediaDescriptor(
       chatId: string,
@@ -210,6 +211,10 @@ test("cloud importer preserves a material when one media reference is unavailabl
   assert.equal(result.failed, true);
   assert.ok(target.materials.has(`${MOCK_CHAT_ID}:103`), "partial albums must retain their metadata and available media");
   assert.ok(target.failures.includes("media-unavailable"));
+  assert.equal(cloudMaterialSyncState({ deleted: false, metadataOnly: false, requiredMediaCount: 4, readyMediaCount: 3 }), "pending_media");
+  assert.equal(cloudMaterialSyncState({ deleted: false, metadataOnly: false, requiredMediaCount: 4, readyMediaCount: 4 }), "ready");
+  assert.equal(cloudMaterialSyncState({ deleted: false, metadataOnly: false, requiredMediaCount: 0, readyMediaCount: 0 }), "ready");
+  assert.equal(cloudMaterialSyncState({ deleted: false, metadataOnly: true, requiredMediaCount: 0, readyMediaCount: 0 }), "pending_media");
 });
 
 test("cloud library migration is additive and keeps public/private data separated", () => {

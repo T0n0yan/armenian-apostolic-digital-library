@@ -95,6 +95,17 @@ function blockText(block: BridgeRichBlock): string {
   return "";
 }
 
+export function cloudMaterialSyncState(input: {
+  deleted: boolean;
+  metadataOnly: boolean;
+  requiredMediaCount: number;
+  readyMediaCount: number;
+}) {
+  if (input.deleted) return "deleted" as const;
+  if (input.metadataOnly) return "pending_media" as const;
+  return input.readyMediaCount === input.requiredMediaCount ? "ready" as const : "pending_media" as const;
+}
+
 type ExistingMaterial = { chat_id: string; message_id: number; content_hash: string };
 type ExistingMedia = { r2_key: string | null; thumbnail_r2_key: string | null };
 type CursorRow = { chat_id: string; topic_id: number; cursor: string | null; phase: string };
@@ -205,15 +216,13 @@ telegram_message_count=excluded.telegram_message_count,last_synced_at=excluded.l
     const post = material.post;
     const key = `${post.chatId}:${post.messageId}`;
     const mediaState = this.stagedMedia.get(key) ?? new Map();
-    const mediaReady = post.media.every((media) => mediaState.get(media.index)?.original);
     const blocks = post.richContent?.blocks ?? [];
-    const hasRenderableText = Boolean(
-      post.contentText.trim() || post.captionText.trim() || blocks.some((block) => blockText(block).trim()),
-    );
-    const hasReadyMedia = [...mediaState.values()].some((item) => item.original);
-    const state = post.deleted ? "deleted"
-      : this.metadataOnly ? "pending_media"
-        : mediaReady || hasReadyMedia || hasRenderableText ? "ready" : "pending_media";
+    const state = cloudMaterialSyncState({
+      deleted: post.deleted,
+      metadataOnly: this.metadataOnly,
+      requiredMediaCount: post.media.length,
+      readyMediaCount: post.media.filter((media) => mediaState.get(media.index)?.original).length,
+    });
     const resolvedMediaIndexes = [...mediaState.entries()].flatMap(([index, item]) => [
       ...(item.original ? [index] : []),
       ...(item.thumbnail ? [-(index + 1)] : []),
@@ -271,7 +280,12 @@ WHERE id=${sql(this.pendingRun?.id)};
 
   async recordFailure(input: { runId: string; chatId: string; messageId: number; mediaIndex: number | null; stage: "material" | "media"; code: string; retryable: boolean; dryRun: boolean }) {
     if (input.dryRun) return;
-    await executeSql(`INSERT INTO library_sync_failures(run_id,chat_id,message_id,media_index,stage,error_code,retryable,created_at)
+    const sameMedia = input.mediaIndex === null ? "media_index IS NULL" : `media_index=${input.mediaIndex}`;
+    await executeSql(`UPDATE library_sync_failures
+SET status='resolved',resolved_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+WHERE chat_id=${sql(input.chatId)} AND message_id=${input.messageId} AND ${sameMedia}
+AND stage=${sql(input.stage)} AND status='pending';
+INSERT INTO library_sync_failures(run_id,chat_id,message_id,media_index,stage,error_code,retryable,created_at)
 VALUES(${sql(input.runId)},${sql(input.chatId)},${input.messageId},${sql(input.mediaIndex)},${sql(input.stage)},${sql(input.code)},${input.retryable ? 1 : 0},strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 ON CONFLICT(run_id,chat_id,message_id,media_index,stage) DO UPDATE SET error_code=excluded.error_code,attempt_count=library_sync_failures.attempt_count+1;
 UPDATE library_sync_runs SET failures=failures+1 WHERE id=${sql(input.runId)};`);
