@@ -132,7 +132,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
           )}
           <Form className="grid gap-2 min-[620px]:grid-cols-[1fr_1fr_auto]" method="post">
             <input type="hidden" name="intent" value="publisher-allow" />
-            <label className={fieldLabel}>Telegram ID<input className={fieldControl} name="telegramUserId" inputMode="numeric" pattern="\d{3,20}" placeholder="123456789" required /></label>
+            <label className={fieldLabel}>Telegram ID<input className={fieldControl} name="telegramUserId" inputMode="numeric" pattern="(-100)?\d{3,20}" placeholder="123456789" required /></label>
             <label className={fieldLabel}>Անուն (ըստ ցանկության)<input className={fieldControl} name="displayName" maxLength={120} /></label>
             <button className={primaryButton + " self-end"} type="submit"><UserPlus aria-hidden="true" size={16} /> Թույլատրել</button>
           </Form>

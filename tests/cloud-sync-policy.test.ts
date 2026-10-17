@@ -68,6 +68,8 @@ test("only admins, allowed users and anonymous admins may publish; blocks win", 
   assert.equal(mayPublish(policy, "-100", ADMIN), true);
   assert.equal(mayPublish(policy, "-100", STRANGER), false);
   assert.equal(mayPublish(policy, "-100", "-100"), true, "anonymous admin posts as the group");
+  assert.equal(mayPublish(policy, "-100", "-100777"), false, "posting as some other channel needs an explicit allow");
+  assert.equal(mayPublish({ ...policy, allowed: new Set([ADMIN, "-100777"]) }, "-100", "-100777"), true);
   assert.equal(mayPublish(policy, "-100", null), true);
   assert.equal(mayPublish({ ...policy, allowed: new Set([ADMIN, "3003"]) }, "-100", "3003"), false);
   assert.equal(mayPublish(null, "-100", STRANGER), true, "without a policy everything publishes");

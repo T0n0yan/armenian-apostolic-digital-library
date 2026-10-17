@@ -29,7 +29,8 @@ export type SyncOverview = {
   pendingFailures: number;
 };
 
-const telegramIdPattern = /^\d{3,20}$/u;
+// Users are positive IDs; channels that post "as" themselves are -100… IDs.
+const telegramIdPattern = /^(?:-100)?\d{3,20}$/u;
 
 export function isTelegramUserId(value: unknown): value is string {
   return typeof value === "string" && telegramIdPattern.test(value);

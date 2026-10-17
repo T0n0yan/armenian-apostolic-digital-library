@@ -116,12 +116,13 @@ export function cloudMaterialSyncState(input: {
   return input.readyMediaCount === input.requiredMediaCount ? "ready" as const : "pending_media" as const;
 }
 
-type ExistingMaterial = { chat_id: string; message_id: number; content_hash: string };
+type ExistingMaterial = { chat_id: string; message_id: number; content_hash: string; sync_state: string; author_id: string | null };
 type ExistingMedia = { r2_key: string | null; thumbnail_r2_key: string | null };
 type CursorRow = { chat_id: string; topic_id: number; cursor: string | null; phase: string };
 
 export class WranglerCloudSyncTarget implements CloudLibrarySyncTarget {
   private readonly hashes = new Map<string, string>();
+  private readonly published = new Map<string, string | null>();
   private readonly objectKeys = new Set<string>();
   private readonly checkpoints = new Map<string, SyncCheckpoint>();
   private readonly stagedMedia = new Map<string, Map<number, {
@@ -137,11 +138,14 @@ export class WranglerCloudSyncTarget implements CloudLibrarySyncTarget {
   static async create(options: { metadataOnly: boolean }) {
     const target = new WranglerCloudSyncTarget(options.metadataOnly);
     const [materials, media, cursors] = await Promise.all([
-      query<ExistingMaterial>("SELECT chat_id,message_id,content_hash FROM library_materials"),
+      query<ExistingMaterial>("SELECT chat_id,message_id,content_hash,sync_state,author_id FROM library_materials"),
       query<ExistingMedia>("SELECT r2_key,thumbnail_r2_key FROM library_media WHERE status='ready'"),
       query<CursorRow>("SELECT chat_id,topic_id,cursor,phase FROM library_sync_cursors"),
     ]);
-    for (const row of materials) target.hashes.set(`${row.chat_id}:${row.message_id}`, row.content_hash);
+    for (const row of materials) {
+      target.hashes.set(`${row.chat_id}:${row.message_id}`, row.content_hash);
+      if (row.sync_state === "ready") target.published.set(`${row.chat_id}:${row.message_id}`, row.author_id);
+    }
     for (const row of media) for (const key of [row.r2_key, row.thumbnail_r2_key]) if (key) target.objectKeys.add(key);
     for (const row of cursors) target.checkpoints.set(`${row.chat_id}:${row.topic_id}`, { cursor: row.cursor, complete: row.phase === "complete" });
     return target;
@@ -172,6 +176,15 @@ VALUES(${sql(topic.id)},${sql(topic.chatId)},${topic.topicId},${sql(topic.slug)}
 ON CONFLICT(id) DO UPDATE SET slug=excluded.slug,title=excluded.title,default_sort=excluded.default_sort,status=excluded.status,
 icon_color=excluded.icon_color,icon_emoji_id=excluded.icon_emoji_id,is_general=excluded.is_general,
 telegram_message_count=excluded.telegram_message_count,last_synced_at=excluded.last_synced_at,updated_at=excluded.updated_at;`);
+  }
+
+  isCurrent(material: SyncMaterial) {
+    const key = `${material.post.chatId}:${material.post.messageId}`;
+    return !this.metadataOnly && !material.post.deleted
+      && this.hashes.get(key) === material.contentHash
+      && this.published.has(key) && this.published.get(key) === (material.post.authorId ?? null)
+      && material.post.media.every((media) => this.objectKeys.has(cloudMediaObjectKey(material, media, false))
+        && (!media.hasThumbnail || this.objectKeys.has(cloudMediaObjectKey(material, media, true))));
   }
 
   async getCheckpoint(chatId: string, topicId: number) { return this.checkpoints.get(`${chatId}:${topicId}`) ?? null; }
@@ -289,6 +302,8 @@ media_skipped=media_skipped+${[...mediaState.values()].filter((item) => item.ori
 WHERE id=${sql(this.pendingRun?.id)};
 `);
     this.hashes.set(key, material.contentHash);
+    if (state === "ready") this.published.set(key, post.authorId ?? null);
+    else this.published.delete(key);
     this.stagedMedia.delete(key);
   }
 
@@ -356,6 +371,7 @@ last_post_at=MAX(COALESCE(library_post_authors.last_post_at,''),COALESCE(exclude
     await executeSql(`UPDATE library_materials SET sync_state='deleted',deleted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
 WHERE chat_id=${sql(input.chatId)} AND sync_state<>'deleted' AND (message_id IN (${list})
 OR EXISTS (SELECT 1 FROM json_each(constituent_message_ids_json) WHERE CAST(value AS INTEGER) IN (${list})));`);
+    for (const id of ids) this.published.delete(`${input.chatId}:${id}`);
   }
 
   /** Changes whenever the admin page allows or blocks someone; the watcher re-syncs on change. */

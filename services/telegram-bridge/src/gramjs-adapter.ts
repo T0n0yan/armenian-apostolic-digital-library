@@ -256,7 +256,9 @@ export function messageAuthor(chatId: string, message: Api.Message): { authorId:
   const senderName = sender instanceof Api.User
     ? [sender.firstName, sender.lastName].filter(Boolean).join(" ").trim()
     : sender instanceof Api.Channel || sender instanceof Api.Chat ? sender.title : "";
-  return { authorId, authorName: message.postAuthor?.trim() || senderName || null };
+  const visible = (value: string | null | undefined) => value?.replace(/[\u00AD\u200B-\u200F\u2060\uFEFF]/gu, "").trim() || null;
+  const username = sender instanceof Api.User && sender.username ? `@${sender.username}` : null;
+  return { authorId, authorName: visible(message.postAuthor) ?? visible(senderName) ?? username };
 }
 
 function isMessage(value: Api.Message | undefined): value is Api.Message {
@@ -504,7 +506,9 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       .filter((user): user is Api.User => user instanceof Api.User && !user.bot && !user.deleted)
       .map((user) => ({
         userId: user.id.toString(),
-        displayName: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.id.toString(),
+        // Names made only of invisible characters (soft hyphens, zero-width spaces) fall back to the username.
+        displayName: [user.firstName, user.lastName].filter(Boolean).join(" ").replace(/[\u00AD\u200B-\u200F\u2060\uFEFF]/gu, "").trim()
+          || (user.username ? `@${user.username}` : user.id.toString()),
         username: user.username ?? null,
       }));
   }

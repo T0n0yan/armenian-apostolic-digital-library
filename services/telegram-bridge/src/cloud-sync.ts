@@ -30,6 +30,8 @@ export interface CloudLibrarySyncTarget {
   upsertSource(input: { chatId: string; topics: BridgeCategory[]; dryRun: boolean }): Promise<void>;
   upsertTopic(topic: BridgeCategory, dryRun: boolean): Promise<void>;
   getCheckpoint(chatId: string, topicId: number): Promise<SyncCheckpoint | null>;
+  /** True when the stored copy is already identical and public, so the post needs no writes. */
+  isCurrent?(material: SyncMaterial): boolean;
   stageMaterial(material: SyncMaterial, dryRun: boolean): Promise<{
     mediaToUpload: Array<{ mediaIndex: number; thumbnail: boolean }>;
   }>;
@@ -56,11 +58,14 @@ export interface CloudLibrarySyncTarget {
 export type PublisherPolicy = { allowed: Set<string>; blocked: Set<string> };
 export type AuthorTally = { userId: string; displayName: string; posts: number; withheld: number; lastPostAt: string | null };
 
-/** Admins and allowed users publish; anonymous admins and channel posts (author = a chat) too. */
+/**
+ * Admins, allowed users and anonymous admins (posting as the group itself) publish. Any member can
+ * post "as" their own channel, so a channel author publishes only once it is explicitly allowed.
+ */
 export function mayPublish(policy: PublisherPolicy | null, chatId: string, authorId: string | null | undefined) {
   if (!policy) return true;
   if (authorId && policy.blocked.has(authorId)) return false;
-  if (!authorId || authorId === chatId || authorId.startsWith("-")) return true;
+  if (!authorId || authorId === chatId) return true;
   return policy.allowed.has(authorId);
 }
 
@@ -174,6 +179,7 @@ async function syncPost(context: SyncContext, post: TelegramPost, topic: BridgeC
     post, topic, contentHash,
     sourceRevision: post.editedAt ?? post.publishedAt ?? `${post.messageId}`,
   };
+  if (target.isCurrent?.(material)) return true;
   try {
     const staged = await target.stageMaterial(material, dryRun);
     for (const asset of staged.mediaToUpload) {
