@@ -1,4 +1,4 @@
-import { Plus, Share, X } from "lucide-react";
+import { ExternalLink, Plus, Share, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import DoveMark from "../assets/dove-mark.png";
@@ -12,11 +12,15 @@ export const INSTALL_REQUEST_EVENT = "library:install";
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
 type TelegramHomeScreen = {
   initData?: string;
+  platform?: string;
+  openLink?: (url: string) => void;
   addToHomeScreen?: () => void;
   checkHomeScreenStatus?: (callback: (status: "unsupported" | "unknown" | "added" | "missed") => void) => void;
 };
 
-type Mode = "telegram" | "browser" | "ios" | "manual";
+// "open-browser": inside Telegram on a client without home-screen support (iOS), open the page in
+// the system browser, where the regular "Add to Home Screen" works.
+type Mode = "telegram" | "browser" | "ios" | "manual" | "open-browser";
 
 function recentlyDismissed() {
   try {
@@ -49,7 +53,8 @@ if (typeof window !== "undefined") {
 /** Which way of adding to the home screen this device supports right now. */
 function currentMode(): Mode {
   const telegram = telegramWebApp();
-  if (telegram?.initData && telegram.addToHomeScreen) return "telegram";
+  if (telegram?.initData && telegram.addToHomeScreen && telegram.platform !== "ios") return "telegram";
+  if (telegram?.initData) return "open-browser";
   if (deferredInstall) return "browser";
   if (/iphone|ipad|ipod/iu.test(navigator.userAgent)) return "ios";
   return "manual";
@@ -88,7 +93,18 @@ export function InstallPrompt() {
         showSoon();
       }
     }, 1_500);
-    const onRequest = () => open(currentMode());
+    const onRequest = () => {
+      const next = currentMode();
+      const telegram = telegramWebApp();
+      // Some Telegram clients expose addToHomeScreen but cannot do it; ask before offering it.
+      if (next === "telegram" && telegram?.checkHomeScreenStatus) {
+        let answered = false;
+        telegram.checkHomeScreenStatus((status) => { answered = true; open(status === "unsupported" ? "open-browser" : next); });
+        window.setTimeout(() => { if (!answered) open(next); }, 600);
+      } else {
+        open(next);
+      }
+    };
     window.addEventListener(INSTALL_REQUEST_EVENT, onRequest);
     return () => {
       window.clearTimeout(decide);
@@ -104,7 +120,14 @@ export function InstallPrompt() {
   }, []);
 
   const install = useCallback(async () => {
-    if (mode === "telegram") {
+    if (mode === "open-browser") {
+      const url = new URL(window.location.href);
+      url.hash = "";
+      const telegram = telegramWebApp();
+      if (telegram?.openLink) telegram.openLink(url.toString());
+      else window.open(url.toString(), "_blank", "noopener,noreferrer");
+      dismiss();
+    } else if (mode === "telegram") {
       telegramWebApp()?.addToHomeScreen?.();
       dismiss();
     } else if (mode === "browser" && deferredInstall) {
@@ -117,7 +140,7 @@ export function InstallPrompt() {
   }, [dismiss, mode]);
 
   if (!visible || !mode) return null;
-  const canInstall = mode === "telegram" || mode === "browser";
+  const canInstall = mode === "telegram" || mode === "browser" || mode === "open-browser";
   return (
     <aside
       className="install-toast fixed right-[calc(var(--tg-inset-right,0px)+88px)] bottom-[calc(var(--tg-inset-bottom,0px)+14px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-40 mx-auto grid max-w-[420px] grid-cols-[44px_1fr_auto] items-center gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] px-3.5 py-3 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
@@ -130,8 +153,10 @@ export function InstallPrompt() {
         <strong className="text-[13px] leading-tight text-ink">Ավելացրու գլխավոր էկրանին</strong>
         {mode === "ios" ? (
           <span className="text-[11.5px] leading-snug text-muted">
-            Սեղմիր <Share aria-label="Share" className="inline size-[13px] align-[-2px] text-gold-bright" />, ապա «Add to Home Screen»
+            Սեղմիր <Share aria-label="Share" className="inline size-[13px] align-[-2px] text-gold-bright" />, թերթիր ներքև և ընտրիր «Add to Home Screen» («На экран «Домой»»)
           </span>
+        ) : mode === "open-browser" ? (
+          <span className="text-[11.5px] leading-snug text-muted">Բացիր բրաուզերում, ապա Share → «Add to Home Screen»</span>
         ) : mode === "manual" ? (
           <span className="text-[11.5px] leading-snug text-muted">Բրաուզերի մենյուում (⋮) ընտրիր «Add to Home screen» կամ «Install»</span>
         ) : (
@@ -141,7 +166,7 @@ export function InstallPrompt() {
       <div className="flex items-center gap-1.5">
         {canInstall ? (
           <button className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-[11px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/16%)] px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={install}>
-            <Plus aria-hidden="true" size={14} /> Ավելացնել
+            {mode === "open-browser" ? <><ExternalLink aria-hidden="true" size={14} /> Բացել</> : <><Plus aria-hidden="true" size={14} /> Ավելացնել</>}
           </button>
         ) : null}
         <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:text-ink" type="button" onClick={dismiss} aria-label="Հետո">

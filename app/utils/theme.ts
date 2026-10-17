@@ -9,7 +9,7 @@ import {
   type ThemePreference,
 } from "../../shared/theme";
 
-export { THEME_STORAGE_KEY, TEXT_SIZE_STORAGE_KEY, type TextSizePreference, type ThemePreference } from "../../shared/theme";
+export { THEME_STORAGE_KEY, TEXT_SIZE_DEFAULT, TEXT_SIZE_MAX, TEXT_SIZE_MIN, TEXT_SIZE_STORAGE_KEY, type TextSizePreference, type ThemePreference } from "../../shared/theme";
 
 type TelegramChrome = {
   setHeaderColor?: (color: string) => void;
@@ -70,5 +70,5 @@ export function applyThemePreference(preference: ThemePreference) {
 }
 
 export function applyTextSize(size: TextSizePreference) {
-  window.document.documentElement.dataset.textSize = size;
+  window.document.documentElement.style.setProperty("--reading-size", `${size}px`);
 }

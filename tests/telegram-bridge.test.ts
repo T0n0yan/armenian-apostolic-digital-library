@@ -962,7 +962,10 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(mediaSource, /src: asset\.url/u);
   assert.doesNotMatch(mediaSource, /key=\{(?:state|retry|retryKey)/u, "playback state must not remount the media element");
   // Only an explicit timestamp click (the "library:seek" handler) may move the playhead.
-  const mediaSourceOutsideSeek = mediaSource.replace(/const onSeek = [\s\S]*?window\.addEventListener\("library:seek", onSeek\);/u, "");
+  // Explicit user actions (timestamp links, the audio scrubber and skip buttons) may move it.
+  const mediaSourceOutsideSeek = mediaSource
+    .replace(/const onSeek = [\s\S]*?window\.addEventListener\("library:seek", onSeek\);/u, "")
+    .replace(/const seekTo = [\s\S]*?\n  \};/u, "");
   assert.doesNotMatch(mediaSourceOutsideSeek, /currentTime\s*=/u, "rerenders must not reset playback position");
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(resultCardSource, /state=\{material\.searchHit/u);
@@ -1504,8 +1507,13 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   await database.prepare(
     "INSERT INTO saved_materials (user_id,chat_id,message_id,personal_note) VALUES ('telegram:70001',?,999,'Հին նշում')",
   ).bind(MOCK_CHAT_ID).run();
+  // Legacy rows stored the chat ID without its -100 prefix; they must not break the page.
+  await database.prepare(
+    "INSERT INTO saved_materials (user_id,chat_id,message_id,personal_note) VALUES ('telegram:70001','900',998,'')",
+  ).run();
   const savedPage = await mf.dispatchFetch("https://app.fixture/saved", { headers: { cookie } });
   const savedHtml = await savedPage.text();
+  assert.equal(savedPage.status, 200, savedHtml.slice(0, 300));
   assert.match(savedHtml, /Առավոտյան աղոթք/u);
   assert.match(savedHtml, /Հրապարակումն այլևս հասանելի չէ/u);
   const unavailableNoteSearch = await mf.dispatchFetch(

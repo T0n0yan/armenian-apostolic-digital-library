@@ -16,7 +16,7 @@ import {
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug } from "../data/categories.server";
-import { PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
+import { DailyReadingCard, PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
@@ -29,7 +29,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
-type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video";
+type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video" | "calendar";
 
 /** Each content category browses in its own layout; search results always use the standard cards. */
 function categoryLayout(category: { id: string; name: string }): CategoryLayout {
@@ -39,6 +39,7 @@ function categoryLayout(category: { id: string; name: string }): CategoryLayout 
     case "category_prayers":
     case "category_bible_questions": return "text";
     case "category_gospel_teachings": return "video";
+    case "category_daily_readings": return "calendar";
     default: return "default";
   }
 }
@@ -175,6 +176,13 @@ const MaterialsList = memo(function MaterialsList({
     </ol>
   ) : null;
 
+  if (layout === "calendar") {
+    return (
+      <ol className="m-0 grid list-none gap-3 p-0 min-[860px]:grid-cols-2">
+        {materials.map((material) => <DailyReadingCard key={material.id} material={material} />)}
+      </ol>
+    );
+  }
   if (!isGridItem) return list;
   return (
     <div className="grid gap-3">

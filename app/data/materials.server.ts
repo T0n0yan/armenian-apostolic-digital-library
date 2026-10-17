@@ -1,5 +1,6 @@
 import type { BridgeContentType, BridgePost } from "../../shared/telegram-bridge-contract";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { summarizeDailyReading, type DailyReadingSummary } from "../utils/daily-reading";
 import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
 
 /**
@@ -42,6 +43,8 @@ export type MaterialCardPreview = {
   locationTitle: string | null;
   locationSummary: string | null;
   unsupportedType: string | null;
+  /** Feast and scripture references when the post is a daily reading. */
+  daily: DailyReadingSummary | null;
 };
 
 export type PublicMaterialPage = {
@@ -95,6 +98,7 @@ export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
       ? `${post.location.latitude.toFixed(4)}, ${post.location.longitude.toFixed(4)}`
       : null,
     unsupportedType: post.unsupportedType,
+    daily: summarizeDailyReading(post.contentText || post.captionText),
   };
 }
 

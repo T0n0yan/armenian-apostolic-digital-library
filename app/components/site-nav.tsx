@@ -68,14 +68,16 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
   return (
     <>
-      {isOpen ? (
-        <button
-          className="fixed inset-0 z-40 cursor-default border-0 bg-[rgb(12_5_15/52%)] p-0 backdrop-blur-[3px] motion-safe:animate-[glass-enter_180ms_ease-out]"
-          type="button"
-          aria-label="Փակել մենյուն"
-          onClick={() => setIsOpen(false)}
-        />
-      ) : null}
+      {/* Always mounted so it can fade out; a tap anywhere outside the menu closes it. */}
+      <button
+        className="menu-scrim fixed inset-0 z-40 cursor-default border-0 p-0"
+        data-open={isOpen || undefined}
+        type="button"
+        tabIndex={-1}
+        aria-hidden={!isOpen}
+        aria-label="Փակել մենյուն"
+        onClick={() => setIsOpen(false)}
+      />
 
       <nav
         ref={dialogRef}
@@ -84,7 +86,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         aria-modal={isOpen || undefined}
         role={isOpen ? "dialog" : undefined}
       >
-        <div className={`mb-3 w-[min(360px,calc(100vw-24px))] origin-bottom-right overflow-hidden rounded-[22px] border border-glass-border bg-nav-surface p-2.5 shadow-[0_24px_70px_rgb(12_4_17/38%)] backdrop-blur-[24px] transition-[opacity,transform] duration-200 ${isOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-3 scale-[.96] opacity-0"}`} aria-hidden={!isOpen}>
+        <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-[24px] p-2.5" data-open={isOpen || undefined} aria-hidden={!isOpen}>
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
             <span className="text-[13px] font-bold text-ink">Մենյու</span>
             <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted hover:text-ink" type="button" onClick={() => setIsOpen(false)} aria-label="Փակել մենյուն">

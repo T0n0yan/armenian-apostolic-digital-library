@@ -14,14 +14,13 @@ import {
   TimestampSeekContext,
   TelegramUnsupportedCard,
 } from "../components/telegram-content";
-import { leadingTitleLength } from "../utils/material-title";
+import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { formatArmenianDate } from "../utils/armenian-date";
 import { isBridgeSearchHit, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -49,7 +48,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { isSaving, savedIds, setSaved } = useSavedMaterials(loaderData.savedIds);
   const isSaved = savedIds.has(material.id);
   const toggleSaved = useCallback(() => setSaved(material.id, !isSaved), [isSaved, material.id, setSaved]);
-  const date = formatArmenianDate(material.dateValue ?? material.publishedAt);
   const location = useLocation();
   const stateHit = isBridgeSearchHit((location.state as { searchHit?: unknown } | null)?.searchHit)
     ? (location.state as { searchHit: BridgeSearchHit }).searchHit
@@ -58,7 +56,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   // Prayers open with a bird-letter initial, as in old manuscripts.
   const isPrayer = resolveContentCategoryId(null, material.categoryName) === "category_prayers";
   // The header already shows the title, so don't repeat it as the first line of the text.
-  const textTitleLength = leadingTitleLength(material.formattedText.text, material.title);
+  const textTitleLength = skipPsalmLabel(material.formattedText.text, leadingTitleLength(material.formattedText.text, material.title));
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
 
   useEffect(() => {
@@ -80,14 +78,14 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PageHeader
         backTo={`/categories/${material.categorySlug}`}
         backLabel={material.categoryName}
-        eyebrow={date ? `${material.categoryName} · ${date}` : material.categoryName}
+        eyebrow={material.categoryName}
         title={material.title}
       />
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className="grid gap-4">
+      <article className="mt-3 grid gap-4 min-[560px]:mt-4">
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
-        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} /> : null}
+        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
         {material.contentType === "unsupported" ? <TelegramUnsupportedCard type={material.unsupportedType} telegramUrl={material.telegramUrl} /> : null}
 

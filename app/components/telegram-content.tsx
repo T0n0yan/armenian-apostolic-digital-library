@@ -13,7 +13,7 @@ import type {
 } from "../../shared/telegram-bridge-contract";
 import type { MaterialMedia } from "../data/material-detail.server";
 import { MaterialMediaItem } from "./material-media";
-import { richContentStartsWithTitle } from "../utils/material-title";
+import { isPsalmLabel, richContentStartsWithTitle } from "../utils/material-title";
 
 function safeHref(value: string | null) {
   if (!value) return null;
@@ -91,6 +91,10 @@ function TimestampText({ text }: { text: string }) {
   return <>{parts}</>;
 }
 
+function plainInlineText(nodes: BridgeRichInline[]): string {
+  return nodes.map((node) => node.type === "text" ? node.text : node.type === "custom-emoji" ? node.alt : node.type === "line-break" || node.type === "unsupported" ? "" : plainInlineText(node.children)).join("");
+}
+
 /** Index of the first letter in `text` at or after `from`, skipping spaces, zero-width marks and quotes. */
 function firstLetterIndex(text: string, from = 0) {
   for (let index = from; index < text.length; index += 1) {
@@ -149,6 +153,8 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
   return blocks.map((block, index) => {
     // Skip by rendering nothing so block IDs, which search hits point at, keep their indexes.
     if (skipFirst && index === 0) return null;
+    // "(Սաղմոս 3)" only repeats the number shown above the player.
+    if (block.type === "paragraph" && index < 4 && isPsalmLabel(plainInlineText(block.content))) return null;
     const key = `${block.type}-${index}`;
     const blockId = `${prefix}-${index}`;
     const blockHit = hit?.blockId === blockId ? hit : undefined;
@@ -218,13 +224,15 @@ export function FormattedTelegramText({ value, hit, from = 0, ornateInitial = fa
   );
 }
 
-export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; telegramUrl: string }) {
+export function TelegramPollCard({ poll, telegramUrl, title }: { poll: BridgePoll; telegramUrl: string; title?: string }) {
+  // The page title is usually the question itself; don't print it twice.
+  const repeatsTitle = Boolean(title) && poll.question.text.trim() === title?.trim();
   return (
     <section className="grid gap-4 frosted-panel p-5 shadow-card" aria-label="Telegram հարցում">
       <header className="flex items-start gap-3">
         <BarChart3 className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={21} />
         <div className="grid gap-1">
-          <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>
+          {repeatsTitle ? <h2 className="m-0 text-[13px] font-semibold tracking-[0.3px] text-gold-bright">{poll.quiz ? "Վիկտորինա" : "Հարցում"}</h2> : <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>}
           <p className="m-0 text-[11px] text-faint">{poll.totalVoters} քվե · {poll.anonymous ? "անանուն" : "հրապարակային"}{poll.closed ? " · փակված" : ""}</p>
         </div>
       </header>

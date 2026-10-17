@@ -40,17 +40,18 @@ const initialThemeScript = `(() => {
       }
     } catch {}
     let preference = "system";
-    let textSize = "normal";
+    let textSize = 16;
     try {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark") preference = value;
       const size = localStorage.getItem("library-text-size-v1");
-      if (size === "large" || size === "xlarge") textSize = size;
+      const legacy = size === "large" ? 18 : size === "xlarge" ? 20 : Number(size);
+      if (size && legacy >= 12 && legacy <= 20) textSize = Math.round(legacy);
     } catch {}
     const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference;
     root.dataset.themePreference = preference;
     root.dataset.theme = theme;
-    root.dataset.textSize = textSize;
+    root.style.setProperty("--reading-size", textSize + "px");
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f4ead6");
   } catch {}
 })();`;

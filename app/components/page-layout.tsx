@@ -86,6 +86,14 @@ export function HeaderSearchLink() {
     </Link>);
 }
 
+/** Long titles (whole questions, feast names) get a calmer size instead of filling the screen. */
+function titleSize(title: ReactNode) {
+    const length = typeof title === "string" ? Array.from(title).length : 0;
+    if (length > 90) return "text-[20px] leading-[28px] tracking-[-0.2px] min-[560px]:text-[24px] min-[560px]:leading-[32px]";
+    if (length > 50) return "text-[23px] leading-[31px] tracking-[-0.4px] min-[560px]:text-[28px] min-[560px]:leading-[36px]";
+    return "text-[26px] leading-9 tracking-[-1.2px] min-[560px]:text-[38px] min-[560px]:leading-[45px] min-[960px]:text-[50px] min-[960px]:leading-[57px]";
+}
+
 export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
@@ -119,19 +127,7 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             {showSearch && !home ? <HeaderSearchLink/> : null}
         </div>) : null}
 
-        <h1 className="
-            w-full
-            text-[26px]
-            font-regular
-            text-balance
-            leading-9
-            max-w-[860px]
-            tracking-[-1.2px]
-            min-[560px]:text-[38px]
-            min-[560px]:leading-[45px]
-            min-[960px]:text-[50px]
-            min-[960px]:leading-[57px]
-            ">
+        <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>
             <PageTitle title={title} ornate={ornate}/>
         </h1>
         <p className="m-0 text-[8px] font-noto tracking-[1.6px] text-gold min-[960px]:text-[13px]">

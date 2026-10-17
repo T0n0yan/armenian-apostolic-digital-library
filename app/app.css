@@ -162,15 +162,8 @@
   --fab-shadow: 0 10px 34px rgb(16 5 21 / 30%);
 }
 
-/* Reading size for material text, chosen in the menu (Տառաչափ). */
-:root { --reading-size: 15px; }
-:root[data-text-size="large"] { --reading-size: 18px; }
-:root[data-text-size="xlarge"] { --reading-size: 21px; }
-@media (min-width: 560px) {
-  :root { --reading-size: 16px; }
-  :root[data-text-size="large"] { --reading-size: 19px; }
-  :root[data-text-size="xlarge"] { --reading-size: 22px; }
-}
+/* Reading size for material text; the menu's "− Aa +" control overrides it on the root element. */
+:root { --reading-size: 16px; }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
@@ -255,6 +248,50 @@
 .install-toast[data-phase="in"] { animation: toast-in 620ms cubic-bezier(.2, .9, .3, 1.05) both; }
 .install-toast[data-phase="out"] { animation: toast-out 400ms cubic-bezier(.5, 0, .75, .3) both; }
 
+/* Menu: frosted glass that springs open from the button and settles back into it. */
+.menu-scrim {
+  background: rgb(20 10 24 / 0%);
+  -webkit-backdrop-filter: blur(0) saturate(100%);
+  backdrop-filter: blur(0) saturate(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease, background 320ms ease, backdrop-filter 320ms ease, -webkit-backdrop-filter 320ms ease;
+}
+.menu-scrim[data-open] {
+  background: rgb(20 10 24 / 34%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+  opacity: 1;
+  pointer-events: auto;
+}
+.menu-panel {
+  background: linear-gradient(180deg, rgb(255 255 255 / 16%), rgb(255 255 255 / 4%) 40%), color-mix(in srgb, var(--page-bg) 90%, transparent);
+  border: 0.5px solid var(--frost-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 30%), inset 0 0 0 0.5px var(--frost-edge), 0 30px 80px rgb(20 8 24 / 38%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  transform-origin: calc(100% - 31px) calc(100% + 43px);
+  transform: translate3d(0, 14px, 0) scale(.86);
+  opacity: 0;
+  visibility: hidden;
+  transition: transform 260ms cubic-bezier(.4, 0, .9, .6), opacity 200ms ease, visibility 0s linear 260ms;
+}
+.menu-panel[data-open] {
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  transition: transform 520ms cubic-bezier(.2, 1.2, .3, 1), opacity 240ms ease, visibility 0s;
+}
+:root[data-theme="dark"] .menu-panel { background: linear-gradient(180deg, rgb(255 255 255 / 8%), rgb(255 255 255 / 2%) 40%), rgb(26 13 34 / 90%); }
+
+/* Audio scrubber: thin gold track that fills as the psalm plays. */
+.audio-scrubber { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; }
+.audio-scrubber::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--gold) var(--progress, 0%), rgb(150 110 50 / 22%) var(--progress, 0%)); }
+.audio-scrubber::-moz-range-track { height: 5px; border-radius: 999px; background: rgb(150 110 50 / 22%); }
+.audio-scrubber::-moz-range-progress { height: 5px; border-radius: 999px; background: var(--gold); }
+.audio-scrubber::-webkit-slider-thumb { -webkit-appearance: none; margin-top: -5.5px; width: 16px; height: 16px; border-radius: 50%; background: #f3d798; border: 2px solid #a87a2e; box-shadow: 0 2px 6px rgb(60 35 10 / 30%); }
+.audio-scrubber::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #f3d798; border: 2px solid #a87a2e; }
+
 /* Gold monochrome mark from an SVG file, in both themes. */
 .gold-mark { background: var(--gold); -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat; }
 
@@ -268,6 +305,7 @@
 @keyframes icon-tilt { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg) translateY(-1px); } }
 
 /* Loader candle. */
+@property --reveal { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 @keyframes candle-flicker { 0%, 100% { transform: scale(1, 1) rotate(-1deg); opacity: 1; } 25% { transform: scale(.96, 1.06) rotate(1.5deg); } 50% { transform: scale(1.03, .95) rotate(-1.5deg); opacity: .92; } 75% { transform: scale(.98, 1.04) rotate(1deg); } }
 @keyframes candle-glow { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: .75; transform: scale(1.08); } }
 @keyframes candle-out { 0% { transform: scale(1); opacity: 1; } 25% { transform: scale(.85, 1.15) rotate(3deg); } 45% { transform: scale(.95, .8) rotate(-3deg); opacity: .9; } 70% { transform: scale(.45, .55); opacity: .7; } 100% { transform: scale(.05, .1) translateY(8px); opacity: 0; } }
