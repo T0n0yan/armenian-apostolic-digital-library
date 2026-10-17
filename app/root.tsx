@@ -2,7 +2,6 @@ import {env} from "cloudflare:workers";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   isRouteErrorResponse,
-  data,
   Links,
   Meta,
   Outlet,
@@ -13,7 +12,6 @@ import {
 
 import type { Route } from "./+types/root";
 import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
-import {getMediaClient} from "./auth/media-client.server";
 import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
 import { CandleLoader } from "./components/candle-loader";
 import { PageShell, RouteErrorState } from "./components/page-layout";
@@ -32,7 +30,6 @@ const initialThemeScript = `(() => {
 })();`;
 
 export async function loader({request}: Route.LoaderArgs) {
-  const mediaClient = getMediaClient(request);
   const [telegramAdmin, categories, telegramUser] = await Promise.all([
     getOptionalTelegramAdmin(request, env.DB),
     listActiveCategories(env.DB, false, request.signal).catch(() => []),
@@ -44,7 +41,7 @@ export async function loader({request}: Route.LoaderArgs) {
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };
-  return mediaClient.cookie ? data(value, { headers: { "Set-Cookie": mediaClient.cookie } }) : value;
+  return value;
 }
 
 type TelegramWebApp = {
