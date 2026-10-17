@@ -33,7 +33,6 @@ export function meta({}: Route.MetaArgs) {
   return [
     { title: "Իմ անկյունը — Հոգևոր ժառանգություն" },
     { name: "robots", content: "noindex, nofollow, noarchive" },
-    { name: "theme-color", content: "#100817" },
   ];
 }
 

@@ -9,8 +9,8 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { getMediaClient } from "../app/auth/media-client.server";
-import { mediaPlaybackStateForEvent } from "../app/utils/media-playback";
-import { CLOUD_MEDIA_RANGE_WINDOW_BYTES } from "../shared/cloud-media-range";
+import { isRetryableMediaError, mediaPlaybackStateForEvent } from "../app/utils/media-playback";
+import { normalizeThemePreference, resolveTheme } from "../shared/theme";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { loadResolvedValue, ResolvedTtlCache, SharedOperationRegistry } from "../shared/async-lifecycle";
 import { createBridgeApplication, readBridgeApplicationState } from "../services/telegram-bridge/src/app";
@@ -935,6 +935,17 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.equal(mediaPlaybackStateForEvent("playing", "pause", { seeking: false, hasCurrentData: true }), "paused");
   assert.equal(mediaPlaybackStateForEvent("paused", "error"), "error");
   assert.equal(mediaPlaybackStateForEvent("error", "retry"), "initial");
+  assert.equal(mediaPlaybackStateForEvent("playing", "waiting"), "buffering");
+  assert.equal(mediaPlaybackStateForEvent("playing", "stalled"), "buffering");
+  assert.equal(mediaPlaybackStateForEvent("seeking", "error", { errorCode: 1 }), "seeking");
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 1 }), "buffering");
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 2 }), "error-network");
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 3 }), "error-decode");
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 4 }), "error-unsupported");
+  assert.equal(isRetryableMediaError("error-network"), true);
+  assert.equal(isRetryableMediaError("error-decode"), false);
+  assert.equal(isRetryableMediaError("error-unsupported"), false);
+  assert.equal(mediaPlaybackStateForEvent("error-network", "retry"), "initial");
 
   const mediaSource = readFileSync(resolve(ROOT, "app/components/material-media.tsx"), "utf8");
   const resultCardSource = readFileSync(resolve(ROOT, "app/components/material-result-card.tsx"), "utf8");
@@ -974,6 +985,18 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(categorySource, /abortRef\.current\?\.abort\(\)/u);
   assert.match(searchSource, /abortRef\.current\?\.abort\(\)/u);
   assert.match(rootSource, /ScrollRestoration getKey=\{\(\{ pathname, search \}\) => `\$\{pathname\}\$\{search\}`\}/u);
+  assert.equal(normalizeThemePreference(null), "system");
+  assert.equal(normalizeThemePreference("unexpected"), "system");
+  assert.equal(resolveTheme("system", false), "light");
+  assert.equal(resolveTheme("system", true), "dark");
+  assert.equal(resolveTheme("system", false, "dark"), "dark");
+  assert.equal(resolveTheme("light", true, "dark"), "light");
+  assert.equal(resolveTheme("dark", false, "light"), "dark");
+  assert.match(rootSource, /dataset\.themePreference = preference/u);
+  assert.match(rootSource, /if \(!webApp\.initData/u);
+  assert.match(rootSource, /onEvent\?\.\("viewportChanged", handleSafeArea\)/u);
+  assert.match(rootSource, /onEvent\?\.\("themeChanged", handleTheme\)/u);
+  assert.doesNotMatch(rootSource, /onEvent\?\.\("viewportChanged", handleTheme\)/u);
 
   const adapter = new MockTelegramAdapter();
   adapter.search = async ({ signal }) => await new Promise((_, reject) => {
@@ -1312,20 +1335,22 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.equal(invalidRange.headers.get("content-range"), "bytes */16384");
   assert.equal((await mf.dispatchFetch("https://app.fixture/media/-100999/106/0")).status, 404);
 
-  const largeVideo = new Uint8Array(CLOUD_MEDIA_RANGE_WINDOW_BYTES + 65_536);
+  const rangeBoundary = 2 * 1024 * 1024;
+  const largeVideo = new Uint8Array(rangeBoundary + 65_536).map((_, index) => index % 251);
   await (mediaBucket as unknown as TestR2Bucket).put("fixtures/106/0/original.bin", largeVideo, { httpMetadata: { contentType: "video/mp4" } });
   const browserInitial = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
     headers: { range: "bytes=0-" },
   });
   assert.equal(browserInitial.status, 206);
-  assert.equal(browserInitial.headers.get("content-range"), `bytes 0-${CLOUD_MEDIA_RANGE_WINDOW_BYTES - 1}/${largeVideo.byteLength}`);
-  assert.equal(browserInitial.headers.get("content-length"), String(CLOUD_MEDIA_RANGE_WINDOW_BYTES));
-  assert.equal((await browserInitial.arrayBuffer()).byteLength, CLOUD_MEDIA_RANGE_WINDOW_BYTES);
+  assert.equal(browserInitial.headers.get("content-range"), `bytes 0-${largeVideo.byteLength - 1}/${largeVideo.byteLength}`);
+  assert.equal(browserInitial.headers.get("content-length"), String(largeVideo.byteLength));
+  assert.equal(browserInitial.headers.get("content-encoding"), null);
+  assert.deepEqual(new Uint8Array(await browserInitial.arrayBuffer()), largeVideo);
   const browserFollowup = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
-    headers: { range: `bytes=${CLOUD_MEDIA_RANGE_WINDOW_BYTES}-` },
+    headers: { range: `bytes=${rangeBoundary}-` },
   });
   assert.equal(browserFollowup.status, 206);
-  assert.equal(browserFollowup.headers.get("content-range"), `bytes ${CLOUD_MEDIA_RANGE_WINDOW_BYTES}-${largeVideo.byteLength - 1}/${largeVideo.byteLength}`);
+  assert.equal(browserFollowup.headers.get("content-range"), `bytes ${rangeBoundary}-${largeVideo.byteLength - 1}/${largeVideo.byteLength}`);
   assert.equal(browserFollowup.headers.get("content-length"), "65536");
   assert.equal((await browserFollowup.arrayBuffer()).byteLength, 65_536);
   const suffixRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
@@ -1334,6 +1359,20 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.equal(suffixRange.status, 206);
   assert.equal(suffixRange.headers.get("content-range"), `bytes ${largeVideo.byteLength - 32_768}-${largeVideo.byteLength - 1}/${largeVideo.byteLength}`);
   assert.equal((await suffixRange.arrayBuffer()).byteLength, 32_768);
+  assert.equal((await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
+    headers: { range: "bytes=0-10,20-30" },
+  })).status, 416);
+  const cancelled = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
+    headers: { range: "bytes=0-" },
+  });
+  const cancelledReader = cancelled.body!.getReader();
+  await cancelledReader.read();
+  await cancelledReader.cancel();
+  const afterCancel = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
+    headers: { range: "bytes=4096-8191" },
+  });
+  assert.equal(afterCancel.status, 206);
+  assert.deepEqual(new Uint8Array(await afterCancel.arrayBuffer()), largeVideo.slice(4096, 8192));
 
   const search = await mf.dispatchFetch(`https://app.fixture/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6&category=${encodeURIComponent(MOCK_TOPIC_ID)}`);
   assert.match(await search.text(), /Առավոտյան աղոթք/u);

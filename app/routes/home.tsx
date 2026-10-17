@@ -18,7 +18,7 @@ import CornerDecoration from "../assets/corner-decoration.webp"
 export function meta({}: Route.MetaArgs) {
     return [{title: "Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան"}, {
         name: "description", content: "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված թվային գրադարան։",
-    }, {name: "robots", content: "noindex, nofollow"}, {name: "theme-color", content: "#100817"},];
+    }, {name: "robots", content: "noindex, nofollow"},];
 }
 export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";

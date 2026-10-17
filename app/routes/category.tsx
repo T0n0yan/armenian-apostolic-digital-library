@@ -50,7 +50,6 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [
     { title: `${title} — Հոգևոր ժառանգություն` },
     { name: "robots", content: "noindex, nofollow" },
-    { name: "theme-color", content: "#100817" },
   ];
 }
 

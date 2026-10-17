@@ -1,9 +1,13 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
 
-type ThemePreference = "system" | "light" | "dark";
+import {
+  applyThemePreference,
+  readStoredThemePreference,
+  THEME_STORAGE_KEY,
+  type ThemePreference,
+} from "../utils/theme";
 
-const THEME_STORAGE_KEY = "library-theme-v1";
 const themeOrder: ThemePreference[] = ["system", "light", "dark"];
 const themeLabels: Record<ThemePreference, string> = {
   system: "Ավտոմատ թեմա",
@@ -11,39 +15,23 @@ const themeLabels: Record<ThemePreference, string> = {
   dark: "Մուգ թեմա",
 };
 
-function applyTheme(preference: ThemePreference) {
-  const root = window.document.documentElement;
-  if (preference === "system") delete root.dataset.theme;
-  else root.dataset.theme = preference;
-
-  const isDark =
-    preference === "dark" ||
-    (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  window.document
-    .querySelector('meta[name="theme-color"]')
-    ?.setAttribute("content", isDark ? "#100817" : "#f2ebf4");
-}
-
 export const ThemeToggle = memo(function ThemeToggle({className}: {className?: string}) {
   const [preference, setPreference] = useState<ThemePreference>("system");
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-      const initial = themeOrder.includes(saved as ThemePreference)
-        ? (saved as ThemePreference)
-        : "system";
+      const initial = readStoredThemePreference();
       setPreference(initial);
-      applyTheme(initial);
+      applyThemePreference(initial);
     } catch {
-      applyTheme("system");
+      applyThemePreference("system");
     }
   }, []);
 
   useEffect(() => {
     if (preference !== "system") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => applyTheme("system");
+    const handleChange = () => applyThemePreference("system");
     media.addEventListener("change", handleChange);
     return () => media.removeEventListener("change", handleChange);
   }, [preference]);
@@ -56,7 +44,7 @@ export const ThemeToggle = memo(function ThemeToggle({className}: {className?: s
       } catch {
         // The visual preference still applies for the current session.
       }
-      applyTheme(next);
+      applyThemePreference(next);
       return next;
     });
   }, []);

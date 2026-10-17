@@ -1,5 +1,3 @@
-import { boundCloudOpenEndedRange } from "../../shared/cloud-media-range";
-
 type CloudMediaRow = {
   r2_key: string | null;
   thumbnail_r2_key: string | null;
@@ -75,10 +73,9 @@ export async function readCloudMedia(
     headers.set("Content-Length", String(object.size));
     return new Response(object.body, { status: 200, headers });
   }
-  // Browsers normally request `bytes=N-` while probing or seeking. A bounded
-  // partial response avoids holding an R2/Worker stream for the whole media
-  // object; the media element requests the next window as playback advances.
-  const range = boundCloudOpenEndedRange(rangeHeader, parsedRange);
+  // R2 streams the response body without buffering it in Worker memory. Keep
+  // HTTP Range semantics exact: an open-ended request means through EOF.
+  const range = parsedRange;
   const length = range.end - range.start + 1;
   const object = await bucket.get(key, { range: { offset: range.start, length } });
   if (!object) return new Response("Media not found", { status: 404 });

@@ -2,7 +2,7 @@ import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Rot
 import { memo, useCallback, useRef, useState, type SyntheticEvent } from "react";
 
 import type { MaterialMedia } from "../data/material-detail.server";
-import { mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
+import { isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
 
 function durationLabel(seconds: number | null) {
   if (!seconds || seconds < 0) return null;
@@ -23,6 +23,7 @@ function Waveform({ encoded }: { encoded: string }) {
 
 function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry: () => void }) {
   const busy = state === "initial" || state === "metadata" || state === "buffering" || state === "seeking";
+  const failed = state.startsWith("error");
   return (
     <div
       className="flex min-h-10 items-center justify-between gap-3 border-t border-white/10 bg-[rgb(10_7_12/88%)] px-3 py-2 text-[11px] text-white/78"
@@ -30,10 +31,10 @@ function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry
       aria-busy={busy}
     >
       <span className="inline-flex min-w-0 items-center gap-2" role="status" aria-live="polite" aria-atomic="true">
-        {busy ? <LoaderCircle className="shrink-0 motion-safe:animate-spin" aria-hidden="true" size={14} /> : state === "error" ? <AlertCircle className="shrink-0 text-gold" aria-hidden="true" size={14} /> : null}
+        {busy ? <LoaderCircle className="shrink-0 motion-safe:animate-spin" aria-hidden="true" size={14} /> : failed ? <AlertCircle className="shrink-0 text-gold" aria-hidden="true" size={14} /> : null}
         <span>{mediaPlaybackLabel(state)}</span>
       </span>
-      {state === "error" ? (
+      {isRetryableMediaError(state) ? (
         <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] border border-white/15 bg-white/8 px-3 font-bold text-white" type="button" onClick={onRetry}>
           <RotateCw aria-hidden="true" size={14} /> Կրկին փորձել
         </button>
@@ -73,7 +74,9 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
         hasCurrentData: event.currentTarget.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
       }));
     },
-    onError: () => setState((current) => mediaPlaybackStateForEvent(current, "error")),
+    onError: (event: SyntheticEvent<HTMLMediaElement>) => setState((current) => mediaPlaybackStateForEvent(current, "error", {
+      errorCode: event.currentTarget.error?.code ?? null,
+    })),
   };
 
   return (

@@ -18,14 +18,17 @@ import { PageShell, RouteErrorState } from "./components/page-layout";
 import { SiteNav } from "./components/site-nav";
 import {listActiveCategories} from "./data/categories.server";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
+import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import "./app.css";
 
 const initialThemeScript = `(() => {
   try {
-    const saved = localStorage.getItem("library-theme-v1");
-    if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
-    const dark = saved === "dark" || (saved !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#100817" : "#f2ebf4");
+    const value = localStorage.getItem("library-theme-v1");
+    const preference = value === "light" || value === "dark" || value === "system" ? value : "system";
+    const theme = preference === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
+    document.documentElement.dataset.themePreference = preference;
+    document.documentElement.dataset.theme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f2ebf4");
   } catch {}
 })();`;
 
@@ -94,14 +97,6 @@ function loadTelegramSdk() {
 
 function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
-  try {
-    const savedTheme = localStorage.getItem("library-theme-v1");
-    if (savedTheme !== "light" && savedTheme !== "dark" && webApp.colorScheme) {
-      root.dataset.theme = webApp.colorScheme;
-    }
-  } catch {
-    // Storage may be unavailable in restricted browser contexts.
-  }
   const safe = webApp.safeAreaInset ?? {};
   const content = webApp.contentSafeAreaInset ?? safe;
   for (const side of ["top", "right", "bottom", "left"] as const) {
@@ -128,6 +123,16 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
   if (text) root.style.setProperty("--tg-theme-text", text);
 }
 
+function syncTelegramTheme(webApp: TelegramWebApp) {
+  // telegram-web-app.js can expose a stub in ordinary Safari/Chrome. Only a
+  // validated WebView context may influence the system preference.
+  if (!webApp.initData || (webApp.colorScheme !== "light" && webApp.colorScheme !== "dark")) return;
+  const root = document.documentElement;
+  root.dataset.telegramContext = "true";
+  root.dataset.telegramTheme = webApp.colorScheme;
+  applyThemePreference(readStoredThemePreference());
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="hy" suppressHydrationWarning>
@@ -137,6 +142,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#f2ebf4" />
         <Meta />
         <Links />
         <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
@@ -166,14 +173,18 @@ export default function App({ loaderData }: Route.ComponentProps) {
     const handleSafeArea = () => {
       if (webAppForCleanup) syncTelegramSafeArea(webAppForCleanup);
     };
+    const handleTheme = () => {
+      if (webAppForCleanup) syncTelegramTheme(webAppForCleanup);
+    };
     void loadTelegramSdk().then(async (webApp) => {
       if (!active || !webApp) return;
       webAppForCleanup = webApp;
       syncTelegramSafeArea(webApp);
+      syncTelegramTheme(webApp);
       webApp.onEvent?.("safeAreaChanged", handleSafeArea);
       webApp.onEvent?.("contentSafeAreaChanged", handleSafeArea);
       webApp.onEvent?.("viewportChanged", handleSafeArea);
-      webApp.onEvent?.("themeChanged", handleSafeArea);
+      webApp.onEvent?.("themeChanged", handleTheme);
       webApp.ready?.();
       webApp.expand?.();
       if (!webApp.initData) return;
@@ -193,7 +204,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
       webAppForCleanup?.offEvent?.("safeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("contentSafeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("viewportChanged", handleSafeArea);
-      webAppForCleanup?.offEvent?.("themeChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("themeChanged", handleTheme);
     };
   }, [revalidator]);
 

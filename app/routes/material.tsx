@@ -38,7 +38,6 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [
     { title: `${loaderData?.material.title ?? "Նյութ"} — Հոգևոր ժառանգություն` },
     { name: "robots", content: "noindex, nofollow" },
-    { name: "theme-color", content: "#100817" },
   ];
 }
 

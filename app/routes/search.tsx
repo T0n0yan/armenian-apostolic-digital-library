@@ -104,7 +104,6 @@ export function meta({}: Route.MetaArgs) {
   return [
     { title: "Որոնում — Հոգևոր ժառանգություն" },
     { name: "robots", content: "noindex, nofollow" },
-    { name: "theme-color", content: "#100817" },
   ];
 }
 
