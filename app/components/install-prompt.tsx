@@ -33,6 +33,8 @@ function recentlyDismissed() {
 export function InstallPrompt() {
   const [mode, setMode] = useState<Mode | null>(null);
   const [visible, setVisible] = useState(false);
+  // "in" slides the toast up from below the screen; "out" slides it back down before unmounting.
+  const [phase, setPhase] = useState<"in" | "out">("in");
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
 
   useEffect(() => {
@@ -70,7 +72,8 @@ export function InstallPrompt() {
   }, []);
 
   const dismiss = useCallback(() => {
-    setVisible(false);
+    setPhase("out");
+    window.setTimeout(() => setVisible(false), 420);
     try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* Private mode: it just shows again. */ }
   }, []);
 
@@ -89,7 +92,7 @@ export function InstallPrompt() {
   if (!visible || !mode) return null;
   return (
     <aside
-      className="fixed rounded-[20px] border border-glass-border bg-[var(--page-bg)] shadow-[0_18px_50px_rgb(40_20_10/28%)] right-[calc(var(--tg-inset-right,0px)+88px)] bottom-[calc(var(--tg-inset-bottom,0px)+14px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-40 mx-auto grid max-w-[420px] grid-cols-[44px_1fr_auto] items-center gap-3 px-3.5 py-3 motion-safe:animate-[glass-enter_240ms_ease-out]"
+      className="fixed rounded-[20px] border border-glass-border bg-[var(--page-bg)] shadow-[0_18px_50px_rgb(40_20_10/28%)] right-[calc(var(--tg-inset-right,0px)+88px)] bottom-[calc(var(--tg-inset-bottom,0px)+14px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-40 mx-auto grid max-w-[420px] grid-cols-[44px_1fr_auto] items-center gap-3 px-3.5 py-3 install-toast" data-phase={phase}
       role="dialog"
       aria-label="Ավելացնել գլխավոր էկրանին"
     >

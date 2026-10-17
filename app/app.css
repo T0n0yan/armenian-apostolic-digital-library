@@ -249,6 +249,12 @@
   font-weight: 400;
 }
 
+/* Install toast: rises from below with a soft spring, sinks back down when dismissed. */
+@keyframes toast-in { 0% { transform: translate3d(0, calc(100% + 40px), 0); opacity: 0; } 65% { transform: translate3d(0, -6px, 0); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes toast-out { from { transform: none; opacity: 1; } to { transform: translate3d(0, calc(100% + 40px), 0); opacity: 0; } }
+.install-toast[data-phase="in"] { animation: toast-in 620ms cubic-bezier(.2, .9, .3, 1.05) both; }
+.install-toast[data-phase="out"] { animation: toast-out 400ms cubic-bezier(.5, 0, .75, .3) both; }
+
 /* Gold monochrome mark from an SVG file, in both themes. */
 .gold-mark { background: var(--gold); -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat; }
 
