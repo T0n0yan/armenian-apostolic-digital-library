@@ -5,7 +5,8 @@
 set -euo pipefail
 
 env_file="services/telegram-bridge/.env.local"
-value() { grep -E "^$1=" "$env_file" | head -1 | cut -d= -f2-; }
+# Values in .env.local may be wrapped in quotes; GitHub secrets must hold the bare value.
+value() { grep -E "^$1=" "$env_file" | head -1 | cut -d= -f2- | sed -E 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/'; }
 
 echo "1/4  Telegram API keys → GitHub secrets"
 for key in TELEGRAM_API_ID TELEGRAM_API_HASH; do

@@ -85,7 +85,11 @@ async function wranglerOnce(args: string[], stdin?: AsyncIterable<Uint8Array>) {
     }
   }
   const [code] = await once(child, "exit") as [number | null];
-  if (code !== 0) throw new Error(`Wrangler operation failed (${code}): ${stderr.replace(/\s+/gu, " ").slice(0, 500)}`);
+  if (code !== 0) {
+    // Wrangler prints some errors (auth, permissions) to stdout, so include both streams.
+    const details = `${stderr} ${stdout.slice(-2_000)}`.replace(/\u001b\[[0-9;]*m/gu, "").replace(/\s+/gu, " ").trim();
+    throw new Error(`Wrangler operation failed (${code}): ${details.slice(0, 800)}`);
+  }
   return stdout;
 }
 
