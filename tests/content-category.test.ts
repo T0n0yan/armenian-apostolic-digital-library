@@ -10,3 +10,12 @@ test("dynamic Telegram topics resolve to content categories by name", () => {
   assert.equal(resolveContentCategoryId("telegram_topic:-100:9", "Նոր թեմա"), null);
   assert.equal(resolveContentCategoryId("telegram_topic:-100:9"), null);
 });
+
+test("material pages skip a leading line that repeats the title", async () => {
+  const { leadingTitleLength, richContentStartsWithTitle } = await import("../app/utils/material-title");
+  assert.equal(leadingTitleLength("8 ՀՈԿՏԵՄԲԵՐԻ, 2026\n\nԱյսօր եկեղեցին…", "8 ՀՈԿՏԵՄԲԵՐԻ, 2026"), "8 ՀՈԿՏԵՄԲԵՐԻ, 2026\n\n".length);
+  assert.equal(leadingTitleLength("​ԱՂՈԹՔ \nՏեր", "ԱՂՈԹՔ"), "​ԱՂՈԹՔ \n".length);
+  assert.equal(leadingTitleLength("Այլ տող\nԱՂՈԹՔ", "ԱՂՈԹՔ"), 0);
+  assert.equal(richContentStartsWithTitle({ partial: false, blocks: [{ type: "heading", level: 1, content: [{ type: "bold", children: [{ type: "text", text: "Սաղմոս 41" }] }] }] }, "Սաղմոս 41"), true);
+  assert.equal(richContentStartsWithTitle({ partial: false, blocks: [{ type: "paragraph", content: [{ type: "text", text: "Ուրիշ" }] }] }, "Սաղմոս 41"), false);
+});

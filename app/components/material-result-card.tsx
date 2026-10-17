@@ -108,6 +108,10 @@ function matchReasonLabel(
   }
 }
 
+// The snippet label already says where a match is, so a card shows at most one badge, and only
+// when it adds information the snippet can't: an approximate, transliterated, ID or note match.
+const informativeMatchReasons = ["personal-note", "telegram-id", "transliteration", "fuzzy"] as const;
+
 function escapeRegularExpression(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -205,6 +209,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const targetPath = `/materials/${material.id}`;
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
+  const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
   const TypeIcon = typeMeta.Icon;
   const previewTitle = material.contentType === "poll"
     ? material.preview.pollQuestion
@@ -336,11 +341,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         <span className="relative z-1 grid min-w-0 gap-[6px]">
           <span className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span>
-            {material.matchReasons?.map((reason) => (
-              <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum" key={reason}>
-                {matchReasonLabel(reason, material)}
+            {extraMatchReason ? (
+              <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum">
+                {matchReasonLabel(extraMatchReason, material)}
               </span>
-            ))}
+            ) : null}
             {date ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
           </span>
           {material.categoryName ? (

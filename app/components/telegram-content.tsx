@@ -13,6 +13,7 @@ import type {
 } from "../../shared/telegram-bridge-contract";
 import type { MaterialMedia } from "../data/material-detail.server";
 import { MaterialMediaItem } from "./material-media";
+import { richContentStartsWithTitle } from "../utils/material-title";
 
 function safeHref(value: string | null) {
   if (!value) return null;
@@ -76,8 +77,10 @@ function RichInlineNodes({ nodes, hit, cursor = { value: 0 } }: { nodes: BridgeR
   });
 }
 
-function RichBlocks({ blocks, media, hit, prefix = "block" }: { blocks: BridgeRichBlock[]; media: MaterialMedia[]; hit?: BridgeSearchHit; prefix?: string }) {
+function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false }: { blocks: BridgeRichBlock[]; media: MaterialMedia[]; hit?: BridgeSearchHit; prefix?: string; skipFirst?: boolean }) {
   return blocks.map((block, index) => {
+    // Skip by rendering nothing so block IDs, which search hits point at, keep their indexes.
+    if (skipFirst && index === 0) return null;
     const key = `${block.type}-${index}`;
     const blockId = `${prefix}-${index}`;
     const blockHit = hit?.blockId === blockId ? hit : undefined;
@@ -112,16 +115,19 @@ function RichBlocks({ blocks, media, hit, prefix = "block" }: { blocks: BridgeRi
   });
 }
 
-export function TelegramRichMessage({ value, media, hit }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit }) {
-  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
+export function TelegramRichMessage({ value, media, hit, title }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit; title?: string }) {
+  const skipFirst = title ? richContentStartsWithTitle(value, title) : false;
+  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
-export function FormattedTelegramText({ value, hit }: { value: BridgeFormattedText; hit?: BridgeSearchHit }) {
-  if (!value.text) return null;
+export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number }) {
+  if (!value.text || from >= value.text.length) return null;
   const entities = value.entities.filter((entity) =>
     entity.offset >= 0 && entity.length > 0 && entity.offset + entity.length <= value.text.length,
   );
-  const boundaries = [...new Set([0, value.text.length, ...entities.flatMap((entity) => [entity.offset, entity.offset + entity.length])])]
+  // Offsets stay absolute so entities and search hits still line up when a leading title is skipped.
+  const boundaries = [...new Set([from, value.text.length, ...entities.flatMap((entity) => [entity.offset, entity.offset + entity.length])])]
+    .filter((boundary) => boundary >= from)
     .sort((left, right) => left - right);
 
   return (

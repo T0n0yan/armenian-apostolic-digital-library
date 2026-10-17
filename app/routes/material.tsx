@@ -13,6 +13,7 @@ import {
   TelegramPollCard,
   TelegramUnsupportedCard,
 } from "../components/telegram-content";
+import { leadingTitleLength } from "../utils/material-title";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
@@ -52,6 +53,9 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     ? (location.state as { searchHit: BridgeSearchHit }).searchHit
     : undefined;
   const [activeHit, setActiveHit] = useState(stateHit);
+  // The header already shows the title, so don't repeat it as the first line of the text.
+  const textTitleLength = leadingTitleLength(material.formattedText.text, material.title);
+  const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
 
   useEffect(() => {
     setActiveHit(stateHit);
@@ -76,7 +80,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         title={material.title}
       />
       <article className="grid gap-4">
-        {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} /> : <MaterialMediaGallery media={material.media} />}
+        {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
@@ -92,12 +96,12 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {!material.richContent && material.formattedText.text ? (
+        {!material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
-            <FormattedTelegramText value={material.formattedText} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+            <FormattedTelegramText value={material.formattedText} from={textTitleLength} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
-        ) : !material.richContent && material.formattedCaption.text ? (
-          <p className="m-0 rounded-[20px] border border-glass-border bg-glass p-5 text-[15px] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
+        ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
+          <p className="m-0 rounded-[20px] border border-glass-border bg-glass p-5 text-[15px] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
         <div className="flex flex-wrap gap-2.5">

@@ -1296,7 +1296,9 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.match(imageHtml, /<img[^>]+thumbnail=1/u);
   const richPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_112");
   const richHtml = await richPage.text();
-  assert.match(richHtml, /<h2[^>]*>Ձևաչափված ընթերցում<\/h2>/u);
+  // The leading rich heading repeats the page title, so it renders once in the header, not again in the body.
+  assert.match(richHtml, /<h1[^>]*>.*աչափված ընթերցում<\/span><\/h1>/su);
+  assert.doesNotMatch(richHtml, /<h2[^>]*>Ձևաչափված ընթերցում<\/h2>/u);
   assert.match(richHtml, /<strong>Թավ տեքստ<\/strong>/u);
   assert.match(richHtml, /<blockquote/u);
   assert.match(richHtml, /Նկարի բացատրություն/u);
@@ -1471,7 +1473,8 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.equal((mergedDescriptionHtml.match(/data-material-id="material_tg_n100900_102"/gu) ?? []).length, 1);
   assert.match(mergedDescriptionHtml, /Telegram նյութ/u);
   assert.match(mergedDescriptionHtml, /Իմ նշումից/u);
-  assert.match(mergedDescriptionHtml, /Համընկնում՝ նկարագրության մեջ/u);
+  // The snippet label says where a match is; per-field "matched in…" badges are no longer shown.
+  assert.doesNotMatch(mergedDescriptionHtml, /Համընկնում՝ նկարագրության մեջ/u);
 
   const guestNoteSearch = await mf.dispatchFetch(
     `https://app.fixture/search?q=${encodeURIComponent("օրինակ")}`,

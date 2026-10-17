@@ -24,8 +24,11 @@ function Waveform({ encoded }: { encoded: string }) {
 function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry: () => void }) {
   const busy = state === "initial" || state === "metadata" || state === "buffering" || state === "seeking";
   const failed = state.startsWith("error");
+  // The native controls already show idle, paused and playing; only surface waiting and failures.
+  const visible = failed || state === "buffering" || state === "seeking";
   return (
     <div
+      hidden={!visible}
       className="flex min-h-10 items-center justify-between gap-3 border-t border-white/10 bg-[rgb(10_7_12/88%)] px-3 py-2 text-[11px] text-white/78"
       data-media-state={state}
       aria-busy={busy}
