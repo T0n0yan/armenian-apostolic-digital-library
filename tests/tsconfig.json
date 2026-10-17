@@ -11,6 +11,7 @@
     "./cloud-bindings.d.ts",
     "../app/data/telegram-bridge-config.server.ts",
     "../app/utils/material-title.ts",
+    "../app/utils/text.ts",
     "../app/utils/media-playback.ts",
     "../app/utils/navigation-cache.ts",
     "../services/telegram-bridge/src/**/*.ts",

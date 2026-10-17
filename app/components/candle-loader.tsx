@@ -1,35 +1,44 @@
 import { useEffect, useState } from "react";
 
-const MAXIMUM_WAIT_MS = 8_000;
-const MINIMUM_VISIBLE_MS = 1_400;
-// The flame stays lit; the dark veil opens like dawn around it (a widening circle of light).
-const FLAME_OUT_MS = 0;
+const MAXIMUM_WAIT_MS = 9_000;
+// Intro on the first visit of a session: the unlit candle (0.7 s), a spark and the flame catching
+// (~0.9 s), then the light settles and welcomes the reader before the page opens (3.6 s at least,
+// so it is felt even on fast connections), and finally the light swells and the page shows through. The page keeps loading underneath meanwhile.
+const LIGHT_AT_MS = 700;
+const MINIMUM_VISIBLE_MS = 3_600;
 const EXIT_MS = 1_100;
-const SESSION_KEY = "library-loader-seen-v3";
+const SESSION_KEY = "library-loader-seen-v4";
 
-type Phase = "lit" | "out" | "hidden" | "removed";
+type Phase = "unlit" | "lit" | "hidden" | "removed";
 
 const styles = `
-.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;
-  -webkit-mask:radial-gradient(circle at 50% 46%,transparent calc(var(--reveal,0%) - 18%),#000 var(--reveal,0%));
-  mask:radial-gradient(circle at 50% 46%,transparent calc(var(--reveal,0%) - 18%),#000 var(--reveal,0%));
-  transition:--reveal 1.1s cubic-bezier(.6,0,.2,1),opacity 1.1s ease}
-.candle-loader[data-phase="hidden"]{--reveal:140%;opacity:0;pointer-events:none}
+.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity 1.1s ease .2s}
+.candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
+.candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}
 .candle-loader__scene{position:relative;width:120px;height:170px;transform:scale(.9)}
 .candle-loader__light{position:absolute;left:50%;top:40px;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
   background:radial-gradient(circle,rgb(255 190 100/34%) 0%,rgb(255 150 60/14%) 22%,rgb(120 60 20/6%) 42%,transparent 62%);animation:candle-glow 3s ease-in-out infinite}
 .candle-loader__glow{position:absolute;left:50%;top:22px;width:110px;height:110px;margin-left:-55px;border-radius:50%;background:radial-gradient(circle,rgb(255 214 140/55%),rgb(255 170 60/16%) 45%,transparent 70%);animation:candle-glow 2.4s ease-in-out infinite}
 .candle-loader__flame{position:absolute;left:50%;top:44px;width:18px;height:34px;margin-left:-9px;transform-origin:50% 100%;animation:candle-flicker 1.4s ease-in-out infinite;filter:drop-shadow(0 0 6px rgb(255 190 90/80%))}
+.candle-loader[data-phase="unlit"] .candle-loader__flame{animation:none;opacity:0;scale:.2 .1}
+/* The flicker and glow animations own opacity and transform, so the phases use the separate scale property. */
+.candle-loader[data-phase="unlit"] .candle-loader__light,.candle-loader[data-phase="unlit"] .candle-loader__glow{animation:none;opacity:0;scale:.4}
+.candle-loader__flame,.candle-loader__light,.candle-loader__glow{transition:opacity .9s ease,scale 1.2s cubic-bezier(.2,.9,.3,1.2)}
+.candle-loader__spark{position:absolute;left:50%;top:70px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#fff3c4;box-shadow:0 0 12px 4px rgb(255 200 110/80%);opacity:0}
+.candle-loader[data-phase="lit"] .candle-loader__spark{animation:candle-spark .7s ease-out forwards}
+@keyframes candle-spark{0%{opacity:0;transform:translateY(8px) scale(.4)}35%{opacity:1;transform:translateY(-4px) scale(1.4)}100%{opacity:0;transform:translateY(-14px) scale(.2)}}
+.candle-loader__caption{transition:opacity 1.2s ease .6s}
+.candle-loader[data-phase="unlit"] .candle-loader__caption{opacity:0}
 .candle-loader__caption{position:absolute;top:calc(100% + 18px);left:50%;translate:-50% 0;white-space:nowrap;font-family:var(--font-noto);font-size:13px;letter-spacing:.6px;color:#e9cf98;opacity:.8}
 @media(prefers-reduced-motion:reduce){.candle-loader__flame,.candle-loader__glow,.candle-loader__light{animation:none}}
 `;
 
 /**
- * First-visit loader: a lit candle that is gently put out (with a wisp of smoke) once the page is
- * ready. Later navigations in the same session skip it.
+ * First-visit intro: an unlit candle catches fire and its light opens the page like dawn. Later
+ * navigations in the same session skip it.
  */
 export function CandleLoader() {
-  const [phase, setPhase] = useState<Phase>("lit");
+  const [phase, setPhase] = useState<Phase>("unlit");
 
   useEffect(() => {
     let active = true;
@@ -43,6 +52,7 @@ export function CandleLoader() {
       return () => { active = false; timers.forEach(clearTimeout); };
     }
     const startedAt = performance.now();
+    later(() => setPhase("lit"), LIGHT_AT_MS);
     // Reveal the page only once fonts and every image are loaded, so nothing pops in afterwards.
     const pageLoaded = document.readyState === "complete"
       ? Promise.resolve()
@@ -54,11 +64,8 @@ export function CandleLoader() {
     void ready.then(() => {
       later(() => {
         try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* Storage may be blocked. */ }
-        setPhase("out");
-        later(() => {
-          setPhase("hidden");
-          later(() => setPhase("removed"), EXIT_MS);
-        }, FLAME_OUT_MS);
+        setPhase("hidden");
+        later(() => setPhase("removed"), EXIT_MS);
       }, Math.max(0, MINIMUM_VISIBLE_MS - (performance.now() - startedAt)));
     });
     return () => { active = false; timers.forEach(clearTimeout); };
@@ -71,6 +78,7 @@ export function CandleLoader() {
       <div className="candle-loader__scene" aria-hidden="true">
         <span className="candle-loader__light" />
         <span className="candle-loader__glow" />
+        <span className="candle-loader__spark" />
         <svg className="candle-loader__flame" viewBox="0 0 18 34">
           <defs>
             <radialGradient id="candle-flame" cx="50%" cy="72%" r="60%">

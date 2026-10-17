@@ -24,20 +24,10 @@ export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";
     return {categories: await listActiveCategories(env.DB, refresh, request.signal)};
 }
-const ICON_MOTIONS: Record<string, { motion: string; duration: string }> = {
-    category_gospel_teachings: {motion: "icon-page", duration: "6s"},
-    category_prayers: {motion: "icon-heart", duration: "4.5s"},
-    category_psalms: {motion: "icon-sway", duration: "5s"},
-    category_saints_lives: {motion: "icon-bob", duration: "4s"},
-    category_daily_readings: {motion: "icon-tick", duration: "5.5s"},
-    category_bible_questions: {motion: "icon-tilt", duration: "6s"},
-};
-
 const CategoryCard = memo(function CategoryCard({category, index}: { category: CategorySummary; index: number }) {
     const navigation = useNavigation();
     const targetPath = `/categories/${category.slug}`;
     const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
-    const motion = ICON_MOTIONS[resolveContentCategoryId(category.id, category.name) ?? ""];
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
         <Link
             className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
@@ -47,9 +37,9 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
             onClick={(event) => { if (isOpening) event.preventDefault(); }}>
             <span
                 className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"
-                style={motion ? {"--icon-motion": motion.motion, "--icon-duration": motion.duration, "--icon-delay": `${index * 0.6}s`} as React.CSSProperties : undefined}
+                style={{"--ti-delay": `${index * 0.45}s`} as React.CSSProperties}
                 aria-hidden="true">
-                <CategoryIcon categoryId={category.id} categoryName={category.name} size={21} strokeWidth={1.5}/>
+                <CategoryIcon categoryId={category.id} categoryName={category.name} size={24}/>
             </span>
             <span className="relative z-1 grid min-w-0 flex-1 gap-0.5">
                 <strong className="font-noto text-[16px] leading-[22px] font-semibold min-[960px]:text-[17px] min-[960px]:leading-[23px]">{category.name}</strong>

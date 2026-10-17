@@ -175,6 +175,27 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             : loaderData.authStatus === "unavailable"
               ? "Telegram նույնականացումը այս միջավայրում կազմաձևված չէ։"
               : "Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս։"}</p>
+          {loaderData.authStatus === "guest" ? (
+            <div className="mt-3 grid w-full gap-2">
+              <span className="text-[12px] text-faint">Շուտով կարող ես մտնել նաև՝</span>
+              {[
+                { name: "Google", mark: "G" },
+                { name: "Facebook", mark: "f" },
+              ].map((provider) => (
+                <button
+                  key={provider.name}
+                  className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-[13px] border border-glass-border bg-subtle px-3 text-left text-[13px] font-semibold text-muted opacity-80"
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                >
+                  <span className="grid size-7 place-items-center rounded-full bg-glass-strong font-bold text-ink" aria-hidden="true">{provider.mark}</span>
+                  Մուտք {provider.name}-ով
+                  <span className="ml-auto rounded-full border border-[rgb(217_181_111/35%)] px-2 py-0.5 text-[10.5px] text-gold-bright">Շուտով</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
         </EmptyState>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">

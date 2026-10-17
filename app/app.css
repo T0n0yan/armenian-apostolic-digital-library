@@ -295,17 +295,27 @@
 /* Gold monochrome mark from an SVG file, in both themes. */
 .gold-mark { background: var(--gold); -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat; }
 
-/* Topic icons: one slow, quiet motion each; they pause when the user prefers reduced motion. */
-.topic-icon svg { transform-origin: 50% 60%; animation: var(--icon-motion, none) var(--icon-duration, 5s) ease-in-out infinite; animation-delay: var(--icon-delay, 0s); }
-@keyframes icon-page { 0%, 70%, 100% { transform: none; } 80% { transform: perspective(60px) rotateY(-18deg); } 90% { transform: perspective(60px) rotateY(8deg); } }
-@keyframes icon-heart { 0%, 60%, 100% { transform: scale(1); } 68% { transform: scale(1.12); } 76% { transform: scale(.97); } 84% { transform: scale(1.06); } }
-@keyframes icon-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
-@keyframes icon-bob { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-2px) rotate(-6deg); } 60% { transform: translateY(0) rotate(3deg); } }
-@keyframes icon-tick { 0%, 80%, 100% { transform: none; } 86% { transform: translateY(-1.5px); } 92% { transform: translateY(.5px); } }
-@keyframes icon-tilt { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-7deg) translateY(-1px); } }
+/* Topic icons (topic-icons.tsx): each motion says what the topic is. --ti-delay staggers cards. */
+.ti-book { transform-box: fill-box; transform-origin: center; animation: ti-book 5s cubic-bezier(.3,.7,.3,1) infinite; animation-delay: var(--ti-delay, 0s); }
+.ti-book-2 { animation-name: ti-book-2; } .ti-book-3 { animation-name: ti-book-3; }
+@keyframes ti-book { 0%, 100% { transform: none; } }
+@keyframes ti-book-2 { 0%, 8% { transform: translateY(-6px); opacity: 0; } 22%, 92% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+@keyframes ti-book-3 { 0%, 22% { transform: translateY(-7px) rotate(-8deg); opacity: 0; } 38%, 92% { transform: none; opacity: 1; } 100% { opacity: 0; } }
+.ti-glow { animation: ti-glow 3.2s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
+@keyframes ti-glow { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+.ti-string { transform-box: fill-box; transform-origin: center; animation: ti-string 2.6s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
+.ti-string-2 { animation-delay: calc(var(--ti-delay, 0s) + .12s); } .ti-string-3 { animation-delay: calc(var(--ti-delay, 0s) + .24s); }
+@keyframes ti-string { 0%, 60%, 100% { transform: none; } 66% { transform: translateX(.6px); } 72% { transform: translateX(-.5px); } 78% { transform: translateX(.3px); } 84% { transform: none; } }
+.ti-wing { transform-box: fill-box; animation: ti-wing 1.8s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
+.ti-wing-front { transform-origin: 100% 100%; } .ti-wing-back { transform-origin: 0% 100%; animation-name: ti-wing-back; }
+@keyframes ti-wing { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-22deg) scaleY(.85); } }
+@keyframes ti-wing-back { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(18deg) scaleY(.85); } }
+.ti-page { transform-box: fill-box; transform-origin: 50% 0%; animation: ti-page 4.5s cubic-bezier(.5,0,.3,1) infinite; animation-delay: var(--ti-delay, 0s); }
+@keyframes ti-page { 0%, 70%, 100% { transform: none; opacity: 1; } 82% { transform: perspective(40px) rotateX(-75deg); opacity: .2; } 83% { transform: perspective(40px) rotateX(75deg); opacity: .2; } 94% { transform: none; opacity: 1; } }
+.ti-question { transform-box: fill-box; transform-origin: 50% 100%; animation: ti-question 3.4s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
+@keyframes ti-question { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-1.2px) rotate(-8deg); } 60% { transform: translateY(-.4px) rotate(6deg); } }
 
 /* Loader candle. */
-@property --reveal { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 @keyframes candle-flicker { 0%, 100% { transform: scale(1, 1) rotate(-1deg); opacity: 1; } 25% { transform: scale(.96, 1.06) rotate(1.5deg); } 50% { transform: scale(1.03, .95) rotate(-1.5deg); opacity: .92; } 75% { transform: scale(.98, 1.04) rotate(1deg); } }
 @keyframes candle-glow { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: .75; transform: scale(1.08); } }
 @keyframes candle-out { 0% { transform: scale(1); opacity: 1; } 25% { transform: scale(.85, 1.15) rotate(3deg); } 45% { transform: scale(.95, .8) rotate(-3deg); opacity: .9; } 70% { transform: scale(.45, .55); opacity: .7; } 100% { transform: scale(.05, .1) translateY(8px); opacity: 0; } }

@@ -34,7 +34,8 @@ import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
-import { isNearlyBlackImage } from "../utils/image-darkness";
+import { useVideoPoster } from "../utils/video-frame";
+import { stripZeroWidth } from "../utils/text";
 import { ShareButton } from "./share-button";
 
 type MaterialResultCardProps = {
@@ -219,6 +220,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const targetPath = `/materials/${material.id}`;
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
+  // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
+  const videoPoster = useVideoPoster(
+    variant === "video" ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
+    variant === "video" ? material.preview.thumbnailUrl : null,
+  );
   const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
   const TypeIcon = typeMeta.Icon;
   const previewTitle = material.contentType === "poll"
@@ -232,8 +238,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   // Excerpts usually begin with the title shown right above them; don't repeat it.
   const excerpt = useMemo(() => {
     const value = material.excerpt?.trim() ?? "";
-    const title = material.title.replace(/[\u200B-\u200D\uFEFF]/gu, "").trim();
-    const clean = value.replace(/^[\u200B-\u200D\uFEFF]+/u, "");
+    const title = stripZeroWidth(material.title).trim();
+    const clean = stripZeroWidth(value);
     return title && clean.startsWith(title) ? clean.slice(title.length).replace(/^[\s.,:;։՝-]+/u, "") || null : value || null;
   }, [material.excerpt, material.title]);
   const shareResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -299,9 +305,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           onClick={(event) => { if (isOpening) event.preventDefault(); }}
         >
         {variant === "video" ? (
-          <span className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
-            {material.preview.thumbnailUrl && !thumbnailFailed ? (
-              <img className="h-full w-full object-cover opacity-90" src={material.preview.thumbnailUrl} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} onLoad={(event) => { if (isNearlyBlackImage(event.currentTarget)) setThumbnailFailed(true); }} />
+          <span ref={videoPoster.ref} className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
+            {videoPoster.poster ? (
+              <img className="h-full w-full object-cover opacity-95 motion-safe:animate-[glass-enter_400ms_ease-out]" src={videoPoster.poster} alt="" decoding="async" />
             ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgb(10_5_14/70%))]" aria-hidden="true" />
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
@@ -409,7 +415,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             target="_blank"
             rel="noreferrer"
             onClick={openTelegramPost}
-            aria-label="Բացել սկզբնականը Telegram-ում"
+            aria-label="Բացել Telegram-ում"
             title="Telegram"
           >
             <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
