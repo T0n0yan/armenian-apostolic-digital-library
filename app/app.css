@@ -99,8 +99,8 @@
   --plum: #7d3c56;
   --success: #3d7650;
   --danger: #b2483f;
-  --page-bg: #f4ead6;
-  --body-background: radial-gradient(circle at 12% -10%, rgb(214 178 112 / 28%), transparent 520px), radial-gradient(circle at 92% 16%, rgb(196 146 92 / 16%), transparent 460px), linear-gradient(160deg, #faf3e3 0%, #f2e6cc 58%, #f7eedb 100%);
+  --page-bg: #ecdfc2;
+  --body-background: radial-gradient(ellipse at 50% -10%, rgb(255 246 222 / 70%), transparent 60%), radial-gradient(circle at 8% 40%, rgb(196 150 86 / 16%), transparent 420px), radial-gradient(circle at 96% 75%, rgb(176 128 70 / 14%), transparent 460px), linear-gradient(170deg, #f3e8cf 0%, #ead9b8 55%, #e6d3ae 100%);
   --glass: rgb(255 251 240 / 62%);
   --glass-strong: rgb(255 250 236 / 84%);
   --card-glass: rgb(255 250 238 / 64%);
@@ -115,6 +115,12 @@
   --icon-ink: #6a4a1c;
   --icon-surface: linear-gradient(145deg, rgb(214 178 112 / 45%), rgb(170 128 70 / 35%));
   --fab-bg: rgb(255 248 232 / 92%);
+  --frost-bg: rgb(255 252 244 / 42%);
+  --frost-bg-hover: rgb(255 252 244 / 58%);
+  --frost-border: rgb(255 255 255 / 55%);
+  --frost-edge: rgb(150 110 50 / 16%);
+  --frost-shadow: 0 1px 1px rgb(92 64 30 / 6%), 0 10px 30px rgb(92 64 30 / 10%);
+  --paper-texture-opacity: 1;
   --fab-border: rgb(168 120 50 / 38%);
   --fab-shadow: 0 10px 30px rgb(92 64 30 / 22%);
 }
@@ -146,6 +152,12 @@
   --icon-ink: #f0d397;
   --icon-surface: linear-gradient(145deg, rgb(124 74 143 / 62%), rgb(50 25 61 / 78%));
   --fab-bg: rgb(36 19 40 / 72%);
+  --frost-bg: rgb(255 255 255 / 4.5%);
+  --frost-bg-hover: rgb(255 255 255 / 8%);
+  --frost-border: rgb(255 255 255 / 10%);
+  --frost-edge: rgb(0 0 0 / 30%);
+  --frost-shadow: 0 1px 1px rgb(0 0 0 / 20%), 0 12px 32px rgb(2 0 7 / 28%);
+  --paper-texture-opacity: 0;
   --fab-border: rgb(217 181 111 / 22%);
   --fab-shadow: 0 10px 34px rgb(16 5 21 / 30%);
 }
@@ -188,6 +200,12 @@
     --icon-ink: #f0d397;
     --icon-surface: linear-gradient(145deg, rgb(124 74 143 / 62%), rgb(50 25 61 / 78%));
   --fab-bg: rgb(36 19 40 / 72%);
+  --frost-bg: rgb(255 255 255 / 4.5%);
+  --frost-bg-hover: rgb(255 255 255 / 8%);
+  --frost-border: rgb(255 255 255 / 10%);
+  --frost-edge: rgb(0 0 0 / 30%);
+  --frost-shadow: 0 1px 1px rgb(0 0 0 / 20%), 0 12px 32px rgb(2 0 7 / 28%);
+  --paper-texture-opacity: 0;
   --fab-border: rgb(217 181 111 / 22%);
   --fab-shadow: 0 10px 34px rgb(16 5 21 / 30%);
   }
@@ -235,6 +253,53 @@
 @keyframes candle-glow { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: .75; transform: scale(1.08); } }
 @keyframes candle-out { to { transform: scale(.1, .2) translateY(6px); opacity: 0; } }
 @keyframes candle-smoke { 0% { opacity: 0; transform: translateY(0) scaleX(.6); } 20% { opacity: .55; } 100% { opacity: 0; transform: translateY(-46px) translateX(6px) scaleX(1.6); } }
+
+/* Apple-style frosted glass card: colorless, translucent, hairline border and a soft top sheen. */
+.frosted-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 10%), transparent 60%), var(--frost-bg);
+  border: 0.5px solid var(--frost-border);
+  box-shadow: inset 0 0 0 0.5px var(--frost-edge), var(--frost-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  transition: transform 240ms cubic-bezier(.2, .8, .2, 1), background 200ms ease, box-shadow 200ms ease;
+}
+.frosted-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 70%), transparent);
+  opacity: .55;
+  pointer-events: none;
+}
+.frosted-card:hover { background: linear-gradient(180deg, rgb(255 255 255 / 14%), transparent 60%), var(--frost-bg-hover); transform: translateY(-1px); }
+.frosted-card:active { transform: scale(.985); }
+.frosted-card:focus-visible { outline: 3px solid rgb(217 181 111 / 45%); outline-offset: 2px; }
+.frosted-card.is-opening { background: var(--frost-bg-hover); box-shadow: inset 0 0 0 1px rgb(217 181 111 / 45%), var(--frost-shadow); }
+
+/*
+ * Light theme: crumpled parchment. A generated crease map (scripts/generate-parchment-texture.py,
+ * ~25 KB) and a fine SVG grain are multiplied over the paper color in one fixed layer.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--paper-texture-opacity);
+  mix-blend-mode: multiply;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1600' viewBox='0 0 900 1600'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .34 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    url("./assets/parchment-creases.webp");
+  background-size: 300px 300px, cover;
+  background-position: 0 0, center;
+}
+body { position: relative; isolation: isolate; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

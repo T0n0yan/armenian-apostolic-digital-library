@@ -7,13 +7,11 @@ import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
 import {PageHeader, PageShell} from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
-import {interactiveGlassCard} from "../components/ui-styles";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
 import LastSupperImg from '../assets/last-supper.webp'
 import AngelLeft from "../assets/angel-left.webp"
-import CornerDecoration from "../assets/corner-decoration.webp"
 import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 
@@ -26,22 +24,6 @@ export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";
     return {categories: await listActiveCategories(env.DB, refresh, request.signal)};
 }
-// Warm liturgical hues for each card's corner glow; a topic keeps its hue across visits.
-const CARD_GLOWS = [
-    "rgb(217 160 70 / 34%)",  // gold
-    "rgb(178 58 72 / 30%)",   // crimson
-    "rgb(122 146 84 / 30%)",  // olive
-    "rgb(74 120 168 / 30%)",  // azure
-    "rgb(138 82 150 / 32%)",  // plum
-    "rgb(206 116 64 / 30%)",  // amber
-];
-
-function glowFor(id: string) {
-    let hash = 0;
-    for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-    return CARD_GLOWS[hash % CARD_GLOWS.length];
-}
-
 const ICON_MOTIONS: Record<string, { motion: string; duration: string }> = {
     category_gospel_teachings: {motion: "icon-page", duration: "6s"},
     category_prayers: {motion: "icon-heart", duration: "4.5s"},
@@ -58,15 +40,11 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
     const motion = ICON_MOTIONS[resolveContentCategoryId(category.id, category.name) ?? ""];
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
         <Link
-            className={`${interactiveGlassCard} relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline active:scale-[.992] min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
-            style={{"--card-glow": glowFor(category.id)} as React.CSSProperties}
+            className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
             to={targetPath}
             prefetch="intent"
             aria-busy={isOpening || undefined}
             onClick={(event) => { if (isOpening) event.preventDefault(); }}>
-            <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[radial-gradient(circle_at_0%_50%,var(--card-glow),transparent_58%)]" aria-hidden="true"/>
-            <img className="pointer-events-none absolute -top-[7px] -left-[6px] z-1 opacity-75" src={CornerDecoration} alt="" width={62} height={62} decoding="async"/>
-            <img className="pointer-events-none absolute -right-[7px] -bottom-[6px] z-1 rotate-90 scale-x-[-1] opacity-75" src={CornerDecoration} alt="" width={62} height={62} decoding="async"/>
             <span
                 className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"
                 style={motion ? {"--icon-motion": motion.motion, "--icon-duration": motion.duration, "--icon-delay": `${index * 0.6}s`} as React.CSSProperties : undefined}
