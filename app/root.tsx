@@ -19,6 +19,7 @@ import { SiteNav } from "./components/site-nav";
 import {listActiveCategories} from "./data/categories.server";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
+import {InstallPrompt} from "./components/install-prompt";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -58,6 +59,7 @@ export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  { rel: "manifest", href: "/manifest.webmanifest" },
 ];
 
 export async function loader({request}: Route.LoaderArgs) {
@@ -171,6 +173,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <meta name="color-scheme" content="light dark" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Հոգևոր ժառանգ." />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="theme-color" content="#f4ead6" />
         <Meta />
         <Links />
@@ -239,6 +244,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return <>
     <Outlet />
     <CandleLoader />
+    <InstallPrompt />
   </>;
 }
 

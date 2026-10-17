@@ -1,0 +1,31 @@
+{
+  "name": "Հոգևոր ժառանգություն",
+  "short_name": "Հոգևոր ժառանգ.",
+  "description": "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված հոգևոր գրադարան. աղոթքներ, սաղմոսներ, Ավետարանի ուսուցում, սրբերի վարքեր։",
+  "lang": "hy",
+  "start_url": "/?source=home-screen",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ecdfc2",
+  "theme_color": "#ecdfc2",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

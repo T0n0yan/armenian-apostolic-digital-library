@@ -2,7 +2,8 @@ import { Bookmark, Church, Search, Settings, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useRouteLoaderData } from "react-router";
 
-import DoveMark from "../assets/dove-mark.png";
+import ArmenianEternity from "../assets/armenian-eternity.svg";
+import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
 import { ReadingSettings } from "./reading-settings";
@@ -135,7 +136,8 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
         >
-          <img className="pointer-events-none relative size-[40px] object-contain drop-shadow-[0_2px_3px_rgb(60_35_10/35%)]" src={DoveMark} width={187} height={192} alt="" aria-hidden="true" />
+          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_60s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
+          <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
         </button>
       </nav>
     </>
