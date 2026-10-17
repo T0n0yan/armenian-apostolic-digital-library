@@ -733,11 +733,18 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     return this.toPost(chatId, messages, signal);
   }
 
-  private async mediaSource(chatId: string, messageId: number, mediaIndex: number): Promise<MediaSource | null> {
+  private async mediaSource(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal): Promise<MediaSource | null> {
     const messages = await this.messageGroup(chatId, messageId);
     if (!messages) return null;
     const lead = messages.find((message) => message.richMessage instanceof Api.RichMessage);
-    if (lead?.richMessage instanceof Api.RichMessage) return mapRichMessage(lead.richMessage).mediaSources[mediaIndex] ?? null;
+    if (lead?.richMessage instanceof Api.RichMessage) {
+      if (lead.richMessage.part) {
+        signal.throwIfAborted();
+        await lead.fetchRichMessage();
+        signal.throwIfAborted();
+      }
+      return mapRichMessage(lead.richMessage).mediaSources[mediaIndex] ?? null;
+    }
     return messages[mediaIndex] ?? null;
   }
 
@@ -786,7 +793,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
 
   async getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail = false) {
     signal.throwIfAborted();
-    const source = await this.mediaSource(chatId, messageId, mediaIndex);
+    const source = await this.mediaSource(chatId, messageId, mediaIndex, signal);
     if (!source) return null;
     const asset = mediaFor(source, mediaIndex, source instanceof Api.Message ? source.message || `Telegram media #${messageId}` : `Telegram media #${messageId}`);
     if (!asset) return null;
@@ -817,7 +824,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   }
 
   async *streamMedia({ chatId, messageId, mediaIndex, start, end, thumbnail, signal }: MediaRequest) {
-    const source = await this.mediaSource(chatId, messageId, mediaIndex);
+    const source = await this.mediaSource(chatId, messageId, mediaIndex, signal);
     if (!source || (thumbnail && !thumbnailFor(source))) return;
     const resolved = inputLocation(source, Boolean(thumbnail));
     if (!resolved) return;

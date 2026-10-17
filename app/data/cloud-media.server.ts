@@ -1,3 +1,5 @@
+import { boundCloudOpenEndedRange } from "../../shared/cloud-media-range";
+
 type CloudMediaRow = {
   r2_key: string | null;
   thumbnail_r2_key: string | null;
@@ -61,17 +63,22 @@ export async function readCloudMedia(
     return new Response(null, { status: 200, headers });
   }
 
-  const range = parseRange(request.headers.get("Range"), head.size);
-  if (range === false) {
+  const rangeHeader = request.headers.get("Range");
+  const parsedRange = parseRange(rangeHeader, head.size);
+  if (parsedRange === false) {
     headers.set("Content-Range", `bytes */${head.size}`);
     return new Response(null, { status: 416, headers });
   }
-  if (!range) {
+  if (!parsedRange) {
     const object = await bucket.get(key);
     if (!object) return new Response("Media not found", { status: 404 });
     headers.set("Content-Length", String(object.size));
     return new Response(object.body, { status: 200, headers });
   }
+  // Browsers normally request `bytes=N-` while probing or seeking. A bounded
+  // partial response avoids holding an R2/Worker stream for the whole media
+  // object; the media element requests the next window as playback advances.
+  const range = boundCloudOpenEndedRange(rangeHeader, parsedRange);
   const length = range.end - range.start + 1;
   const object = await bucket.get(key, { range: { offset: range.start, length } });
   if (!object) return new Response("Media not found", { status: 404 });

@@ -10,6 +10,7 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { getMediaClient } from "../app/auth/media-client.server";
 import { mediaPlaybackStateForEvent } from "../app/utils/media-playback";
+import { CLOUD_MEDIA_RANGE_WINDOW_BYTES } from "../shared/cloud-media-range";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { loadResolvedValue, ResolvedTtlCache, SharedOperationRegistry } from "../shared/async-lifecycle";
 import { createBridgeApplication, readBridgeApplicationState } from "../services/telegram-bridge/src/app";
@@ -1310,6 +1311,29 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.equal(invalidRange.status, 416);
   assert.equal(invalidRange.headers.get("content-range"), "bytes */16384");
   assert.equal((await mf.dispatchFetch("https://app.fixture/media/-100999/106/0")).status, 404);
+
+  const largeVideo = new Uint8Array(CLOUD_MEDIA_RANGE_WINDOW_BYTES + 65_536);
+  await (mediaBucket as unknown as TestR2Bucket).put("fixtures/106/0/original.bin", largeVideo, { httpMetadata: { contentType: "video/mp4" } });
+  const browserInitial = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
+    headers: { range: "bytes=0-" },
+  });
+  assert.equal(browserInitial.status, 206);
+  assert.equal(browserInitial.headers.get("content-range"), `bytes 0-${CLOUD_MEDIA_RANGE_WINDOW_BYTES - 1}/${largeVideo.byteLength}`);
+  assert.equal(browserInitial.headers.get("content-length"), String(CLOUD_MEDIA_RANGE_WINDOW_BYTES));
+  assert.equal((await browserInitial.arrayBuffer()).byteLength, CLOUD_MEDIA_RANGE_WINDOW_BYTES);
+  const browserFollowup = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
+    headers: { range: `bytes=${CLOUD_MEDIA_RANGE_WINDOW_BYTES}-` },
+  });
+  assert.equal(browserFollowup.status, 206);
+  assert.equal(browserFollowup.headers.get("content-range"), `bytes ${CLOUD_MEDIA_RANGE_WINDOW_BYTES}-${largeVideo.byteLength - 1}/${largeVideo.byteLength}`);
+  assert.equal(browserFollowup.headers.get("content-length"), "65536");
+  assert.equal((await browserFollowup.arrayBuffer()).byteLength, 65_536);
+  const suffixRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", {
+    headers: { range: "bytes=-32768" },
+  });
+  assert.equal(suffixRange.status, 206);
+  assert.equal(suffixRange.headers.get("content-range"), `bytes ${largeVideo.byteLength - 32_768}-${largeVideo.byteLength - 1}/${largeVideo.byteLength}`);
+  assert.equal((await suffixRange.arrayBuffer()).byteLength, 32_768);
 
   const search = await mf.dispatchFetch(`https://app.fixture/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6&category=${encodeURIComponent(MOCK_TOPIC_ID)}`);
   assert.match(await search.text(), /Առավոտյան աղոթք/u);
