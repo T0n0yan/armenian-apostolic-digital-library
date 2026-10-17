@@ -125,10 +125,11 @@ class MemorySyncTarget implements CloudLibrarySyncTarget {
   async stageMaterial(material: SyncMaterial, dryRun: boolean) {
     const key = `${material.post.chatId}:${material.post.messageId}`;
     const unchanged = this.materials.get(key) === material.contentHash;
-    return { mediaIndexesToUpload: dryRun || unchanged ? [] : material.post.media.filter((media) => {
-      const objectKey = cloudMediaObjectKey(material, media);
-      return !this.media.has(objectKey);
-    }).map((media) => media.index) };
+    return { mediaToUpload: dryRun || unchanged ? [] : material.post.media.flatMap((media) => {
+      const assets = [{ mediaIndex: media.index, thumbnail: false }];
+      if (media.hasThumbnail) assets.push({ mediaIndex: media.index, thumbnail: true });
+      return assets.filter((asset) => !this.media.has(cloudMediaObjectKey(material, media, asset.thumbnail)));
+    }) };
   }
   async uploadMedia(media: SyncMediaUpload, dryRun: boolean) {
     if (dryRun) return;
@@ -183,6 +184,32 @@ test("cloud importer is deterministic, idempotent, resumable and dry-run safe", 
     cloudMediaObjectKey({ post, contentHash: originalHash }, { ...post.media[0]!, index: 0 }),
     cloudMediaObjectKey({ post, contentHash: editedHash }, { ...post.media[0]!, index: 0 }),
   );
+});
+
+test("cloud importer preserves a material when one media reference is unavailable", async () => {
+  class PartiallyUnavailableAdapter extends MockTelegramAdapter {
+    override async getMediaDescriptor(
+      chatId: string,
+      messageId: number,
+      mediaIndex: number,
+      signal: AbortSignal,
+      thumbnail = false,
+    ) {
+      if (messageId === 103 && mediaIndex === 1 && !thumbnail) return null;
+      return super.getMediaDescriptor(chatId, messageId, mediaIndex, signal, thumbnail);
+    }
+  }
+  const target = new MemorySyncTarget();
+  const result = await syncTelegramLibrary({
+    adapter: new PartiallyUnavailableAdapter(),
+    target,
+    chatId: MOCK_CHAT_ID,
+    mode: "incremental",
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.failed, true);
+  assert.ok(target.materials.has(`${MOCK_CHAT_ID}:103`), "partial albums must retain their metadata and available media");
+  assert.ok(target.failures.includes("media-unavailable"));
 });
 
 test("cloud library migration is additive and keeps public/private data separated", () => {

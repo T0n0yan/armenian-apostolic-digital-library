@@ -15,6 +15,7 @@ export type SyncMediaUpload = {
   chatId: string;
   messageId: number;
   mediaIndex: number;
+  thumbnail: boolean;
   objectKey: string;
   descriptor: BridgeMedia;
   body: AsyncIterable<Uint8Array>;
@@ -29,7 +30,9 @@ export interface CloudLibrarySyncTarget {
   upsertSource(input: { chatId: string; topics: BridgeCategory[]; dryRun: boolean }): Promise<void>;
   upsertTopic(topic: BridgeCategory, dryRun: boolean): Promise<void>;
   getCheckpoint(chatId: string, topicId: number): Promise<SyncCheckpoint | null>;
-  stageMaterial(material: SyncMaterial, dryRun: boolean): Promise<{ mediaIndexesToUpload: number[] }>;
+  stageMaterial(material: SyncMaterial, dryRun: boolean): Promise<{
+    mediaToUpload: Array<{ mediaIndex: number; thumbnail: boolean }>;
+  }>;
   uploadMedia(media: SyncMediaUpload, dryRun: boolean): Promise<void>;
   commitMaterial(material: SyncMaterial, dryRun: boolean): Promise<void>;
   recordFailure(input: {
@@ -82,13 +85,23 @@ function safeExtension(media: BridgeMedia) {
   return (named && /^[a-z0-9]+$/u.test(named) ? named : null) ?? byMime[media.mimeType ?? ""] ?? "bin";
 }
 
-export function cloudMediaObjectKey(material: Pick<SyncMaterial, "post" | "contentHash">, media: BridgeMedia) {
-  return `v1/${material.post.chatId}/${material.post.messageId}/${material.contentHash}/${media.index}/original.${safeExtension(media)}`;
+export function cloudMediaObjectKey(
+  material: Pick<SyncMaterial, "post" | "contentHash">,
+  media: BridgeMedia,
+  thumbnail = false,
+) {
+  return `v1/${material.post.chatId}/${material.post.messageId}/${material.contentHash}/${media.index}/${thumbnail ? "thumbnail.jpg" : `original.${safeExtension(media)}`}`;
 }
 
 function failureCode(error: unknown) {
   if (error instanceof DOMException && error.name === "AbortError") return "aborted";
-  return error instanceof Error && /^[a-z0-9_-]{1,64}$/iu.test(error.name) ? error.name.toLowerCase() : "sync-failed";
+  if (error instanceof Error) {
+    const value = /^[a-z][a-z0-9_-]{0,63}$/iu.test(error.message) ? error.message : error.name;
+    if (/^[a-z][a-z0-9_-]{0,63}$/iu.test(value)) {
+      return value.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase();
+    }
+  }
+  return "sync-failed";
 }
 
 export async function syncTelegramLibrary(options: CloudSyncOptions) {
@@ -127,24 +140,35 @@ export async function syncTelegramLibrary(options: CloudSyncOptions) {
           };
           try {
             const staged = await options.target.stageMaterial(material, dryRun);
-            for (const mediaIndex of staged.mediaIndexesToUpload) {
-              const descriptor = await options.adapter.getMediaDescriptor(
-                post.chatId, post.messageId, mediaIndex, options.signal,
-              );
-              if (!descriptor) throw new Error("MediaUnavailable");
-              if (descriptor.sizeBytes === null || descriptor.sizeBytes <= 0) throw new Error("MediaSizeUnavailable");
-              const end = descriptor.sizeBytes - 1;
-              await options.target.uploadMedia({
-                chatId: post.chatId,
-                messageId: post.messageId,
-                mediaIndex,
-                objectKey: cloudMediaObjectKey(material, descriptor),
-                descriptor,
-                body: options.adapter.streamMedia({
-                  chatId: post.chatId, messageId: post.messageId, mediaIndex,
-                  start: 0, end, signal: options.signal,
-                }),
-              }, dryRun);
+            for (const asset of staged.mediaToUpload) {
+              try {
+                const descriptor = await options.adapter.getMediaDescriptor(
+                  post.chatId, post.messageId, asset.mediaIndex, options.signal, asset.thumbnail,
+                );
+                if (!descriptor) throw new Error("MediaUnavailable");
+                if (descriptor.sizeBytes === null || descriptor.sizeBytes <= 0) throw new Error("MediaSizeUnavailable");
+                const end = descriptor.sizeBytes - 1;
+                await options.target.uploadMedia({
+                  chatId: post.chatId,
+                  messageId: post.messageId,
+                  mediaIndex: asset.mediaIndex,
+                  thumbnail: asset.thumbnail,
+                  objectKey: cloudMediaObjectKey(material, descriptor, asset.thumbnail),
+                  descriptor,
+                  body: options.adapter.streamMedia({
+                    chatId: post.chatId, messageId: post.messageId, mediaIndex: asset.mediaIndex,
+                    start: 0, end, thumbnail: asset.thumbnail, signal: options.signal,
+                  }),
+                }, dryRun);
+              } catch (error) {
+                if (options.signal.aborted) throw error;
+                failed = true;
+                await options.target.recordFailure({
+                  runId, chatId: post.chatId, messageId: post.messageId,
+                  mediaIndex: asset.thumbnail ? -(asset.mediaIndex + 1) : asset.mediaIndex,
+                  stage: "media", code: failureCode(error), retryable: true, dryRun,
+                });
+              }
             }
             await options.target.commitMaterial(material, dryRun);
           } catch (error) {
