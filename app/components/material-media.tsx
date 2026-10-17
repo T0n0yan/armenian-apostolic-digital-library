@@ -48,7 +48,8 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   const [state, setState] = useState<MediaPlaybackState>("initial");
   const ref = useCallback((element: HTMLMediaElement | null) => { elementRef.current = element; }, []);
   const updateFromCanPlay = (event: SyntheticEvent<HTMLMediaElement>) => {
-    setState((current) => mediaPlaybackStateForEvent(current, "can-play", { paused: event.currentTarget.paused }));
+    const paused = event.currentTarget.paused;
+    setState((current) => mediaPlaybackStateForEvent(current, "can-play", { paused }));
   };
   const retry = () => {
     const element = elementRef.current;
@@ -61,22 +62,31 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     controls: true,
     preload: "metadata" as const,
     onLoadStart: () => setState((current) => mediaPlaybackStateForEvent(current, "load-start")),
-    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => setState((current) => mediaPlaybackStateForEvent(current, "metadata-ready", { paused: event.currentTarget.paused })),
+    onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const paused = event.currentTarget.paused;
+      setState((current) => mediaPlaybackStateForEvent(current, "metadata-ready", { paused }));
+    },
     onCanPlay: updateFromCanPlay,
     onWaiting: () => setState((current) => mediaPlaybackStateForEvent(current, "waiting")),
     onStalled: () => setState((current) => mediaPlaybackStateForEvent(current, "stalled")),
     onSeeking: () => setState((current) => mediaPlaybackStateForEvent(current, "seeking")),
-    onSeeked: (event: SyntheticEvent<HTMLMediaElement>) => setState((current) => mediaPlaybackStateForEvent(current, "seeked", { paused: event.currentTarget.paused })),
+    onSeeked: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const paused = event.currentTarget.paused;
+      setState((current) => mediaPlaybackStateForEvent(current, "seeked", { paused }));
+    },
     onPlaying: () => setState((current) => mediaPlaybackStateForEvent(current, "playing")),
     onPause: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const seeking = event.currentTarget.seeking;
+      const hasCurrentData = event.currentTarget.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
       setState((current) => mediaPlaybackStateForEvent(current, "pause", {
-        seeking: event.currentTarget.seeking,
-        hasCurrentData: event.currentTarget.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+        seeking,
+        hasCurrentData,
       }));
     },
-    onError: (event: SyntheticEvent<HTMLMediaElement>) => setState((current) => mediaPlaybackStateForEvent(current, "error", {
-      errorCode: event.currentTarget.error?.code ?? null,
-    })),
+    onError: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const errorCode = event.currentTarget.error?.code ?? null;
+      setState((current) => mediaPlaybackStateForEvent(current, "error", { errorCode }));
+    },
   };
 
   return (

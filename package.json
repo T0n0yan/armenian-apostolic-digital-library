@@ -31,6 +31,7 @@
 		"deploy:staging": "CLOUDFLARE_ENV=staging pnpm run build && wrangler deploy --env staging",
 		"deploy:production": "CLOUDFLARE_ENV=production pnpm run build && wrangler deploy --env production",
 		"preview": "pnpm run build && vite preview",
+		"test:media-browser": "node scripts/browser-media-smoke.mjs",
 		"cf-typegen": "wrangler types",
 		"postinstall": "wrangler types"
 	},
@@ -52,6 +53,7 @@
 		"@types/react": "^19.2.18",
 		"@types/react-dom": "^19.2.7",
 		"miniflare": "5.20261006.1-alpha",
+		"playwright": "1.56.1",
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.23.15",
 		"typescript": "^5.9.3",
