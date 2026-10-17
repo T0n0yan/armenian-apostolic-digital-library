@@ -115,17 +115,23 @@ function materialSelect() {
 
 async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
   if (rows.length === 0) return [];
-  const clauses = rows.map(() => "(chat_id = ? AND message_id = ?)").join(" OR ");
-  const bindings = rows.flatMap((row) => [row.chat_id, row.message_id]);
-  const media = await database.prepare(
-    `SELECT chat_id, message_id, media_index, kind, mime_type, file_name,
-       size_bytes, width, height, duration, title, performer, waveform,
-       alt_text, thumbnail_r2_key
-     FROM library_media WHERE status = 'ready' AND (${clauses})
-     ORDER BY chat_id, message_id, media_index`,
-  ).bind(...bindings).all<MediaRow>();
+  const mediaRows: MediaRow[] = [];
+  const batchSize = 40;
+  for (let offset = 0; offset < rows.length; offset += batchSize) {
+    const batch = rows.slice(offset, offset + batchSize);
+    const clauses = batch.map(() => "(chat_id = ? AND message_id = ?)").join(" OR ");
+    const bindings = batch.flatMap((row) => [row.chat_id, row.message_id]);
+    const media = await database.prepare(
+      `SELECT chat_id, message_id, media_index, kind, mime_type, file_name,
+         size_bytes, width, height, duration, title, performer, waveform,
+         alt_text, thumbnail_r2_key
+       FROM library_media WHERE status = 'ready' AND (${clauses})
+       ORDER BY chat_id, message_id, media_index`,
+    ).bind(...bindings).all<MediaRow>();
+    mediaRows.push(...media.results);
+  }
   const byMaterial = new Map<string, BridgeMedia[]>();
-  for (const item of media.results) {
+  for (const item of mediaRows) {
     const key = `${item.chat_id}:${item.message_id}`;
     const values = byMaterial.get(key) ?? [];
     values.push({

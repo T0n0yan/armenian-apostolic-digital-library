@@ -1430,6 +1430,26 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.ok(analytics.results.length > 0);
   assert.ok(analytics.results.every((row: { query_hash: string; query_count: number; zero_result_count: number }) =>
     /^[a-f0-9]{64}$/u.test(row.query_hash) && row.query_count > 0 && row.zero_result_count >= 0));
+
+  const bulkSearchRows = Array.from({ length: 120 }, (_, index) => {
+    const messageId = 10_000 + index;
+    const marker = index === 119 ? "եզակի մեծ որոնման նշիչ" : `լրացուցիչ նյութ ${index}`;
+    return database.prepare(
+      `INSERT INTO library_materials
+       (chat_id,message_id,material_id,topic_key,topic_id,constituent_message_ids_json,content_type,title,
+        telegram_url,content_text,caption_text,formatted_text_json,formatted_caption_json,tags_json,
+        content_hash,source_revision,sync_state,synced_at)
+       VALUES (?,?,?,?,?,'[]','text',?,?,?,'','{"text":"","entities":[]}','{"text":"","entities":[]}','[]',?,?,'ready',?)`,
+    ).bind(MOCK_CHAT_ID, messageId, `bulk-material-${messageId}`, MOCK_TOPIC_ID, 700, marker,
+      `https://t.me/c/fixture/${messageId}`, marker, "b".repeat(64), String(messageId), new Date().toISOString());
+  });
+  await database.batch(bulkSearchRows);
+  const largeSearch = await mf.dispatchFetch(
+    `https://app.fixture/api/search-page?q=${encodeURIComponent("եզակի մեծ որոնման նշիչ")}`,
+  );
+  assert.equal(largeSearch.status, 200, "global search hydration must stay below D1 expression-depth limits");
+  const largeSearchData = await largeSearch.json() as { materials: Array<{ id: string }> };
+  assert.ok(largeSearchData.materials.some((material) => material.id === "bulk-material-10119"));
   assert.equal(bridgeRequestPaths.length, 0, "normal public reads must not call Telegram Bridge");
 });
 
