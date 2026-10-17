@@ -128,6 +128,21 @@ function materialSelect() {
     INNER JOIN library_topics AS topics ON topics.id = materials.topic_key`;
 }
 
+function searchMaterialSelect() {
+  return `SELECT materials.chat_id, materials.message_id, materials.material_id,
+      materials.topic_key, materials.topic_id, materials.media_group_id,
+      materials.constituent_message_ids_json, materials.content_type,
+      materials.title, materials.telegram_url, '' AS content_text,
+      '' AS caption_text, '{"text":"","entities":[]}' AS formatted_text_json,
+      '{"text":"","entities":[]}' AS formatted_caption_json,
+      NULL AS rich_content_json, materials.poll_json, materials.location_json,
+      materials.unsupported_type, materials.tags_json, materials.number_value,
+      materials.date_value, materials.published_at, materials.edited_at,
+      topics.title AS topic_name, topics.slug AS topic_slug
+    FROM library_materials AS materials
+    INNER JOIN library_topics AS topics ON topics.id = materials.topic_key`;
+}
+
 async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
   if (rows.length === 0) return [];
   const mediaRows: MediaRow[] = [];
@@ -206,7 +221,7 @@ async function materialRowsByIdentity(database: D1Database, identities: Array<{ 
     const clauses = batch.map(() => "(materials.chat_id = ? AND materials.message_id = ?)").join(" OR ");
     const bindings = batch.flatMap((identity) => [identity.chatId, identity.messageId]);
     const result = await database.prepare(
-      `${materialSelect()} WHERE materials.sync_state = 'ready' AND materials.deleted_at IS NULL AND (${clauses})`,
+      `${searchMaterialSelect()} WHERE materials.sync_state = 'ready' AND materials.deleted_at IS NULL AND (${clauses})`,
     ).bind(...bindings).all<MaterialRow>();
     rows.push(...result.results);
   }
@@ -369,41 +384,73 @@ export async function searchCloudLibraryPosts(
   const ftsBindings: unknown[] = [ftsExpression];
   if (categoryId) ftsBindings.push(categoryId);
   const ftsFields = await database.prepare(
-    `SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
-       materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
-       documents.block_id,documents.original_text,documents.is_primary
-     FROM library_search_fts
-     INNER JOIN library_search_documents AS documents
-       ON documents.chat_id=library_search_fts.chat_id
-       AND documents.message_id=CAST(library_search_fts.message_id AS INTEGER)
-       AND documents.field_id=library_search_fts.field_id
-     INNER JOIN library_materials AS materials
-       ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
-     INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
-     WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
-       AND topics.is_general=0 AND topics.status!='hidden'
-       AND library_search_fts MATCH ? ${categoryClause}
-     ORDER BY materials.message_id DESC,documents.ordinal
-     LIMIT 2000`,
-  ).bind(...ftsBindings).all<SearchFieldRow>();
-  const fragments = candidateFragments(candidateValues);
-  let fieldRows = ftsFields.results;
-  if (fragments.length > 0) {
-    const fragmentClause = fragments.map(() => "(documents.normalized_text LIKE ? ESCAPE '\\' OR documents.aliases_text LIKE ? ESCAPE '\\')").join(" OR ");
-    const fallbackBindings: unknown[] = fragments.flatMap((fragment) => [`%${fragment}%`, `%${fragment}%`]);
-    if (categoryId) fallbackBindings.push(categoryId);
-    const fallback = await database.prepare(
-      `SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
+    `WITH ranked_candidates AS (
+       SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
          materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
-         documents.block_id,documents.original_text,documents.is_primary
-       FROM library_search_documents AS documents
+         documents.block_id,documents.original_text,documents.is_primary,documents.ordinal,
+         ROW_NUMBER() OVER (
+           PARTITION BY documents.chat_id,documents.message_id
+           ORDER BY documents.is_primary DESC,documents.ordinal
+         ) AS candidate_rank
+       FROM library_search_fts
+       INNER JOIN library_search_documents AS documents
+         ON documents.chat_id=library_search_fts.chat_id
+         AND documents.message_id=CAST(library_search_fts.message_id AS INTEGER)
+         AND documents.field_id=library_search_fts.field_id
        INNER JOIN library_materials AS materials
          ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
        INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
        WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
          AND topics.is_general=0 AND topics.status!='hidden'
-         AND (${fragmentClause}) ${categoryClause}
-       ORDER BY materials.message_id DESC,documents.ordinal
+         AND library_search_fts MATCH ? ${categoryClause}
+     )
+     SELECT chat_id,message_id,topic_id,media_group_id,constituent_message_ids_json,
+       published_at,field_kind,block_id,original_text,is_primary
+     FROM ranked_candidates WHERE candidate_rank <= 2
+     ORDER BY message_id DESC,ordinal
+     LIMIT 300`,
+  ).bind(...ftsBindings).all<SearchFieldRow>();
+  const fragments = candidateFragments(candidateValues);
+  let fieldRows = ftsFields.results;
+  // FTS already indexes normalized values, transliteration aliases, and bounded
+  // prefix terms. The shorter-prefix FTS pass is reserved for sparse candidate
+  // sets that still need typo expansion; running both paths for broad terms
+  // needlessly spends Worker CPU and can exhaust the request budget under
+  // concurrent search. The bounded threshold keeps fuzzy recall for small
+  // result sets without scanning again once FTS already found a broad set.
+  const armenianFallbackFragments = fragments.filter((fragment) => /\p{Script=Armenian}/u.test(fragment));
+  if (armenianFallbackFragments.length > 0 && /\p{Script=Armenian}/u.test(parsed.normalized) && ftsFields.results.length < 10) {
+    const fallbackExpression = armenianFallbackFragments
+      .filter((fragment) => /^[\p{L}\p{N}]+$/u.test(fragment))
+      .map((fragment) => `${fragment}*`)
+      .join(" OR ");
+    const fallbackBindings: unknown[] = [fallbackExpression];
+    if (categoryId) fallbackBindings.push(categoryId);
+    const fallback = await database.prepare(
+      `WITH ranked_candidates AS (
+         SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
+           materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
+           documents.block_id,documents.original_text,documents.is_primary,documents.ordinal,
+           ROW_NUMBER() OVER (
+             PARTITION BY documents.chat_id,documents.message_id
+             ORDER BY documents.is_primary DESC,documents.ordinal
+           ) AS candidate_rank
+         FROM library_search_fts
+         INNER JOIN library_search_documents AS documents
+           ON documents.chat_id=library_search_fts.chat_id
+           AND documents.message_id=CAST(library_search_fts.message_id AS INTEGER)
+           AND documents.field_id=library_search_fts.field_id
+         INNER JOIN library_materials AS materials
+           ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
+         INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
+         WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
+           AND topics.is_general=0 AND topics.status!='hidden'
+           AND library_search_fts MATCH ? ${categoryClause}
+       )
+       SELECT chat_id,message_id,topic_id,media_group_id,constituent_message_ids_json,
+         published_at,field_kind,block_id,original_text,is_primary
+       FROM ranked_candidates WHERE candidate_rank <= 2
+       ORDER BY message_id DESC,ordinal
        LIMIT 500`,
     ).bind(...fallbackBindings).all<SearchFieldRow>();
     const unique = new Map<string, SearchFieldRow>();
