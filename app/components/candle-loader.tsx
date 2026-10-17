@@ -1,59 +1,99 @@
 import { useEffect, useState } from "react";
 
-import ArmenianEternity from "../assets/armenian-eternity.svg";
-import OliveWreath from "../assets/crown-olive-wreath.webp";
-
 const MAXIMUM_WAIT_MS = 5_000;
-const MINIMUM_VISIBLE_MS = 650;
-const EXIT_MS = 420;
-const SESSION_KEY = "library-loader-seen-v2";
+const MINIMUM_VISIBLE_MS = 900;
+const FLAME_OUT_MS = 650;
+const EXIT_MS = 520;
+const SESSION_KEY = "library-loader-seen-v3";
+
+type Phase = "lit" | "out" | "hidden" | "removed";
 
 const styles = `
-.brand-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(circle at 50% 44%,rgb(102 64 66/18%),transparent 32%),var(--page);transition:opacity .42s ease,visibility .42s;overflow:hidden}
-.brand-loader[aria-hidden="true"]{opacity:0;visibility:hidden;pointer-events:none}
-.brand-loader__mark{position:relative;display:grid;width:108px;height:108px;place-items:center}
-.brand-loader__wreath{position:absolute;width:106px;height:106px;object-fit:contain;opacity:.72;animation:brand-breathe 2.8s ease-in-out infinite}
-.brand-loader__eternity{position:relative;width:38px;height:38px;object-fit:contain;filter:var(--eternity-filter);animation:brand-turn 8s linear infinite}
-.brand-loader__line{position:absolute;top:calc(100% + 22px);left:50%;width:96px;height:1px;translate:-50% 0;overflow:hidden;background:rgb(217 181 111/16%)}
-.brand-loader__line::after{content:"";display:block;width:38%;height:100%;background:linear-gradient(90deg,transparent,var(--gold-bright),transparent);animation:brand-line 1.5s ease-in-out infinite}
-@keyframes brand-breathe{0%,100%{scale:.98;opacity:.62}50%{scale:1.035;opacity:.88}}
-@keyframes brand-turn{to{rotate:360deg}}
-@keyframes brand-line{0%{translate:-110% 0}100%{translate:360% 0}}
-@media(prefers-reduced-motion:reduce){.brand-loader__wreath,.brand-loader__eternity,.brand-loader__line::after{animation:none}}
+.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:radial-gradient(circle at 50% 46%,rgb(240 190 100/16%),transparent 34%),var(--page-bg);transition:opacity .52s ease,visibility .52s;overflow:hidden}
+.candle-loader[data-phase="hidden"]{opacity:0;visibility:hidden;pointer-events:none}
+.candle-loader__scene{position:relative;width:120px;height:170px;transform:scale(1.4)}
+.candle-loader__glow{position:absolute;left:50%;top:18px;width:120px;height:120px;margin-left:-60px;border-radius:50%;background:radial-gradient(circle,rgb(255 196 96/45%),rgb(255 170 60/12%) 45%,transparent 70%);animation:candle-glow 2.6s ease-in-out infinite;transition:opacity .5s ease}
+.candle-loader__flame{position:absolute;left:50%;top:44px;width:18px;height:34px;margin-left:-9px;transform-origin:50% 100%;animation:candle-flicker 1.4s ease-in-out infinite}
+.candle-loader__smoke{position:absolute;left:50%;top:58px;width:10px;height:26px;margin-left:-5px;border-radius:50%;background:radial-gradient(ellipse,rgb(170 160 150/55%),transparent 70%);opacity:0;filter:blur(2px)}
+.candle-loader[data-phase="out"] .candle-loader__flame{animation:candle-out .45s ease-in forwards}
+.candle-loader[data-phase="out"] .candle-loader__glow{opacity:0}
+.candle-loader[data-phase="out"] .candle-loader__smoke{animation:candle-smoke .9s ease-out forwards}
+.candle-loader[data-phase="out"] .candle-loader__smoke:nth-child(4){animation-delay:.12s}
+.candle-loader__caption{position:absolute;top:calc(100% + 10px);left:50%;translate:-50% 0;white-space:nowrap;font-family:var(--font-noto);font-size:13px;letter-spacing:.4px;color:var(--gold-bright);opacity:.85}
+@media(prefers-reduced-motion:reduce){.candle-loader__flame,.candle-loader__glow{animation:none}}
 `;
 
+/**
+ * First-visit loader: a lit candle that is gently put out (with a wisp of smoke) once the page is
+ * ready. Later navigations in the same session skip it.
+ */
 export function CandleLoader() {
-  const [hidden, setHidden] = useState(false);
-  const [removed, setRemoved] = useState(false);
+  const [phase, setPhase] = useState<Phase>("lit");
 
   useEffect(() => {
     let active = true;
+    const timers: number[] = [];
+    const later = (callback: () => void, ms: number) => { timers.push(window.setTimeout(() => active && callback(), ms)); };
+    let seen = false;
+    try { seen = sessionStorage.getItem(SESSION_KEY) === "1"; } catch { /* Storage may be blocked. */ }
+    if (seen) {
+      setPhase("hidden");
+      later(() => setPhase("removed"), EXIT_MS);
+      return () => { active = false; timers.forEach(clearTimeout); };
+    }
     const startedAt = performance.now();
-    const seen = sessionStorage.getItem(SESSION_KEY) === "1";
     const ready = Promise.race([
       document.fonts?.ready ?? Promise.resolve(),
       new Promise<void>((resolve) => window.setTimeout(resolve, MAXIMUM_WAIT_MS)),
     ]);
     void ready.then(() => {
-      const wait = seen ? 0 : Math.max(0, MINIMUM_VISIBLE_MS - (performance.now() - startedAt));
-      window.setTimeout(() => {
-        if (!active) return;
-        sessionStorage.setItem(SESSION_KEY, "1");
-        setHidden(true);
-        window.setTimeout(() => active && setRemoved(true), EXIT_MS);
-      }, wait);
+      later(() => {
+        try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* Storage may be blocked. */ }
+        setPhase("out");
+        later(() => {
+          setPhase("hidden");
+          later(() => setPhase("removed"), EXIT_MS);
+        }, FLAME_OUT_MS);
+      }, Math.max(0, MINIMUM_VISIBLE_MS - (performance.now() - startedAt)));
     });
-    return () => { active = false; };
+    return () => { active = false; timers.forEach(clearTimeout); };
   }, []);
 
-  if (removed) return null;
+  if (phase === "removed") return null;
   return (
-    <div className="brand-loader" role="status" aria-live="polite" aria-label="Գրադարանը բեռնվում է" aria-hidden={hidden}>
+    <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label="Գրադարանը բեռնվում է" aria-hidden={phase === "hidden"}>
       <style>{styles}</style>
-      <div className="brand-loader__mark" aria-hidden="true">
-        <img className="brand-loader__wreath" src={OliveWreath} alt="" width={256} height={256} />
-        <img className="brand-loader__eternity" src={ArmenianEternity} alt="" width={48} height={48} />
-        <span className="brand-loader__line" />
+      <div className="candle-loader__scene" aria-hidden="true">
+        <span className="candle-loader__glow" />
+        <svg className="candle-loader__flame" viewBox="0 0 18 34">
+          <defs>
+            <radialGradient id="candle-flame" cx="50%" cy="72%" r="60%">
+              <stop offset="0%" stopColor="#fffbe8" />
+              <stop offset="35%" stopColor="#ffd56b" />
+              <stop offset="75%" stopColor="#ff9a2e" />
+              <stop offset="100%" stopColor="#e2611a" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <path d="M9 1C11 9 17 14 17 22a8 8 0 0 1-16 0C1 14 7 9 9 1Z" fill="url(#candle-flame)" />
+          <ellipse cx="9" cy="25" rx="2.4" ry="4" fill="#7fb4ff" opacity=".45" />
+        </svg>
+        <span className="candle-loader__smoke" />
+        <span className="candle-loader__smoke" />
+        <svg style={{ position: "absolute", left: "50%", top: 74, marginLeft: -22 }} width="44" height="90" viewBox="0 0 44 90">
+          <defs>
+            <linearGradient id="candle-wax" x1="0" x2="1">
+              <stop offset="0%" stopColor="#d9c39a" />
+              <stop offset="45%" stopColor="#fbf1dc" />
+              <stop offset="100%" stopColor="#cdb38a" />
+            </linearGradient>
+          </defs>
+          <line x1="22" y1="0" x2="22" y2="8" stroke="#3a2a1a" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M6 10c4-2 28-2 32 0v76a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4Z" fill="url(#candle-wax)" />
+          <path d="M6 10c4 2 28 2 32 0" fill="none" stroke="#efdcb6" strokeWidth="1.2" />
+          <path d="M13 12c0 6-1 9 1 12" fill="none" stroke="#f4e6c8" strokeWidth="2" strokeLinecap="round" opacity=".8" />
+          <rect x="6" y="62" width="32" height="5" fill="#b48a3e" opacity=".55" />
+        </svg>
+        <span className="candle-loader__caption">Հոգևոր ժառանգություն</span>
       </div>
     </div>
   );

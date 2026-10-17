@@ -50,7 +50,7 @@ const initialThemeScript = `(() => {
     root.dataset.themePreference = preference;
     root.dataset.theme = theme;
     root.dataset.textSize = textSize;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f2ebf4");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f4ead6");
   } catch {}
 })();`;
 
@@ -168,7 +168,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <meta name="color-scheme" content="light dark" />
-        <meta name="theme-color" content="#f2ebf4" />
+        <meta name="theme-color" content="#f4ead6" />
         <Meta />
         <Links />
         <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />

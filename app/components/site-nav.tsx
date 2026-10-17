@@ -126,11 +126,10 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-topics">Բաժիններ</h2>
                 <ul className="m-0 grid list-none gap-0.5 p-0">
                   {topicItems.map((topic) => {
-                    const topicColor = topic.iconColor === null ? "var(--gold)" : `#${topic.iconColor.toString(16).padStart(6, "0")}`;
                     return (
                       <li key={topic.id}>
                         <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1}>
-                          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-[var(--topic-color)] text-white" style={{ "--topic-color": topicColor } as React.CSSProperties} data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
+                          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="min-w-0 flex-1 truncate">{topic.name}</span>
                           {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
                         </NavLink>
@@ -153,7 +152,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
         <button
           ref={triggerRef}
-          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[rgb(217_181_111/22%)] bg-[rgb(36_19_40/72%)] p-0 shadow-[0_10px_34px_rgb(16_5_21/30%)] backdrop-blur-xl outline-none transition-[transform,opacity] duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 ${isTucked && !isOpen ? "pointer-events-none translate-y-[calc(100%+28px)] opacity-0" : "pointer-events-auto hover:-translate-y-0.5"}`}
+          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] p-0 shadow-[var(--fab-shadow)] backdrop-blur-xl outline-none transition-[transform,opacity] duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 ${isTucked && !isOpen ? "pointer-events-none translate-y-[calc(100%+28px)] opacity-0" : "pointer-events-auto hover:-translate-y-0.5"}`}
           type="button"
           aria-label={isOpen ? "Փակել մենյուն" : "Բացել մենյուն"}
           aria-expanded={isOpen}
@@ -161,7 +160,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           onClick={() => setIsOpen((open) => !open)}
         >
           <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_60s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
-          <img className="pointer-events-none relative size-[25px] object-contain" src={ArmenianEternity} width={48} height={48} alt="" aria-hidden="true" />
+          <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
         </button>
       </nav>
     </>

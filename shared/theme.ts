@@ -4,7 +4,7 @@ export type TextSizePreference = "normal" | "large" | "xlarge";
 
 export const THEME_STORAGE_KEY = "library-theme-v1";
 export const TEXT_SIZE_STORAGE_KEY = "library-text-size-v1";
-export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#f2ebf4", dark: "#100817" };
+export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#f4ead6", dark: "#100817" };
 
 export function normalizeThemePreference(value: string | null): ThemePreference {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
