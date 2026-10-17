@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { stdin, stdout } from "node:process";
 import { loadEnvFile } from "node:process";
 import { StringDecoder } from "node:string_decoder";
@@ -79,9 +81,22 @@ async function promptUntil(label: string, valid: (value: string) => boolean) {
   }
 }
 
+/**
+ * Stores a new session straight in the GitHub repository's Actions secrets via `gh`, without
+ * printing it or writing it to disk. The hourly sync then has its own session, separate from the
+ * one on this Mac.
+ */
+async function saveSessionToGitHub(session: string) {
+  const child = spawn("gh", ["secret", "set", "TELEGRAM_SESSION"], { stdio: ["pipe", "ignore", "inherit"] });
+  child.stdin.end(session);
+  const [code] = await once(child, "exit") as [number | null];
+  if (code !== 0) throw new Error("Saving TELEGRAM_SESSION to GitHub failed. Check `gh auth status`.");
+}
+
 async function authorize() {
-  if (process.argv.length > 2) {
-    throw new Error("This command does not accept command-line arguments.");
+  const toGitHub = process.argv[2] === "--github-secret";
+  if (process.argv.length > (toGitHub ? 3 : 2)) {
+    throw new Error("Usage: telegram:authorize [--github-secret]");
   }
   await assertLocalSecretFile(LOCAL_ENV_FILE);
   loadEnvFile(LOCAL_ENV_FILE);
@@ -89,7 +104,7 @@ async function authorize() {
 
   stdout.write("This command creates a Telegram user session locally and contacts only Telegram API.\n");
   stdout.write("Phone, login code, 2FA password, API hash and session are never printed.\n");
-  if (hasTelegramSession(process.env)) {
+  if (!toGitHub && hasTelegramSession(process.env)) {
     const confirmation = await promptLine("Replace the existing local TELEGRAM_SESSION? [y/N]: ", false);
     if (confirmation.trim().toLocaleLowerCase("en-US") !== "y") {
       throw new AuthorizationCancelledError("Authorization cancelled.");
@@ -121,8 +136,13 @@ async function authorize() {
       },
     });
     if (!(await client.checkAuthorization())) throw new Error("Telegram authorization was not completed.");
-    await saveTelegramSession(LOCAL_ENV_FILE, session.save());
-    stdout.write("TELEGRAM_SESSION saved locally in services/telegram-bridge/.env.local\n");
+    if (toGitHub) {
+      await saveSessionToGitHub(session.save());
+      stdout.write("A new TELEGRAM_SESSION was saved as a GitHub Actions secret (not on this Mac).\n");
+    } else {
+      await saveTelegramSession(LOCAL_ENV_FILE, session.save());
+      stdout.write("TELEGRAM_SESSION saved locally in services/telegram-bridge/.env.local\n");
+    }
   } finally {
     await client.disconnect().catch(() => undefined);
   }
