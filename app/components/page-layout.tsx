@@ -1,5 +1,5 @@
 import type {ReactNode} from "react";
-import {ArrowLeft} from "lucide-react";
+import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
 import {glassPanel} from "./ui-styles";
@@ -13,6 +13,10 @@ type PageHeaderProps = {
     description?: ReactNode;
     eyebrow: string;
     home?: boolean;
+    /** Bird-letter (Թռչնագիր) initial, as prayers began in old manuscripts. Only prayers use it. */
+    ornate?: boolean;
+    /** Show the search shortcut in the header row (off on the search page itself). */
+    showSearch?: boolean;
     title: ReactNode;
     children?: ReactNode;
 };
@@ -55,23 +59,34 @@ export function PageShell({children, width = "content"}: PageShellProps) {
     </main>);
 }
 
-export function PageTitle({title}: { title: ReactNode }) {
-    if (typeof title !== "string" || title.length === 0) {
-        return title;
+export function PageTitle({title, ornate = false}: { title: ReactNode; ornate?: boolean }) {
+    if (!ornate || typeof title !== "string" || title.length === 0) {
+        return <span className="font-noto">{title}</span>;
     }
 
     const [firstLetter, ...rest] = Array.from(title);
 
     return (<>
         {/* WebKit leaks the color font's palette into following text unless the glyph gets its own layer. */}
-        <span className="font-trchnatar relative isolate inline-block align-[0.04em] text-[50px] leading-none font-normal">
+        <span className="font-trchnatar relative isolate inline-block align-[0.04em] text-[1.6em] leading-none font-normal">
             {firstLetter}
         </span>
         <span className="font-noto">{rest.join("")}</span>
     </>);
 }
 
-export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, title}: PageHeaderProps) {
+export function HeaderSearchLink() {
+    return (<Link
+        className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
+        to="/search"
+        aria-label="Որոնում"
+        title="Որոնում"
+    >
+        <Search aria-hidden="true" size={17} strokeWidth={2}/>
+    </Link>);
+}
+
+export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
             flex
@@ -93,32 +108,16 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             min-[960px]:pb-[24px]
             min-[1440px]:pt-[34px]
             ">
-        {backTo && backLabel ? (<Link
-            className="
-            w-full
-            flex
-            justify-start
-            min-h-[30px]
-            text-[13px]
-            gap-[7px]
-            px-[2px]
-            font-bold
-            inline-flex
-            items-center
-            rounded-[11px]
-            text-gold-bright
-            no-underline
-            transition-colors
-            hover:text-ink
-            focus-visible:outline-3
-            focus-visible:outline-offset-3
-            focus-visible:outline-[rgb(217_181_111/42%)]
-            "
-            to={backTo}
-        >
-            <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>
-            {backLabel}
-        </Link>) : null}
+        {(backTo && backLabel) || (showSearch && !home) ? (<div className="flex w-full items-center gap-2">
+            {backTo && backLabel ? (<Link
+                className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-[11px] px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+                to={backTo}
+            >
+                <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>
+                <span className="truncate">{backLabel}</span>
+            </Link>) : null}
+            {showSearch && !home ? <HeaderSearchLink/> : null}
+        </div>) : null}
 
         <h1 className="
             w-full
@@ -133,7 +132,7 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             min-[960px]:text-[50px]
             min-[960px]:leading-[57px]
             ">
-            <PageTitle title={title}/>
+            <PageTitle title={title} ornate={ornate}/>
         </h1>
         <p className="m-0 text-[8px] font-noto tracking-[1.6px] text-gold min-[960px]:text-[13px]">
             {eyebrow}

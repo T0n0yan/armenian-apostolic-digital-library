@@ -1,7 +1,7 @@
 import {env} from "cloudflare:workers";
-import {ArrowRight, LoaderCircle, RefreshCw, RotateCw} from "lucide-react";
+import {ArrowRight, LoaderCircle, RefreshCw, RotateCw, Search} from "lucide-react";
 import {memo} from "react";
-import {Link, useNavigation} from "react-router";
+import {Form, Link, useNavigation} from "react-router";
 
 import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
@@ -105,7 +105,10 @@ export default function Home({loaderData}: Route.ComponentProps) {
                 home
             />
         </div>
-        {/*<HomeSearch/>*/}
+        <Form className="mt-1 mb-1 flex min-h-[50px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search">
+            <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
+            <input className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"/>
+        </Form>
         <section className="grid gap-3 mt-2" aria-labelledby="categories-title">
             <div className={sectionHeader}>
                 <h2 className={sectionTitle} id="categories-title">Բաժիններ</h2>

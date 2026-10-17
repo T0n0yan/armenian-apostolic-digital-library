@@ -522,6 +522,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       <PageHeader
+        showSearch={false}
         backTo="/"
         backLabel="Գրադարան"
         eyebrow="Ամբողջ գրադարանը"
@@ -627,5 +628,5 @@ export default function Search({ loaderData }: Route.ComponentProps) {
 }
 
 export function ErrorBoundary({}: Route.ErrorBoundaryProps) {
-  return <PageShell><SiteNav /><PageHeader backTo="/" backLabel="Գրադարան" eyebrow="Ամբողջ գրադարանը" title="Որոնում" /><RouteErrorState title="Որոնումը չհաջողվեց" /></PageShell>;
+  return <PageShell><SiteNav /><PageHeader backTo="/" backLabel="Գրադարան" eyebrow="Ամբողջ գրադարանը" title="Որոնում" showSearch={false} /><RouteErrorState title="Որոնումը չհաջողվեց" /></PageShell>;
 }

@@ -143,6 +143,16 @@
   --icon-surface: linear-gradient(145deg, rgb(124 74 143 / 62%), rgb(50 25 61 / 78%));
 }
 
+/* Reading size for material text, chosen in the menu (Տառաչափ). */
+:root { --reading-size: 15px; }
+:root[data-text-size="large"] { --reading-size: 18px; }
+:root[data-text-size="xlarge"] { --reading-size: 21px; }
+@media (min-width: 560px) {
+  :root { --reading-size: 16px; }
+  :root[data-text-size="large"] { --reading-size: 19px; }
+  :root[data-text-size="xlarge"] { --reading-size: 22px; }
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;

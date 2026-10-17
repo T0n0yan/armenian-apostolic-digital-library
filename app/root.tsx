@@ -21,13 +21,35 @@ import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import "./app.css";
 
+// Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
+// the phone's light/dark setting; elsewhere the browser's prefers-color-scheme does.
 const initialThemeScript = `(() => {
   try {
-    const value = localStorage.getItem("library-theme-v1");
-    const preference = value === "light" || value === "dark" || value === "system" ? value : "system";
-    const theme = preference === "system" ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : preference;
-    document.documentElement.dataset.themePreference = preference;
-    document.documentElement.dataset.theme = theme;
+    const root = document.documentElement;
+    let telegramTheme = null;
+    try {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const color = JSON.parse(params.get("tgWebAppThemeParams") || "{}").bg_color || "";
+      const match = /^#?([0-9a-f]{6})$/i.exec(color);
+      if (params.has("tgWebAppData") && match) {
+        const value = parseInt(match[1], 16);
+        telegramTheme = (0.2126 * ((value >> 16) & 255) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255)) < 128 ? "dark" : "light";
+        root.dataset.telegramContext = "true";
+        root.dataset.telegramTheme = telegramTheme;
+      }
+    } catch {}
+    let preference = "system";
+    let textSize = "normal";
+    try {
+      const value = localStorage.getItem("library-theme-v1");
+      if (value === "light" || value === "dark") preference = value;
+      const size = localStorage.getItem("library-text-size-v1");
+      if (size === "large" || size === "xlarge") textSize = size;
+    } catch {}
+    const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference;
+    root.dataset.themePreference = preference;
+    root.dataset.theme = theme;
+    root.dataset.textSize = textSize;
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f2ebf4");
   } catch {}
 })();`;
@@ -57,6 +79,9 @@ type TelegramWebApp = {
   themeParams?: Record<string, string | undefined>;
   viewportHeight?: number;
   viewportStableHeight?: number;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  setBottomBarColor?: (color: string) => void;
   onEvent?: (event: string, callback: () => void) => void;
   offEvent?: (event: string, callback: () => void) => void;
 };

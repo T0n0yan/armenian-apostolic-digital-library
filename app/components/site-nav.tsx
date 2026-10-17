@@ -6,17 +6,14 @@ import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
-import { ThemeToggle } from "./theme-toggle";
+import { ReadingSettings } from "./reading-settings";
 
 type SiteNavProps = { showAdminLink?: boolean };
 
-const primaryNavigationItems = [
+const quickItems = [
   { to: "/", label: "Գլխավոր", icon: Church, end: true },
-] as const;
-
-const secondaryNavigationItems = [
-  { to: "/search", label: "Որոնում", icon: Search },
-  { to: "/saved", label: "Իմ անկյունը", icon: Bookmark },
+  { to: "/search", label: "Որոնում", icon: Search, end: false },
+  { to: "/saved", label: "Իմ անկյունը", icon: Bookmark, end: false },
 ] as const;
 
 const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-[13px] font-semibold text-muted no-underline outline-none transition-[background,color,transform] duration-150 hover:bg-subtle hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] active:scale-[.985]";
@@ -106,50 +103,51 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         role={isOpen ? "dialog" : undefined}
       >
         <div className={`mb-3 w-[min(360px,calc(100vw-24px))] origin-bottom-right overflow-hidden rounded-[22px] border border-glass-border bg-nav-surface p-2.5 shadow-[0_24px_70px_rgb(12_4_17/38%)] backdrop-blur-[24px] transition-[opacity,transform] duration-200 ${isOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-3 scale-[.96] opacity-0"}`} aria-hidden={!isOpen}>
-          <div className="flex items-center justify-between px-2 py-2">
-            <span className="text-[11px] font-bold tracking-[1.4px] text-gold uppercase">Բաժիններ</span>
+          <div className="flex items-center justify-between px-2 pt-1 pb-2">
+            <span className="text-[13px] font-bold text-ink">Մենյու</span>
             <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted hover:text-ink" type="button" onClick={() => setIsOpen(false)} aria-label="Փակել մենյուն">
               <X aria-hidden="true" size={18} />
             </button>
           </div>
-          <div className="max-h-[min(68svh,620px)] overflow-y-auto overscroll-contain pr-0.5">
-            <ul className="m-0 grid list-none gap-0.5 p-0">
-              {primaryNavigationItems.map(({ to, label, icon: Icon, ...item }) => (
+          <div className="grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5">
+            <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
+              {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
-                  <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={to} end={"end" in item ? item.end : false} tabIndex={isOpen ? 0 : -1}>
-                    <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(217_181_111/16%)] bg-[rgb(217_181_111/7%)] text-gold"><Icon aria-hidden="true" size={17} strokeWidth={1.8} /></span>
+                  <NavLink className={({ isActive }) => `flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[14px] border px-1 text-center text-[11px] font-semibold no-underline outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1}>
+                    <Icon aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
                     <span>{label}</span>
                   </NavLink>
                 </li>
               ))}
-              {topicItems.map((topic) => {
-                const topicColor = topic.iconColor === null ? "var(--gold)" : `#${topic.iconColor.toString(16).padStart(6, "0")}`;
-                return (
-                  <li key={topic.id}>
-                    <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1}>
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-[var(--topic-color)] text-white" style={{ "--topic-color": topicColor } as React.CSSProperties} data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
-                      <span className="min-w-0 flex-1 truncate">{topic.name}</span>
-                      {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
-                    </NavLink>
-                  </li>
-                );
-              })}
-              {secondaryNavigationItems.map(({ to, label, icon: Icon }) => (
-                <li key={to}>
-                  <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={to} tabIndex={isOpen ? 0 : -1}>
-                    <span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-[rgb(217_181_111/16%)] bg-[rgb(217_181_111/7%)] text-gold"><Icon aria-hidden="true" size={17} strokeWidth={1.8} /></span>
-                    <span>{label}</span>
-                  </NavLink>
-                </li>
-              ))}
-              {canManage ? (
-                <li><NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink></li>
-              ) : null}
             </ul>
-          </div>
-          <div className="mt-2 flex items-center justify-between border-t border-glass-border px-2 pt-2.5">
-            <span className="text-[11px] text-faint">Գույներ</span>
-            <ThemeToggle className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle p-0 text-gold outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]" />
+
+            {topicItems.length > 0 ? (
+              <section className="grid gap-1" aria-labelledby="menu-topics">
+                <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-topics">Բաժիններ</h2>
+                <ul className="m-0 grid list-none gap-0.5 p-0">
+                  {topicItems.map((topic) => {
+                    const topicColor = topic.iconColor === null ? "var(--gold)" : `#${topic.iconColor.toString(16).padStart(6, "0")}`;
+                    return (
+                      <li key={topic.id}>
+                        <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1}>
+                          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-[var(--topic-color)] text-white" style={{ "--topic-color": topicColor } as React.CSSProperties} data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
+                          <span className="min-w-0 flex-1 truncate">{topic.name}</span>
+                          {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
+                        </NavLink>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+
+            <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
+              <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
+              <ReadingSettings />
+              {canManage ? (
+                <NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink>
+              ) : null}
+            </section>
           </div>
         </div>
 

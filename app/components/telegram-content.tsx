@@ -117,7 +117,7 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false }:
 
 export function TelegramRichMessage({ value, media, hit, title }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit; title?: string }) {
   const skipFirst = title ? richContentStartsWithTitle(value, title) : false;
-  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[15px] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7 min-[560px]:text-[16px]" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
+  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
 export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number }) {

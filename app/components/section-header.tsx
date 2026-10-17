@@ -16,7 +16,7 @@ import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
-import { PageTitle } from "./page-layout";
+import { HeaderSearchLink, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
 import divider2 from "../assets/divider2.webp";
@@ -90,13 +90,16 @@ export const SectionHeader = memo(function SectionHeader({
 
   return (
     <header className="mb-[14px] grid gap-[10px] min-[768px]:mb-[18px] min-[768px]:gap-[14px]">
-      <Link
-        className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-[10px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
-        to={backTo}
-      >
-        <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
-        {backLabel}
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-[10px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
+          to={backTo}
+        >
+          <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
+          {backLabel}
+        </Link>
+        <HeaderSearchLink />
+      </div>
       {/*min-[768px]:grid-cols-[minmax(0,0.92fr)_minmax(320px,1.08fr)] min-[768px]:gap-[28px]*/}
       <div className="grid items-center gap-[10px] ">
         {/*[190px] min-[960px]:h-full*/}
