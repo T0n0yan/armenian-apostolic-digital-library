@@ -4,6 +4,8 @@ import {
   messageIdSearchMatch,
   parseTelegramSearchQuery,
   searchScoreRank,
+  type SearchableTelegramDocument,
+  type SearchableTelegramFieldKind,
 } from "../../shared/telegram-search";
 import type {
   BridgeCategory,
@@ -65,6 +67,19 @@ type MediaRow = {
 
 type FeedCursor = { version: 1; scope: string; publishedAt: string; messageId: number };
 type SearchCursor = { version: 1; scope: string; offset: number };
+
+type SearchFieldRow = {
+  chat_id: string;
+  message_id: number;
+  topic_id: number;
+  media_group_id: string | null;
+  constituent_message_ids_json: string;
+  published_at: string | null;
+  field_kind: SearchableTelegramFieldKind;
+  block_id: string | null;
+  original_text: string;
+  is_primary: number;
+};
 
 export class CloudLibraryCursorError extends Error {
   constructor() { super("Invalid library cursor."); this.name = "CloudLibraryCursorError"; }
@@ -183,6 +198,48 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
   }));
 }
 
+async function materialRowsByIdentity(database: D1Database, identities: Array<{ chatId: string; messageId: number }>) {
+  const rows: MaterialRow[] = [];
+  const batchSize = 40;
+  for (let offset = 0; offset < identities.length; offset += batchSize) {
+    const batch = identities.slice(offset, offset + batchSize);
+    const clauses = batch.map(() => "(materials.chat_id = ? AND materials.message_id = ?)").join(" OR ");
+    const bindings = batch.flatMap((identity) => [identity.chatId, identity.messageId]);
+    const result = await database.prepare(
+      `${materialSelect()} WHERE materials.sync_state = 'ready' AND materials.deleted_at IS NULL AND (${clauses})`,
+    ).bind(...bindings).all<MaterialRow>();
+    rows.push(...result.results);
+  }
+  return rows;
+}
+
+function candidateFragments(values: string[]) {
+  const fragments = new Set<string>();
+  for (const value of values) {
+    const characters = Array.from(value.replaceAll("%", "").replaceAll("_", "")).filter((character) => !/\s/u.test(character));
+    if (characters.length < 2) continue;
+    fragments.add(characters.slice(0, 2).join(""));
+    if (characters.length >= 3) fragments.add(characters.slice(0, 3).join(""));
+    if (fragments.size >= 24) break;
+  }
+  return [...fragments];
+}
+
+function ftsCandidateExpression(values: string[]) {
+  const terms = new Set<string>();
+  for (const value of values) {
+    for (const token of value.split(/\s+/u).filter(Boolean)) {
+      const characters = Array.from(token);
+      if (characters.length < 2 || !/^[\p{L}\p{N}]+$/u.test(token)) continue;
+      terms.add(`${token}*`);
+      if (characters.length >= 4) terms.add(`${characters.slice(0, -1).join("")}*`);
+      if (terms.size >= 24) break;
+    }
+    if (terms.size >= 24) break;
+  }
+  return [...terms].join(" OR ");
+}
+
 export async function listCloudLibraryCategories(database: D1Database): Promise<BridgeCategory[]> {
   const rows = await database.prepare(
     `SELECT topics.id, topics.slug, topics.title, topics.default_sort,
@@ -282,38 +339,118 @@ export async function searchCloudLibraryPosts(
     return topic ? listCloudLibraryCategoryPosts(database, topic.slug, cursor, 12) : { posts: [], nextCursor: null, total: 0 };
   }
   const safeLimit = Math.min(20, Math.max(1, limit));
-  const scope = `search:${parsed.normalized}:${parsed.messageIdIntent ?? ""}:${categoryId}`;
+  const scope = `search:${parsed.normalized}:${parsed.messageIdIntent?.messageId ?? ""}:${categoryId}`;
   const position = decodeCursor<SearchCursor>(cursor, scope);
   if (position && (!Number.isSafeInteger(position.offset) || position.offset < 0 || position.offset > 50_000)) {
     throw new CloudLibraryCursorError();
   }
-  const bindings: unknown[] = [];
   const categoryClause = categoryId ? "AND materials.topic_key = ?" : "";
-  if (categoryId) bindings.push(categoryId);
-  const result = await database.prepare(
-    `${materialSelect()}
-     WHERE materials.sync_state = 'ready' AND materials.deleted_at IS NULL
-       AND topics.is_general = 0 AND topics.status != 'hidden' ${categoryClause}
-     ORDER BY COALESCE(materials.published_at, '') DESC, materials.message_id DESC
-     LIMIT 10000`,
-  ).bind(...bindings).all<MaterialRow>();
-  const posts = await hydrateRows(database, result.results);
-  const matches = posts.flatMap((post) => {
-    const intendedMessageId = parsed.messageIdIntent?.messageId;
-    const match = intendedMessageId && (
-      post.messageId === intendedMessageId || post.constituentMessageIds.includes(intendedMessageId)
-    ) ? messageIdSearchMatch(intendedMessageId) : matchSearchableTelegramDocument(
-      createSearchableTelegramDocument(post, post.categoryName ?? ""), parsed,
-    );
-    return match ? [{ post: { ...post, searchMatch: match }, rank: match.rank }] : [];
+  const intendedMessageId = parsed.messageIdIntent?.messageId;
+  if (intendedMessageId) {
+    const bindings: unknown[] = [intendedMessageId, intendedMessageId];
+    if (categoryId) bindings.push(categoryId);
+    const result = await database.prepare(
+      `${materialSelect()}
+       WHERE materials.sync_state = 'ready' AND materials.deleted_at IS NULL
+         AND topics.is_general = 0 AND topics.status != 'hidden'
+         AND (materials.message_id = ? OR EXISTS (
+           SELECT 1 FROM json_each(materials.constituent_message_ids_json) WHERE CAST(value AS INTEGER) = ?
+         )) ${categoryClause}
+       ORDER BY COALESCE(materials.published_at, '') DESC, materials.message_id DESC LIMIT 2`,
+    ).bind(...bindings).all<MaterialRow>();
+    const posts = await hydrateRows(database, result.results);
+    const page = posts.map((post) => ({ ...post, searchMatch: messageIdSearchMatch(intendedMessageId) }));
+    return { posts: page, total: page.length, nextCursor: null };
+  }
+
+  const candidateValues = [parsed.normalized, ...parsed.tokens, ...parsed.aliases];
+  const ftsExpression = ftsCandidateExpression(candidateValues);
+  if (!ftsExpression) return { posts: [], total: 0, nextCursor: null };
+  const ftsBindings: unknown[] = [ftsExpression];
+  if (categoryId) ftsBindings.push(categoryId);
+  const ftsFields = await database.prepare(
+    `SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
+       materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
+       documents.block_id,documents.original_text,documents.is_primary
+     FROM library_search_fts
+     INNER JOIN library_search_documents AS documents
+       ON documents.chat_id=library_search_fts.chat_id
+       AND documents.message_id=CAST(library_search_fts.message_id AS INTEGER)
+       AND documents.field_id=library_search_fts.field_id
+     INNER JOIN library_materials AS materials
+       ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
+     INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
+     WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
+       AND topics.is_general=0 AND topics.status!='hidden'
+       AND library_search_fts MATCH ? ${categoryClause}
+     ORDER BY materials.message_id DESC,documents.ordinal
+     LIMIT 2000`,
+  ).bind(...ftsBindings).all<SearchFieldRow>();
+  const fragments = candidateFragments(candidateValues);
+  let fieldRows = ftsFields.results;
+  if (fragments.length > 0) {
+    const fragmentClause = fragments.map(() => "(documents.normalized_text LIKE ? ESCAPE '\\' OR documents.aliases_text LIKE ? ESCAPE '\\')").join(" OR ");
+    const fallbackBindings: unknown[] = fragments.flatMap((fragment) => [`%${fragment}%`, `%${fragment}%`]);
+    if (categoryId) fallbackBindings.push(categoryId);
+    const fallback = await database.prepare(
+      `SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
+         materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
+         documents.block_id,documents.original_text,documents.is_primary
+       FROM library_search_documents AS documents
+       INNER JOIN library_materials AS materials
+         ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
+       INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
+       WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
+         AND topics.is_general=0 AND topics.status!='hidden'
+         AND (${fragmentClause}) ${categoryClause}
+       ORDER BY materials.message_id DESC,documents.ordinal
+       LIMIT 500`,
+    ).bind(...fallbackBindings).all<SearchFieldRow>();
+    const unique = new Map<string, SearchFieldRow>();
+    for (const field of [...fieldRows, ...fallback.results]) {
+      unique.set(`${field.chat_id}:${field.message_id}:${field.field_kind}:${field.block_id ?? ""}:${field.original_text}`, field);
+    }
+    fieldRows = [...unique.values()];
+  }
+  const documents = new Map<string, SearchableTelegramDocument & { publishedAt: string | null }>();
+  for (const field of fieldRows) {
+    const key = `${field.chat_id}:${field.message_id}`;
+    const document = documents.get(key) ?? {
+      chatId: field.chat_id,
+      messageId: field.message_id,
+      topicId: field.topic_id,
+      mediaGroupId: field.media_group_id,
+      constituentMessageIds: json<number[]>(field.constituent_message_ids_json, [field.message_id]),
+      fields: [],
+      publishedAt: field.published_at,
+    };
+    document.fields.push({
+      kind: field.field_kind,
+      value: field.original_text,
+      primary: Boolean(field.is_primary),
+      blockId: field.block_id,
+    });
+    documents.set(key, document);
+  }
+  const matches = [...documents.values()].flatMap((document) => {
+    const match = matchSearchableTelegramDocument(document, parsed);
+    return match ? [{ document, match, rank: match.rank }] : [];
   }).sort((left, right) =>
     right.rank - left.rank ||
-    (right.post.publishedAt ?? "").localeCompare(left.post.publishedAt ?? "") ||
-    right.post.messageId - left.post.messageId,
+    (right.document.publishedAt ?? "").localeCompare(left.document.publishedAt ?? "") ||
+    right.document.messageId - left.document.messageId,
   );
   const offset = position?.offset ?? 0;
-  const page = matches.slice(offset, offset + safeLimit).map(({ post }) => post);
-  const nextOffset = offset + page.length;
+  const selected = matches.slice(offset, offset + safeLimit);
+  const selectedRows = await materialRowsByIdentity(database, selected.map(({ document }) => ({
+    chatId: document.chatId, messageId: document.messageId,
+  })));
+  const postByIdentity = new Map((await hydrateRows(database, selectedRows)).map((post) => [`${post.chatId}:${post.messageId}`, post]));
+  const page = selected.flatMap(({ document, match }) => {
+    const post = postByIdentity.get(`${document.chatId}:${document.messageId}`);
+    return post ? [{ ...post, searchMatch: match }] : [];
+  });
+  const nextOffset = offset + selected.length;
   return {
     posts: page,
     total: matches.length,

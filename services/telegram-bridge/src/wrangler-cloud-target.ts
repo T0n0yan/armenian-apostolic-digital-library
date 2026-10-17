@@ -6,6 +6,11 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 import type { BridgeCategory, BridgeRichBlock } from "../../../shared/telegram-bridge-contract";
+import {
+  createSearchableTelegramDocument,
+  normalizeTelegramSearchText,
+  searchAliases,
+} from "../../../shared/telegram-search";
 import type {
   CloudLibrarySyncTarget,
   SyncCheckpoint,
@@ -234,18 +239,22 @@ AND (stage='material'${resolvedMediaIndexes.length > 0 ? ` OR (stage='media' AND
     const blockSql = blocks.map((block, ordinal) => `INSERT INTO library_material_blocks
 (chat_id,message_id,block_id,ordinal,block_type,plain_text,structured_json)
 VALUES(${sql(post.chatId)},${post.messageId},${sql(`block-${ordinal}`)},${ordinal},${sql(block.type)},${sql(blockText(block))},${json(block)});`).join("\n");
-    const searchFields = [
-      ["title", "title", post.title], ["content", "content", post.contentText], ["caption", "caption", post.captionText],
-      ["topic", "topic", material.topic.name],
-      ...post.media.flatMap((media) => [[`media-${media.index}-title`, "audio", media.title ?? ""], [`media-${media.index}-performer`, "audio", media.performer ?? ""], [`media-${media.index}-file`, "document", media.fileName ?? ""]]),
-      ...(post.poll ? [["poll-question", "poll", post.poll.question.text], ...post.poll.options.map((option, index) => [`poll-option-${index}`, "poll", option.text.text])] : []),
-      ...(post.location ? [["location-title", "location", post.location.title ?? ""], ["location-address", "location", post.location.address ?? ""]] : []),
-    ].filter((field) => field[2]);
-    const searchSql = searchFields.map(([fieldId, kind, text], ordinal) => `INSERT INTO library_search_documents
-(chat_id,message_id,field_id,ordinal,field_kind,original_text,normalized_text,aliases_text,is_primary)
-VALUES(${sql(post.chatId)},${post.messageId},${sql(fieldId)},${ordinal},${sql(kind)},${sql(text)},${sql(String(text).normalize("NFC").toLocaleLowerCase("hy-AM"))},'',${ordinal === 0 ? 1 : 0});
+    const searchFields = createSearchableTelegramDocument({
+      ...post,
+      categoryId: material.topic.id,
+      categoryName: material.topic.name,
+      categorySlug: material.topic.slug,
+    }, material.topic.name).fields;
+    const searchSql = searchFields.map((field, ordinal) => {
+      const fieldId = `${field.blockId ?? field.kind}-${ordinal}`;
+      const normalized = normalizeTelegramSearchText(field.value);
+      const aliases = searchAliases(field.value).join(" ");
+      return `INSERT INTO library_search_documents
+(chat_id,message_id,field_id,ordinal,field_kind,block_id,original_text,normalized_text,aliases_text,is_primary)
+VALUES(${sql(post.chatId)},${post.messageId},${sql(fieldId)},${ordinal},${sql(field.kind)},${sql(field.blockId)},${sql(field.value)},${sql(normalized)},${sql(aliases)},${field.primary ? 1 : 0});
 INSERT INTO library_search_fts(chat_id,message_id,field_id,normalized_text,aliases_text)
-VALUES(${sql(post.chatId)},${post.messageId},${sql(fieldId)},${sql(String(text).normalize("NFC").toLocaleLowerCase("hy-AM"))},'');`).join("\n");
+VALUES(${sql(post.chatId)},${post.messageId},${sql(fieldId)},${sql(normalized)},${sql(aliases)});`;
+    }).join("\n");
     const mediaSql = post.media.map((media) => {
       const stored = mediaState.get(media.index);
       return `INSERT INTO library_media

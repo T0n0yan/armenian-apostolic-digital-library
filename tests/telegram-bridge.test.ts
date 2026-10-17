@@ -81,6 +81,26 @@ async function seedCloudLibrary(
       post.location ? JSON.stringify(post.location) : null, post.unsupportedType, JSON.stringify(post.tags),
       post.numberValue, post.dateValue, post.publishedAt, post.editedAt, hash,
       post.editedAt ?? post.publishedAt ?? String(post.messageId), new Date().toISOString()).run();
+    const searchable = createSearchableTelegramDocument({
+      ...post,
+      categoryId: MOCK_TOPIC_ID,
+      categoryName: "Աղոթքներ",
+      categorySlug: MOCK_TOPIC_SLUG,
+    }, "Աղոթքներ");
+    for (const [ordinal, field] of searchable.fields.entries()) {
+      const fieldId = `${field.blockId ?? field.kind}-${ordinal}`;
+      const normalized = normalizeTelegramSearchText(field.value);
+      const aliases = searchAliases(field.value).join(" ");
+      await database.prepare(
+        `INSERT INTO library_search_documents
+         (chat_id,message_id,field_id,ordinal,field_kind,block_id,original_text,normalized_text,aliases_text,is_primary)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      ).bind(post.chatId, post.messageId, fieldId, ordinal, field.kind, field.blockId, field.value,
+        normalized, aliases, field.primary ? 1 : 0).run();
+      await database.prepare(
+        "INSERT INTO library_search_fts(chat_id,message_id,field_id,normalized_text,aliases_text) VALUES (?,?,?,?,?)",
+      ).bind(post.chatId, post.messageId, fieldId, normalized, aliases).run();
+    }
     for (const media of post.media) {
       const key = `fixtures/${post.messageId}/${media.index}/original.bin`;
       const thumbnailKey = media.hasThumbnail ? `fixtures/${post.messageId}/${media.index}/thumbnail.bin` : null;
@@ -1439,15 +1459,24 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const bulkSearchRows = Array.from({ length: 120 }, (_, index) => {
     const messageId = 10_000 + index;
     const marker = index === 119 ? "եզակի մեծ որոնման նշիչ" : `լրացուցիչ նյութ ${index}`;
-    return database.prepare(
+    const normalized = normalizeTelegramSearchText(marker);
+    return [database.prepare(
       `INSERT INTO library_materials
        (chat_id,message_id,material_id,topic_key,topic_id,constituent_message_ids_json,content_type,title,
         telegram_url,content_text,caption_text,formatted_text_json,formatted_caption_json,tags_json,
         content_hash,source_revision,sync_state,synced_at)
        VALUES (?,?,?,?,?,'[]','text',?,?,?,'','{"text":"","entities":[]}','{"text":"","entities":[]}','[]',?,?,'ready',?)`,
     ).bind(MOCK_CHAT_ID, messageId, `bulk-material-${messageId}`, MOCK_TOPIC_ID, 700, marker,
-      `https://t.me/c/fixture/${messageId}`, marker, "b".repeat(64), String(messageId), new Date().toISOString());
-  });
+      `https://t.me/c/fixture/${messageId}`, marker, "b".repeat(64), String(messageId), new Date().toISOString()),
+    database.prepare(
+      `INSERT INTO library_search_documents
+       (chat_id,message_id,field_id,ordinal,field_kind,original_text,normalized_text,aliases_text,is_primary)
+       VALUES (?,?,'title-0',0,'title',?,?,?,1)`,
+    ).bind(MOCK_CHAT_ID, messageId, marker, normalized, searchAliases(marker).join(" ")),
+    database.prepare(
+      "INSERT INTO library_search_fts(chat_id,message_id,field_id,normalized_text,aliases_text) VALUES (?,?,'title-0',?,?)",
+    ).bind(MOCK_CHAT_ID, messageId, normalized, searchAliases(marker).join(" "))];
+  }).flat();
   await database.batch(bulkSearchRows);
   const largeSearch = await mf.dispatchFetch(
     `https://app.fixture/api/search-page?q=${encodeURIComponent("եզակի մեծ որոնման նշիչ")}`,
