@@ -1,6 +1,6 @@
 import type { BridgePost } from "../../shared/telegram-bridge-contract";
 import { bridgePostToCardPreview } from "./materials.server";
-import { searchBridgePosts } from "./telegram-bridge.server";
+import { searchCloudLibraryPosts } from "./cloud-library.server";
 import type { SearchFilters, SearchMaterialPage } from "./search-materials";
 import { resolveSearchQuery, type ResolvedSearchQuery } from "./search-query.server";
 
@@ -61,16 +61,16 @@ export async function searchMaterials(
   cursor: string | null,
   _pageSize = 30,
   resolvedQuery?: ResolvedSearchQuery,
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ): Promise<SearchMaterialPage> {
   const resolved = resolvedQuery ?? await resolveSearchQuery(database, filters.query);
   const bridgeQuery = filters.query ? resolved.original : "";
-  const page = await searchBridgePosts(
+  const page = await searchCloudLibraryPosts(
     database,
     bridgeQuery,
     filters.categoryId,
     cursor,
-    signal,
+    20,
   );
   const posts = page.posts.filter((post) => matchesDate(post, filters));
   return {

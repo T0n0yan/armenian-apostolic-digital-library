@@ -5,7 +5,7 @@ import { getActiveCategoryBySlug } from "../data/categories.server";
 import { listPublicMaterialPageByCategory } from "../data/materials.server";
 import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
-import { TelegramBridgeError } from "../data/telegram-bridge.server";
+import { CloudLibraryCursorError } from "../data/cloud-library.server";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   try {
@@ -32,7 +32,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     dateTo: "",
   }, cursor, 20, resolved, request.signal));
   } catch (error) {
-    if (error instanceof TelegramBridgeError) throw new Response("Bridge request failed", { status: error.status });
+    if (error instanceof CloudLibraryCursorError) throw new Response("Invalid cursor", { status: 400 });
     throw error;
   }
 }

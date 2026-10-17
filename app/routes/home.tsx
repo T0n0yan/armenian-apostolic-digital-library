@@ -10,7 +10,6 @@ import {SiteNav} from "../components/site-nav";
 import {interactiveGlassCard, sectionHeader, sectionTitle,} from "../components/ui-styles";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
-import {TelegramBridgeError} from "../data/telegram-bridge.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
 import LastSupperImg from '../assets/last-supper.webp'
 import AngelLeft from "../assets/angel-left.webp"
@@ -22,15 +21,8 @@ export function meta({}: Route.MetaArgs) {
     }, {name: "robots", content: "noindex, nofollow"}, {name: "theme-color", content: "#100817"},];
 }
 export async function loader({request}: Route.LoaderArgs) {
-    try {
-        const refresh = new URL(request.url).searchParams.get("refresh") === "1";
-        return {categories: await listActiveCategories(env.DB, refresh, request.signal)};
-    } catch (error) {
-        if (error instanceof TelegramBridgeError) {
-            throw new Response("Bridge request failed", {status: error.status});
-        }
-        throw error;
-    }
+    const refresh = new URL(request.url).searchParams.get("refresh") === "1";
+    return {categories: await listActiveCategories(env.DB, refresh, request.signal)};
 }
 const CategoryCard = memo(function CategoryCard({category}: { category: CategorySummary; }) {
     const navigation = useNavigation();

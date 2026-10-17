@@ -3,7 +3,7 @@ import { normalizeSearchText } from "./material-content.server";
 import { bridgePostToCardPreview, createMaterialExcerpt, type MaterialCardPreview } from "./materials.server";
 import { createSearchExcerpt } from "./search-materials.server";
 import type { ResolvedSearchQuery } from "./search-query.server";
-import { getBridgePost } from "./telegram-bridge.server";
+import { getCloudLibraryPost } from "./cloud-library.server";
 import { matchSearchableText, type RankedTelegramSearchMatch } from "../../shared/telegram-search";
 
 export type SavedMaterial = {
@@ -108,7 +108,7 @@ async function hydrateSavedReferences(
       nextIndex += 1;
       signal?.throwIfAborted();
       const row = results[index];
-      const post = await getBridgePost(database, row.chat_id, row.message_id, signal);
+      const post = await getCloudLibraryPost(database, row.chat_id, row.message_id);
       if (!post?.categoryId || !post.categoryName || !post.categorySlug) {
         const title = "Հրապարակումն այլևս հասանելի չէ";
         const searchable = notesOnly ? row.personal_note : `${title} ${row.personal_note}`;

@@ -1,5 +1,5 @@
 import type { BridgeContentType, BridgePost } from "../../shared/telegram-bridge-contract";
-import { listBridgeCategories, listBridgeCategoryPosts } from "./telegram-bridge.server";
+import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
 
 export type PublicMaterial = {
   id: string;
@@ -85,11 +85,11 @@ export async function listPublicMaterialPageByCategory(
   categoryId: string,
   _defaultSort: "title-asc" | "manual" | "number-asc" | "date-desc",
   cursor: string | null,
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ): Promise<PublicMaterialPage> {
-  const category = (await listBridgeCategories(database, false, signal)).find((item) => item.id === categoryId);
+  const category = (await listCloudLibraryCategories(database)).find((item) => item.id === categoryId);
   if (!category) return { materials: [], total: 0, nextCursor: null };
-  const page = await listBridgeCategoryPosts(database, category.slug, cursor, signal);
+  const page = await listCloudLibraryCategoryPosts(database, category.slug, cursor, 12);
   return {
     materials: page.posts.map(bridgePostToPublic),
     total: page.total ?? page.posts.length + (page.nextCursor ? 1 : 0),

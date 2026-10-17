@@ -20,7 +20,8 @@ import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-inde
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
 import { MockTelegramAdapter, MOCK_CHAT_ID, MOCK_TELEGRAM_POSTS, MOCK_VIDEO_SIZE } from "../services/telegram-bridge/src/mock-adapter";
-import { createTopicCategoryId, createTopicSlug, isBridgeSearchHit, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
+import { cloudMediaObjectKey, syncTelegramLibrary, telegramMaterialContentHash, type CloudLibrarySyncTarget, type SyncMaterial, type SyncMediaUpload } from "../services/telegram-bridge/src/cloud-sync";
+import { createTopicCategoryId, createTopicSlug, isBridgeSearchHit, type BridgeCategory, type BridgeCategoryMappings, type BridgePostPage } from "../shared/telegram-bridge-contract";
 import { createSearchableTelegramDocument, matchSearchableTelegramDocument, matchSearchableText, normalizeTelegramSearchText, parseTelegramSearchQuery, searchAliases } from "../shared/telegram-search";
 import {
   clearNavigationCache,
@@ -44,6 +45,58 @@ const mappings: BridgeCategoryMappings = {
   posts: {},
 };
 const mappingHeader = Buffer.from(JSON.stringify(mappings)).toString("base64url");
+type TestR2Bucket = { put(key: string, value: Uint8Array, options?: unknown): Promise<unknown> };
+
+async function seedCloudLibrary(
+  database: Awaited<ReturnType<Miniflare["getD1Database"]>>,
+  bucket: TestR2Bucket,
+) {
+  const adapter = new MockTelegramAdapter();
+  const topics = await adapter.listTopics();
+  await database.prepare(
+    "INSERT INTO library_sources (chat_id,title,source_type,is_forum,status) VALUES (?,'Fixture','supergroup',1,'active')",
+  ).bind(MOCK_CHAT_ID).run();
+  for (const [index, topic] of topics.entries()) {
+    await database.prepare(
+      `INSERT INTO library_topics
+       (id,chat_id,topic_id,slug,title,default_sort,status,icon_color,icon_emoji_id,is_general,display_order,telegram_message_count)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ).bind(topic.id, MOCK_CHAT_ID, topic.topicId, topic.slug, topic.name, topic.defaultSort, topic.status,
+      topic.iconColor, topic.iconEmojiId, topic.isGeneral ? 1 : 0, index, topic.messageCount).run();
+  }
+  for (const post of MOCK_TELEGRAM_POSTS.filter((item) => !item.deleted)) {
+    const hash = await telegramMaterialContentHash(post);
+    await database.prepare(
+      `INSERT INTO library_materials
+       (chat_id,message_id,material_id,topic_key,topic_id,media_group_id,constituent_message_ids_json,content_type,title,
+        telegram_url,content_text,caption_text,formatted_text_json,formatted_caption_json,rich_content_json,poll_json,
+        location_json,unsupported_type,tags_json,number_value,date_value,published_at,edited_at,content_hash,source_revision,
+        sync_state,synced_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ready',?)`,
+    ).bind(post.chatId, post.messageId, post.id, MOCK_TOPIC_ID, post.topicId, post.mediaGroupId,
+      JSON.stringify(post.constituentMessageIds), post.contentType, post.title, post.telegramUrl, post.contentText,
+      post.captionText, JSON.stringify(post.formattedText), JSON.stringify(post.formattedCaption),
+      post.richContent ? JSON.stringify(post.richContent) : null, post.poll ? JSON.stringify(post.poll) : null,
+      post.location ? JSON.stringify(post.location) : null, post.unsupportedType, JSON.stringify(post.tags),
+      post.numberValue, post.dateValue, post.publishedAt, post.editedAt, hash,
+      post.editedAt ?? post.publishedAt ?? String(post.messageId), new Date().toISOString()).run();
+    for (const media of post.media) {
+      const key = `fixtures/${post.messageId}/${media.index}/original.bin`;
+      const thumbnailKey = media.hasThumbnail ? `fixtures/${post.messageId}/${media.index}/thumbnail.bin` : null;
+      const bytes = new Uint8Array(16_384).map((_, byteIndex) => (byteIndex + media.index) % 251);
+      await bucket.put(key, bytes, { httpMetadata: { contentType: media.mimeType ?? "application/octet-stream" } });
+      if (thumbnailKey) await bucket.put(thumbnailKey, bytes.slice(0, 1_024), { httpMetadata: { contentType: "image/jpeg" } });
+      await database.prepare(
+        `INSERT INTO library_media
+         (chat_id,message_id,media_index,source_message_id,kind,mime_type,file_name,size_bytes,width,height,duration,title,
+          performer,waveform,alt_text,r2_key,thumbnail_r2_key,sha256,status,uploaded_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'ready',?)`,
+      ).bind(post.chatId, post.messageId, media.index, post.messageId, media.kind, media.mimeType, media.fileName,
+        bytes.byteLength, media.width, media.height, media.duration, media.title, media.performer, media.waveform,
+        media.altText, key, thumbnailKey, "a".repeat(64), new Date().toISOString()).run();
+    }
+  }
+}
 
 function delayedValue<T>(value: T, signal: AbortSignal, delayMs = 20) {
   return new Promise<T>((resolvePromise, reject) => {
@@ -53,6 +106,96 @@ function delayedValue<T>(value: T, signal: AbortSignal, delayMs = 20) {
     signal.addEventListener("abort", aborted, { once: true });
   });
 }
+
+class MemorySyncTarget implements CloudLibrarySyncTarget {
+  readonly materials = new Map<string, string>();
+  readonly media = new Set<string>();
+  readonly checkpoints = new Map<string, { cursor: string | null; complete: boolean }>();
+  readonly failures: string[] = [];
+  readonly writes: string[] = [];
+  runs = 0;
+
+  async beginRun({ dryRun }: { chatId: string; mode: "dry-run" | "historical" | "incremental" | "reconcile"; dryRun: boolean }) {
+    if (!dryRun) this.runs += 1;
+    return `run-${this.runs}`;
+  }
+  async upsertSource({ dryRun }: { chatId: string; topics: BridgeCategory[]; dryRun: boolean }) { if (!dryRun) this.writes.push("source"); }
+  async upsertTopic(topic: BridgeCategory, dryRun: boolean) { if (!dryRun) this.writes.push(`topic:${topic.id}`); }
+  async getCheckpoint(chatId: string, topicId: number) { return this.checkpoints.get(`${chatId}:${topicId}`) ?? null; }
+  async stageMaterial(material: SyncMaterial, dryRun: boolean) {
+    const key = `${material.post.chatId}:${material.post.messageId}`;
+    const unchanged = this.materials.get(key) === material.contentHash;
+    return { mediaIndexesToUpload: dryRun || unchanged ? [] : material.post.media.filter((media) => {
+      const objectKey = cloudMediaObjectKey(material, media);
+      return !this.media.has(objectKey);
+    }).map((media) => media.index) };
+  }
+  async uploadMedia(media: SyncMediaUpload, dryRun: boolean) {
+    if (dryRun) return;
+    let bytes = 0;
+    for await (const chunk of media.body) bytes += chunk.byteLength;
+    assert.ok(bytes > 0);
+    this.media.add(media.objectKey);
+    this.writes.push(`media:${media.objectKey}`);
+  }
+  async commitMaterial(material: SyncMaterial, dryRun: boolean) {
+    if (dryRun) return;
+    this.materials.set(`${material.post.chatId}:${material.post.messageId}`, material.contentHash);
+    this.writes.push(`material:${material.post.messageId}`);
+  }
+  async recordFailure(input: { code: string; dryRun: boolean }) { if (!input.dryRun) this.failures.push(input.code); }
+  async saveCheckpoint(input: { chatId: string; topicId: number; cursor: string | null; complete: boolean; dryRun: boolean }) {
+    if (!input.dryRun) this.checkpoints.set(`${input.chatId}:${input.topicId}`, { cursor: input.cursor, complete: input.complete });
+  }
+  async finishRun() {}
+}
+
+test("cloud importer is deterministic, idempotent, resumable and dry-run safe", async () => {
+  const adapter = new MockTelegramAdapter();
+  const target = new MemorySyncTarget();
+  const base = { adapter, target, chatId: MOCK_CHAT_ID, signal: new AbortController().signal };
+  const first = await syncTelegramLibrary({ ...base, mode: "incremental", pageSize: 4 });
+  assert.equal(first.failed, false);
+  assert.equal(target.materials.size, MOCK_TELEGRAM_POSTS.filter((post) => !post.deleted).length);
+  const mediaCount = target.media.size;
+  const mediaWrites = target.writes.filter((item) => item.startsWith("media:")).length;
+  assert.equal(mediaWrites, mediaCount);
+  assert.ok([...target.checkpoints.values()].some((checkpoint) => checkpoint.complete));
+
+  await syncTelegramLibrary({ ...base, mode: "incremental", pageSize: 3 });
+  assert.equal(target.materials.size, MOCK_TELEGRAM_POSTS.filter((post) => !post.deleted).length);
+  assert.equal(target.media.size, mediaCount);
+  assert.equal(target.writes.filter((item) => item.startsWith("media:")).length, mediaWrites,
+    "unchanged media must not be uploaded twice");
+
+  const dryTarget = new MemorySyncTarget();
+  const dry = await syncTelegramLibrary({ ...base, target: dryTarget, mode: "dry-run", maximumMaterials: 5 });
+  assert.equal(dry.materialsSeen, 5);
+  assert.equal(dryTarget.materials.size, 0);
+  assert.equal(dryTarget.media.size, 0);
+  assert.deepEqual(dryTarget.writes, []);
+
+  const post = MOCK_TELEGRAM_POSTS.find((item) => item.messageId === 102)!;
+  const originalHash = await telegramMaterialContentHash(post);
+  const editedHash = await telegramMaterialContentHash({ ...post, editedAt: "2026-10-17T00:00:00.000Z", contentText: `${post.contentText} edit` });
+  assert.notEqual(originalHash, editedHash);
+  assert.notEqual(
+    cloudMediaObjectKey({ post, contentHash: originalHash }, { ...post.media[0]!, index: 0 }),
+    cloudMediaObjectKey({ post, contentHash: editedHash }, { ...post.media[0]!, index: 0 }),
+  );
+});
+
+test("cloud library migration is additive and keeps public/private data separated", () => {
+  const sql = readFileSync(resolve(ROOT, "migrations/0012_cloud_library.sql"), "utf8")
+    .replace(/^\s*--.*$/gmu, "");
+  assert.doesNotMatch(sql, /(?:^|;)\s*(?:DROP|DELETE|UPDATE|ALTER)\b/imu);
+  for (const table of [
+    "library_sources", "library_topics", "library_materials", "library_material_blocks",
+    "library_media", "library_album_members", "library_search_documents", "library_sync_cursors",
+    "library_sync_runs", "library_sync_failures",
+  ]) assert.match(sql, new RegExp(`CREATE TABLE ${table}\\b`, "u"));
+  assert.doesNotMatch(sql, /\b(?:app_users|saved_materials|personal_note|init_data)\b/iu);
+});
 
 function bridgeRequest(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
@@ -983,7 +1126,7 @@ test("Worker Bridge configuration requires paired Cloudflare Access service-toke
   );
 });
 
-test("Bridge flows through Worker loaders, SSR, bookmark references and media proxy", async (context) => {
+test("cloud library flows through Worker loaders, SSR, bookmark references and private R2 media", async (context) => {
   const adapter = new MockTelegramAdapter();
   const bridge = createBridgeApplication({ adapter, allowedChatIds: new Set([MOCK_CHAT_ID]), sharedSecret: BRIDGE_SECRET });
   const bridgeRequestPaths: string[] = [];
@@ -997,6 +1140,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
       compatibilityDate: "2026-10-06",
       modules: serverModules,
       d1Databases: { DB: "fixture-db" },
+      r2Buckets: { MEDIA: "fixture-media" },
       bindings: {
         TELEGRAM_BOT_TOKEN: BOT_TOKEN,
         TELEGRAM_BRIDGE_URL: "https://bridge.fixture",
@@ -1017,6 +1161,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   context.after(() => mf.dispose());
 
   const database = await mf.getD1Database("DB");
+  const mediaBucket = await mf.getR2Bucket("MEDIA");
   for (const migration of readdirSync(resolve(ROOT, "migrations")).filter((name) => name.endsWith(".sql")).sort()) {
     const statements = readFileSync(resolve(ROOT, "migrations", migration), "utf8")
       .replace(/^\s*--.*$/gmu, "").split(";").map((statement) => statement.trim()).filter(Boolean);
@@ -1028,6 +1173,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   await database.prepare(
     "INSERT INTO telegram_topics (source_id,topic_id,title,category_id) VALUES ('fixture-source',700,'Prayer','category_prayers')",
   ).run();
+  await seedCloudLibrary(database, mediaBucket as unknown as TestR2Bucket);
 
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
@@ -1107,7 +1253,10 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.equal((await proxiedRange.arrayBuffer()).byteLength, 2048);
   const proxiedHead = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { method: "HEAD" });
   assert.equal(proxiedHead.status, 200);
-  assert.equal(proxiedHead.headers.get("content-length"), String(MOCK_VIDEO_SIZE));
+  assert.equal(proxiedHead.headers.get("content-length"), "16384");
+  const invalidRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { headers: { range: "bytes=999999-1000000" } });
+  assert.equal(invalidRange.status, 416);
+  assert.equal(invalidRange.headers.get("content-range"), "bytes */16384");
   assert.equal((await mf.dispatchFetch("https://app.fixture/media/-100999/106/0")).status, 404);
 
   const search = await mf.dispatchFetch(`https://app.fixture/search?q=%D5%AD%D5%A1%D5%B2%D5%A1%D5%B2%D5%B8%D6%82%D5%A9%D5%B5%D5%B8%D6%82%D5%B6&category=${encodeURIComponent(MOCK_TOPIC_ID)}`);
@@ -1254,6 +1403,7 @@ test("Bridge flows through Worker loaders, SSR, bookmark references and media pr
   assert.ok(analytics.results.length > 0);
   assert.ok(analytics.results.every((row: { query_hash: string; query_count: number; zero_result_count: number }) =>
     /^[a-f0-9]{64}$/u.test(row.query_hash) && row.query_count > 0 && row.zero_result_count >= 0));
+  assert.equal(bridgeRequestPaths.length, 0, "normal public reads must not call Telegram Bridge");
 });
 
 test("production-like SSR bursts isolate client aborts without hanging healthy requests", async (context) => {
@@ -1275,6 +1425,7 @@ test("production-like SSR bursts isolate client aborts without hanging healthy r
       compatibilityDate: "2026-10-06",
       modules: serverModules,
       d1Databases: { DB: "stress-db" },
+      r2Buckets: { MEDIA: "stress-media" },
       bindings: {
         TELEGRAM_BOT_TOKEN: BOT_TOKEN,
         TELEGRAM_BRIDGE_URL: "https://bridge.fixture",
@@ -1288,11 +1439,13 @@ test("production-like SSR bursts isolate client aborts without hanging healthy r
   } as unknown as Parameters<typeof convertV4MiniflareOptions>[0]));
   context.after(() => mf.dispose());
   const database = await mf.getD1Database("DB");
+  const mediaBucket = await mf.getR2Bucket("MEDIA");
   for (const migration of readdirSync(resolve(ROOT, "migrations")).filter((name) => name.endsWith(".sql")).sort()) {
     const statements = readFileSync(resolve(ROOT, "migrations", migration), "utf8")
       .replace(/^\s*--.*$/gmu, "").split(";").map((statement) => statement.trim()).filter(Boolean);
     for (const statement of statements) await database.prepare(statement).run();
   }
+  await seedCloudLibrary(database, mediaBucket as unknown as TestR2Bucket);
 
   const routes = [
     "/",
@@ -1336,7 +1489,6 @@ test("production-like SSR bursts isolate client aborts without hanging healthy r
   bridgeUnavailable = true;
   const unavailableStartedAt = performance.now();
   const unavailable = await mf.dispatchFetch("https://app.fixture/?refresh=1");
-  assert.equal(unavailable.status, 503);
-  assert.ok(performance.now() - unavailableStartedAt < 3_000, "SSR must return a bounded failure instead of hanging");
-  assert.match(await unavailable.text(), /Կրկին փորձել/u);
+  assert.equal(unavailable.status, 200, "public SSR must remain available when the sync Bridge is down");
+  assert.ok(performance.now() - unavailableStartedAt < 3_000, "cloud-only SSR must not wait for the Bridge");
 });

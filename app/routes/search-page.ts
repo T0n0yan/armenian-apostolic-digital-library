@@ -4,7 +4,7 @@ import type { Route } from "./+types/search-page";
 import type { SearchFilters } from "../data/search-materials";
 import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
-import { TelegramBridgeError } from "../data/telegram-bridge.server";
+import { CloudLibraryCursorError } from "../data/cloud-library.server";
 
 function date(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/u.test(value) ? value : "";
@@ -26,7 +26,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const resolved = await resolveSearchQuery(env.DB, query);
   return Response.json(await searchMaterials(env.DB, filters, cursor, 20, resolved, request.signal));
   } catch (error) {
-    if (error instanceof TelegramBridgeError) throw new Response("Bridge request failed", { status: error.status });
+    if (error instanceof CloudLibraryCursorError) throw new Response("Invalid cursor", { status: 400 });
     throw error;
   }
 }

@@ -25,8 +25,7 @@ import {
   setMaterialSaved,
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
-import { getBridgePost } from "../data/telegram-bridge.server";
-import { TelegramBridgeError } from "../data/telegram-bridge.server";
+import { getCloudLibraryPost } from "../data/cloud-library.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 
@@ -56,7 +55,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
   } catch (error) {
     if (request.signal.aborted) throw error;
-    const errorKind = error instanceof TelegramBridgeError ? "bridge" as const : "database" as const;
+    const errorKind = "database" as const;
     console.error(JSON.stringify({ event: "saved_loader_error", kind: errorKind }));
     return { user, authStatus: auth.status, errorKind, groups: [], query, total: 0 };
   }
@@ -89,7 +88,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   await upsertAppUser(env.DB, user);
   const reference = parseMaterialId(materialId)!;
-  if (intent === "save" && !(await getBridgePost(env.DB, reference.chatId, reference.messageId, request.signal))) {
+  if (intent === "save" && !(await getCloudLibraryPost(env.DB, reference.chatId, reference.messageId))) {
     return Response.json({ saved: false, error: "material-unavailable" }, { status: 404 });
   }
   const saved = await setMaterialSaved(
@@ -167,8 +166,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
 
       {loaderData.errorKind ? (
         <RouteErrorState
-          title={loaderData.errorKind === "bridge" ? "Telegram նյութերն առայժմ անհասանելի են" : "Պահված նյութերը չհաջողվեց բեռնել"}
-          description={loaderData.errorKind === "bridge" ? "Bridge կապը ժամանակավորապես հասանելի չէ։ Քո պահված հղումները չեն կորել։" : "Տվյալների պահոցի հետ կապը չհաջողվեց։ Փորձիր կրկին։"}
+          title="Պահված նյութերը չհաջողվեց բեռնել"
+          description="Տվյալների պահոցի հետ կապը չհաջողվեց։ Փորձիր կրկին։"
         />
       ) : !loaderData.user ? (
         <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title={loaderData.authStatus === "invalid" ? "Telegram նույնականացման ժամկետն ավարտվել է" : "Իմ անկյունը հասանելի է Telegram-ում"}>

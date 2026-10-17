@@ -1,5 +1,5 @@
 import type { BridgeCategory } from "../../shared/telegram-bridge-contract";
-import { listBridgeCategories } from "./telegram-bridge.server";
+import { listCloudLibraryCategories } from "./cloud-library.server";
 
 export type CategorySummary = BridgeCategory;
 
@@ -9,18 +9,18 @@ export function isNavigableCategory(category: CategorySummary) {
 
 export async function listActiveCategories(
   database: D1Database,
-  refresh = false,
-  signal?: AbortSignal,
+  _refresh = false,
+  _signal?: AbortSignal,
 ): Promise<CategorySummary[]> {
-  return (await listBridgeCategories(database, refresh, signal)).filter(isNavigableCategory);
+  return (await listCloudLibraryCategories(database)).filter(isNavigableCategory);
 }
 
 export async function getActiveCategoryBySlug(
   database: D1Database,
   slug: string,
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ): Promise<Omit<CategorySummary, "materialCount"> | null> {
-  const category = (await listBridgeCategories(database, false, signal))
+  const category = (await listCloudLibraryCategories(database))
     .filter(isNavigableCategory)
     .find((item) => item.slug === slug);
   return category ?? null;

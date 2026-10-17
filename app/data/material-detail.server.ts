@@ -6,7 +6,7 @@ import {
   type BridgePoll,
   type BridgeRichContent,
 } from "../../shared/telegram-bridge-contract";
-import { getBridgePost } from "./telegram-bridge.server";
+import { getCloudLibraryPost } from "./cloud-library.server";
 
 export type MaterialMedia = {
   id: string;
@@ -49,10 +49,10 @@ export type MaterialDetail = {
   media: MaterialMedia[];
 };
 
-export async function getPublicMaterialDetail(database: D1Database, id: string, signal?: AbortSignal): Promise<MaterialDetail | null> {
+export async function getPublicMaterialDetail(database: D1Database, id: string, _signal?: AbortSignal): Promise<MaterialDetail | null> {
   const reference = parseMaterialId(id);
   if (!reference) return null;
-  const post = await getBridgePost(database, reference.chatId, reference.messageId, signal);
+  const post = await getCloudLibraryPost(database, reference.chatId, reference.messageId);
   if (!post?.categoryId || !post.categoryName || !post.categorySlug || post.deleted) return null;
   return {
     id: post.id,
