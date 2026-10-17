@@ -68,6 +68,19 @@ function mediaId(value: Api.Photo | Api.Document) {
   return value.id.toString();
 }
 
+/**
+ * Teleproto's plain-text rendering marks media as "[audio]" or "[photo: caption]". Those markers
+ * must not become titles or excerpts: drop bare markers and keep only a caption's text.
+ */
+export function stripRichMediaPlaceholders(value: string) {
+  return value
+    .replace(/\[(?:photo|video|audio|document):\s*([^\]\n]*)\]/gu, "$1")
+    .replace(/\[(?:photo|video|audio|document)\]/gu, "")
+    .replace(/[ \t]+\n/gu, "\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
 export function mapRichMessage(value: Api.RichMessage): { content: BridgeRichContent; plainText: string; mediaSources: RichMediaSource[] } {
   const sourcesById = new Map<string, RichMediaSource>();
   for (const source of [...value.photos, ...value.documents]) {
@@ -134,7 +147,7 @@ export function mapRichMessage(value: Api.RichMessage): { content: BridgeRichCon
       blocks: blocks(value.blocks),
       partial: Boolean(value.part),
     },
-    plainText: Rich.toPlainText(value).normalize("NFC").trim(),
+    plainText: stripRichMediaPlaceholders(Rich.toPlainText(value).normalize("NFC")),
     mediaSources,
   };
 }

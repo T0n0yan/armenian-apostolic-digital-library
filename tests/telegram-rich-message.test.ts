@@ -76,3 +76,10 @@ test("unknown RichMessage nodes degrade locally instead of dropping the material
   assert.equal(mapped.content.blocks[2]?.type, "paragraph");
   assert.match(mapped.plainText, /Տեսանելի/u);
 });
+
+test("rich media placeholders never become titles or excerpts", async () => {
+  const { stripRichMediaPlaceholders } = await import("../services/telegram-bridge/src/rich-message");
+  assert.equal(stripRichMediaPlaceholders("[audio]\n\nԱՍՏԾՈՒ ՓԱՌՔԸ\n\n(Սաղմոս 18)"), "ԱՍՏԾՈՒ ՓԱՌՔԸ\n\n(Սաղմոս 18)");
+  assert.equal(stripRichMediaPlaceholders("ՍՈՒՐԲ ՍԵԹ [photo: Սուրբ Սեթ Նախահայր] Նախահայր"), "ՍՈՒՐԲ ՍԵԹ Սուրբ Սեթ Նախահայր Նախահայր");
+  assert.equal(stripRichMediaPlaceholders("[video]\n[document: fixture.pdf]"), "fixture.pdf");
+});
