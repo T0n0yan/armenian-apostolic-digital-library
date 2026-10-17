@@ -54,6 +54,12 @@ const initialThemeScript = `(() => {
   } catch {}
 })();`;
 
+export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.ico", sizes: "any" },
+  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+];
+
 export async function loader({request}: Route.LoaderArgs) {
   const [telegramAdmin, categories, telegramUser] = await Promise.all([
     getOptionalTelegramAdmin(request, env.DB),
