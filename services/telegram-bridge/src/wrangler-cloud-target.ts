@@ -11,8 +11,11 @@ import {
   normalizeTelegramSearchText,
   searchAliases,
 } from "../../../shared/telegram-search";
+import type { TelegramAdmin } from "./adapter";
 import type {
+  AuthorTally,
   CloudLibrarySyncTarget,
+  PublisherPolicy,
   SyncCheckpoint,
   SyncMaterial,
   SyncMediaUpload,
@@ -20,8 +23,10 @@ import type {
 } from "./cloud-sync";
 import { cloudMediaObjectKey } from "./cloud-sync";
 
-const STAGING_DATABASE = "armenian-apostolic-digital-library-staging";
-const STAGING_BUCKET = "armenian-apostolic-library-media-staging";
+// The same code serves staging and production; CLOUD_SYNC_ENV picks the D1 database and R2 bucket.
+const CLOUD_ENV = process.env.CLOUD_SYNC_ENV === "production" ? "production" : "staging";
+const DATABASE = `armenian-apostolic-digital-library-${CLOUD_ENV}`;
+const BUCKET = `armenian-apostolic-library-media-${CLOUD_ENV}`;
 
 function sql(value: string | number | null | undefined) {
   if (value === null || value === undefined) return "NULL";
@@ -70,7 +75,7 @@ async function executeSql(contents: string) {
   const file = join(directory, "operation.sql");
   try {
     await writeFile(file, contents, { mode: 0o600, flag: "wx" });
-    return await wrangler(["d1", "execute", STAGING_DATABASE, "--remote", "--env", "staging", "--file", file, "--yes"]);
+    return await wrangler(["d1", "execute", DATABASE, "--remote", "--env", CLOUD_ENV, "--file", file, "--yes"]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -78,7 +83,7 @@ async function executeSql(contents: string) {
 
 async function query<T>(command: string): Promise<T[]> {
   const output = await wrangler([
-    "d1", "execute", STAGING_DATABASE, "--remote", "--env", "staging", "--command", command, "--json",
+    "d1", "execute", DATABASE, "--remote", "--env", CLOUD_ENV, "--command", command, "--json",
   ]);
   const parsed = JSON.parse(output) as Array<{ results?: T[] }>;
   return parsed.flatMap((item) => item.results ?? []);
@@ -205,7 +210,7 @@ telegram_message_count=excluded.telegram_message_count,last_synced_at=excluded.l
     const hash = createHash("sha256");
     async function* measured() { for await (const chunk of media.body) { hash.update(chunk); yield chunk; } }
     await wrangler([
-      "r2", "object", "put", `${STAGING_BUCKET}/${media.objectKey}`, "--remote", "--pipe", "--force",
+      "r2", "object", "put", `${BUCKET}/${media.objectKey}`, "--remote", "--pipe", "--force",
       "--content-type", media.descriptor.mimeType ?? "application/octet-stream",
     ], measured());
     this.objectKeys.add(media.objectKey);
@@ -265,9 +270,9 @@ VALUES(${sql(post.chatId)},${post.messageId},${media.index},${post.constituentMe
 VALUES(${sql(post.chatId)},${post.messageId},${messageId},${ordinal});`).join("\n");
     await executeSql(`PRAGMA foreign_keys=ON;
 INSERT INTO library_materials
-(chat_id,message_id,material_id,topic_key,topic_id,media_group_id,constituent_message_ids_json,content_type,title,telegram_url,content_text,caption_text,formatted_text_json,formatted_caption_json,rich_content_json,poll_json,location_json,unsupported_type,tags_json,number_value,date_value,published_at,edited_at,content_hash,source_revision,sync_state,deleted_at,synced_at,updated_at)
-VALUES(${sql(post.chatId)},${post.messageId},${sql(post.id)},${sql(material.topic.id)},${sql(post.topicId)},${sql(post.mediaGroupId)},${json(post.constituentMessageIds)},${sql(post.contentType)},${sql(post.title)},${sql(post.telegramUrl)},${sql(post.contentText)},${sql(post.captionText)},${json(post.formattedText)},${json(post.formattedCaption)},${post.richContent ? json(post.richContent) : "NULL"},${post.poll ? json(post.poll) : "NULL"},${post.location ? json(post.location) : "NULL"},${sql(post.unsupportedType)},${json(post.tags)},${sql(post.numberValue)},${sql(post.dateValue)},${sql(post.publishedAt)},${sql(post.editedAt)},${sql(material.contentHash)},${sql(material.sourceRevision)},${sql(post.deleted ? "deleted" : "pending_media")},${post.deleted ? "strftime('%Y-%m-%dT%H:%M:%fZ','now')" : "NULL"},strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-ON CONFLICT(chat_id,message_id) DO UPDATE SET material_id=excluded.material_id,topic_key=excluded.topic_key,topic_id=excluded.topic_id,media_group_id=excluded.media_group_id,constituent_message_ids_json=excluded.constituent_message_ids_json,content_type=excluded.content_type,title=excluded.title,telegram_url=excluded.telegram_url,content_text=excluded.content_text,caption_text=excluded.caption_text,formatted_text_json=excluded.formatted_text_json,formatted_caption_json=excluded.formatted_caption_json,rich_content_json=excluded.rich_content_json,poll_json=excluded.poll_json,location_json=excluded.location_json,unsupported_type=excluded.unsupported_type,tags_json=excluded.tags_json,number_value=excluded.number_value,date_value=excluded.date_value,published_at=excluded.published_at,edited_at=excluded.edited_at,content_hash=excluded.content_hash,source_revision=excluded.source_revision,sync_state=excluded.sync_state,deleted_at=excluded.deleted_at,synced_at=excluded.synced_at,updated_at=excluded.updated_at;
+(chat_id,message_id,material_id,topic_key,topic_id,media_group_id,constituent_message_ids_json,content_type,title,telegram_url,content_text,caption_text,formatted_text_json,formatted_caption_json,rich_content_json,poll_json,location_json,unsupported_type,tags_json,number_value,date_value,published_at,edited_at,content_hash,source_revision,sync_state,deleted_at,synced_at,updated_at,author_id)
+VALUES(${sql(post.chatId)},${post.messageId},${sql(post.id)},${sql(material.topic.id)},${sql(post.topicId)},${sql(post.mediaGroupId)},${json(post.constituentMessageIds)},${sql(post.contentType)},${sql(post.title)},${sql(post.telegramUrl)},${sql(post.contentText)},${sql(post.captionText)},${json(post.formattedText)},${json(post.formattedCaption)},${post.richContent ? json(post.richContent) : "NULL"},${post.poll ? json(post.poll) : "NULL"},${post.location ? json(post.location) : "NULL"},${sql(post.unsupportedType)},${json(post.tags)},${sql(post.numberValue)},${sql(post.dateValue)},${sql(post.publishedAt)},${sql(post.editedAt)},${sql(material.contentHash)},${sql(material.sourceRevision)},${sql(post.deleted ? "deleted" : "pending_media")},${post.deleted ? "strftime('%Y-%m-%dT%H:%M:%fZ','now')" : "NULL"},strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'),${sql(post.authorId ?? null)})
+ON CONFLICT(chat_id,message_id) DO UPDATE SET author_id=excluded.author_id, material_id=excluded.material_id,topic_key=excluded.topic_key,topic_id=excluded.topic_id,media_group_id=excluded.media_group_id,constituent_message_ids_json=excluded.constituent_message_ids_json,content_type=excluded.content_type,title=excluded.title,telegram_url=excluded.telegram_url,content_text=excluded.content_text,caption_text=excluded.caption_text,formatted_text_json=excluded.formatted_text_json,formatted_caption_json=excluded.formatted_caption_json,rich_content_json=excluded.rich_content_json,poll_json=excluded.poll_json,location_json=excluded.location_json,unsupported_type=excluded.unsupported_type,tags_json=excluded.tags_json,number_value=excluded.number_value,date_value=excluded.date_value,published_at=excluded.published_at,edited_at=excluded.edited_at,content_hash=excluded.content_hash,source_revision=excluded.source_revision,sync_state=excluded.sync_state,deleted_at=excluded.deleted_at,synced_at=excluded.synced_at,updated_at=excluded.updated_at;
 DELETE FROM library_material_blocks WHERE chat_id=${sql(post.chatId)} AND message_id=${post.messageId};
 DELETE FROM library_search_fts WHERE chat_id=${sql(post.chatId)} AND message_id=${post.messageId};
 DELETE FROM library_search_documents WHERE chat_id=${sql(post.chatId)} AND message_id=${post.messageId};
@@ -313,6 +318,59 @@ ON CONFLICT(chat_id,topic_id) DO UPDATE SET phase=excluded.phase,cursor=excluded
   async finishRun(input: { runId: string; status: "complete" | "failed" | "cancelled"; dryRun: boolean }) {
     if (input.dryRun) return;
     await executeSql(`UPDATE library_sync_runs SET status=${sql(input.status)},completed_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=${sql(input.runId)};`);
+  }
+
+  async syncPublishers(input: { chatId: string; admins: TelegramAdmin[] | null; dryRun: boolean }): Promise<PublisherPolicy> {
+    if (input.admins && !input.dryRun) {
+      // Mirror Telegram admins: add current ones, drop former ones (manual rows are left alone).
+      const ids = input.admins.map((admin) => sql(admin.userId)).join(",");
+      await executeSql(`${input.admins.map((admin) => `INSERT INTO library_publishers(chat_id,telegram_user_id,display_name,username,source,status,updated_at)
+VALUES(${sql(input.chatId)},${sql(admin.userId)},${sql(admin.displayName)},${sql(admin.username)},'telegram_admin','allowed',strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+ON CONFLICT(chat_id,telegram_user_id) DO UPDATE SET display_name=excluded.display_name,username=excluded.username,
+source=CASE WHEN library_publishers.source='manual' AND library_publishers.status='blocked' THEN 'manual' ELSE 'telegram_admin' END,
+updated_at=excluded.updated_at;`).join("\n")}
+DELETE FROM library_publishers WHERE chat_id=${sql(input.chatId)} AND source='telegram_admin'${ids ? ` AND telegram_user_id NOT IN (${ids})` : ""};`);
+    }
+    const rows = await query<{ telegram_user_id: string; status: string }>(
+      `SELECT telegram_user_id,status FROM library_publishers WHERE chat_id=${sql(input.chatId)}`,
+    );
+    return {
+      allowed: new Set(rows.filter((row) => row.status === "allowed").map((row) => row.telegram_user_id)),
+      blocked: new Set(rows.filter((row) => row.status === "blocked").map((row) => row.telegram_user_id)),
+    };
+  }
+
+  async recordAuthors(input: { chatId: string; authors: AuthorTally[]; dryRun: boolean }) {
+    if (input.dryRun || input.authors.length === 0) return;
+    await executeSql(input.authors.map((author) => `INSERT INTO library_post_authors(chat_id,telegram_user_id,display_name,post_count,withheld_count,last_post_at,updated_at)
+VALUES(${sql(input.chatId)},${sql(author.userId)},${sql(author.displayName)},${author.posts},${author.withheld},${sql(author.lastPostAt)},strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+ON CONFLICT(chat_id,telegram_user_id) DO UPDATE SET display_name=CASE WHEN excluded.display_name<>'' THEN excluded.display_name ELSE library_post_authors.display_name END,
+post_count=MAX(library_post_authors.post_count,excluded.post_count),withheld_count=excluded.withheld_count,
+last_post_at=MAX(COALESCE(library_post_authors.last_post_at,''),COALESCE(excluded.last_post_at,'')),updated_at=excluded.updated_at;`).join("\n"));
+  }
+
+  async markDeleted(input: { chatId: string; messageIds: number[]; dryRun: boolean }) {
+    const ids = input.messageIds.filter((id) => Number.isSafeInteger(id) && id > 0);
+    if (input.dryRun || ids.length === 0) return;
+    const list = ids.join(",");
+    await executeSql(`UPDATE library_materials SET sync_state='deleted',deleted_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+WHERE chat_id=${sql(input.chatId)} AND sync_state<>'deleted' AND (message_id IN (${list})
+OR EXISTS (SELECT 1 FROM json_each(constituent_message_ids_json) WHERE CAST(value AS INTEGER) IN (${list})));`);
+  }
+
+  /** Changes whenever the admin page allows or blocks someone; the watcher re-syncs on change. */
+  async publishersVersion(chatId: string) {
+    const rows = await query<{ version: string | null; count: number }>(
+      `SELECT MAX(updated_at) AS version, COUNT(*) AS count FROM library_publishers WHERE chat_id=${sql(chatId)} AND source='manual'`,
+    );
+    return `${rows[0]?.version ?? ""}:${rows[0]?.count ?? 0}`;
+  }
+
+  async listStoredMessageIds(chatId: string) {
+    const rows = await query<{ message_id: number }>(
+      `SELECT message_id FROM library_materials WHERE chat_id=${sql(chatId)} AND sync_state<>'deleted'`,
+    );
+    return rows.map((row) => row.message_id);
   }
 }
 

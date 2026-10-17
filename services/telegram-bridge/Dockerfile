@@ -25,6 +25,8 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY shared ./shared
 COPY services/telegram-bridge ./services/telegram-bridge
+# The cloud sync writes D1/R2 through Wrangler, which resolves bindings from wrangler.jsonc.
+COPY wrangler.jsonc ./
 
 RUN chown -R node:node /app
 USER node

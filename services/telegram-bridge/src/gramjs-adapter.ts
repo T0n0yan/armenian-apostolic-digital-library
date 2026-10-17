@@ -1,5 +1,5 @@
 import bigInt from "big-integer";
-import { Api, DeletedMessage, Logger, LogLevel, Rich, StringSession, TelegramClient, utils, type DeletedMessageEvent, type Entity } from "./telegram-client";
+import { Api, DeletedMessage, EditedMessage, Logger, LogLevel, NewMessage, Rich, StringSession, TelegramClient, utils, type DeletedMessageEvent, type Entity, type NewMessageEvent } from "./telegram-client";
 
 import {
   createMaterialId,
@@ -13,10 +13,12 @@ import {
 } from "../../../shared/telegram-bridge-contract";
 import type {
   AdapterPage,
+  ContentChange,
   HistoryOptions,
   MediaDescriptor,
   MediaRequest,
   TelegramAdapter,
+  TelegramAdmin,
   TelegramPost,
   TopicOptions,
 } from "./adapter";
@@ -244,6 +246,19 @@ function groupedId(message: Api.Message) {
   return message.groupedId?.toString() ?? null;
 }
 
+/** Sender of a post: the user, or the chat itself for anonymous admins and channel posts. */
+export function messageAuthor(chatId: string, message: Api.Message): { authorId: string; authorName: string | null } {
+  const from = message.fromId;
+  const authorId = from instanceof Api.PeerUser ? from.userId.toString()
+    : from instanceof Api.PeerChannel ? `-100${from.channelId.toString()}`
+      : chatId;
+  const sender = (message as unknown as { sender?: unknown }).sender;
+  const senderName = sender instanceof Api.User
+    ? [sender.firstName, sender.lastName].filter(Boolean).join(" ").trim()
+    : sender instanceof Api.Channel || sender instanceof Api.Chat ? sender.title : "";
+  return { authorId, authorName: message.postAuthor?.trim() || senderName || null };
+}
+
 function isMessage(value: Api.Message | undefined): value is Api.Message {
   return value instanceof Api.Message;
 }
@@ -435,6 +450,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
   private readonly searchHistoryOperations = new SharedOperationRegistry<string, Api.Message[]>(30_000);
   private readonly mediaSizeCache = new Map<string, { expiresAt: number; size: number }>();
   private readonly mediaSizeOperations = new SharedOperationRegistry<string, number | null>(60_000);
+  private readonly changeHandlers = new Set<(change: ContentChange) => void>();
 
   constructor(private readonly config: GramConfig) {
     this.client = new TelegramClient(new StringSession(config.session), config.apiId, config.apiHash, {
@@ -452,7 +468,45 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       let peer = "*";
       try { if (event.peer) peer = utils.getPeerId(event.peer).toString(); } catch { /* Telegram may omit the peer. */ }
       for (const id of event.deletedIds) this.deleted.add(`${peer}:${id}`);
+      if (peer !== "*") this.emitChange({ kind: "deleted", chatId: peer, messageIds: event.deletedIds });
     }, new DeletedMessage({ chats: this.config.allowedChatIds }));
+    const onMessage = (kind: "new" | "edited") => (event: NewMessageEvent) => {
+      const message = event.message;
+      let chatId: string | null = null;
+      try { chatId = message.peerId ? utils.getPeerId(message.peerId).toString() : null; } catch { /* Ignore malformed peers. */ }
+      if (!chatId || !this.config.allowedChatIds.includes(chatId)) return;
+      // Drop cached copies so the next read sees the new or edited message.
+      this.messageGroupCache.clear();
+      this.searchHistoryCache.delete(chatId);
+      this.emitChange({ kind, chatId, messageIds: [message.id] });
+    };
+    this.client.addEventHandler(onMessage("new"), new NewMessage({ chats: this.config.allowedChatIds }));
+    this.client.addEventHandler(onMessage("edited"), new EditedMessage({ chats: this.config.allowedChatIds }));
+  }
+
+  private emitChange(change: ContentChange) {
+    for (const handler of this.changeHandlers) {
+      try { handler(change); } catch { /* A failing subscriber must not break Telegram updates. */ }
+    }
+  }
+
+  onContentChange(handler: (change: ContentChange) => void) {
+    this.changeHandlers.add(handler);
+    return () => { this.changeHandlers.delete(handler); };
+  }
+
+  async listAdmins(chatId: string, signal: AbortSignal): Promise<TelegramAdmin[]> {
+    if (!this.config.allowedChatIds.includes(chatId)) return [];
+    signal.throwIfAborted();
+    const participants = await this.client.getParticipants(chatId, { filter: new Api.ChannelParticipantsAdmins() });
+    signal.throwIfAborted();
+    return participants
+      .filter((user): user is Api.User => user instanceof Api.User && !user.bot && !user.deleted)
+      .map((user) => ({
+        userId: user.id.toString(),
+        displayName: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.username || user.id.toString(),
+        username: user.username ?? null,
+      }));
   }
 
   async close() {
@@ -638,6 +692,7 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
       numberValue: null,
       media,
       deleted,
+      ...messageAuthor(chatId, ordered[0]),
     } satisfies Omit<TelegramPost, "contentType">;
     return { ...draft, contentType: contentTypeFor(draft) };
   }

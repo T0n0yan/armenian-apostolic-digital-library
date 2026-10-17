@@ -212,6 +212,9 @@ export type BridgePost = {
   numberValue: number | null;
   media: BridgeMedia[];
   deleted: boolean;
+  /** Telegram user ID of the sender; the chat's own ID for anonymous admins; null if unknown. */
+  authorId?: string | null;
+  authorName?: string | null;
   searchMatch?: BridgeSearchMatch;
 };
 

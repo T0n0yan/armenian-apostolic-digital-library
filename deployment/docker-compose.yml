@@ -1,0 +1,21 @@
+# Runs the Telegram → Cloudflare sync watcher on a VPS:
+#   docker compose -f deployment/docker-compose.yml up -d --build
+# Public pages are served by Cloudflare from D1/R2; this container only keeps them in sync.
+services:
+  cloud-sync:
+    build:
+      context: ..
+      dockerfile: services/telegram-bridge/Dockerfile
+    command: ["node", "--import", "tsx", "services/telegram-bridge/src/cloud-import.ts", "watch"]
+    env_file: /opt/library/cloud-sync.env
+    environment:
+      WRANGLER_SEND_METRICS: "false"
+    restart: unless-stopped
+    # The image's HTTP healthcheck is for the Bridge server, which this container does not run.
+    healthcheck:
+      disable: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

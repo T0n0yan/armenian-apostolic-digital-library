@@ -47,6 +47,10 @@ export type MediaDescriptor = BridgeMedia & {
   thumbnail?: boolean;
 };
 
+export type TelegramAdmin = { userId: string; displayName: string; username: string | null };
+
+export type ContentChange = { kind: "new" | "edited" | "deleted"; chatId: string; messageIds: number[] };
+
 export interface TelegramAdapter {
   connect(): Promise<void>;
   close(): Promise<void>;
@@ -57,4 +61,8 @@ export interface TelegramAdapter {
   getMediaDescriptor(chatId: string, messageId: number, mediaIndex: number, signal: AbortSignal, thumbnail?: boolean): Promise<MediaDescriptor | null>;
   streamMedia(request: MediaRequest): AsyncIterable<Uint8Array>;
   runtimeState?(): { inflightOperations: number };
+  /** Current human admins of a chat (bots excluded). */
+  listAdmins?(chatId: string, signal: AbortSignal): Promise<TelegramAdmin[]>;
+  /** Subscribe to new, edited and deleted messages in allowed chats; returns an unsubscribe function. */
+  onContentChange?(handler: (change: ContentChange) => void): () => void;
 }

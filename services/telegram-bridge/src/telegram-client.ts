@@ -3,6 +3,7 @@
 export { Api, Rich, TelegramClient, utils } from "teleproto";
 export type { Entity } from "teleproto/define";
 export { StringSession } from "teleproto/sessions";
-export { DeletedMessage } from "teleproto/events";
+export { DeletedMessage, EditedMessage, NewMessage } from "teleproto/events";
 export type { DeletedMessageEvent } from "teleproto/events";
+export type { NewMessageEvent } from "teleproto/events";
 export { Logger, LogLevel } from "teleproto/extensions/Logger.js";

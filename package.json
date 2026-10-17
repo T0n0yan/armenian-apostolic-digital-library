@@ -18,6 +18,7 @@
 		"bridge:mock": "TELEGRAM_BRIDGE_ADAPTER=mock TELEGRAM_ALLOWED_CHAT_IDS=-100900 TELEGRAM_BRIDGE_SHARED_SECRET=fixture_bridge_secret_000000000000000000 tsx services/telegram-bridge/src/server.ts",
 		"bridge:start": "node --env-file-if-exists=services/telegram-bridge/.env.local --import tsx services/telegram-bridge/src/server.ts",
 		"telegram:cloud-import": "node --env-file=services/telegram-bridge/.env.local --import tsx services/telegram-bridge/src/cloud-import.ts",
+		"telegram:cloud-watch": "node --env-file-if-exists=services/telegram-bridge/.env.local --import tsx services/telegram-bridge/src/cloud-import.ts watch",
 		"staging:preview:start": "node scripts/staging-preview.mjs start",
 		"staging:preview:status": "node scripts/staging-preview.mjs status",
 		"staging:preview:stop": "node scripts/staging-preview.mjs stop",
