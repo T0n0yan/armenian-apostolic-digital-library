@@ -16,6 +16,7 @@ import {
 } from "../components/telegram-content";
 import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
+import { ReminderButton } from "../components/reminder-button";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
@@ -61,10 +62,22 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   // Prayers open with a bird-letter initial, as in old manuscripts.
   const contentCategory = resolveContentCategoryId(null, material.categoryName);
   const isPrayer = contentCategory === "category_prayers";
-  // Sacred texts read in a book serif; teaching notes and questions keep the interface face.
-  const isSacredText = isPrayer || contentCategory === "category_psalms" || contentCategory === "category_saints_lives" || contentCategory === "category_daily_readings";
+  const isPsalm = contentCategory === "category_psalms";
+  // Prayers and psalms read in a prayer-book face, saints' lives and readings in a book serif;
+  // teaching notes and questions keep the interface face.
+  const readingClass = isPrayer ? "prayer-text" : isPsalm ? "prayer-text psalm-text"
+    : contentCategory === "category_saints_lives" || contentCategory === "category_daily_readings" ? "sacred-text" : "";
   // The header already shows the title, so don't repeat it as the first line of the text.
   const textTitleLength = skipPsalmLabel(material.formattedText.text, leadingTitleLength(material.formattedText.text, material.title));
+  // A psalm's superscription ("Սաղմոս Դաւթի, երբ…") is its first line; it stands apart from the verses.
+  const superscriptionEnd = (() => {
+    if (!isPsalm) return -1;
+    const text = material.formattedText.text;
+    let start = textTitleLength;
+    while (start < text.length && /\s/u.test(text[start])) start += 1;
+    const end = text.indexOf("\n", start);
+    return end > start && end - start < 220 && /^\(?սաղմոս/iu.test(text.slice(start, end)) ? end : -1;
+  })();
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
 
   useEffect(() => {
@@ -89,7 +102,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         title={material.title}
       />
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${isSacredText ? "sacred-text" : ""}`}>
+      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} /> : null}
@@ -108,7 +121,12 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
 
         {!material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
-            <FormattedTelegramText value={material.formattedText} from={textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+            {superscriptionEnd > 0 ? (
+              <p className="psalm-superscription m-0 mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center">
+                <FormattedTelegramText value={material.formattedText} from={textTitleLength} to={superscriptionEnd} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+              </p>
+            ) : null}
+            <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? superscriptionEnd + 1 : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
           <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
@@ -135,6 +153,15 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
               <Bookmark aria-hidden="true" size={17} fill={isSaved ? "currentColor" : "none"} />
               {isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
             </button>
+          ) : null}
+          {loaderData.canSave ? (
+            <ReminderButton
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
+              materialId={material.id}
+              title={material.title}
+              label
+              prefetch
+            />
           ) : null}
           <a className="inline-flex min-h-11 items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-muted no-underline hover:text-gold-bright" href={material.telegramUrl} target="_blank" rel="noreferrer">
             <ExternalLink aria-hidden="true" size={17} /> Բացել Telegram-ում

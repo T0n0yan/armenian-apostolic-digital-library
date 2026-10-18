@@ -114,21 +114,23 @@ function introLines(value: string) {
 export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial & { introText?: string } }) {
   const [expanded, setExpanded] = useState(false);
   const lines = introLines(material.introText || material.excerpt || material.title);
-  const title = lines[0] ?? stripZeroWidth(material.title);
-  let body = lines.slice(1);
-  const attributionMatch = body.length ? /^\((.+)\)$|^[—–-]\s*(.+)$/u.exec(body[body.length - 1]) : null;
+  const attributionMatch = lines.length > 1 ? /^\((.+)\)$|^[—–-]\s*(.+)$/u.exec(lines[lines.length - 1]) : null;
   const attribution = attributionMatch ? (attributionMatch[1] ?? attributionMatch[2]).trim() : null;
-  if (attribution) body = body.slice(0, -1);
+  // A signed intro is a quote: every line reads alike, in the prayer-book face, with no heading.
+  const quote = Boolean(attribution);
+  const textLines = attribution ? lines.slice(0, -1) : lines;
+  const title = quote ? null : textLines[0] ?? stripZeroWidth(material.title);
+  const body = quote ? textLines : textLines.slice(1);
   const long = body.join(" ").length > INTRO_COLLAPSED_CHARS;
   const collapsed = long && !expanded;
   return (
     <div className="grid gap-2.5">
     <IntroOrnament />
-    <section className="frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center">
-      <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3>
+    <section className={`frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center ${quote ? "prayer-intro" : ""}`}>
+      {title ? <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3> : null}
       {body.length ? (
         <div className={`relative grid gap-1 ${collapsed ? "max-h-[9.5em] overflow-hidden [mask-image:linear-gradient(180deg,#000_60%,transparent)]" : ""}`}>
-          {body.map((line, index) => <p key={index} className="m-0 font-noto text-[14px] leading-[1.7] text-muted [text-wrap:pretty]">{line}</p>)}
+          {body.map((line, index) => <p key={index} className={`m-0 font-noto text-[14px] leading-[1.7] [text-wrap:pretty] ${quote ? "text-ink" : "text-muted"}`}>{line}</p>)}
         </div>
       ) : null}
       {long ? (

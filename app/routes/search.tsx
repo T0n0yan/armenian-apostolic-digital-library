@@ -50,7 +50,7 @@ import { recordSearchAggregate } from "../data/search-analytics.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
-import { searchSuggestions } from "../utils/search-suggestions";
+import { SearchSuggestions } from "../components/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 
 function readDate(value: string | null) {
@@ -277,7 +277,7 @@ const SearchForm = memo(function SearchForm({
   return (
     <Form
       ref={formRef}
-      className="grid min-w-0 gap-3 frosted-panel p-3 shadow-glass"
+      className="relative z-30 grid min-w-0 gap-3 frosted-panel p-3 shadow-glass"
       method="get"
       role="search"
       onSubmit={handleSubmit}
@@ -286,7 +286,8 @@ const SearchForm = memo(function SearchForm({
       {filters.scope === "saved" ? (
         <input type="hidden" name="scope" value="saved" />
       ) : null}
-      <div className="flex min-h-[52px] w-full min-w-0 items-center gap-2.5 rounded-2xl border border-glass-border bg-control pl-[13px] text-faint">
+      <div className="relative flex min-h-[52px] w-full min-w-0 items-center gap-2.5 rounded-2xl border border-glass-border bg-control pl-[13px] text-faint">
+        <SearchSuggestions inputRef={inputRef} onPick={submitImmediately} />
         <SearchIcon aria-hidden="true" size={20} strokeWidth={1.9} />
         <input
           className="min-w-0 flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint"
@@ -294,16 +295,14 @@ const SearchForm = memo(function SearchForm({
           name="q"
           ref={inputRef}
           defaultValue={filters.query}
-          list="search-suggestions"
           placeholder="Օրինակ՝ առակ, Սուրբ Մարիամ, աղոթք…"
           aria-label="Որոնման բառեր"
           autoComplete="off"
           minLength={2}
           onInput={scheduleSubmit}
         />
-        <datalist id="search-suggestions">{searchSuggestions(categories.map((category) => category.name)).map((term) => <option key={term} value={term} />)}</datalist>
         {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
-        <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-4 font-[750] text-[#fffaf3] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
+        <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 font-[750] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
           {isSearching ? (
             <LoaderCircle className="animate-search-spin" aria-hidden="true" size={18} />
           ) : (
@@ -406,7 +405,6 @@ const SearchResults = memo(function SearchResults({
           material={material}
           allowNoteEditing={allowNoteEditing}
           variant={cardVariantFor(material)}
-          typicalType="poll"
           canSave={canSave}
           highlightQuery={highlightQuery}
           isSaved={savedIds.has(material.id)}
@@ -447,7 +445,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
   );
   const selectedTitle = filters.scope === "saved"
     ? "Իմ անկյունը"
-    : selectedCategory?.name ?? "Համապատասխան բաժիններ";
+    : selectedCategory?.name ?? "Որոնման արդյունքներ";
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" && navigation.location?.pathname === "/search";
   useEffect(() => {
@@ -572,7 +570,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
             {filters.categoryId && filters.query ? (
               <Link
-                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-4 py-2.5 text-[13px] font-[760] text-[#fffaf3] no-underline shadow-glass active:scale-[.985]"
+                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
                 prefetch="intent"
               >
@@ -583,11 +581,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ) : !filters.categoryId && filters.scope !== "saved" ? (
           <div className="grid gap-3">
             {telegramResults.length ? (
-              <section className="grid gap-2.5" aria-labelledby="telegram-search-results">
-                <div className={sectionHeader}>
-                  <h3 className={sectionTitle} id="telegram-search-results">Telegram նյութեր</h3>
-                  <span className={countBadge}>{telegramResults.length}</span>
-                </div>
+              <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
                 <SearchResults
                   canSave={loaderData.canSave}
                   allowNoteEditing={false}

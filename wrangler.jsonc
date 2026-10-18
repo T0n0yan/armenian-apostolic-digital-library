@@ -28,8 +28,10 @@
 	"env": {
 		"staging": {
 			"name": "armenian-apostolic-digital-library-staging",
-			// Starts the Telegram → cloud sync on GitHub every 30 minutes (workers/app.ts).
-			"triggers": { "crons": ["*/30 * * * *"] },
+			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
+			// cloud sync on GitHub (workers/app.ts).
+			"triggers": { "crons": ["* * * * *"] },
+			"vars": { "PUBLIC_URL": "https://armenian-apostolic-digital-library-staging.armenian-apostolic-digital-library.workers.dev" },
 			"d1_databases": [
 				{
 					"binding": "DB",

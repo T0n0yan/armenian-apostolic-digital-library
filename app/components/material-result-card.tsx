@@ -37,6 +37,7 @@ import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 import { useVideoPoster } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { ShareButton } from "./share-button";
+import { ReminderButton } from "./reminder-button";
 import { psalmNumber } from "../utils/psalm-number";
 import { calendarParts } from "../utils/daily-reading";
 import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant";
@@ -171,20 +172,21 @@ function highlightText(value: string, pattern: HighlightPattern | null) {
   );
 }
 
-function highlightHit(hit: BridgeSearchHit) {
-  const start = Math.max(0, Math.min(hit.snippet.length, hit.snippetMatchStart));
-  const end = Math.max(start, Math.min(hit.snippet.length, start + hit.snippetMatchLength));
-  return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
-}
+const HIT_LEAD_CHARACTERS = 48;
 
-function hitSourceLabel(source: BridgeSearchHit["source"]) {
-  const labels: Record<BridgeSearchHit["source"], string> = {
-    title: "Վերնագրից", content: "Նյութի տեքստից", caption: "Նկարագրությունից",
-    poll: "Հարցումից", location: "Տեղադրությունից", audio: "Աուդիոյից",
-    document: "Փաստաթղթից", topic: "Բաժնից", hashtag: "Պիտակից",
-    "personal-note": "Իմ նշումից",
-  };
-  return labels[source];
+function highlightHit(hit: BridgeSearchHit) {
+  let snippet = hit.snippet;
+  let start = Math.max(0, Math.min(snippet.length, hit.snippetMatchStart));
+  // Start the line shortly before the match, at a word, so the found words are always visible.
+  if (start > HIT_LEAD_CHARACTERS) {
+    const space = snippet.indexOf(" ", start - HIT_LEAD_CHARACTERS);
+    const cut = space >= 0 && space < start ? space + 1 : start - HIT_LEAD_CHARACTERS;
+    snippet = `…${snippet.slice(cut)}`;
+    start = start - cut + 1;
+  }
+  const end = Math.max(start, Math.min(snippet.length, start + hit.snippetMatchLength));
+  hit = { ...hit, snippet };
+  return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
 }
 
 type TelegramWindow = Window & {
@@ -305,7 +307,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} grid items-start gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : "min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]"}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
@@ -398,10 +400,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
           )}
           {material.searchHit && !(variant === "portrait" && material.searchHit.source === "title") ? (
-            <span className="grid gap-1 rounded-[10px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/6%)] px-2.5 py-2 text-[12px] leading-[1.5] text-muted">
-              <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-gold">{hitSourceLabel(material.searchHit.source)}</span>
-              <span className="line-clamp-3 overflow-hidden">{highlightHit(material.searchHit)}</span>
-            </span>
+            // The line where the words were found, with them highlighted.
+            <span className="line-clamp-3 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
           ) : excerpt || material.preview.performer || material.preview.locationSummary ? (
             <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
               {highlightText(excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
@@ -434,6 +434,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 fill={isSaved ? "currentColor" : "none"}
               />
             </button>
+          ) : null}
+          {canSave && isSaved ? (
+            <ReminderButton className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-faint`} materialId={material.id} title={material.title} />
           ) : null}
           {allowNoteEditing && isSaved ? (
             <button

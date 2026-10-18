@@ -315,13 +315,8 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
     const performer = /[\p{L}\p{N}]/u.test(performerText.replace(/[\u3164\u115F\u1160\uFFA0]/gu, "")) ? performerText : null;
     return (
       <div className="grid justify-items-center gap-4 frosted-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
-        {psalm ? (
-          // A psalm shows its number as a gold medallion instead of a generic icon.
-          <span className="relative grid size-[104px] place-items-center rounded-full border border-[rgb(217_181_111/45%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_235_190/22%),rgb(217_181_111/8%)_60%)] shadow-[inset_0_0_0_6px_rgb(217_181_111/8%),0_12px_30px_rgb(60_35_10/18%)]" aria-hidden="true">
-            <span className="absolute inset-[7px] rounded-full border border-dashed border-[rgb(217_181_111/35%)]" />
-            <span className="font-noto text-[40px] leading-none font-semibold text-gold-bright tabular-nums">{psalm}</span>
-          </span>
-        ) : (
+        {/* A psalm's title already names it ("Սաղմոս 3"); other audio gets a headphones mark. */}
+        {psalm ? null : (
           <span className="grid size-14 place-items-center rounded-full border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] text-gold-bright" aria-hidden="true"><Headphones size={24} strokeWidth={1.6} /></span>
         )}
         <div className="grid gap-1">

@@ -1,11 +1,14 @@
 import { createRequestHandler } from "react-router";
 
+import { sendDueReminders } from "../app/data/reminders.server";
+
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
   import.meta.env.MODE,
 );
 
 type SyncEnv = { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string };
+type ReminderEnv = { DB: D1Database; TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string };
 
 /**
  * GitHub skips many of its own scheduled runs (hours apart), so Cloudflare's cron starts the
@@ -30,13 +33,17 @@ async function dispatchCloudSync(env: SyncEnv) {
 }
 
 export default {
-  async scheduled(_controller, env, context) {
-    context.waitUntil(dispatchCloudSync(env as SyncEnv));
+  async scheduled(controller, env, context) {
+    const reminderEnv = env as unknown as ReminderEnv;
+    const token = reminderEnv.TELEGRAM_BOT_TOKEN?.trim();
+    if (token && reminderEnv.PUBLIC_URL) context.waitUntil(sendDueReminders(reminderEnv.DB, token, reminderEnv.PUBLIC_URL.replace(/\/$/u, "")));
+    // The cron fires every minute; the sync only needs to start every half hour.
+    if (new Date(controller.scheduledTime).getUTCMinutes() % 30 === 0) context.waitUntil(dispatchCloudSync(env as SyncEnv));
   },
   async fetch(request, _env, context) {
     const url = new URL(request.url);
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
-    const sharedJson = url.pathname === "/api/search-page" || url.pathname.startsWith("/api/categories/");
+    const sharedJson = url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
       && (sharedJson || !request.headers.has("cookie"))
       && !url.searchParams.has("refresh")
@@ -45,7 +52,8 @@ export default {
         || url.pathname.startsWith("/categories/")
         || url.pathname.startsWith("/materials/")
         || url.pathname.startsWith("/api/categories/")
-        || url.pathname === "/api/search-page");
+        || url.pathname === "/api/search-page"
+        || url.pathname === "/api/search-suggestions");
     if (!cacheable) return requestHandler(request);
     const cache = (caches as CacheStorage & { default: Cache }).default;
     // Cache by URL only, so a cookie never splits or leaks into the shared entry.

@@ -1421,7 +1421,8 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_101"/u);
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_104"/u);
   assert.equal((topicMatchHtml.match(/data-material-id=/gu) ?? []).length, 2);
-  assert.match(topicMatchHtml, /Նյութի տեքստից/u);
+  // The found line is shown on its own, without a "from the text" label.
+  assert.doesNotMatch(topicMatchHtml, /Նյութի տեքստից/u);
   assert.match(topicMatchHtml, /<mark[^>]*>խաղաղություն<\/mark>/iu);
   assert.doesNotMatch(topicMatchHtml, /href="\/materials\/[^"?]+\?q=/u);
 
@@ -1477,7 +1478,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   );
   const mergedDescriptionHtml = await mergedDescription.text();
   assert.equal((mergedDescriptionHtml.match(/data-material-id="material_tg_n100900_102"/gu) ?? []).length, 1);
-  assert.match(mergedDescriptionHtml, /Telegram նյութ/u);
+  assert.match(mergedDescriptionHtml, /Որոնման արդյունքներ/u);
   assert.match(mergedDescriptionHtml, /Իմ նշումից/u);
   // The snippet label says where a match is; per-field "matched in…" badges are no longer shown.
   assert.doesNotMatch(mergedDescriptionHtml, /Համընկնում՝ նկարագրության մեջ/u);
@@ -1494,7 +1495,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   );
   const duplicateSearchHtml = await duplicateSearch.text();
   assert.equal((duplicateSearchHtml.match(/data-material-id="material_tg_n100900_101"/gu) ?? []).length, 1);
-  assert.match(duplicateSearchHtml, /Telegram նյութ/u);
+  assert.match(duplicateSearchHtml, /Որոնման արդյունքներ/u);
   assert.match(duplicateSearchHtml, /Իմ նշումից/u);
   assert.ok(
     bridgeRequestPaths.every((path) => !decodeURIComponent(path).includes("Իմ օրինակ խաղաղություն նշումը") &&

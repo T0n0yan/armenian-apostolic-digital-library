@@ -194,15 +194,16 @@ export function TelegramRichMessage({ value, media, hit, title, ornateInitial = 
   return <section className="grid gap-4 frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} ornate={ornate} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
-export function FormattedTelegramText({ value, hit, from = 0, ornateInitial = false }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number; ornateInitial?: boolean }) {
-  if (!value.text || from >= value.text.length) return null;
+export function FormattedTelegramText({ value, hit, from = 0, to, ornateInitial = false }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number; to?: number; ornateInitial?: boolean }) {
+  const end = Math.min(to ?? value.text.length, value.text.length);
+  if (!value.text || from >= end) return null;
   const initial = ornateInitial ? firstLetterIndex(value.text, from) : -1;
   const entities = value.entities.filter((entity) =>
     entity.offset >= 0 && entity.length > 0 && entity.offset + entity.length <= value.text.length,
   );
   // Offsets stay absolute so entities and search hits still line up when a leading title is skipped.
-  const boundaries = [...new Set([from, value.text.length, ...(initial >= 0 ? [initial, initial + 1] : []), ...entities.flatMap((entity) => [entity.offset, entity.offset + entity.length])])]
-    .filter((boundary) => boundary >= from)
+  const boundaries = [...new Set([from, end, ...(initial >= 0 ? [initial, initial + 1] : []), ...entities.flatMap((entity) => [entity.offset, entity.offset + entity.length])])]
+    .filter((boundary) => boundary >= from && boundary <= end)
     .sort((left, right) => left - right);
 
   return (

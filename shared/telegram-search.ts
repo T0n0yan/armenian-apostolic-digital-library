@@ -332,7 +332,10 @@ function locateSearchHit(value: string, kind: SearchableTelegramFieldKind, block
   const directCandidates = [parsed.normalized, ...parsed.tokens].filter(Boolean).sort((a, b) => b.length - a.length);
   if (rank >= 3) {
     for (const candidate of directCandidates) {
-      const index = mapped.text.indexOf(candidate);
+      // Highlight where a word starts with the query; inside a word only for longer queries
+      // (the same rule the matching uses), so "սա" marks "Սաղմոս", not the middle of "Եսայի".
+      const atWord = ` ${mapped.text}`.indexOf(` ${candidate}`);
+      const index = atWord >= 0 ? atWord : Array.from(candidate).length >= 4 ? mapped.text.indexOf(candidate) : -1;
       if (index >= 0) { normalizedStart = index; normalizedLength = candidate.length; break; }
     }
   }

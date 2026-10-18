@@ -137,7 +137,6 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
             material={material}
             highlightQuery={query}
             variant={cardVariantFor(material)}
-            typicalType="poll"
             canSave
             isSaved={savedIds.has(material.id)}
             isSaving={isSaving && pendingMaterialId === material.id}

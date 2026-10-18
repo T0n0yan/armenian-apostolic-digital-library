@@ -3,18 +3,25 @@ import { useEffect, useState } from "react";
 const MAXIMUM_WAIT_MS = 9_000;
 // Intro on the first visit of a session: the unlit candle (0.7 s), a spark and the flame catching
 // (~0.9 s), then the light settles and welcomes the reader before the page opens (3.6 s at least,
-// so it is felt even on fast connections), and finally the light swells and the page shows through. The page keeps loading underneath meanwhile.
+// so it is felt even on fast connections), and finally the light swells from the flame over the
+// whole screen and lifts to show the page. The page keeps loading underneath meanwhile.
 const LIGHT_AT_MS = 700;
 const MINIMUM_VISIBLE_MS = 3_600;
-const EXIT_MS = 1_100;
+const EXIT_MS = 2_000;
 const SESSION_KEY = "library-loader-seen-v4";
 
 type Phase = "unlit" | "lit" | "hidden" | "removed";
 
 const styles = `
-.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity 1.1s ease .2s}
+.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .8s ease 1.1s}
 .candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
 .candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}
+/* The welcome: the flame's light swells from the wick until it fills the screen with the page's
+   own colour, then the curtain of light lifts. */
+.candle-loader__dawn{position:absolute;left:50%;top:58px;width:160px;height:160px;margin:-80px 0 0 -80px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,#fffaf0 0%,#ffe7b0 22%,var(--page-bg,#efe2c6) 58%,var(--page-bg,#efe2c6) 100%);
+  scale:0;opacity:0;transition:scale 1.5s cubic-bezier(.55,0,.25,1),opacity .5s ease}
+.candle-loader[data-phase="hidden"] .candle-loader__dawn{scale:16;opacity:1}
 .candle-loader__scene{position:relative;width:120px;height:170px;transform:scale(.9)}
 .candle-loader__light{position:absolute;left:50%;top:40px;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
   background:radial-gradient(circle,rgb(255 190 100/34%) 0%,rgb(255 150 60/14%) 22%,rgb(120 60 20/6%) 42%,transparent 62%);animation:candle-glow 3s ease-in-out infinite}
@@ -47,8 +54,8 @@ export function CandleLoader() {
     let seen = false;
     try { seen = sessionStorage.getItem(SESSION_KEY) === "1"; } catch { /* Storage may be blocked. */ }
     if (seen) {
-      setPhase("hidden");
-      later(() => setPhase("removed"), EXIT_MS);
+      // Later visits skip the intro; the light-flood exit is only for the first one.
+      setPhase("removed");
       return () => { active = false; timers.forEach(clearTimeout); };
     }
     const startedAt = performance.now();
@@ -79,6 +86,7 @@ export function CandleLoader() {
         <span className="candle-loader__light" />
         <span className="candle-loader__glow" />
         <span className="candle-loader__spark" />
+        <span className="candle-loader__dawn" />
         <svg className="candle-loader__flame" viewBox="0 0 18 34">
           <defs>
             <radialGradient id="candle-flame" cx="50%" cy="72%" r="60%">

@@ -16,7 +16,7 @@ import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
-import { searchSuggestions } from "../utils/search-suggestions";
+import { SearchSuggestions } from "./search-suggestions";
 import { HeaderSearchLink, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
@@ -84,7 +84,7 @@ export const SectionHeader = memo(function SectionHeader({
   title,
   description,
 }: SectionHeaderProps) {
-  const { cancelPending, formRef, scheduleSubmit } =
+  const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
     useDebouncedFormSubmit(320, 2);
   const inputRef = useSyncedQueryInput(query);
   const navigation = useNavigation();
@@ -129,7 +129,7 @@ export const SectionHeader = memo(function SectionHeader({
           {showSearch ? (
             <Form
               ref={formRef}
-              className="flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
+              className="relative z-30 flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
               action={searchAction}
               method="get"
               role="search"
@@ -137,20 +137,19 @@ export const SectionHeader = memo(function SectionHeader({
               aria-busy={isSearching || undefined}
             >
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
+              <SearchSuggestions inputRef={inputRef} onPick={submitImmediately} />
               <input
                 className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
                 type="search"
                 name="q"
                 ref={inputRef}
                 defaultValue={query}
-                list="section-search-suggestions"
                 placeholder={searchPlaceholder}
                 aria-label={searchLabel}
                 autoComplete="off"
                 minLength={2}
                 onInput={scheduleSubmit}
               />
-              <datalist id="section-search-suggestions">{searchSuggestions([title]).map((term) => <option key={term} value={term} />)}</datalist>
               {query ? (
                 <Link
                   className={`grid size-[32px] shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright ${focusRing}`}

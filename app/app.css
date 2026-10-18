@@ -32,6 +32,15 @@
   font-display: swap;
 }
 
+/* Arian Grqi by Ruben Tarumian, free to use and distribute; licence in assets/fonts/ArianGrqi-License.txt. */
+@font-face {
+  font-family: "Arian Grqi";
+  src: url("./assets/fonts/ArianGrqi-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Trchnatar Birds Color";
   src: url("./assets/fonts/Trchnatar.woff2") format("woff2");
@@ -63,6 +72,7 @@
     "Noto Color Emoji";
   --font-noto: "Noto Serif Armenian", Georgia, serif;
   --font-trchnatar: "Trchnatar Birds Color", "Noto Serif Armenian", serif;
+  --font-book: "Arian Grqi", "Noto Serif Armenian", Georgia, serif;
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
@@ -391,9 +401,8 @@ html[data-tg-fullscreen="true"] body::before {
   background: linear-gradient(to bottom, var(--page-bg) 55%, transparent);
 }
 
-/* Prayers, psalms, saints' lives and daily readings read like a printed prayer book: Noto Serif
-   Armenian at book weight with generous leading, so the bird-letter initial sits in matching type. */
-.sacred-text :is(p, li, blockquote, figcaption) {
+/* Saints' lives and daily readings read in Noto Serif Armenian at book weight and leading. */
+.sacred-text :is(p, li, blockquote, figcaption, #telegram-formatted-text) {
   font-family: var(--font-noto);
   font-weight: 400;
   line-height: 1.9;
@@ -402,3 +411,26 @@ html[data-tg-fullscreen="true"] body::before {
   font-feature-settings: "kern", "liga";
 }
 .sacred-text :is(strong, b) { font-weight: 600; }
+
+/* Prayers and psalms read like a printed prayer book, in Arian Grqi (the bird-letter initial keeps
+   its own face). Arian has one weight, so bold is synthesized. */
+.prayer-text :is(p, li, blockquote, figcaption, #telegram-formatted-text), .prayer-intro :is(p, h3) {
+  font-family: var(--font-book);
+  font-weight: 400;
+  font-size: 1.08em;
+  line-height: 1.85;
+  letter-spacing: .01em;
+  text-wrap: pretty;
+  font-synthesis: weight style;
+}
+/* A psalm's superscription ("Սաղմոս Դաւթի, երբ…") stands apart from the verses. */
+.psalm-text .psalm-superscription { font-style: italic; font-size: .95em; color: var(--gold); }
+.psalm-text section > p:first-of-type {
+  margin-bottom: .35em !important;
+  padding-bottom: .9em;
+  border-bottom: 1px solid rgb(217 181 111 / 32%);
+  text-align: center;
+  font-style: italic;
+  font-size: .95em;
+  color: var(--gold);
+}
