@@ -1,54 +1,17 @@
-import {
-  Bird,
-  BookOpenCheck,
-  BookOpenText,
-  CalendarDays,
-  HandHeart,
-  type LucideProps,
-  Sparkles,
-} from "lucide-react";
+import { type LucideProps, Sparkles } from "lucide-react";
 import { memo } from "react";
+
+import { BooksIcon, CalendarIcon, DoveIcon, LyreIcon, PrayerIcon, QuestionBookIcon } from "./topic-icons";
 
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
-function HarpIcon({ size = 22, strokeWidth = 1.8, ...props }: LucideProps) {
-  const outlineWidth = Number(strokeWidth) * 9;
-
-  return (
-    <svg
-        version="1.0"
-        viewBox="0 0 512.000000 512.000000"
-        preserveAspectRatio="xMidYMid meet"
-        {...props}
-        aria-hidden="true"
-        width={size}
-        height={size}
-    >
-        <g
-          transform="translate(0.000000,512.000000) scale(0.100000,-0.100000)"
-          fill="currentColor"
-          stroke="currentColor"
-          strokeWidth={outlineWidth}
-          strokeLinejoin="round"
-          paintOrder="stroke fill"
-        >
-            <path
-                d="M893 5100 c-121 -40 -226 -143 -273 -268 -65 -171 32 -400 203 -478 108 -50 238 -35 339 38 9 7 19 10 22 7 3 -3 10 -37 16 -76 29 -209 -91 -599 -371 -1199 -178 -384 -253 -567 -309 -761 -114 -388 -118 -745 -15 -1033 115 -318 382 -615 763 -849 l99 -61 -5 -88 c-8 -149 39 -250 142 -305 l41 -22 1015 0 c984 0 1016 1 1054 19 50 25 97 72 122 122 15 31 19 63 21 157 l1 118 99 60 c354 216 620 501 739 793 68 166 86 260 91 466 6 214 -8 334 -62 547 -56 216 -139 426 -345 868 -161 347 -263 613 -327 856 -22 87 -27 126 -27 236 -1 156 4 166 60 130 211 -137 485 2 534 271 21 117 -18 238 -108 334 -80 86 -198 138 -311 138 -77 0 -202 -33 -270 -71 -199 -112 -368 -365 -412 -616 l-11 -63 -849 0 -849 0 0 23 c0 52 -44 199 -84 282 -72 148 -199 295 -310 360 -134 78 -303 104 -423 65z m199 -161 c69 -15 158 -60 210 -107 64 -57 152 -182 186 -264 84 -202 83 -450 -2 -758 -49 -180 -109 -339 -251 -668 -203 -473 -263 -680 -272 -942 -13 -372 103 -701 331 -934 202 -206 568 -357 965 -396 133 -13 465 -13 606 0 370 35 727 175 934 366 254 234 399 647 361 1027 -25 252 -83 439 -285 912 -149 349 -202 492 -250 681 -54 208 -67 384 -40 540 49 277 246 509 466 546 82 14 156 -5 216 -57 131 -112 105 -315 -51 -380 -65 -27 -129 -4 -206 76 -56 58 -91 64 -138 24 -38 -31 -97 -145 -111 -213 -38 -184 11 -439 161 -836 59 -155 102 -254 297 -679 151 -331 233 -562 278 -792 13 -68 17 -139 17 -295 0 -192 -2 -212 -27 -305 -35 -128 -118 -297 -201 -406 -121 -160 -318 -330 -534 -460 l-103 -62 -37 19 c-36 18 -74 19 -1034 22 -889 2 -1001 1 -1040 -13 -24 -9 -50 -18 -58 -21 -8 -2 -64 26 -123 64 -444 279 -686 595 -742 969 -53 349 34 727 295 1293 181 391 231 506 288 655 152 403 201 641 169 822 -18 95 -63 189 -115 234 -48 43 -93 36 -141 -21 -59 -71 -143 -102 -207 -75 -53 22 -83 51 -110 110 -61 130 5 268 155 321 45 16 76 17 143 3z m2312 -800 c3 -34 6 -73 6 -85 l0 -24 -851 0 -852 0 7 38 c3 20 6 58 6 85 l0 47 839 0 838 0 7 -61z m-1614 -1629 c0 -987 -3 -1350 -11 -1350 -6 0 -65 28 -132 62 -230 119 -380 301 -461 558 -57 181 -70 385 -37 582 35 202 94 368 289 818 92 212 158 391 202 546 18 60 33 115 35 122 3 8 24 12 60 12 l55 0 0 -1350z m340 -50 l0 -1401 -36 7 c-20 4 -57 12 -83 18 l-46 12 -3 1382 -2 1382 85 0 85 0 0 -1400z m348 -17 l2 -1413 -52 0 c-29 0 -70 3 -90 6 l-38 7 0 1402 c0 771 3 1405 7 1409 4 4 43 5 88 4 l80 -3 3 -1412z m342 8 l0 -1408 -37 -7 c-21 -3 -59 -6 -85 -6 l-48 0 0 1415 0 1415 85 0 85 0 0 -1409z m338 27 l-3 -1382 -45 -11 c-25 -6 -62 -14 -82 -18 l-38 -6 0 1400 0 1399 85 0 85 0 -2 -1382z m319 1269 c46 -165 110 -337 243 -647 149 -347 184 -442 227 -610 32 -122 36 -152 40 -305 4 -146 2 -184 -16 -273 -54 -262 -175 -471 -349 -602 -65 -48 -254 -150 -279 -150 -10 0 -13 275 -13 1343 0 739 3 1347 7 1350 3 4 29 7 58 7 l51 0 31 -113z m84 -3346 c27 -27 29 -35 29 -101 0 -66 -2 -74 -29 -101 l-30 -29 -975 2 -975 3 -23 22 c-18 18 -23 36 -26 90 -3 76 10 111 48 130 20 10 236 13 988 13 l964 0 29 -29z"/>
-            <path d="M797 1610 c-64 -51 -31 -149 51 -150 84 0 115 117 41 155 -38 20 -62 19 -92 -5z"/>
-            <path
-                d="M937 1360 c-32 -26 -41 -62 -23 -102 22 -51 137 -187 233 -278 94 -87 267 -210 296 -210 26 0 74 27 81 45 21 56 1 96 -70 141 -127 81 -265 212 -367 348 -58 78 -102 94 -150 56z"/>
-        </g>
-    </svg>
-  );
-}
-
 const categoryIcons: Record<string, React.ComponentType<LucideProps>> = {
-  category_saints_lives: Bird,
-  category_gospel_teachings: BookOpenText,
-  category_psalms: HarpIcon,
-  category_daily_readings: CalendarDays,
-  category_bible_questions: BookOpenCheck,
-  category_prayers: HandHeart,
+  category_saints_lives: DoveIcon as React.ComponentType<LucideProps>,
+  category_gospel_teachings: BooksIcon as React.ComponentType<LucideProps>,
+  category_psalms: LyreIcon as React.ComponentType<LucideProps>,
+  category_daily_readings: CalendarIcon as React.ComponentType<LucideProps>,
+  category_bible_questions: QuestionBookIcon as React.ComponentType<LucideProps>,
+  category_prayers: PrayerIcon as React.ComponentType<LucideProps>,
 };
 
 export const CategoryIcon = memo(function CategoryIcon({

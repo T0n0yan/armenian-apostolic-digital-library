@@ -2,7 +2,7 @@ import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Pau
 import { memo, useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import type { MaterialMedia } from "../data/material-detail.server";
-import { isNearlyBlackImage } from "../utils/image-darkness";
+import { useVideoPoster } from "../utils/video-frame";
 import { isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
 
 function durationLabel(seconds: number | null) {
@@ -134,16 +134,9 @@ function AudioControls({ elementRef, state, fallbackDuration }: {
 function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "audio" | "video"; ratio?: string }) {
   const elementRef = useRef<HTMLMediaElement | null>(null);
   const [state, setState] = useState<MediaPlaybackState>("initial");
-  // Skip posters that are an all-black first frame; the styled background reads better.
-  const [poster, setPoster] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    if (kind !== "video" || !asset.thumbnailUrl) return;
-    let active = true;
-    const image = new Image();
-    image.onload = () => { if (active && !isNearlyBlackImage(image)) setPoster(asset.thumbnailUrl ?? undefined); };
-    image.src = asset.thumbnailUrl;
-    return () => { active = false; };
-  }, [asset.thumbnailUrl, kind]);
+  // Posters come from inside the video when its first frame is black (fade-in).
+  const { poster: capturedPoster, ref: posterRef } = useVideoPoster(kind === "video" ? asset.url : null, kind === "video" ? asset.thumbnailUrl : null);
+  const poster = capturedPoster ?? undefined;
   const ref = useCallback((element: HTMLMediaElement | null) => { elementRef.current = element; }, []);
   const updateFromCanPlay = (event: SyntheticEvent<HTMLMediaElement>) => {
     const paused = event.currentTarget.paused;
@@ -201,7 +194,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   };
 
   return (
-    <div className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
+    <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
       {kind === "video" ? (
         <video
           {...common}
@@ -317,11 +310,20 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
 
   if (asset.kind === "audio" || asset.kind === "voice") {
     // Telegram metadata can hold only invisible characters (soft hyphen, zero-width space).
+    const psalm = /սաղմոս\S*\s*(\d{1,3})/iu.exec(asset.title ?? "")?.[1] ?? null;
     const performerText = asset.performer?.trim() ?? "";
     const performer = /[\p{L}\p{N}]/u.test(performerText.replace(/[\u3164\u115F\u1160\uFFA0]/gu, "")) ? performerText : null;
     return (
       <div className="grid justify-items-center gap-4 frosted-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
-        <span className="grid size-14 place-items-center rounded-full border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] text-gold-bright" aria-hidden="true"><Headphones size={24} strokeWidth={1.6} /></span>
+        {psalm ? (
+          // A psalm shows its number as a gold medallion instead of a generic icon.
+          <span className="relative grid size-[104px] place-items-center rounded-full border border-[rgb(217_181_111/45%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_235_190/22%),rgb(217_181_111/8%)_60%)] shadow-[inset_0_0_0_6px_rgb(217_181_111/8%),0_12px_30px_rgb(60_35_10/18%)]" aria-hidden="true">
+            <span className="absolute inset-[7px] rounded-full border border-dashed border-[rgb(217_181_111/35%)]" />
+            <span className="font-noto text-[40px] leading-none font-semibold text-gold-bright tabular-nums">{psalm}</span>
+          </span>
+        ) : (
+          <span className="grid size-14 place-items-center rounded-full border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] text-gold-bright" aria-hidden="true"><Headphones size={24} strokeWidth={1.6} /></span>
+        )}
         <div className="grid gap-1">
           <strong className="font-noto text-[19px] leading-tight font-semibold text-gold-bright">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</strong>
           {performer || durationLabel(asset.duration) ? (

@@ -6,6 +6,7 @@ import type { PublicMaterial } from "../data/materials.server";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { psalmNumber } from "../utils/psalm-number";
 import { calendarParts } from "../utils/daily-reading";
+import { stripZeroWidth } from "../utils/text";
 
 type CardMaterial = Pick<PublicMaterial, "id" | "title" | "excerpt" | "preview">;
 
@@ -86,8 +87,10 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
 
 /** A topic's introduction post, shown as plain text above its grid: not a link, no actions. */
 export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial }) {
-  const title = material.title.replace(/[​-‍﻿]/gu, "").trim();
-  const excerpt = material.excerpt?.replace(/[​-‍﻿]/gu, "").trim() ?? "";
+  // Emoji decorations (🕊) are dropped so every intro reads the same.
+  const clean = (value: string) => stripZeroWidth(value).replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").replace(/\s{2,}/gu, " ").trim();
+  const title = clean(material.title);
+  const excerpt = clean(material.excerpt ?? "");
   const body = excerpt.startsWith(title) ? excerpt.slice(title.length).replace(/^[\s.,:;։՝-]+/u, "") : excerpt;
   return (
     <section className="frosted-panel grid gap-1.5 px-5 py-4 text-center">
@@ -114,26 +117,31 @@ export const DailyReadingCard = memo(function DailyReadingCard({ material }: { m
     <li>
       <Link className={`frosted-card grid overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath} prefetch="intent">
         {image ? (
-          <span className="relative block aspect-[16/7] overflow-hidden" aria-hidden="true">
-            <img className="h-full w-full object-cover" src={image} alt="" loading="lazy" decoding="async" />
+          // The picture's top (the day's verse) matters most, so crop from the bottom.
+          <span className="relative block aspect-[16/9] overflow-hidden" aria-hidden="true">
+            <img className="h-full w-full object-cover object-top" src={image} alt="" loading="lazy" decoding="async" />
           </span>
         ) : null}
-        <span className="grid grid-cols-[72px_1fr] gap-3.5 p-4">
-          <span className="grid h-[76px] content-center justify-items-center self-start rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
-            <span className="font-noto text-[28px] leading-none font-semibold text-gold-bright tabular-nums">{parts?.day ?? "•"}</span>
-            <span className="mt-1.5 max-w-full truncate px-1 text-[10px] font-semibold text-muted">{parts?.month ?? ""}</span>
+        <span className="grid gap-3 p-4">
+          <span className="grid grid-cols-[78px_1fr] items-center gap-3.5">
+            <span className="grid h-[68px] content-center justify-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+              <span className="font-noto text-[26px] leading-none font-semibold text-gold-bright tabular-nums">{parts?.day ?? "•"}</span>
+              <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] tracking-[-0.1px] font-semibold text-muted">{parts?.month ?? ""}</span>
+            </span>
+            <span className="grid min-w-0 gap-1">
+              <span className="text-[11px] font-semibold tracking-[0.4px] text-gold uppercase">{parts?.weekday ?? material.title}</span>
+              {daily?.feast
+                ? <strong className="font-noto text-[14px] leading-[1.35] font-semibold text-ink [overflow-wrap:anywhere]">{daily.feast}</strong>
+                : <strong className="font-noto text-[14px] leading-[1.35] font-semibold text-ink">Օրվա ընթերցումներ</strong>}
+            </span>
           </span>
-          <span className="grid min-w-0 content-start gap-1.5 pt-1">
-            <span className="text-[11px] font-semibold tracking-[0.4px] text-gold uppercase">{parts?.weekday ?? material.title}</span>
-            {daily?.feast ? <strong className="font-noto text-[14.5px] leading-[1.35] font-semibold text-ink [overflow-wrap:anywhere]">{daily.feast}</strong> : null}
-            {daily?.readings.length ? (
-              <span className="mt-0.5 flex flex-wrap gap-1.5">
-                {daily.readings.slice(0, 4).map((reading) => (
-                  <span className="rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-2 py-0.5 text-[11px] text-muted" key={reading}>{reading}</span>
-                ))}
-              </span>
-            ) : !daily?.feast ? <span className="text-[13px] text-muted">{material.excerpt}</span> : null}
-          </span>
+          {daily?.readings.length ? (
+            <span className="flex flex-wrap gap-1.5">
+              {daily.readings.map((reading) => (
+                <span className="rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-2.5 py-1 text-[11.5px] text-muted" key={reading}>{reading}</span>
+              ))}
+            </span>
+          ) : material.excerpt ? <span className="line-clamp-2 text-[13px] text-muted">{material.excerpt}</span> : null}
         </span>
       </Link>
     </li>

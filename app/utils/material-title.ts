@@ -1,23 +1,17 @@
-import type { BridgeRichContent, BridgeRichInline } from "../../shared/telegram-bridge-contract";
+import type { BridgeRichContent } from "../../shared/telegram-bridge-contract";
+import { richInlineText, stripZeroWidth } from "./text";
 
 function comparableTitle(value: string) {
-  return value.normalize("NFC").replace(/[\u200B-\u200D\uFEFF]/gu, "").replace(/\s+/gu, " ").trim().toLocaleLowerCase("hy");
+  return stripZeroWidth(value.normalize("NFC")).replace(/\s+/gu, " ").trim().toLocaleLowerCase("hy");
 }
 
-function plainInline(nodes: BridgeRichInline[]): string {
-  return nodes.map((node) => node.type === "text" ? node.text
-    : node.type === "line-break" ? " "
-    : node.type === "custom-emoji" ? node.alt
-    : node.type === "unsupported" ? ""
-    : plainInline(node.children)).join("");
-}
 
 /** True when the first rich block only repeats the page title already shown in the header. */
 export function richContentStartsWithTitle(value: BridgeRichContent, title: string) {
   const first = value.blocks[0];
   if (!first || (first.type !== "heading" && first.type !== "paragraph")) return false;
   const expected = comparableTitle(title);
-  return expected.length > 0 && comparableTitle(plainInline(first.content)) === expected;
+  return expected.length > 0 && comparableTitle(richInlineText(first.content)) === expected;
 }
 
 /**

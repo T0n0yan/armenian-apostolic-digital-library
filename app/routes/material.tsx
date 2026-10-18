@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, ExternalLink, Tag } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { isRouteErrorResponse, Link, useLocation } from "react-router";
 
@@ -20,6 +20,7 @@ import { PageHeader, PageShell, RouteErrorState } from "../components/page-layou
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
+import { findPsalmNeighbors } from "../data/psalm-neighbors.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 
@@ -32,8 +33,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     getOptionalTelegramUser(request),
   ]);
   if (!material) throw new Response("Not Found", { status: 404 });
-  const savedIds = user ? await listSavedMaterialIds(env.DB, user.id) : [];
-  return { material, canSave: Boolean(user), savedIds };
+  const isPsalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms";
+  const [savedIds, psalm] = await Promise.all([
+    user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
+    isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
+  ]);
+  return { material, canSave: Boolean(user), savedIds, psalm };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -107,6 +112,21 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
+        {loaderData.psalm ? (
+          <nav className="grid grid-cols-2 gap-2.5" aria-label="Այլ սաղմոսներ">
+            {loaderData.psalm.previous ? (
+              <Link className="frosted-card flex min-h-14 items-center gap-2 px-4 text-[13px] font-semibold text-gold-bright no-underline" to={`/materials/${loaderData.psalm.previous.id}`} prefetch="intent">
+                <ChevronLeft aria-hidden="true" size={18} /> Սաղմոս {loaderData.psalm.previous.number}
+              </Link>
+            ) : <span />}
+            {loaderData.psalm.next ? (
+              <Link className="frosted-card flex min-h-14 items-center justify-end gap-2 px-4 text-[13px] font-semibold text-gold-bright no-underline" to={`/materials/${loaderData.psalm.next.id}`} prefetch="intent">
+                Սաղմոս {loaderData.psalm.next.number} <ChevronRight aria-hidden="true" size={18} />
+              </Link>
+            ) : <span />}
+          </nav>
+        ) : null}
+
         <div className="flex flex-wrap gap-2.5">
           {loaderData.canSave ? (
             <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright" type="button" disabled={isSaving} onClick={toggleSaved}>
@@ -115,7 +135,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             </button>
           ) : null}
           <a className="inline-flex min-h-11 items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-muted no-underline hover:text-gold-bright" href={material.telegramUrl} target="_blank" rel="noreferrer">
-            <ExternalLink aria-hidden="true" size={17} /> Բացել սկզբնականը Telegram-ում
+            <ExternalLink aria-hidden="true" size={17} /> Բացել Telegram-ում
           </a>
           <ShareButton
             className="grid size-11 cursor-pointer place-items-center rounded-[13px] border border-glass-border bg-subtle text-gold-bright"
@@ -123,7 +143,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             text={material.title}
             url={material.telegramUrl}
             pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
-            menuAlign="left"
           />
         </div>
       </article>

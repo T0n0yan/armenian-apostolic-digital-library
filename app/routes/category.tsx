@@ -20,7 +20,7 @@ import { DailyReadingCard, PsalmGrid, SaintGrid, TopicIntro } from "../component
 import { psalmNumber } from "../utils/psalm-number";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
-import { listPublicMaterialPageByCategory } from "../data/materials.server";
+import { getTopicIntro, listPublicMaterialPageByCategory } from "../data/materials.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
 import type { SearchFilters, SearchMaterial } from "../data/search-materials";
 import { searchMaterials } from "../data/search-materials.server";
@@ -102,10 +102,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
-  const materials = materialResult.materials;
+  // Grid and question topics show their introduction post as a header (it is their oldest post,
+  // so on paged feeds it would otherwise only appear at the very end).
+  const layout = categoryLayout(category);
+  const intro = !query && (layout === "psalm-grid" || layout === "portrait" || layout === "text")
+    ? await getTopicIntro(env.DB, category.id).catch(() => null)
+    : null;
+  const materials = intro ? materialResult.materials.filter((material) => material.id !== intro.id) : materialResult.materials;
 
   return {
     category,
+    intro,
     materials,
     query,
     total: materialResult.total,
@@ -156,7 +163,8 @@ const MaterialsList = memo(function MaterialsList({
   const gridItems = isGridItem ? materials.filter(isGridItem) : [];
   const listItems = isGridItem ? materials.filter((material) => !isGridItem(material)) : materials;
   const listVariant = isGridItem ? "text" : layout === "text" || layout === "video" ? layout : "default";
-  const typicalType = layout === "text" && materials.length > 0 && materials.every((material) => material.contentType === "poll") ? "poll" : undefined;
+  const polls = materials.filter((material) => material.contentType === "poll").length;
+  const typicalType = layout === "text" && polls > 0 && polls >= materials.length / 2 ? "poll" : undefined;
 
   const list = listItems.length > 0 ? (
     <ol className="m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2">
@@ -186,7 +194,7 @@ const MaterialsList = memo(function MaterialsList({
   if (!isGridItem) return list;
   return (
     <div className="grid gap-3">
-      {listItems.map((material) => <TopicIntro key={material.id} material={material} />)}
+      {listItems.length > 0 ? list : null}
       {gridItems.length > 0 ? layout === "psalm-grid" ? <PsalmGrid materials={gridItems} /> : <SaintGrid materials={gridItems} /> : null}
     </div>
   );
@@ -257,7 +265,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         if (requestedKey !== stateKeyRef.current || controller.signal.aborted) return;
         setMaterials((current) => {
           const byId = new Map(current.map((material) => [material.id, material]));
-          for (const material of data.materials) byId.set(material.id, material);
+          for (const material of data.materials) if (material.id !== loaderData.intro?.id) byId.set(material.id, material);
           return [...byId.values()];
         });
         setNextCursor(data.nextCursor && data.nextCursor !== requestedCursorRef.current ? data.nextCursor : null);
@@ -287,6 +295,8 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         searchLabel={`${category.name} բաժնում որոնում`}
         searchPlaceholder={searchPlaceholder}
       />
+
+      {loaderData.intro && !loaderData.query ? <div className="mb-4"><TopicIntro material={loaderData.intro} /></div> : null}
 
       <section className="grid gap-[11px]" aria-labelledby="category-materials-title">
         <div className={sectionHeader}>

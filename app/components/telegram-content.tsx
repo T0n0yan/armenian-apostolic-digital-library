@@ -14,6 +14,7 @@ import type {
 import type { MaterialMedia } from "../data/material-detail.server";
 import { MaterialMediaItem } from "./material-media";
 import { isPsalmLabel, richContentStartsWithTitle } from "../utils/material-title";
+import { richInlineText } from "../utils/text";
 
 function safeHref(value: string | null) {
   if (!value) return null;
@@ -91,9 +92,6 @@ function TimestampText({ text }: { text: string }) {
   return <>{parts}</>;
 }
 
-function plainInlineText(nodes: BridgeRichInline[]): string {
-  return nodes.map((node) => node.type === "text" ? node.text : node.type === "custom-emoji" ? node.alt : node.type === "line-break" || node.type === "unsupported" ? "" : plainInlineText(node.children)).join("");
-}
 
 /** Index of the first letter in `text` at or after `from`, skipping spaces, zero-width marks and quotes. */
 function firstLetterIndex(text: string, from = 0) {
@@ -154,7 +152,7 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
     // Skip by rendering nothing so block IDs, which search hits point at, keep their indexes.
     if (skipFirst && index === 0) return null;
     // "(Սաղմոս 3)" only repeats the number shown above the player.
-    if (block.type === "paragraph" && index < 4 && isPsalmLabel(plainInlineText(block.content))) return null;
+    if (block.type === "paragraph" && index < 4 && isPsalmLabel(richInlineText(block.content))) return null;
     const key = `${block.type}-${index}`;
     const blockId = `${prefix}-${index}`;
     const blockHit = hit?.blockId === blockId ? hit : undefined;
@@ -177,7 +175,7 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
     }
     if (block.type === "list") {
       const List = block.ordered ? "ol" : "ul";
-      return <List className="m-0 grid gap-2 pl-6" start={block.ordered ? block.start ?? undefined : undefined} key={key}>{block.items.map((item, itemIndex) => <li className="pl-1" key={`${key}-${itemIndex}`}><div className="grid gap-2"><RichBlocks blocks={item} media={media} hit={hit} prefix={`${blockId}-${itemIndex}`} /></div></li>)}</List>;
+      return <List className={`m-0 grid gap-1.5 pl-6 marker:text-gold ${block.ordered ? "list-decimal" : "list-disc"}`} start={block.ordered ? block.start ?? undefined : undefined} key={key}>{block.items.map((item, itemIndex) => <li className="pl-1" key={`${key}-${itemIndex}`}><div className="grid gap-2"><RichBlocks blocks={item} media={media} hit={hit} prefix={`${blockId}-${itemIndex}`} /></div></li>)}</List>;
     }
     if (block.type === "blockquote") {
       const captionId = `${blockId}-caption`;

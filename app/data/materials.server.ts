@@ -119,3 +119,15 @@ export async function listPublicMaterialPageByCategory(
     nextCursor: page.nextCursor,
   };
 }
+
+/**
+ * A topic's introduction: its very first post, when that is plain text (no media, no poll). It is
+ * shown as a header above the topic's cards instead of as one of them.
+ */
+export async function getTopicIntro(database: D1Database, categoryId: string): Promise<PublicMaterial | null> {
+  const category = (await listCloudLibraryCategories(database)).find((item) => item.id === categoryId);
+  if (!category) return null;
+  const page = await listCloudLibraryCategoryPosts(database, category.slug, null, 1, "asc");
+  const first = page.posts[0];
+  return first && first.contentType === "text" && first.media.length === 0 ? bridgePostToPublic(first) : null;
+}

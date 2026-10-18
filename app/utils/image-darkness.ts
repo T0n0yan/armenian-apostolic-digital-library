@@ -13,10 +13,15 @@ export function isNearlyBlackImage(image: HTMLImageElement) {
     context.drawImage(image, 0, 0, 16, 16);
     const { data } = context.getImageData(0, 0, 16, 16);
     let total = 0;
+    let lit = 0;
     for (let index = 0; index < data.length; index += 4) {
-      total += 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+      const luminance = 0.2126 * data[index] + 0.7152 * data[index + 1] + 0.0722 * data[index + 2];
+      total += luminance;
+      if (luminance > 48) lit += 1;
     }
-    return total / (data.length / 4) < 18;
+    const pixels = data.length / 4;
+    // Dark overall, or black with only a few faint marks (a caption fading in over black).
+    return total / pixels < 18 || lit / pixels < 0.05;
   } catch {
     return false;
   }
