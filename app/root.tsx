@@ -20,7 +20,6 @@ import {listActiveCategories} from "./data/categories.server";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
-import { SharePrompt } from "./components/share-button";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -281,7 +280,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <Outlet />
     <CandleLoader />
     <InstallPrompt />
-    <SharePrompt />
   </>;
 }
 

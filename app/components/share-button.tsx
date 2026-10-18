@@ -6,13 +6,10 @@ type TelegramShareWindow = Window & {
   Telegram?: {
     WebApp?: {
       initData?: string;
-      openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+      openTelegramLink?: (url: string) => void;
     };
   };
 };
-
-/** Query parameter that asks a page opened from the Mini App to offer the system share sheet. */
-const SHARE_PARAM = "share";
 
 type ShareButtonProps = {
   title: string;
@@ -20,7 +17,7 @@ type ShareButtonProps = {
   text: string;
   /** Link that recipients open (the Telegram post). */
   url: string;
-  /** This page in the library, opened in Telegram's browser where its share sheet works. */
+  /** This page in the library (kept for callers; sharing sends the Telegram post). */
   pageUrl: string;
   className: string;
 };
@@ -55,17 +52,6 @@ async function systemShare(data: ShareData) {
     if (!(error instanceof DOMException && error.name === "AbortError")) return false;
   }
   return true;
-}
-
-/** Only Telegram post links may be shared through the page's query string. */
-function shareableTelegramUrl(value: string | null) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && url.hostname === "t.me" ? url.toString() : null;
-  } catch {
-    return null;
-  }
 }
 
 function useCopied() {
@@ -104,26 +90,26 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 /**
- * Shares through the phone's own share sheet (Android Quick Share, iOS share sheet). Telegram's
- * Mini App WebView on Android has no share sheet, but Telegram's in-app browser does; there the
- * button reopens this page in that browser, which offers the sheet with one more tap
- * (<SharePrompt>). Elsewhere without a share sheet, the link is copied.
+ * Inside the Mini App, opens Telegram's own "send to a chat" picker in one tap (Telegram's
+ * Android Mini App WebView offers no system share sheet). In a browser, opens the phone's share
+ * sheet (Android Quick Share, iOS share sheet); without one, the link is copied.
  */
-export function ShareButton({ title, text, url, pageUrl, className }: ShareButtonProps) {
+export function ShareButton({ title, text, url, className }: ShareButtonProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, markCopied] = useCopied();
 
   const share = useCallback(async () => {
-    if (await systemShare({ title, text, url })) return;
     const webApp = telegramWebApp();
-    if (webApp?.initData && webApp.openLink) {
-      const target = new URL(pageUrl, window.location.origin);
-      target.searchParams.set(SHARE_PARAM, url);
-      webApp.openLink(target.toString(), { try_instant_view: false });
+    if (webApp?.initData && webApp.openTelegramLink) {
+      const picker = new URL("https://t.me/share/url");
+      picker.searchParams.set("url", url);
+      if (text) picker.searchParams.set("text", text);
+      webApp.openTelegramLink(picker.toString());
       return;
     }
+    if (await systemShare({ title, text, url })) return;
     setSheetOpen(true);
-  }, [pageUrl, text, title, url]);
+  }, [text, title, url]);
 
   const close = useCallback(() => setSheetOpen(false), []);
   const copyLink = async () => {
@@ -143,47 +129,5 @@ export function ShareButton({ title, text, url, pageUrl, className }: ShareButto
         </Sheet>
       ) : null}
     </>
-  );
-}
-
-/**
- * On a page the Mini App opened for sharing (`?share=<post link>`), offers the share sheet right
- * away. Browsers open it only from a tap, so this shows one big button for it.
- */
-export function SharePrompt() {
-  const [target, setTarget] = useState<string | null>(null);
-  const [copied, markCopied] = useCopied();
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const shareUrl = shareableTelegramUrl(params.get(SHARE_PARAM));
-    if (!shareUrl) return;
-    setTarget(shareUrl);
-    // Drop the parameter so reloading or sharing this page doesn't prompt again.
-    params.delete(SHARE_PARAM);
-    const query = params.toString();
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
-  }, []);
-
-  const close = useCallback(() => setTarget(null), []);
-  if (!target) return null;
-  const title = document.title.split(" — ")[0] || document.title;
-  const canShare = typeof navigator.share === "function";
-  return (
-    <Sheet title={title} onClose={close}>
-      {canShare ? (
-        <button
-          className="flex min-h-14 w-full cursor-pointer items-center justify-center gap-2.5 rounded-[16px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/20%)] text-[15px] font-bold text-gold-bright"
-          type="button"
-          onClick={async () => { if (await systemShare({ title, url: target })) close(); }}
-        >
-          <Share2 aria-hidden="true" size={19} /> Կիսվել
-        </button>
-      ) : null}
-      <button className={sheetItem} type="button" onClick={async () => { await copyText(target); markCopied(); }}>
-        {copied ? <Check aria-hidden="true" size={18} className="text-gold" /> : <Copy aria-hidden="true" size={18} className="text-gold" />}
-        {copied ? "Պատճենվեց" : "Պատճենել հղումը"}
-      </button>
-    </Sheet>
   );
 }
