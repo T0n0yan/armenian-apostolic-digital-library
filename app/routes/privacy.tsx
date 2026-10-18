@@ -16,11 +16,11 @@ export function meta({}: Route.MetaArgs) {
 
 const mail = <a className="text-gold-bright" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 
-const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; outro?: ReactNode[] }> = [
+const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; outro?: ReactNode[]; after?: ReactNode[] }> = [
   {
     title: "Մուտք Google հաշվի միջոցով",
     intro: "Google հաշվով մուտք գործելիս մենք ստանում ենք միայն՝",
-    items: ["Google հաշվի եզակի նույնացուցիչը,", "Ձեր անունը,", "էլեկտրոնային փոստի հասցեն։"],
+    items: ["Google հաշվի եզակի նույնացուցիչը (Google ID),", "Ձեր անունը,", "էլեկտրոնային փոստի հասցեն (email)։"],
     outro: [
       "Մենք չենք տեսնում և չենք պահում Ձեր Google հաշվի գաղտնաբառը, ինչպես նաև չենք պահում պրոֆիլի նկարը։",
       "Գրադարանը հասանելիություն չի պահանջում Ձեր Gmail նամակներին, Google Drive-ի ֆայլերին, կոնտակտներին, օրացույցին կամ Google հաշվի այլ տվյալներին։",
@@ -30,8 +30,8 @@ const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; o
   {
     title: "Մուտք Telegram-ի միջոցով",
     intro: "Telegram Mini App-ից օգտվելիս Telegram-ը մեզ փոխանցում է՝",
-    items: ["Telegram-ի օգտատիրոջ նույնացուցիչը,", "անունը և ազգանունը, եթե դրանք նշված են,", "օգտանունը (username), եթե այն առկա է։"],
-    outro: ["Մենք հասանելիություն չունենք Ձեր անձնական նամակագրությանը, կոնտակտներին կամ այլ Telegram խմբերին ու ալիքներին։"],
+    items: ["Telegram-ի օգտատիրոջ նույնացուցիչը (Telegram ID),", "անունը և ազգանունը, եթե դրանք նշված են,", "օգտանունը (username), եթե այն առկա է։"],
+    outro: ["Մենք հասանելիություն չունենք Ձեր հեռախոսահամարին, անձնական նամակագրությանը, կոնտակտներին կամ այլ Telegram խմբերին ու ալիքներին։"],
   },
   {
     title: "Գրադարանում պահվող տվյալները",
@@ -40,7 +40,7 @@ const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; o
       "պահպանված նյութերի հղումները,",
       "նյութերին ավելացրած Ձեր անձնական նշումները,",
       "կարդալու կամ լսելու հիշեցումները՝ ընտրված ժամով և կրկնության կարգավորումներով,",
-      "հաշվի և մուտքի համար անհրաժեշտ տեխնիկական տվյալները։",
+      "հաշվի և մուտքի (login) համար անհրաժեշտ տեխնիկական տվյալները։",
     ],
     outro: ["Անձնական նշումները հասանելի են միայն Ձեզ՝ Ձեր հաշվով մուտք գործելիս։"],
   },
@@ -59,15 +59,19 @@ const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; o
     title: "Հիշեցումներ",
     outro: [
       "Հիշեցում միացնելիս պահվում են ընտրված նյութի հղումը, հիշեցման ժամը և կրկնության կարգավորումները։",
-      "Երբ գրադարանը բաց է, հիշեցումը հնչում է հենց կայքում։ Telegram-ում հիշեցումն ուղարկում է գրադարանի բոտը՝ միայն այն դեպքում, եթե Դուք թույլատրել եք բոտին հաղորդագրություն ուղարկել Ձեզ։",
-      "Հիշեցումները ցանկացած պահի կարող եք փոփոխել կամ հեռացնել։",
+      "Եթե հիշեցման պահին Դուք օգտվում եք գրադարանից, զանգը հնչում է հենց կայքում։",
     ],
+    items: [
+      "Telegram-ում՝ գրադարանի բոտի հաղորդագրությամբ, եթե թույլատրել եք բոտին գրել Ձեզ,",
+      "հեռախոսի ծանուցման (notification) տեսքով, եթե գրադարանն ավելացրել եք գլխավոր էկրանին կամ օգտվում եք բրաուզերից և թույլատրել եք ծանուցումները։",
+    ],
+    after: ["Առանց Ձեր թույլտվության մենք ոչ մի հաղորդագրություն կամ ծանուցում չենք ուղարկում։ Հիշեցումները ցանկացած պահի կարող եք փոփոխել կամ հեռացնել։"],
   },
   {
-    title: "Cookie և մուտքի նիստ",
+    title: "Cookie-ներ և մուտքի հիշում",
     outro: [
-      "Մուտքից հետո Ձեր բրաուզերում պահվում է պաշտպանված cookie, որը պահպանում է մուտքի նիստը մինչև 30 օր։ Այն չի օգտագործվում գովազդային հետևման համար։",
-      "Կարող եք հեռացնել այն՝ դուրս գալով հաշվից կամ մաքրելով բրաուզերի տվյալները։ Կայքը բրաուզերում պահում է նաև Ձեր նախընտրած թեման և տառաչափը։",
+      "Մուտք (login) գործելուց հետո Ձեր բրաուզերում պահվում է փոքր պաշտպանված ֆայլ՝ cookie, որպեսզի ամեն անգամ նորից մուտք գործել պետք չլինի։ Այն գործում է մինչև 30 օր և չի օգտագործվում գովազդային հետևման համար։",
+      "Կարող եք հեռացնել այն՝ սեղմելով «Ելք» կամ մաքրելով բրաուզերի տվյալները։ Բրաուզերում պահվում են նաև Ձեր ընտրած թեման (բաց/մուգ) և տառաչափը։",
     ],
   },
   {
@@ -107,7 +111,7 @@ const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; o
   },
   {
     title: "Արտաքին հղումներ",
-    outro: ["Գրադարանը կարող է պարունակել հղումներ դեպի Telegram, YouTube, Bible.com և այլ արտաքին աղբյուրներ։ Այդ կայքերում տվյալների մշակումը կարգավորվում է նրանց սեփական գաղտնիության քաղաքականություններով։"],
+    outro: ["Գրադարանը կարող է պարունակել հղումներ դեպի Telegram, YouTube, Bible.com (միայն Էջմիածնի թարգմանությամբ) և այլ արտաքին աղբյուրներ։ Այդ կայքերում տվյալների մշակումը կարգավորվում է նրանց սեփական գաղտնիության քաղաքականություններով։"],
   },
   {
     title: "Փոփոխություններ",
@@ -129,12 +133,14 @@ export default function Privacy() {
           <section key={section.title} className="frosted-panel grid gap-2.5 px-5 py-4 text-[14px] leading-[1.7] text-ink">
             <h2 className="m-0 font-noto text-[17px] font-semibold text-gold-bright">{section.title}</h2>
             {section.intro ? <p className="m-0">{section.intro}</p> : null}
+            {!section.intro && section.items ? section.outro?.map((paragraph, index) => <p key={`o${index}`} className="m-0">{paragraph}</p>) : null}
             {section.items ? (
               <ul className="m-0 grid list-disc gap-1.5 pl-5 marker:text-gold">
                 {section.items.map((item, index) => <li key={index}>{item}</li>)}
               </ul>
             ) : null}
-            {section.outro?.map((paragraph, index) => <p key={index} className="m-0">{paragraph}</p>)}
+            {section.intro || !section.items ? section.outro?.map((paragraph, index) => <p key={index} className="m-0">{paragraph}</p>) : null}
+            {section.after?.map((paragraph, index) => <p key={`a${index}`} className="m-0">{paragraph}</p>)}
           </section>
         ))}
         <section className="frosted-panel grid gap-1.5 px-5 py-4 text-center text-[14px] text-ink">
