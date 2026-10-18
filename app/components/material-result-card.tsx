@@ -305,7 +305,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} grid items-start gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : "min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]"}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} grid items-start gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : "min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]"}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
@@ -323,6 +323,18 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
             {duration ? <span className="absolute right-2 bottom-2 rounded-full bg-[rgb(17_8_22/80%)] px-2 py-1 text-[11px] font-bold text-white tabular-nums">{duration}</span> : null}
           </span>
+        ) : variant === "portrait" ? (
+          // Saints: the portrait fills the top of the card with the name on it, as in their section.
+          <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[14px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
+            {thumbnail && !thumbnailFailed ? (
+              <img className="h-full w-full object-cover object-top" src={material.preview.imageUrl ?? thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
+            ) : null}
+            <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgb(20_10_24/82%))]" aria-hidden="true" />
+            <span className="absolute inset-x-0 bottom-0 grid justify-items-center gap-1.5 px-4 pb-3.5 text-center">
+              <span className="h-px w-10 bg-[rgb(240_211_151/70%)]" aria-hidden="true" />
+              <strong className="line-clamp-2 font-noto text-[16px] leading-[1.3] font-semibold text-white [text-shadow:0_1px_8px_rgb(0_0_0/50%)]">{highlightText(material.title, highlightPattern)}</strong>
+            </span>
+          </span>
         ) : variant === "text" ? null : psalm ? (
           // Psalms: the number is what readers look for.
           <span className="relative z-1 grid aspect-square w-full place-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
@@ -338,7 +350,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] font-semibold text-muted">{day.month}</span>
           </span>
         ) : (
-          <span ref={isVideo ? videoPoster.ref : undefined} className={`relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle ${variant === "portrait" ? "aspect-[3/4]" : "aspect-[4/3]"}`}>
+          <span ref={isVideo ? videoPoster.ref : undefined} className={`relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle aspect-[4/3]`}>
             {thumbnail && !thumbnailFailed ? (
               <img
                 className="h-full w-full object-cover object-top"
@@ -381,10 +393,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 {material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան</span> : null}
               </span>
             </span>
-          ) : (
+          ) : variant === "portrait" ? null : (
             <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
           )}
-          {material.searchHit ? (
+          {material.searchHit && !(variant === "portrait" && material.searchHit.source === "title") ? (
             <span className="grid gap-1 rounded-[10px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/6%)] px-2.5 py-2 text-[12px] leading-[1.5] text-muted">
               <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-gold">{hitSourceLabel(material.searchHit.source)}</span>
               <span className="line-clamp-3 overflow-hidden">{highlightHit(material.searchHit)}</span>

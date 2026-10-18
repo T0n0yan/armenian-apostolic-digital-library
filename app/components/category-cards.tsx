@@ -88,6 +88,17 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
 /** A topic's introduction post, shown as plain text above its grid: not a link, no actions. */
 const INTRO_COLLAPSED_CHARS = 420;
 
+/** A gold cross between two fading rules, framing a topic intro above and below. */
+function IntroOrnament() {
+  return (
+    <span className="flex items-center justify-center gap-2.5 text-gold" aria-hidden="true">
+      <span className="h-px w-16 bg-[linear-gradient(90deg,transparent,currentColor)]" />
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M5.2 0h1.6v4.4H11V6H6.8v6H5.2V6H1V4.4h4.2Z" /></svg>
+      <span className="h-px w-16 bg-[linear-gradient(90deg,currentColor,transparent)]" />
+    </span>
+  );
+}
+
 /** Emoji decorations (🕊) are dropped so every intro reads the same; line breaks are kept. */
 function introLines(value: string) {
   return stripZeroWidth(value).split(/\n/u)
@@ -111,12 +122,9 @@ export const TopicIntro = memo(function TopicIntro({ material }: { material: Car
   const long = body.join(" ").length > INTRO_COLLAPSED_CHARS;
   const collapsed = long && !expanded;
   return (
+    <div className="grid gap-2.5">
+    <IntroOrnament />
     <section className="frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center">
-      <span className="flex items-center gap-2 text-gold" aria-hidden="true">
-        <span className="h-px w-8 bg-[linear-gradient(90deg,transparent,currentColor)]" />
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M5.2 0h1.6v4.4H11V6H6.8v6H5.2V6H1V4.4h4.2Z" /></svg>
-        <span className="h-px w-8 bg-[linear-gradient(90deg,currentColor,transparent)]" />
-      </span>
       <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3>
       {body.length ? (
         <div className={`relative grid gap-1 ${collapsed ? "max-h-[9.5em] overflow-hidden [mask-image:linear-gradient(180deg,#000_60%,transparent)]" : ""}`}>
@@ -130,6 +138,8 @@ export const TopicIntro = memo(function TopicIntro({ material }: { material: Car
       ) : null}
       {attribution ? <p className="m-0 text-[12.5px] font-semibold tracking-[0.3px] text-gold">— {attribution}</p> : null}
     </section>
+    <IntroOrnament />
+    </div>
   );
 });
 

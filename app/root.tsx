@@ -132,11 +132,35 @@ function loadTelegramSdk() {
   return telegramSdkPromise;
 }
 
+/**
+ * Whether the Mini App covers the whole screen, with Telegram's Close/⋯ buttons floating over the
+ * page. Some Android clients neither report isFullscreen nor a content inset there, so a WebView
+ * as tall as the screen (no Telegram header above it) counts as fullscreen too.
+ */
+function isTelegramFullscreen(webApp: TelegramWebApp) {
+  if (!webApp.initData) return false;
+  if (webApp.isFullscreen) return true;
+  if (webApp.platform !== "android" && webApp.platform !== "ios") return false;
+  return window.screen.height - window.innerHeight < 64;
+}
+
+/** `?tgdebug` shows what Telegram reports about the screen, to diagnose layout on a device. */
+function showTelegramDebug(webApp: TelegramWebApp) {
+  if (!new URLSearchParams(window.location.search).has("tgdebug")) return;
+  const panel = document.getElementById("tg-debug") ?? document.body.appendChild(Object.assign(document.createElement("pre"), { id: "tg-debug" }));
+  panel.setAttribute("style", "position:fixed;left:8px;right:8px;bottom:90px;z-index:99999;margin:0;padding:8px;border-radius:10px;background:rgb(0 0 0/80%);color:#fff;font:11px/1.4 monospace;white-space:pre-wrap");
+  panel.textContent = JSON.stringify({
+    platform: webApp.platform, isFullscreen: webApp.isFullscreen, safe: webApp.safeAreaInset, content: webApp.contentSafeAreaInset,
+    inner: [window.innerWidth, window.innerHeight], screen: [window.screen.width, window.screen.height],
+    inset: getComputedStyle(document.documentElement).getPropertyValue("--tg-inset-top"),
+  }, null, 1);
+}
+
 function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
   const safe = webApp.safeAreaInset ?? {};
   const content = webApp.contentSafeAreaInset ?? {};
-  const fullscreen = Boolean(webApp.initData && webApp.isFullscreen);
+  const fullscreen = isTelegramFullscreen(webApp);
   root.dataset.tgFullscreen = fullscreen ? "true" : "false";
   for (const side of ["top", "right", "bottom", "left"] as const) {
     const safeValue = typeof safe[side] === "number" ? safe[side] : 0;
@@ -150,6 +174,7 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
     // device safe area (status bar, notch), so the page must clear both.
     root.style.setProperty(`--tg-inset-${side}`, `${safeValue + contentValue}px`);
   }
+  showTelegramDebug(webApp);
   if (typeof webApp.viewportHeight === "number") {
     root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`);
   }
