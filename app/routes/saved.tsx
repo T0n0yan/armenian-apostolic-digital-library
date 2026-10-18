@@ -12,6 +12,7 @@ import {
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { MaterialResultCard } from "../components/material-result-card";
+import { cardVariantFor } from "../utils/card-variant";
 import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
 import {
   MY_CORNER_IMAGE,
@@ -135,6 +136,8 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
             key={material.id}
             material={material}
             highlightQuery={query}
+            variant={cardVariantFor(material)}
+            typicalType="poll"
             canSave
             isSaved={savedIds.has(material.id)}
             isSaving={isSaving && pendingMaterialId === material.id}

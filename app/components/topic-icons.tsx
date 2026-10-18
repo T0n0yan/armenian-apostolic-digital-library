@@ -1,84 +1,52 @@
 import type { SVGProps } from "react";
 
 /**
- * Topic icons: one line style (24 px grid, round 1.6 px strokes, currentColor) with a slow motion
- * that says what the topic is. Motions live in app.css (.ti-*) and stop for reduced motion.
+ * Topic icons: Phosphor Icons, duotone weight (MIT, https://phosphoricons.com), so every icon
+ * shares one drawing style. Each moves slowly in a way that says what the topic is, and its soft
+ * fill breathes; the motions live in app.css (.ti-*) and stop for reduced motion.
  */
-type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+type IconProps = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & { size?: number; strokeWidth?: number | string };
 
-function Frame({ size = 24, children, ...props }: IconProps) {
+function Icon({ size = 24, motion, tone, line, strokeWidth: _strokeWidth, className = "", ...props }: IconProps & { motion: string; tone: string; line: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      {children}
+    <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" className={`ti ${motion} ${className}`} {...props}>
+      <path className="ti-tone" d={tone} />
+      <path d={line} />
     </svg>
   );
 }
 
-/** Gospel teaching: books settling one onto another. */
-export function BooksIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <g className="ti-book ti-book-1"><rect x="3.5" y="16.5" width="17" height="4" rx="1" /><path d="M6.5 16.5v4" /></g>
-      <g className="ti-book ti-book-2"><rect x="5" y="11.5" width="14" height="4" rx="1" /><path d="M16 11.5v4" /></g>
-      <g className="ti-book ti-book-3"><rect x="4" y="6.5" width="15" height="4" rx="1" /><path d="M7 6.5v4" /><path d="M11.5 3.5v3M10 5h3" /></g>
-    </Frame>
-  );
+/** Gospel teaching: a stack of books that settles with a gentle bounce. */
+export function GospelIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-books" tone="M48,72h64V184H48ZM190.64,38.39a8,8,0,0,0-9.5-6.21l-46.81,10a8.07,8.07,0,0,0-6.15,9.57L139.79,107l62.46-13.42Z" line="M231.65,194.55,198.46,36.75a16,16,0,0,0-19-12.39L132.65,34.42a16.08,16.08,0,0,0-12.3,19l33.19,157.8A16,16,0,0,0,169.16,224a16.25,16.25,0,0,0,3.38-.36l46.81-10.06A16.09,16.09,0,0,0,231.65,194.55ZM136,50.15c0-.06,0-.09,0-.09l46.8-10,3.33,15.87L139.33,66Zm6.62,31.47,46.82-10.05,3.34,15.9L146,97.53Zm6.64,31.57,46.82-10.06,13.3,63.24-46.82,10.06ZM216,197.94l-46.8,10-3.33-15.87L212.67,182,216,197.85C216,197.91,216,197.94,216,197.94ZM104,32H56A16,16,0,0,0,40,48V208a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V48A16,16,0,0,0,104,32ZM56,48h48V64H56Zm0,32h48v96H56Zm48,128H56V192h48v16Z" />;
 }
 
-/** Prayers: hands joined in prayer, with light kindling above them. */
+/** Prayers: hands joined in prayer, their light softly kindling. */
 export function PrayerIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <g className="ti-glow"><path d="M12 1.8v1.6M8.6 3.1l.8 1.2M15.4 3.1l-.8 1.2" /></g>
-      <path d="M12 6.5c-.9.4-1.5 1.3-1.6 2.4L10 14.5l-2.6 2.2a1.5 1.5 0 0 0-.4 1.7l1.3 3.1" />
-      <path d="M12 6.5c.9.4 1.5 1.3 1.6 2.4l.4 5.6 2.6 2.2a1.5 1.5 0 0 1 .4 1.7l-1.3 3.1" />
-      <path d="M12 6.5v8.5" />
-    </Frame>
-  );
+  return <Icon {...props} motion="ti-pray" tone="M229.66,197,197,229.66a8,8,0,0,1-11.31,0l-18.35-18.35,44-44,18.35,18.35A8,8,0,0,1,229.66,197ZM26.34,185.66a8,8,0,0,0,0,11.31L59,229.66a8,8,0,0,0,11.31,0l18.35-18.35-44-44Z" line="M235.32,180l-36.24-36.25L162.62,23.46A21.76,21.76,0,0,0,128,12.93,21.76,21.76,0,0,0,93.38,23.46L56.92,143.76,20.68,180a16,16,0,0,0,0,22.62l32.69,32.69a16,16,0,0,0,22.63,0L124.28,187a40.68,40.68,0,0,0,3.72-4.29,40.68,40.68,0,0,0,3.72,4.29L180,235.32a16,16,0,0,0,22.63,0l32.69-32.69A16,16,0,0,0,235.32,180ZM64.68,224,32,191.32l12.69-12.69,32.69,32.69ZM120,158.75a23.85,23.85,0,0,1-7,17L88.68,200,56,167.32l13.65-13.66a8,8,0,0,0,2-3.34l37-122.22A5.78,5.78,0,0,1,120,29.78Zm23,17a23.85,23.85,0,0,1-7-17v-129a5.78,5.78,0,0,1,11.31-1.68l37,122.22a8,8,0,0,0,2,3.34l14.49,14.49-33.4,32ZM191.32,224l-12.56-12.57,33.39-32L224,191.32Z" />;
 }
 
-/** Psalms: David's lyre with its strings trembling. */
-export function LyreIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <path d="M6.5 4.5C4 7 4.5 12 7 15.5c1 1.4 1.5 2.6 1.5 4h7c0-1.4.5-2.6 1.5-4 2.5-3.5 3-8.5.5-11" />
-      <path d="M6.5 4.5c1.6.8 3.5 1.2 5.5 1.2s3.9-.4 5.5-1.2" />
-      <path d="M8 19.5h8" />
-      <g className="ti-strings"><path className="ti-string ti-string-1" d="M10 6v13" /><path className="ti-string ti-string-2" d="M12 6.2V19" /><path className="ti-string ti-string-3" d="M14 6v13" /></g>
-    </Frame>
-  );
+/** Psalms: the notes of a song, rocking to its rhythm. */
+export function PsalmIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-notes" tone="M208,164a28,28,0,1,1-28-28A28,28,0,0,1,208,164ZM52,168a28,28,0,1,0,28,28A28,28,0,0,0,52,168Z" line="M212.92,17.69a8,8,0,0,0-6.86-1.45l-128,32A8,8,0,0,0,72,56V166.08A36,36,0,1,0,88,196V110.25l112-28v51.83A36,36,0,1,0,216,164V24A8,8,0,0,0,212.92,17.69ZM52,216a20,20,0,1,1,20-20A20,20,0,0,1,52,216ZM88,93.75V62.25l112-28v31.5ZM180,184a20,20,0,1,1,20-20A20,20,0,0,1,180,184Z" />;
 }
 
-/** Lives of the saints: a dove in flight. */
+/** Lives of the saints: a dove lifting in flight. */
 export function DoveIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <path className="ti-wing ti-wing-back" d="M12.5 10.5 16 4.5c1.5 2 1.8 4.4.6 6.4" />
-      <path d="M3.5 13.5c2.4-.3 4.4-1.4 6-3 1.4-1.4 3.6-1.6 5.2-.5l1.6 1.1 3.2-.6-2.3 2.1c-.6 3.3-3.4 5.7-6.8 5.9l-3.4.2 1.6-2.2c-2.2.2-4-.7-5.1-3Z" />
-      <path className="ti-wing ti-wing-front" d="M10.5 10.5 7 3.5c-1.8 2.4-1.8 5.4-.1 7.6" />
-      <circle cx="16.4" cy="10.9" r=".4" fill="currentColor" />
-    </Frame>
-  );
+  return <Icon {...props} motion="ti-dove" tone="M232,80,208,96v24a96,96,0,0,1-96,96H24a8,8,0,0,1-6.25-13L104,99.52V76.89c0-28.77,23-52.75,51.74-52.89a52,52,0,0,1,50.59,38.89Z" line="M176,68a12,12,0,1,1-12-12A12,12,0,0,1,176,68Zm64,12a8,8,0,0,1-3.56,6.66L216,100.28V120A104.11,104.11,0,0,1,112,224H24a16,16,0,0,1-12.49-26l.1-.12L96,96.63V76.89C96,43.47,122.79,16.16,155.71,16H156a60,60,0,0,1,57.21,41.86l23.23,15.48A8,8,0,0,1,240,80Zm-22.42,0L201.9,69.54a8,8,0,0,1-3.31-4.64A44,44,0,0,0,156,32h-.22C131.64,32.12,112,52.25,112,76.89V99.52a8,8,0,0,1-1.85,5.13L24,208h26.9l70.94-85.12a8,8,0,1,1,12.29,10.24L71.75,208H112a88.1,88.1,0,0,0,88-88V96a8,8,0,0,1,3.56-6.66Z" />;
 }
 
 /** Daily readings: a calendar whose page turns over. */
 export function CalendarIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <rect x="3.5" y="5" width="17" height="15.5" rx="2.2" />
-      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
-      <g className="ti-page"><rect x="7" y="12" width="10" height="6" rx="1" /><path d="M9.5 15h5" /></g>
-    </Frame>
-  );
+  return <Icon {...props} motion="ti-calendar" tone="M216,48V88H40V48a8,8,0,0,1,8-8H208A8,8,0,0,1,216,48Z" line="M208,32H184V24a8,8,0,0,0-16,0v8H88V24a8,8,0,0,0-16,0v8H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32ZM72,48v8a8,8,0,0,0,16,0V48h80v8a8,8,0,0,0,16,0V48h24V80H48V48ZM208,208H48V96H208V208Zm-68-76a12,12,0,1,1-12-12A12,12,0,0,1,140,132Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,132ZM96,172a12,12,0,1,1-12-12A12,12,0,0,1,96,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,140,172Zm44,0a12,12,0,1,1-12-12A12,12,0,0,1,184,172Z" />;
 }
 
-/** Questions from the Bible: an open book with a question rising from it. */
-export function QuestionBookIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <path d="M12 20c-1.8-1.1-4.6-1.6-8.5-1.4V8.8c3.9-.2 6.7.3 8.5 1.4 1.8-1.1 4.6-1.6 8.5-1.4v9.8c-3.9-.2-6.7.3-8.5 1.4Z" />
-      <path d="M12 10.2V20" />
-      <g className="ti-question"><path d="M10.3 3.6a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.9.7-.9 1.3" /><circle cx="12" cy="8" r=".35" fill="currentColor" /></g>
-    </Frame>
-  );
+/** Questions from the Bible: a seal with a question that tilts as if wondering. */
+export function QuestionIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-question" tone="M232,128c0,12.51-17.82,21.95-22.68,33.69-4.68,11.32,1.42,30.64-7.78,39.85s-28.53,3.1-39.85,7.78C150,214.18,140.5,232,128,232s-22-17.82-33.69-22.68c-11.32-4.68-30.65,1.42-39.85-7.78s-3.1-28.53-7.78-39.85C41.82,150,24,140.5,24,128s17.82-22,22.68-33.69C51.36,83,45.26,63.66,54.46,54.46S83,51.36,94.31,46.68C106.05,41.82,115.5,24,128,24S150,41.82,161.69,46.68c11.32,4.68,30.65-1.42,39.85,7.78s3.1,28.53,7.78,39.85C214.18,106.05,232,115.5,232,128Z" line="M225.86,102.82c-3.77-3.94-7.67-8-9.14-11.57-1.36-3.27-1.44-8.69-1.52-13.94-.15-9.76-.31-20.82-8-28.51s-18.75-7.85-28.51-8c-5.25-.08-10.67-.16-13.94-1.52-3.56-1.47-7.63-5.37-11.57-9.14C146.28,23.51,138.44,16,128,16s-18.27,7.51-25.18,14.14c-3.94,3.77-8,7.67-11.57,9.14C88,40.64,82.56,40.72,77.31,40.8c-9.76.15-20.82.31-28.51,8S41,67.55,40.8,77.31c-.08,5.25-.16,10.67-1.52,13.94-1.47,3.56-5.37,7.63-9.14,11.57C23.51,109.72,16,117.56,16,128s7.51,18.27,14.14,25.18c3.77,3.94,7.67,8,9.14,11.57,1.36,3.27,1.44,8.69,1.52,13.94.15,9.76.31,20.82,8,28.51s18.75,7.85,28.51,8c5.25.08,10.67.16,13.94,1.52,3.56,1.47,7.63,5.37,11.57,9.14C109.72,232.49,117.56,240,128,240s18.27-7.51,25.18-14.14c3.94-3.77,8-7.67,11.57-9.14,3.27-1.36,8.69-1.44,13.94-1.52,9.76-.15,20.82-.31,28.51-8s7.85-18.75,8-28.51c.08-5.25.16-10.67,1.52-13.94,1.47-3.56,5.37-7.63,9.14-11.57C232.49,146.28,240,138.44,240,128S232.49,109.73,225.86,102.82Zm-11.55,39.29c-4.79,5-9.75,10.17-12.38,16.52-2.52,6.1-2.63,13.07-2.73,19.82-.1,7-.21,14.33-3.32,17.43s-10.39,3.22-17.43,3.32c-6.75.1-13.72.21-19.82,2.73-6.35,2.63-11.52,7.59-16.52,12.38S132,224,128,224s-9.15-4.92-14.11-9.69-10.17-9.75-16.52-12.38c-6.1-2.52-13.07-2.63-19.82-2.73-7-.1-14.33-.21-17.43-3.32s-3.22-10.39-3.32-17.43c-.1-6.75-.21-13.72-2.73-19.82-2.63-6.35-7.59-11.52-12.38-16.52S32,132,32,128s4.92-9.15,9.69-14.11,9.75-10.17,12.38-16.52c2.52-6.1,2.63-13.07,2.73-19.82.1-7,.21-14.33,3.32-17.43S70.51,56.9,77.55,56.8c6.75-.1,13.72-.21,19.82-2.73,6.35-2.63,11.52-7.59,16.52-12.38S124,32,128,32s9.15,4.92,14.11,9.69,10.17,9.75,16.52,12.38c6.1,2.52,13.07,2.63,19.82,2.73,7,.1,14.33.21,17.43,3.32s3.22,10.39,3.32,17.43c.1,6.75.21,13.72,2.73,19.82,2.63,6.35,7.59,11.52,12.38,16.52S224,124,224,128,219.08,137.15,214.31,142.11ZM140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180Zm28-72c0,17.38-13.76,31.93-32,35.28V144a8,8,0,0,1-16,0v-8a8,8,0,0,1,8-8c13.23,0,24-9,24-20s-10.77-20-24-20-24,9-24,20v4a8,8,0,0,1-16,0v-4c0-19.85,17.94-36,40-36S168,88.15,168,108Z" />;
+}
+
+/** Any other topic: a cross. */
+export function CrossIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-cross" tone="M208,88v32a8,8,0,0,1-8,8H152v96a8,8,0,0,1-8,8H112a8,8,0,0,1-8-8V128H56a8,8,0,0,1-8-8V88a8,8,0,0,1,8-8h48V32a8,8,0,0,1,8-8h32a8,8,0,0,1,8,8V80h48A8,8,0,0,1,208,88Z" line="M200,72H160V32a16,16,0,0,0-16-16H112A16,16,0,0,0,96,32V72H56A16,16,0,0,0,40,88v32a16,16,0,0,0,16,16H96v88a16,16,0,0,0,16,16h32a16,16,0,0,0,16-16V136h40a16,16,0,0,0,16-16V88A16,16,0,0,0,200,72Zm0,48H152a8,8,0,0,0-8,8v96H112V128a8,8,0,0,0-8-8H56V88h48a8,8,0,0,0,8-8V32h32V80a8,8,0,0,0,8,8h48Z" />;
 }

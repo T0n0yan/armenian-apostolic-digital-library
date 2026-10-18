@@ -21,6 +21,7 @@ import { Form, Link, useNavigation } from "react-router";
 import type { Route } from "./+types/search";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
 import { MaterialResultCard } from "../components/material-result-card";
+import { cardVariantFor } from "../utils/card-variant";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { MaterialListSkeleton } from "../components/material-skeleton";
 import { EmptyState, PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
@@ -399,6 +400,8 @@ const SearchResults = memo(function SearchResults({
           key={material.id}
           material={material}
           allowNoteEditing={allowNoteEditing}
+          variant={cardVariantFor(material)}
+          typicalType="poll"
           canSave={canSave}
           highlightQuery={highlightQuery}
           isSaved={savedIds.has(material.id)}

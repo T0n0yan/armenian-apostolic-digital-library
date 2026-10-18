@@ -37,6 +37,9 @@ import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 import { useVideoPoster } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { ShareButton } from "./share-button";
+import { psalmNumber } from "../utils/psalm-number";
+import { calendarParts } from "../utils/daily-reading";
+import type { MaterialCardVariant } from "../utils/card-variant";
 
 type MaterialResultCardProps = {
   material: {
@@ -61,7 +64,7 @@ type MaterialResultCardProps = {
    * "text": no thumbnail column or type badge (prayers, Bible questions).
    * "video": full-width 16:9 poster on top (gospel teachings).
    */
-  variant?: "default" | "text" | "video";
+  variant?: MaterialCardVariant;
   /** The topic's usual content type (e.g. polls in Bible questions); its badge is redundant there. */
   typicalType?: BridgeContentType;
   isSaved: boolean;
@@ -221,13 +224,20 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
+  const isVideo = variant === "video" || material.contentType === "video";
   const videoPoster = useVideoPoster(
-    variant === "video" ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
-    variant === "video" ? material.preview.thumbnailUrl : null,
+    isVideo ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
+    isVideo ? material.preview.thumbnailUrl : null,
   );
+  const psalm = variant === "psalm" ? psalmNumber(material) : null;
+  const day = variant === "daily" ? calendarParts(material.dateValue ?? material.publishedAt ?? null) : null;
+  const thumbnail = isVideo ? videoPoster.poster : material.preview.thumbnailUrl;
   const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
   const TypeIcon = typeMeta.Icon;
-  const previewTitle = material.contentType === "poll"
+  // A daily reading's date is already on its calendar leaf; its feast (or weekday) is the title.
+  const previewTitle = day
+    ? material.preview.daily?.feast ?? day.weekday
+    : material.contentType === "poll"
     ? material.preview.pollQuestion
     : material.contentType === "location"
       ? material.preview.locationTitle
@@ -313,12 +323,26 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
             {duration ? <span className="absolute right-2 bottom-2 rounded-full bg-[rgb(17_8_22/80%)] px-2 py-1 text-[11px] font-bold text-white tabular-nums">{duration}</span> : null}
           </span>
-        ) : variant === "text" ? null : (
-          <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle">
-            {material.preview.thumbnailUrl && !thumbnailFailed ? (
+        ) : variant === "text" ? null : psalm ? (
+          // Psalms: the number is what readers look for.
+          <span className="relative z-1 grid aspect-square w-full place-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
+            <span className="grid justify-items-center leading-none">
+              <span className="text-[9.5px] font-bold tracking-[0.08em] text-gold uppercase">Սաղմոս</span>
+              <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span>
+            </span>
+          </span>
+        ) : day ? (
+          // Daily readings: a calendar leaf with the day and month.
+          <span className="relative z-1 grid aspect-square w-full content-center justify-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+            <span className="font-noto text-[28px] leading-none font-semibold text-gold-bright tabular-nums">{day.day}</span>
+            <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] font-semibold text-muted">{day.month}</span>
+          </span>
+        ) : (
+          <span ref={isVideo ? videoPoster.ref : undefined} className={`relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle ${variant === "portrait" ? "aspect-[3/4]" : "aspect-[4/3]"}`}>
+            {thumbnail && !thumbnailFailed ? (
               <img
-                className="h-full w-full object-cover"
-                src={material.preview.thumbnailUrl}
+                className="h-full w-full object-cover object-top"
+                src={thumbnail}
                 width={material.preview.width ?? 320}
                 height={material.preview.height ?? 240}
                 sizes="(min-width: 560px) 96px, 78px"
@@ -327,7 +351,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 alt=""
                 onError={() => setThumbnailFailed(true)}
               />
-            ) : (
+            ) : isVideo ? null : (
               <span className="grid h-full w-full place-items-center text-gold"><TypeIcon aria-hidden="true" size={25} strokeWidth={1.55} /></span>
             )}
             {material.contentType === "video" ? <span className="absolute inset-0 grid place-items-center bg-black/15 text-white"><span className="grid size-9 place-items-center rounded-full bg-black/55"><Play aria-hidden="true" size={18} fill="currentColor" /></span></span> : null}
@@ -343,7 +367,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 {matchReasonLabel(extraMatchReason, material)}
               </span>
             ) : null}
-            {date ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
+            {date && !day ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
           </span>
           {material.categoryName ? (
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>

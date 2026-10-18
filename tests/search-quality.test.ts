@@ -48,3 +48,11 @@ test("title matches outrank body-only matches within the same rank", () => {
   assert.equal(titled?.rank, bodyOnly?.rank);
   assert.ok((titled?.strength ?? 0) > (bodyOnly?.strength ?? 0));
 });
+
+test("Armenian queries are not transliterated and short ones never match inside a word", () => {
+  const flowers = document([{ kind: "body", value: "Աստված պատվիրում է ապրել թռչունների և դաշտի ծաղիկների պես", primary: false, blockId: "block-0" }]);
+  assert.deepEqual(parseTelegramSearchQuery("Սաղ").aliases, []);
+  assert.equal(matchSearchableTelegramDocument(flowers, parseTelegramSearchQuery("Սաղ")), null);
+  assert.equal(matchSearchableTelegramDocument(flowers, parseTelegramSearchQuery("sax")), null);
+  assert.ok(matchSearchableTelegramDocument(psalm(1), parseTelegramSearchQuery("Սաղ")));
+});

@@ -20,6 +20,7 @@ import {listActiveCategories} from "./data/categories.server";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
+import { SharePrompt } from "./components/share-button";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -84,6 +85,8 @@ type TelegramWebApp = {
   expand?: () => void;
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
+  isFullscreen?: boolean;
+  platform?: string;
   colorScheme?: "light" | "dark";
   themeParams?: Record<string, string | undefined>;
   viewportHeight?: number;
@@ -133,9 +136,14 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
   const safe = webApp.safeAreaInset ?? {};
   const content = webApp.contentSafeAreaInset ?? {};
+  const fullscreen = Boolean(webApp.initData && webApp.isFullscreen);
+  root.dataset.tgFullscreen = fullscreen ? "true" : "false";
   for (const side of ["top", "right", "bottom", "left"] as const) {
     const safeValue = typeof safe[side] === "number" ? safe[side] : 0;
-    const contentValue = typeof content[side] === "number" ? content[side] : 0;
+    let contentValue = typeof content[side] === "number" ? content[side] : 0;
+    // Some Android clients report no content inset in fullscreen although Telegram's Close and ⋯
+    // buttons float over the top of the page; keep the page clear of them anyway.
+    if (side === "top" && fullscreen && contentValue < 40) contentValue = 48;
     root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
     root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
     // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the
@@ -218,6 +226,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
       webApp.onEvent?.("safeAreaChanged", handleSafeArea);
       webApp.onEvent?.("contentSafeAreaChanged", handleSafeArea);
       webApp.onEvent?.("viewportChanged", handleSafeArea);
+      webApp.onEvent?.("fullscreenChanged", handleSafeArea);
       webApp.onEvent?.("themeChanged", handleTheme);
       webApp.ready?.();
       webApp.expand?.();
@@ -238,6 +247,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
       webAppForCleanup?.offEvent?.("safeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("contentSafeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("viewportChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("fullscreenChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("themeChanged", handleTheme);
     };
   }, [revalidator]);
@@ -246,6 +256,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <Outlet />
     <CandleLoader />
     <InstallPrompt />
+    <SharePrompt />
   </>;
 }
 

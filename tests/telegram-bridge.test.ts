@@ -675,7 +675,6 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
     ["Սաղմոս 50", 109, "poll-option"],
     ["Bacat", 108, "location"],
     ["Bacar", 108, "fuzzy"],
-    ["Բացատ", 108, "transliteration"],
     ["saxmos", 107, "transliteration"],
     ["Խմբագրված", 104, "title"],
   ] as const;
