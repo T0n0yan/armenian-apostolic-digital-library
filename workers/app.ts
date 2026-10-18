@@ -1,6 +1,7 @@
 import { createRequestHandler } from "react-router";
 
 import { sendDueReminders } from "../app/data/reminders.server";
+import { pushKeysFrom } from "../app/data/web-push.server";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -8,7 +9,7 @@ const requestHandler = createRequestHandler(
 );
 
 type SyncEnv = { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string };
-type ReminderEnv = { DB: D1Database; TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string };
+type ReminderEnv = { DB: D1Database; TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_JWK?: string; VAPID_SUBJECT?: string };
 
 /**
  * GitHub skips many of its own scheduled runs (hours apart), so Cloudflare's cron starts the
@@ -35,8 +36,13 @@ async function dispatchCloudSync(env: SyncEnv) {
 export default {
   async scheduled(controller, env, context) {
     const reminderEnv = env as unknown as ReminderEnv;
-    const token = reminderEnv.TELEGRAM_BOT_TOKEN?.trim();
-    if (token && reminderEnv.PUBLIC_URL) context.waitUntil(sendDueReminders(reminderEnv.DB, token, reminderEnv.PUBLIC_URL.replace(/\/$/u, "")));
+    if (reminderEnv.PUBLIC_URL) {
+      context.waitUntil(sendDueReminders(reminderEnv.DB, {
+        token: reminderEnv.TELEGRAM_BOT_TOKEN?.trim() || null,
+        publicUrl: reminderEnv.PUBLIC_URL.replace(/\/$/u, ""),
+        pushKeys: pushKeysFrom(reminderEnv),
+      }));
+    }
     // The cron fires every minute; the sync only needs to start every half hour.
     if (new Date(controller.scheduledTime).getUTCMinutes() % 30 === 0) context.waitUntil(dispatchCloudSync(env as SyncEnv));
   },

@@ -1,4 +1,5 @@
 import { createMaterialId } from "../../shared/telegram-bridge-contract";
+import { sendWebPush, type PushKeys, type PushSubscriptionRow } from "./web-push.server";
 
 export type ReminderRepeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 export type Reminder = { materialId: string; remindAt: string; repeat: ReminderRepeat };
@@ -152,36 +153,67 @@ export async function sendBellSoundOnce(database: D1Database, token: string, tel
   if (!result.ok) await database.prepare("DELETE FROM reminder_sound_sent WHERE telegram_id = ?").bind(telegramId).run();
 }
 
-type DueRow = { user_id: string; telegram_id: string; chat_id: string; message_id: number; title: string | null };
+type DueRow = { user_id: string; telegram_id: string; chat_id: string; message_id: number; title: string | null; category_name: string | null };
 
-/** Sends every reminder (or snooze) that is due as a bot message, then marks it rung. */
-export async function sendDueReminders(database: D1Database, token: string, publicUrl: string, now = Date.now()) {
+/** Sends a reminder to every browser the reader allowed notifications in; true if any got it. */
+async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow, publicUrl: string) {
+  const { results } = await database.prepare("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?")
+    .bind(row.user_id).all<PushSubscriptionRow>();
+  const materialId = createMaterialId(row.chat_id, row.message_id);
+  let delivered = false;
+  for (const subscription of results) {
+    const outcome = await sendWebPush(subscription, {
+      title: "🔔 Ժամանակն է կարդալու",
+      body: row.title?.trim() || "Հոգևոր ժառանգություն",
+      url: `${publicUrl}/materials/${materialId}?reminder=1`,
+      tag: `reminder-${materialId}`,
+      category: row.category_name,
+    }, keys);
+    if (outcome === "sent") delivered = true;
+    if (outcome === "gone") await database.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(subscription.endpoint).run();
+  }
+  return { delivered, browsers: results.length };
+}
+
+/**
+ * Sends every reminder (or snooze) that is due, by the bot (Telegram readers) and to the browsers
+ * where the reader allowed notifications, then marks it rung.
+ */
+export async function sendDueReminders(database: D1Database, options: { token: string | null; publicUrl: string; pushKeys: PushKeys | null }, now = Date.now()) {
   const nowIso = new Date(now).toISOString();
   const { results } = await database.prepare(
-    `SELECT reminders.user_id, reminders.telegram_id, reminders.chat_id, reminders.message_id, materials.title
+    `SELECT reminders.user_id, reminders.telegram_id, reminders.chat_id, reminders.message_id, materials.title,
+       topics.title AS category_name
      FROM reading_reminders AS reminders
      LEFT JOIN library_materials AS materials
        ON materials.chat_id = reminders.chat_id AND materials.message_id = reminders.message_id
+     LEFT JOIN library_topics AS topics ON topics.id = materials.topic_key
      WHERE reminders.remind_at <= ? OR reminders.snoozed_until <= ?
      ORDER BY reminders.remind_at LIMIT ${BATCH}`,
   ).bind(nowIso, nowIso).all<DueRow>();
 
   for (const row of results) {
     const key = { userId: row.user_id, chatId: row.chat_id, messageId: row.message_id };
-    // Google accounts have no Telegram chat: their reminders ring in the app only.
-    if (canMessage(row.telegram_id)) {
+    let delivered = false;
+    let retry = false;
+    if (options.pushKeys) {
+      const push = await pushToBrowsers(database, options.pushKeys, row, options.publicUrl);
+      delivered ||= push.delivered;
+    }
+    // Google accounts have no Telegram chat: their reminders ring in the app or the browser only.
+    if (options.token && canMessage(row.telegram_id)) {
       const materialId = createMaterialId(row.chat_id, row.message_id);
       const title = row.title?.trim() || "Հոգևոր ժառանգություն";
-      const result = await callBot(token, "sendMessage", {
+      const result = await callBot(options.token, "sendMessage", {
         chat_id: Number(row.telegram_id),
         text: `🔔 Ժամանակն է կարդալու\n\n${title}`,
-        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${publicUrl}/materials/${materialId}` } }]] },
+        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}/materials/${materialId}` } }]] },
       });
-      // The reader blocked the bot or the chat is gone: the reminder can never arrive.
-      const undeliverable = !result.ok && (result.error_code === 403 || result.error_code === 400);
-      if (undeliverable) { await deleteReminder(database, key.userId, key.chatId, key.messageId); continue; }
-      if (!result.ok) continue;
+      // A blocked bot or a missing chat can never deliver; anything else is retried next minute.
+      if (result.ok) delivered = true;
+      else if (!(result.error_code === 403 || result.error_code === 400) && !delivered) retry = true;
     }
+    if (retry) continue;
     await completeReminder(database, key, now);
   }
 }

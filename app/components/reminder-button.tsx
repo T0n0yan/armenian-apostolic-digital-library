@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { REMINDERS_CHANGED_EVENT } from "../utils/reminder-store";
+import { enablePushNotifications, pushSupport, type PushSupport } from "../utils/web-push";
 
 type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 type Mode = "daily" | "date";
@@ -86,7 +87,8 @@ export function ReminderButton({ materialId, title, className, label = false, pr
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [push, setPush] = useState<PushSupport>("unsupported");
+  useEffect(() => { setMounted(true); setPush(pushSupport()); }, []);
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/reminders?materialId=${encodeURIComponent(materialId)}`).catch(() => null);
@@ -122,6 +124,9 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     if (Number.isNaN(date.getTime()) || date.getTime() < Date.now() + 30_000) { setError("Ընտրիր առնվազն մեկ րոպե հետո ժամ։"); return; }
     setBusy(true);
     setError(null);
+    // Outside Telegram, ask for notifications right away (browsers allow the prompt only on a tap);
+    // the reminder is saved either way and still rings in the app.
+    if (push === "ready") void enablePushNotifications().then(() => setPush(pushSupport()));
     const granted = await requestWriteAccess();
     if (!granted) { setBusy(false); setError("Առանց թույլտվության բոտը չի կարող հիշեցում ուղարկել։"); return; }
     const response = await fetch("/api/reminders", {
@@ -172,7 +177,15 @@ export function ReminderButton({ materialId, title, className, label = false, pr
               </p>
             ) : (
               <p className="m-0 text-[12.5px] leading-[1.55] text-muted">
-                Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը, իսկ եթե կայքը փակ է՝ Telegram բոտը քեզ հաղորդագրություն կուղարկի։ Դրա համար Telegram-ը կխնդրի թույլ տալ բոտին գրել քեզ. ուրիշ ոչինչ չենք ուղարկի։
+                {push === "telegram"
+                  ? "Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը, իսկ եթե այն փակ է՝ Telegram բոտը Ձեզ հաղորդագրություն կուղարկի։ Դրա համար Telegram-ը կխնդրի թույլ տալ բոտին գրել Ձեզ. ուրիշ ոչինչ չենք ուղարկի։"
+                  : push === "ready"
+                    ? "Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը, իսկ եթե այն փակ է՝ կգա ծանուցում (notification)։ Դրա համար բրաուզերը կխնդրի թույլատրել ծանուցումները. ուրիշ ոչինչ չենք ուղարկի։"
+                    : push === "install-first"
+                      ? "Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը։ Որ հիշեցումը գա նաև կայքը փակ ժամանակ, ավելացրեք գրադարանը գլխավոր էկրանին (Share → «Add to Home Screen») և բացեք այնտեղից։"
+                      : push === "denied"
+                        ? "Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը։ Ծանուցումներն այս բրաուզերում անջատված են. դրանք կարող եք միացնել բրաուզերի կարգավորումներում։"
+                        : "Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը։"}
               </p>
             )}
 

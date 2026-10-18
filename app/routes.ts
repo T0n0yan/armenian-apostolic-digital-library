@@ -13,6 +13,7 @@ export default [
   route("auth/logout", "routes/auth-logout.ts"),
   route("api/share-prepare", "routes/share-prepare.ts"),
   route("api/reminders", "routes/reminders.ts"),
+  route("api/push", "routes/push.ts"),
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),
