@@ -49,7 +49,8 @@ import {
 import { recordSearchAggregate } from "../data/search-analytics.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
+import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
+import { searchSuggestions } from "../utils/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 
 function readDate(value: string | null) {
@@ -264,6 +265,7 @@ const SearchForm = memo(function SearchForm({
 }) {
   const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
     useDebouncedFormSubmit(320, 2);
+  const inputRef = useSyncedQueryInput(filters.query);
   const navigation = useNavigation();
   const isSearching = navigation.state !== "idle" && navigation.location?.pathname === "/search";
 
@@ -290,13 +292,16 @@ const SearchForm = memo(function SearchForm({
           className="min-w-0 flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint"
           type="search"
           name="q"
+          ref={inputRef}
           defaultValue={filters.query}
+          list="search-suggestions"
           placeholder="Օրինակ՝ առակ, Սուրբ Մարիամ, աղոթք…"
           aria-label="Որոնման բառեր"
           autoComplete="off"
           minLength={2}
           onInput={scheduleSubmit}
         />
+        <datalist id="search-suggestions">{searchSuggestions(categories.map((category) => category.name)).map((term) => <option key={term} value={term} />)}</datalist>
         {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
         <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-4 font-[750] text-[#fffaf3] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
           {isSearching ? (
@@ -534,7 +539,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
       />
 
       <SearchForm
-        key={`${filters.query}|${filters.categoryId}|${filters.scope}|${filters.dateFrom}|${filters.dateTo}`}
+        key={`${filters.categoryId}|${filters.scope}|${filters.dateFrom}|${filters.dateTo}`}
         categories={categories}
         filters={filters}
       />

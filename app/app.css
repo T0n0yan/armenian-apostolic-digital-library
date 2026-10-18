@@ -390,3 +390,15 @@ html[data-tg-fullscreen="true"] body::before {
   content: ""; position: fixed; inset: 0 0 auto; z-index: 30; height: calc(var(--tg-inset-top, 0px) + 8px); pointer-events: none;
   background: linear-gradient(to bottom, var(--page-bg) 55%, transparent);
 }
+
+/* Prayers, psalms, saints' lives and daily readings read like a printed prayer book: Noto Serif
+   Armenian at book weight with generous leading, so the bird-letter initial sits in matching type. */
+.sacred-text :is(p, li, blockquote, figcaption) {
+  font-family: var(--font-noto);
+  font-weight: 400;
+  line-height: 1.9;
+  letter-spacing: .005em;
+  text-wrap: pretty;
+  font-feature-settings: "kern", "liga";
+}
+.sacred-text :is(strong, b) { font-weight: 600; }

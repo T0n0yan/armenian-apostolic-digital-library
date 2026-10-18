@@ -7,6 +7,7 @@ type TelegramShareWindow = Window & {
     WebApp?: {
       initData?: string;
       openTelegramLink?: (url: string) => void;
+      shareMessage?: (messageId: string, callback?: (sent: boolean) => void) => void;
     };
   };
 };
@@ -19,6 +20,8 @@ type ShareButtonProps = {
   url: string;
   /** This page in the library (kept for callers; sharing sends the Telegram post). */
   pageUrl: string;
+  /** Lets the Mini App share the material through Telegram's share sheet. */
+  materialId?: string;
   className: string;
 };
 
@@ -90,16 +93,29 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 /**
- * Inside the Mini App, opens Telegram's own "send to a chat" picker in one tap (Telegram's
- * Android Mini App WebView offers no system share sheet). In a browser, opens the phone's share
+ * Inside the Mini App, opens Telegram's share sheet over the app (shareMessage), or failing that
+ * Telegram's "send to a chat" picker (Telegram's Android Mini App WebView has no system share
+ * sheet). In a browser, opens the phone's share
  * sheet (Android Quick Share, iOS share sheet); without one, the link is copied.
  */
-export function ShareButton({ title, text, url, className }: ShareButtonProps) {
+export function ShareButton({ title, text, url, className, materialId }: ShareButtonProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, markCopied] = useCopied();
 
   const share = useCallback(async () => {
     const webApp = telegramWebApp();
+    // Telegram's share sheet over the Mini App, so the reader stays in the library.
+    if (webApp?.initData && webApp.shareMessage && materialId) {
+      const prepared = await fetch("/api/share-prepare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ materialId }),
+      }).then((response) => response.ok ? response.json() as Promise<{ id: string | null }> : null).catch(() => null);
+      if (prepared?.id) {
+        webApp.shareMessage(prepared.id);
+        return;
+      }
+    }
     if (webApp?.initData && webApp.openTelegramLink) {
       const picker = new URL("https://t.me/share/url");
       picker.searchParams.set("url", url);
@@ -109,7 +125,7 @@ export function ShareButton({ title, text, url, className }: ShareButtonProps) {
     }
     if (await systemShare({ title, text, url })) return;
     setSheetOpen(true);
-  }, [text, title, url]);
+  }, [materialId, text, title, url]);
 
   const close = useCallback(() => setSheetOpen(false), []);
   const copyLink = async () => {

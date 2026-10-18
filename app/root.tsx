@@ -132,15 +132,13 @@ function loadTelegramSdk() {
 }
 
 /**
- * Whether the Mini App covers the whole screen, with Telegram's Close/⋯ buttons floating over the
- * page. Some Android clients neither report isFullscreen nor a content inset there, so a WebView
- * as tall as the screen (no Telegram header above it) counts as fullscreen too.
+ * Whether Telegram's Close/⋯ buttons float over the top of the page. On phones the library's bot
+ * opens fullscreen, but some Android clients report neither isFullscreen nor a content inset, so a
+ * phone Mini App counts as fullscreen unless Telegram reports a header of its own.
  */
 function isTelegramFullscreen(webApp: TelegramWebApp) {
-  if (!webApp.initData) return false;
   if (webApp.isFullscreen) return true;
-  if (webApp.platform !== "android" && webApp.platform !== "ios") return false;
-  return window.screen.height - window.innerHeight < 64;
+  return webApp.platform === "android" || webApp.platform === "ios";
 }
 
 /** `?tgdebug` shows what Telegram reports about the screen, to diagnose layout on a device. */
@@ -166,7 +164,7 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
     let contentValue = typeof content[side] === "number" ? content[side] : 0;
     // Some Android clients report no content inset in fullscreen although Telegram's Close and ⋯
     // buttons float over the top of the page; keep the page clear of them anyway.
-    if (side === "top" && fullscreen && contentValue < 40) contentValue = 48;
+    if (side === "top" && fullscreen && contentValue < 40) contentValue = 52;
     root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
     root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
     // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the

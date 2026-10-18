@@ -32,3 +32,17 @@ export function useDebouncedFormSubmit(delayMs: number, minimumCharacters = 0) {
 
   return { cancelPending, formRef, scheduleSubmit, submitImmediately };
 }
+
+/**
+ * Keeps a search box's text in step with the URL's query without remounting the box, so typing
+ * isn't interrupted when debounced results arrive. The text is only replaced while the reader
+ * isn't typing in it (back/forward navigation, a cleared search).
+ */
+export function useSyncedQueryInput(query: string) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const input = inputRef.current;
+    if (input && document.activeElement !== input && input.value !== query) input.value = query;
+  }, [query]);
+  return inputRef;
+}

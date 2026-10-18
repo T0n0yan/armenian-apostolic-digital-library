@@ -116,7 +116,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     intro,
     materials,
     query,
-    total: materialResult.total,
+    // The intro is shown as the header, not counted as a material.
+    total: intro && typeof materialResult.total === "number" ? Math.max(0, materialResult.total - 1) : materialResult.total,
     nextCursor: materialResult.nextCursor,
     highlightQuery: resolvedQuery?.highlightQuery ?? "",
     savedMaterialIds,

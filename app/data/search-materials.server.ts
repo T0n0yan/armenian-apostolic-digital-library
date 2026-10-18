@@ -1,6 +1,6 @@
 import { resolveContentCategoryId, type BridgePost } from "../../shared/telegram-bridge-contract";
 import { bridgePostToCardPreview } from "./materials.server";
-import { searchCloudLibraryPosts } from "./cloud-library.server";
+import { INTRO_TOPICS, searchCloudLibraryPosts } from "./cloud-library.server";
 import type { SearchFilters, SearchMaterialPage } from "./search-materials";
 import { resolveSearchQuery, type ResolvedSearchQuery } from "./search-query.server";
 
@@ -55,8 +55,6 @@ function matchesDate(post: BridgePost, filters: SearchFilters) {
   return (!filters.dateFrom || date >= filters.dateFrom) && (!filters.dateTo || date <= filters.dateTo);
 }
 
-// Topics whose oldest post is an introduction shown above their materials (category.tsx).
-const INTRO_TOPICS = new Set(["category_psalms", "category_saints_lives", "category_prayers", "category_bible_questions"]);
 
 /** Ids ("chat:message") of the topics' introduction posts, which search results leave out. */
 async function topicIntroKeys(database: D1Database) {

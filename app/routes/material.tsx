@@ -59,7 +59,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     : undefined;
   const [activeHit, setActiveHit] = useState(stateHit);
   // Prayers open with a bird-letter initial, as in old manuscripts.
-  const isPrayer = resolveContentCategoryId(null, material.categoryName) === "category_prayers";
+  const contentCategory = resolveContentCategoryId(null, material.categoryName);
+  const isPrayer = contentCategory === "category_prayers";
+  // Sacred texts read in a book serif; teaching notes and questions keep the interface face.
+  const isSacredText = isPrayer || contentCategory === "category_psalms" || contentCategory === "category_saints_lives" || contentCategory === "category_daily_readings";
   // The header already shows the title, so don't repeat it as the first line of the text.
   const textTitleLength = skipPsalmLabel(material.formattedText.text, leadingTitleLength(material.formattedText.text, material.title));
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
@@ -83,11 +86,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PageHeader
         backTo={`/categories/${material.categorySlug}`}
         backLabel={material.categoryName}
-        eyebrow={material.categoryName}
         title={material.title}
       />
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className="mt-3 grid gap-4 min-[560px]:mt-4">
+      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${isSacredText ? "sacred-text" : ""}`}>
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} /> : null}
@@ -142,6 +144,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             title={material.title}
             text={material.title}
             url={material.telegramUrl}
+            materialId={material.id}
             pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
           />
         </div>

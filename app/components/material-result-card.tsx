@@ -39,7 +39,7 @@ import { stripZeroWidth } from "../utils/text";
 import { ShareButton } from "./share-button";
 import { psalmNumber } from "../utils/psalm-number";
 import { calendarParts } from "../utils/daily-reading";
-import type { MaterialCardVariant } from "../utils/card-variant";
+import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant";
 
 type MaterialResultCardProps = {
   material: {
@@ -379,7 +379,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 {matchReasonLabel(extraMatchReason, material)}
               </span>
             ) : null}
-            {date && !day ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
+            {/* Only daily readings are about a date; elsewhere when a post was added doesn't matter. */}
+            {date && !day && cardVariantFor(material) === "daily" ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
           </span>
           {material.categoryName ? (
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
@@ -461,6 +462,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             title={material.title}
             text={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
             url={material.telegramUrl}
+            materialId={material.id}
             pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
           />
         </span>

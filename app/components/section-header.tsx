@@ -15,7 +15,8 @@ import prayersImage from "../assets/prayers.webp";
 import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
-import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
+import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
+import { searchSuggestions } from "../utils/search-suggestions";
 import { HeaderSearchLink, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
@@ -85,6 +86,7 @@ export const SectionHeader = memo(function SectionHeader({
 }: SectionHeaderProps) {
   const { cancelPending, formRef, scheduleSubmit } =
     useDebouncedFormSubmit(320, 2);
+  const inputRef = useSyncedQueryInput(query);
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === searchAction;
 
@@ -126,7 +128,6 @@ export const SectionHeader = memo(function SectionHeader({
 
           {showSearch ? (
             <Form
-              key={query}
               ref={formRef}
               className="flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
               action={searchAction}
@@ -140,13 +141,16 @@ export const SectionHeader = memo(function SectionHeader({
                 className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
                 type="search"
                 name="q"
+                ref={inputRef}
                 defaultValue={query}
+                list="section-search-suggestions"
                 placeholder={searchPlaceholder}
                 aria-label={searchLabel}
                 autoComplete="off"
                 minLength={2}
                 onInput={scheduleSubmit}
               />
+              <datalist id="section-search-suggestions">{searchSuggestions([title]).map((term) => <option key={term} value={term} />)}</datalist>
               {query ? (
                 <Link
                   className={`grid size-[32px] shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright ${focusRing}`}

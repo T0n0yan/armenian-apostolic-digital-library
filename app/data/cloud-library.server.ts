@@ -7,6 +7,7 @@ import {
   type SearchableTelegramDocument,
   type SearchableTelegramFieldKind,
 } from "../../shared/telegram-search";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type {
   BridgeCategory,
   BridgeContentType,
@@ -255,12 +256,18 @@ function ftsCandidateExpression(values: string[]) {
   return [...terms].join(" OR ");
 }
 
+// Topics whose oldest post is an introduction shown above their materials (category.tsx).
+export const INTRO_TOPICS = new Set(["category_psalms", "category_saints_lives", "category_prayers", "category_bible_questions"]);
+
 export async function listCloudLibraryCategories(database: D1Database): Promise<BridgeCategory[]> {
   const rows = await database.prepare(
     `SELECT topics.id, topics.slug, topics.title, topics.default_sort,
        topics.chat_id, topics.topic_id, topics.status, topics.icon_color,
        topics.icon_emoji_id, topics.is_general, topics.telegram_message_count,
-       COUNT(materials.message_id) AS material_count
+       COUNT(materials.message_id) AS material_count,
+       (SELECT first.content_type FROM library_materials AS first
+         WHERE first.topic_key = topics.id AND first.sync_state = 'ready' AND first.deleted_at IS NULL
+         ORDER BY first.message_id LIMIT 1) AS first_content_type
      FROM library_topics AS topics
      LEFT JOIN library_materials AS materials
        ON materials.topic_key = topics.id AND materials.sync_state = 'ready' AND materials.deleted_at IS NULL
@@ -270,14 +277,15 @@ export async function listCloudLibraryCategories(database: D1Database): Promise<
     id: string; slug: string; title: string; default_sort: BridgeCategory["defaultSort"];
     chat_id: string; topic_id: number; status: BridgeCategory["status"];
     icon_color: number | null; icon_emoji_id: string | null; is_general: number;
-    telegram_message_count: number | null; material_count: number;
+    telegram_message_count: number | null; material_count: number; first_content_type: string | null;
   }>();
   return rows.results.map((row) => ({
     id: row.id,
     slug: row.slug,
     name: row.title,
     defaultSort: row.default_sort,
-    materialCount: row.material_count,
+    // A topic's introduction (its first, text-only post) is shown as its header, not counted.
+    materialCount: row.material_count - (row.first_content_type === "text" && INTRO_TOPICS.has(resolveContentCategoryId(row.id, row.title) ?? "") ? 1 : 0),
     messageCount: row.telegram_message_count,
     chatId: row.chat_id,
     topicId: row.topic_id,

@@ -11,7 +11,8 @@ type PageHeaderProps = {
     backLabel?: string;
     backTo?: string;
     description?: ReactNode;
-    eyebrow: string;
+    /** Small gold line under the title; left out when it would repeat the back button. */
+    eyebrow?: string;
     home?: boolean;
     /** Bird-letter (Թռչնագիր) initial, as prayers began in old manuscripts. Only prayers use it. */
     ornate?: boolean;
@@ -130,9 +131,9 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
         <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>
             <PageTitle title={title} ornate={ornate}/>
         </h1>
-        <p className="m-0 text-[8px] font-noto tracking-[1.6px] text-gold min-[960px]:text-[13px]">
+        {eyebrow ? <p className="m-0 text-[8px] font-noto tracking-[1.6px] text-gold min-[960px]:text-[13px]">
             {eyebrow}
-        </p>
+        </p> : null}
         {description && (
             <p className="mt-[14px] mb-0 max-w-[650px] text-[15px] leading-[23px] text-muted min-[960px]:text-[16px] min-[960px]:leading-[26px]">
                 {description}
