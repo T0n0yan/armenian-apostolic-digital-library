@@ -1292,7 +1292,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
 
   const guestSaved = await mf.dispatchFetch("https://app.fixture/saved");
   assert.equal(guestSaved.status, 200);
-  assert.match(await guestSaved.text(), /Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս/u);
+  assert.match(await guestSaved.text(), /Մտիր, որ պահես նյութեր/u);
 
   const imagePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_102");
   const imageHtml = await imagePage.text();

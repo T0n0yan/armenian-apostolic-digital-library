@@ -434,3 +434,8 @@ html[data-tg-fullscreen="true"] body::before {
   font-size: .95em;
   color: var(--gold);
 }
+
+/* The in-app reminder: the topic icon swings like a struck bell when it rings. */
+.reminder-ring { animation: reminder-ring 1.6s ease-in-out 2; transform-origin: 50% 10%; }
+@keyframes reminder-ring { 0%, 100% { rotate: 0deg; } 10% { rotate: 14deg; } 25% { rotate: -12deg; } 40% { rotate: 8deg; } 55% { rotate: -5deg; } 70% { rotate: 2deg; } }
+@media (prefers-reduced-motion: reduce) { .reminder-ring { animation: none; } }

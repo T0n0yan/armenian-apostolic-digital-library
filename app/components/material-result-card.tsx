@@ -435,7 +435,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               />
             </button>
           ) : null}
-          {canSave && isSaved ? (
+          {canSave ? (
             <ReminderButton className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-faint`} materialId={material.id} title={material.title} />
           ) : null}
           {allowNoteEditing && isSaved ? (

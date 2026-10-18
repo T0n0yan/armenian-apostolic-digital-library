@@ -2,7 +2,11 @@ import { Bell, BellRing, LoaderCircle, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
-type Repeat = "none" | "daily" | "weekly";
+type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
+type Mode = "daily" | "date";
+
+/** Tells the in-app alarm (ReminderAlarm) to reload the reader's reminders. */
+export const REMINDERS_CHANGED_EVENT = "library:reminders-changed";
 type Reminder = { remindAt: string; repeat: Repeat };
 
 type TelegramWriteAccess = Window & {
@@ -11,9 +15,21 @@ type TelegramWriteAccess = Window & {
 
 const REPEATS: Array<{ value: Repeat; label: string }> = [
   { value: "none", label: "Մեկ անգամ" },
-  { value: "daily", label: "Ամեն օր" },
   { value: "weekly", label: "Ամեն շաբաթ" },
+  { value: "monthly", label: "Ամեն ամիս" },
+  { value: "yearly", label: "Ամեն տարի" },
 ];
+
+const REPEAT_TEXT: Record<Repeat, string> = { none: "", daily: ", ամեն օր", weekly: ", ամեն շաբաթ", monthly: ", ամեն ամիս", yearly: ", ամեն տարի" };
+
+/** The next time the clock shows `time` (HH:MM): today if still ahead, otherwise tomorrow. */
+function nextDailyTime(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const date = new Date();
+  date.setHours(hours || 0, minutes || 0, 0, 0);
+  if (date.getTime() < Date.now() + 30_000) date.setDate(date.getDate() + 1);
+  return date;
+}
 
 /** A Date as the value of a datetime-local input (the reader's own clock). */
 function localInputValue(date: Date) {
@@ -64,6 +80,8 @@ export function ReminderButton({ materialId, title, className, label = false, pr
   const [loaded, setLoaded] = useState(false);
   const [when, setWhen] = useState("");
   const [repeat, setRepeat] = useState<Repeat>("none");
+  const [mode, setMode] = useState<Mode>("date");
+  const [dailyTime, setDailyTime] = useState("08:00");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -85,8 +103,11 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     setError(null);
     setOpen(true);
     const current = loaded ? reminder : await load();
-    setWhen(localInputValue(current ? new Date(current.remindAt) : presets()[0].date));
-    setRepeat(current?.repeat ?? "none");
+    const at = current ? new Date(current.remindAt) : presets()[0].date;
+    setWhen(localInputValue(at));
+    setMode(current?.repeat === "daily" ? "daily" : "date");
+    setDailyTime(current?.repeat === "daily" ? localInputValue(at).slice(11) : "08:00");
+    setRepeat(current && current.repeat !== "daily" ? current.repeat : "none");
   };
 
   const limits = useMemo(() => ({
@@ -95,8 +116,9 @@ export function ReminderButton({ materialId, title, className, label = false, pr
   }), [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
-    const date = new Date(when);
-    if (!when || Number.isNaN(date.getTime()) || date.getTime() < Date.now() + 30_000) { setError("Ընտրիր առնվազն մեկ րոպե հետո ժամ։"); return; }
+    const date = mode === "daily" ? nextDailyTime(dailyTime) : new Date(when);
+    const chosenRepeat: Repeat = mode === "daily" ? "daily" : repeat;
+    if (Number.isNaN(date.getTime()) || date.getTime() < Date.now() + 30_000) { setError("Ընտրիր առնվազն մեկ րոպե հետո ժամ։"); return; }
     setBusy(true);
     setError(null);
     const granted = await requestWriteAccess();
@@ -104,11 +126,12 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     const response = await fetch("/api/reminders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ materialId, remindAt: date.toISOString(), repeat }),
+      body: JSON.stringify({ materialId, remindAt: date.toISOString(), repeat: chosenRepeat }),
     }).catch(() => null);
     setBusy(false);
     if (!response?.ok) { setError("Չհաջողվեց պահել։ Փորձիր նորից։"); return; }
-    setReminder({ remindAt: date.toISOString(), repeat });
+    setReminder({ remindAt: date.toISOString(), repeat: chosenRepeat });
+    window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
     setOpen(false);
   };
 
@@ -117,6 +140,7 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, remove: true }) }).catch(() => null);
     setBusy(false);
     setReminder(null);
+    window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
     setOpen(false);
   };
 
@@ -143,32 +167,48 @@ export function ReminderButton({ materialId, title, className, label = false, pr
 
             {reminder ? (
               <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/9%)] px-3.5 py-2.5 text-[13px] text-ink">
-                Կհիշեցնենք՝ <strong>{formatWhen(reminder.remindAt)}</strong>{reminder.repeat === "daily" ? ", ամեն օր" : reminder.repeat === "weekly" ? ", ամեն շաբաթ" : ""}
+                Կհիշեցնենք՝ <strong>{formatWhen(reminder.remindAt)}</strong>{REPEAT_TEXT[reminder.repeat]}
               </p>
             ) : (
               <p className="m-0 text-[12.5px] leading-[1.55] text-muted">
-                Ընտրած ժամին մեր Telegram բոտը քեզ հաղորդագրություն կուղարկի եկեղեցու զանգի ձայնով։ Դրա համար Telegram-ը կխնդրի թույլ տալ բոտին գրել քեզ. ուրիշ ոչինչ չենք ուղարկի։
+                Ընտրած ժամին կայքում կհնչի եկեղեցու զանգը, իսկ եթե կայքը փակ է՝ Telegram բոտը քեզ հաղորդագրություն կուղարկի։ Դրա համար Telegram-ը կխնդրի թույլ տալ բոտին գրել քեզ. ուրիշ ոչինչ չենք ուղարկի։
               </p>
             )}
 
-            <div className="flex flex-wrap gap-2">
-              {presets().map((preset) => (
-                <button key={preset.label} className={`${chip} ${when === localInputValue(preset.date) ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/20%)] text-gold-bright" : "border-glass-border bg-subtle text-ink"}`} type="button" onClick={() => setWhen(localInputValue(preset.date))}>
-                  {preset.label}
+            <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Երբ">
+              {([["daily", "Ամեն օր"], ["date", "Որոշակի օր"]] as const).map(([value, text]) => (
+                <button key={value} className={`min-h-10 cursor-pointer rounded-[10px] border-0 text-[13px] font-semibold ${mode === value ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={mode === value} onClick={() => setMode(value)}>
+                  {text}
                 </button>
               ))}
             </div>
-            <label className="grid gap-1.5 text-[12px] font-semibold text-muted">
-              Կամ ընտրիր օրն ու ժամը
-              <input className="min-h-11 rounded-[12px] border border-glass-border bg-control px-3 text-[15px] text-ink" type="datetime-local" value={when} min={limits.min} max={limits.max} onChange={(event) => setWhen(event.target.value)} />
-            </label>
-            <div className="grid grid-cols-3 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Կրկնել">
-              {REPEATS.map((option) => (
-                <button key={option.value} className={`min-h-9 cursor-pointer rounded-[10px] border-0 text-[12.5px] font-semibold ${repeat === option.value ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={repeat === option.value} onClick={() => setRepeat(option.value)}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            {mode === "daily" ? (
+              <label className="grid gap-1.5 text-[12px] font-semibold text-muted">
+                Ամեն օր այս ժամին
+                <input className="min-h-12 rounded-[12px] border border-glass-border bg-control px-3 text-[18px] text-ink tabular-nums" type="time" value={dailyTime} onChange={(event) => setDailyTime(event.target.value)} />
+              </label>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {presets().map((preset) => (
+                    <button key={preset.label} className={`${chip} ${when === localInputValue(preset.date) ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/20%)] text-gold-bright" : "border-glass-border bg-subtle text-ink"}`} type="button" onClick={() => setWhen(localInputValue(preset.date))}>
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <label className="grid gap-1.5 text-[12px] font-semibold text-muted">
+                  Կամ ընտրիր օրն ու ժամը
+                  <input className="min-h-11 rounded-[12px] border border-glass-border bg-control px-3 text-[15px] text-ink" type="datetime-local" value={when} min={limits.min} max={limits.max} onChange={(event) => setWhen(event.target.value)} />
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1 min-[400px]:grid-cols-4" role="radiogroup" aria-label="Կրկնել">
+                  {REPEATS.map((option) => (
+                    <button key={option.value} className={`min-h-9 cursor-pointer rounded-[10px] border-0 text-[12px] font-semibold ${repeat === option.value ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={repeat === option.value} onClick={() => setRepeat(option.value)}>
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             {error ? <p className="m-0 text-[12.5px] text-[#b4472f]" role="alert">{error}</p> : null}
             <div className="grid gap-2">
               <button className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-70" type="button" disabled={busy} onClick={save}>
