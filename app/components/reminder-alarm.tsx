@@ -3,9 +3,35 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDERS_CHANGED_EVENT } from "./reminder-button";
+import { REMINDERS_CHANGED_EVENT, loadReminders, type ActiveReminder } from "../utils/reminder-store";
 
-type Upcoming = { materialId: string; at: string; title: string; categoryName: string | null };
+type Upcoming = ActiveReminder;
+type Ducked = { media: HTMLMediaElement; volume: number; paused: boolean };
+
+const ALARM_WINDOW_MS = 24 * 3_600_000;
+
+/**
+ * Quiets whatever is playing (a psalm, a video) so the bell is heard: the volume drops low, and
+ * where the browser ignores volume (iOS) playback pauses. Returns how to put it back.
+ */
+function duckMedia(): Ducked[] {
+  const ducked: Ducked[] = [];
+  for (const media of document.querySelectorAll<HTMLMediaElement>("audio, video")) {
+    if (media.paused || media.ended) continue;
+    const entry = { media, volume: media.volume, paused: false };
+    media.volume = Math.min(media.volume, 0.08);
+    if (media.volume > 0.09) { media.pause(); entry.paused = true; }
+    ducked.push(entry);
+  }
+  return ducked;
+}
+
+function restoreMedia(ducked: Ducked[]) {
+  for (const { media, volume, paused } of ducked) {
+    media.volume = volume;
+    if (paused) void media.play().catch(() => undefined);
+  }
+}
 
 const COUNTDOWN_SECONDS = 5;
 const REFRESH_MS = 10 * 60_000;
@@ -31,17 +57,17 @@ export function ReminderAlarm() {
 
   const ring = useCallback((reminder: Upcoming) => {
     // Mark it rung right away so the bot doesn't also send it.
-    void post({ materialId: reminder.materialId, rang: true });
+    void post({ materialId: reminder.materialId, rang: true }).then(() => window.setTimeout(() => void loadReminders(), 500));
     setQueue((items) => items.some((item) => item.materialId === reminder.materialId) ? items : [...items, reminder]);
   }, []);
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/reminders?upcoming=1").catch(() => null);
-    const data = response?.ok ? await response.json().catch(() => null) as { reminders?: Upcoming[] } | null : null;
+    const reminders = await loadReminders();
     for (const timer of timers.current.values()) window.clearTimeout(timer);
     timers.current.clear();
-    for (const reminder of data?.reminders ?? []) {
+    for (const reminder of reminders) {
       const startAt = Date.parse(reminder.at) - COUNTDOWN_SECONDS * 1000;
+      if (startAt - Date.now() > ALARM_WINDOW_MS) continue;
       timers.current.set(reminder.materialId, window.setTimeout(() => ring(reminder), Math.max(0, startAt - Date.now())));
     }
   }, [ring]);
@@ -67,6 +93,9 @@ export function ReminderAlarm() {
   useEffect(() => {
     if (!current) return;
     setPhase("in");
+    let ducked = duckMedia();
+    let restoreTimer = 0;
+    const restore = () => { restoreMedia(ducked); ducked = []; };
     const ringsAt = Math.max(Date.now(), Date.parse(current.at));
     const tick = () => {
       const left = Math.max(0, Math.ceil((ringsAt - Date.now()) / 1000));
@@ -76,11 +105,13 @@ export function ReminderAlarm() {
         const audio = bell.current;
         if (audio) { audio.currentTime = 0; void audio.play().catch(() => undefined); }
         navigator.vibrate?.([120, 80, 120]);
+        // Bring the psalm or video back once the bell has faded.
+        restoreTimer = window.setTimeout(restore, 5_000);
       }
     };
     const interval = window.setInterval(tick, 250);
     tick();
-    return () => window.clearInterval(interval);
+    return () => { window.clearInterval(interval); window.clearTimeout(restoreTimer); restore(); };
   }, [current]);
 
   const dismiss = useCallback(() => {

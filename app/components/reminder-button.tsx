@@ -2,11 +2,12 @@ import { Bell, BellRing, LoaderCircle, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { REMINDERS_CHANGED_EVENT } from "../utils/reminder-store";
+
 type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 type Mode = "daily" | "date";
 
-/** Tells the in-app alarm (ReminderAlarm) to reload the reader's reminders. */
-export const REMINDERS_CHANGED_EVENT = "library:reminders-changed";
+
 type Reminder = { remindAt: string; repeat: Repeat };
 
 type TelegramWriteAccess = Window & {
@@ -209,6 +210,13 @@ export function ReminderButton({ materialId, title, className, label = false, pr
                 </div>
               </>
             )}
+            {(() => {
+              // Say plainly when the bell will ring, so the default choice isn't a surprise.
+              const date = mode === "daily" ? nextDailyTime(dailyTime) : new Date(when);
+              if (Number.isNaN(date.getTime())) return null;
+              const repeatText = mode === "daily" ? REPEAT_TEXT.daily : REPEAT_TEXT[repeat];
+              return <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-center text-[13px] text-ink">🔔 Կզանգի՝ <strong>{formatWhen(date.toISOString())}</strong>{repeatText}</p>;
+            })()}
             {error ? <p className="m-0 text-[12.5px] text-[#b4472f]" role="alert">{error}</p> : null}
             <div className="grid gap-2">
               <button className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-70" type="button" disabled={busy} onClick={save}>

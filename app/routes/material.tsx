@@ -5,7 +5,7 @@ import { isRouteErrorResponse, Link, useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
-import { MaterialMediaGallery } from "../components/material-media";
+import { MaterialMediaGallery, PsalmNavContext } from "../components/material-media";
 import {
   FormattedTelegramText,
   TelegramRichMessage,
@@ -78,6 +78,9 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     const end = text.indexOf("\n", start);
     return end > start && end - start < 220 && /^\(?սաղմոս/iu.test(text.slice(start, end)) ? end : -1;
   })();
+  // The verses begin after the blank lines that follow the superscription.
+  let versesStart = superscriptionEnd + 1;
+  while (superscriptionEnd > 0 && versesStart < material.formattedText.text.length && /\s/u.test(material.formattedText.text[versesStart])) versesStart += 1;
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
 
   useEffect(() => {
@@ -101,6 +104,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         backLabel={material.categoryName}
         title={material.title}
       />
+      <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
@@ -126,25 +130,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
                 <FormattedTelegramText value={material.formattedText} from={textTitleLength} to={superscriptionEnd} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
               </p>
             ) : null}
-            <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? superscriptionEnd + 1 : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+            <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? versesStart : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
           <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
-        ) : null}
-
-        {loaderData.psalm ? (
-          <nav className="grid grid-cols-2 gap-2.5" aria-label="Այլ սաղմոսներ">
-            {loaderData.psalm.previous ? (
-              <Link className="frosted-card flex min-h-14 items-center gap-2 px-4 text-[13px] font-semibold text-gold-bright no-underline" to={`/materials/${loaderData.psalm.previous.id}`} prefetch="intent">
-                <ChevronLeft aria-hidden="true" size={18} /> Սաղմոս {loaderData.psalm.previous.number}
-              </Link>
-            ) : <span />}
-            {loaderData.psalm.next ? (
-              <Link className="frosted-card flex min-h-14 items-center justify-end gap-2 px-4 text-[13px] font-semibold text-gold-bright no-underline" to={`/materials/${loaderData.psalm.next.id}`} prefetch="intent">
-                Սաղմոս {loaderData.psalm.next.number} <ChevronRight aria-hidden="true" size={18} />
-              </Link>
-            ) : <span />}
-          </nav>
         ) : null}
 
         <div className="flex flex-wrap gap-2.5">
@@ -177,6 +166,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         </div>
       </article>
       </TimestampSeekContext.Provider>
+      </PsalmNavContext.Provider>
     </PageShell>
   );
 }

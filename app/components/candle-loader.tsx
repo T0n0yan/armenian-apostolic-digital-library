@@ -22,6 +22,10 @@ const styles = `
   background:radial-gradient(circle,#fffaf0 0%,#ffe7b0 22%,var(--page-bg,#efe2c6) 58%,var(--page-bg,#efe2c6) 100%);
   scale:0;opacity:0;transition:scale 1.5s cubic-bezier(.55,0,.25,1),opacity .5s ease}
 .candle-loader[data-phase="hidden"] .candle-loader__dawn{scale:16;opacity:1}
+/* The light swallows the candle: the dawn sits above it, and the candle and caption fade out. */
+.candle-loader__dawn{z-index:5}
+.candle-loader__scene>svg,.candle-loader__caption{transition:opacity .7s ease}
+.candle-loader[data-phase="hidden"] .candle-loader__scene>svg,.candle-loader[data-phase="hidden"] .candle-loader__caption{opacity:0}
 .candle-loader__scene{position:relative;width:120px;height:170px;transform:scale(.9)}
 .candle-loader__light{position:absolute;left:50%;top:40px;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
   background:radial-gradient(circle,rgb(255 190 100/34%) 0%,rgb(255 150 60/14%) 22%,rgb(120 60 20/6%) 42%,transparent 62%);animation:candle-glow 3s ease-in-out infinite}

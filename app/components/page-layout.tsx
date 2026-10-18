@@ -1,4 +1,5 @@
 import type {ReactNode} from "react";
+import {ReminderIndicator} from "./reminder-indicator";
 import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
@@ -77,14 +78,14 @@ export function PageTitle({title, ornate = false}: { title: ReactNode; ornate?: 
 }
 
 export function HeaderSearchLink() {
-    return (<Link
-        className="ml-auto grid size-9 shrink-0 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
+    return (<span className="ml-auto flex items-center gap-2"><ReminderIndicator/><Link
+        className="grid size-9 shrink-0 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
         to="/search"
         aria-label="Որոնում"
         title="Որոնում"
     >
         <Search aria-hidden="true" size={17} strokeWidth={2}/>
-    </Link>);
+    </Link></span>);
 }
 
 /** Long titles (whole questions, feast names) get a calmer size instead of filling the screen. */

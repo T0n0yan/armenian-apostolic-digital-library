@@ -10,13 +10,13 @@ import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 
 const noStore = { "Cache-Control": "private, no-store" };
 
-/** GET ?materialId=… → that material's reminder; GET ?upcoming=1 → reminders in the next day. */
+/** GET ?materialId=… → that material's reminder; GET ?upcoming=1 → all the reader's reminders, soonest first. */
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   if (url.searchParams.has("upcoming")) {
     // The in-app alarm asks on every page; guests simply have none.
     const user = await getOptionalTelegramUser(request);
-    return Response.json({ reminders: user ? await listUpcomingReminders(env.DB, user.id) : [] }, { headers: noStore });
+    return Response.json({ reminders: user ? await listUpcomingReminders(env.DB, user.id, 366 * 24) : [] }, { headers: noStore });
   }
   const user = await requireTelegramUser(request);
   const reference = parseMaterialId(url.searchParams.get("materialId") ?? "");
