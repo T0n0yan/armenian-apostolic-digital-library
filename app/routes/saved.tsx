@@ -202,6 +202,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                 <span className="ml-auto rounded-full border border-[rgb(217_181_111/35%)] px-2 py-0.5 text-[10.5px] text-gold-bright">Շուտով</span>
               </button>
               {!loaderData.googleAvailable ? <span className="text-[11.5px] text-faint">Google-ով մուտքը շուտով կմիանա։</span> : null}
+              <Link className="text-center text-[11.5px] text-faint underline" to="/privacy">Գաղտնիության քաղաքականություն</Link>
             </div>
           ) : null}
         </EmptyState>
