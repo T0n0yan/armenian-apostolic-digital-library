@@ -16,7 +16,7 @@ import {
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug } from "../data/categories.server";
-import { PsalmGrid, SaintGrid } from "../components/category-cards";
+import { DailyReadingCard, PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
@@ -29,7 +29,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
-type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video";
+type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video" | "calendar";
 
 /** Each content category browses in its own layout; search results always use the standard cards. */
 function categoryLayout(category: { id: string; name: string }): CategoryLayout {
@@ -39,6 +39,7 @@ function categoryLayout(category: { id: string; name: string }): CategoryLayout 
     case "category_prayers":
     case "category_bible_questions": return "text";
     case "category_gospel_teachings": return "video";
+    case "category_daily_readings": return "calendar";
     default: return "default";
   }
 }
@@ -98,9 +99,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const [materialResult, savedMaterialIds] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
-      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal,
-        // The psalm grid sorts by number, so it needs every psalm at once (at most 151).
-        categoryLayout(category) === "psalm-grid" ? 200 : 12),
+      : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
   ]);
   const materials = materialResult.materials;
@@ -177,10 +176,17 @@ const MaterialsList = memo(function MaterialsList({
     </ol>
   ) : null;
 
+  if (layout === "calendar") {
+    return (
+      <ol className="m-0 grid list-none gap-3 p-0 min-[860px]:grid-cols-2">
+        {materials.map((material) => <DailyReadingCard key={material.id} material={material} />)}
+      </ol>
+    );
+  }
   if (!isGridItem) return list;
   return (
     <div className="grid gap-3">
-      {list}
+      {listItems.map((material) => <TopicIntro key={material.id} material={material} />)}
       {gridItems.length > 0 ? layout === "psalm-grid" ? <PsalmGrid materials={gridItems} /> : <SaintGrid materials={gridItems} /> : null}
     </div>
   );
@@ -198,14 +204,15 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   stateKeyRef.current = stateKey;
   const requestedCursorRef = useRef<string | null>(null);
   const seenCursorsRef = useRef(new Set<string>());
-  const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[category.id] ??
+  const contentCategory = resolveContentCategoryId(category.id, category.name) ?? category.id;
+  const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[contentCategory] ??
     "Փնտրել այս թեմայում…";
-  const categoryDescription = CATEGORY_DESCRIPTIONS[category.id]
+  const categoryDescription = CATEGORY_DESCRIPTIONS[contentCategory]
     ?? (category.isGeneral
       ? "Telegram ֆորումի հիմնական թեմայի հրապարակումները։"
       : category.status === "closed"
         ? "Այս Telegram թեման փակված է, սակայն հրապարակումները հասանելի են ընթերցման համար։"
-        : "Telegram ֆորումի այս թեմայի հրապարակումները։");
+        : "Այս բաժնի բոլոր նյութերը։");
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
     navigation.location?.pathname === `/categories/${category.slug}`;

@@ -274,7 +274,7 @@ const SearchForm = memo(function SearchForm({
   return (
     <Form
       ref={formRef}
-      className="grid min-w-0 gap-3 rounded-[22px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-3 shadow-glass"
+      className="grid min-w-0 gap-3 frosted-panel p-3 shadow-glass"
       method="get"
       role="search"
       onSubmit={handleSubmit}

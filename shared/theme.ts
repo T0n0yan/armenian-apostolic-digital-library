@@ -1,17 +1,27 @@
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
-export type TextSizePreference = "normal" | "large" | "xlarge";
+/** Reading text size in CSS pixels. */
+export type TextSizePreference = number;
+export const TEXT_SIZE_MIN = 12;
+export const TEXT_SIZE_MAX = 20;
+export const TEXT_SIZE_DEFAULT = 16;
 
 export const THEME_STORAGE_KEY = "library-theme-v1";
 export const TEXT_SIZE_STORAGE_KEY = "library-text-size-v1";
-export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#f2ebf4", dark: "#100817" };
+export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#f4ead6", dark: "#100817" };
 
 export function normalizeThemePreference(value: string | null): ThemePreference {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
 }
 
 export function normalizeTextSizePreference(value: string | null): TextSizePreference {
-  return value === "large" || value === "xlarge" ? value : "normal";
+  // Earlier versions stored named sizes.
+  if (value === "large") return 18;
+  if (value === "xlarge") return 20;
+  const size = Number(value);
+  return Number.isFinite(size) && value !== null && value !== ""
+    ? Math.min(TEXT_SIZE_MAX, Math.max(TEXT_SIZE_MIN, Math.round(size)))
+    : TEXT_SIZE_DEFAULT;
 }
 
 export function resolveTheme(

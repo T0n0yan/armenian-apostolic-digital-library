@@ -13,7 +13,7 @@ import type {
 } from "../../shared/telegram-bridge-contract";
 import type { MaterialMedia } from "../data/material-detail.server";
 import { MaterialMediaItem } from "./material-media";
-import { richContentStartsWithTitle } from "../utils/material-title";
+import { isPsalmLabel, richContentStartsWithTitle } from "../utils/material-title";
 
 function safeHref(value: string | null) {
   if (!value) return null;
@@ -34,8 +34,9 @@ function entityWrapper(entity: BridgeTextEntity, child: ReactNode, key: string) 
     case "spoiler": return <span className="rounded bg-ink/15 px-0.5 blur-[3px] transition-[filter] hover:blur-none focus-within:blur-none" key={key}>{child}</span>;
     case "code": return <code className="rounded bg-subtle px-1 py-0.5 font-mono text-[0.92em]" key={key}>{child}</code>;
     case "pre": return <code className="font-mono text-[0.92em]" key={key}>{child}</code>;
-    case "blockquote": return <span className="border-l-2 border-gold/45 pl-3 text-muted" key={key}>{child}</span>;
-    case "expandable-blockquote": return <span className="border-l-2 border-gold/45 pl-3 text-muted" key={key}>{child}</span>;
+    // Inline quotes: a left bar breaks apart when a quote wraps, so they are set in a softer tone.
+    case "blockquote":
+    case "expandable-blockquote": return <span className="text-muted" key={key}>{child}</span>;
     case "link": { const href = safeHref(entity.url); return href ? <a className="font-semibold text-gold-bright underline decoration-gold/35 underline-offset-3" href={href} target="_blank" rel="noreferrer" key={key}>{child}</a> : child; }
     case "mention":
     case "hashtag":
@@ -54,19 +55,29 @@ export function seekMediaTo(seconds: number) {
   window.dispatchEvent(new CustomEvent("library:seek", { detail: { seconds } }));
 }
 
+/**
+ * Telegram posts separate paragraphs with a blank line; at reading line-height that is a large gap.
+ * A blank line becomes one line break plus a small spacer (offsets are untouched).
+ */
+function ParagraphText({ text }: { text: string }) {
+  if (!/\n[ \t]*\n/u.test(text)) return text;
+  const parts = text.split(/\n[ \t]*\n(?:[ \t]*\n)*/u);
+  return <>{parts.map((part, index) => <Fragment key={index}>{index > 0 ? <>{"\n"}<span className="block h-[0.55em]" aria-hidden="true" /></> : null}{part}</Fragment>)}</>;
+}
+
 function TimestampText({ text }: { text: string }) {
   const enabled = useContext(TimestampSeekContext);
-  if (!enabled || !/\d:\d\d/u.test(text)) return text;
+  if (!enabled || !/\d:\d\d/u.test(text)) return <ParagraphText text={text} />;
   const parts: ReactNode[] = [];
   let last = 0;
   for (const match of text.matchAll(timestampPattern)) {
     const index = match.index ?? 0;
     const seconds = Number(match[1] ?? 0) * 3600 + Number(match[2]) * 60 + Number(match[3]);
-    if (index > last) parts.push(text.slice(last, index));
+    if (index > last) parts.push(<ParagraphText key={`t-${last}`} text={text.slice(last, index)} />);
     parts.push(
       <button
         key={`${index}-${match[0]}`}
-        className="inline cursor-pointer rounded-[6px] border-0 bg-[rgb(217_181_111/14%)] px-1 py-0 font-bold text-gold-bright tabular-nums underline decoration-[rgb(217_181_111/45%)] underline-offset-3 hover:bg-[rgb(217_181_111/24%)]"
+        className="mr-1 inline-block min-w-[3.4em] cursor-pointer rounded-[7px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/12%)] px-1.5 py-0 text-center text-[0.92em] leading-[1.5] font-bold text-gold-bright tabular-nums hover:bg-[rgb(217_181_111/24%)]"
         type="button"
         onClick={() => seekMediaTo(seconds)}
         aria-label={`Դիտել ${match[0]}-ից`}
@@ -76,8 +87,25 @@ function TimestampText({ text }: { text: string }) {
     );
     last = index + match[0].length;
   }
-  if (last < text.length) parts.push(text.slice(last));
+  if (last < text.length) parts.push(<ParagraphText key={`t-${last}`} text={text.slice(last)} />);
   return <>{parts}</>;
+}
+
+function plainInlineText(nodes: BridgeRichInline[]): string {
+  return nodes.map((node) => node.type === "text" ? node.text : node.type === "custom-emoji" ? node.alt : node.type === "line-break" || node.type === "unsupported" ? "" : plainInlineText(node.children)).join("");
+}
+
+/** Index of the first letter in `text` at or after `from`, skipping spaces, zero-width marks and quotes. */
+function firstLetterIndex(text: string, from = 0) {
+  for (let index = from; index < text.length; index += 1) {
+    if (/\p{L}/u.test(text[index])) return index;
+  }
+  return -1;
+}
+
+/** Manuscript-style bird-letter initial (Թռչնագիր) dropped into the first lines of a prayer. */
+function OrnateInitial({ letter }: { letter: string }) {
+  return <span className="ornate-initial">{letter}</span>;
 }
 
 function HitText({ text, start, hit }: { text: string; start: number; hit?: BridgeSearchHit }) {
@@ -87,14 +115,23 @@ function HitText({ text, start, hit }: { text: string; start: number; hit?: Brid
   return <>{text.slice(0, localStart)}<mark className="rounded-[4px] bg-[rgb(240_196_88/42%)] px-[2px] text-inherit" data-search-hit>{text.slice(localStart, localEnd)}</mark>{text.slice(localEnd)}</>;
 }
 
-function RichInlineNodes({ nodes, hit, cursor = { value: 0 } }: { nodes: BridgeRichInline[]; hit?: BridgeSearchHit; cursor?: { value: number } }) {
+function RichInlineNodes({ nodes, hit, cursor = { value: 0 }, ornate }: { nodes: BridgeRichInline[]; hit?: BridgeSearchHit; cursor?: { value: number }; ornate?: { done: boolean } }) {
   return nodes.map((node, index): ReactNode => {
     const key = `${node.type}-${index}`;
-    if (node.type === "text") { const start = cursor.value; cursor.value += node.text.length; return <Fragment key={key}><HitText text={node.text} start={start} hit={hit} /></Fragment>; }
+    if (node.type === "text") {
+      const start = cursor.value;
+      cursor.value += node.text.length;
+      const letter = ornate && !ornate.done ? firstLetterIndex(node.text) : -1;
+      if (ornate && letter >= 0) {
+        ornate.done = true;
+        return <Fragment key={key}><HitText text={node.text.slice(0, letter)} start={start} hit={hit} /><OrnateInitial letter={node.text[letter]} /><HitText text={node.text.slice(letter + 1)} start={start + letter + 1} hit={hit} /></Fragment>;
+      }
+      return <Fragment key={key}><HitText text={node.text} start={start} hit={hit} /></Fragment>;
+    }
     if (node.type === "line-break") { cursor.value += 1; return <br key={key} />; }
     if (node.type === "custom-emoji") { const alt = node.alt || "◻"; const start = cursor.value; cursor.value += alt.length; return <span aria-label="Telegram custom emoji" title="Telegram custom emoji" key={key}><HitText text={alt} start={start} hit={hit} /></span>; }
     if (node.type === "unsupported") return <span className="sr-only" key={key}>Չաջակցվող ձևաչափ</span>;
-    const child = <RichInlineNodes nodes={node.children} hit={hit} cursor={cursor} />;
+    const child = <RichInlineNodes nodes={node.children} hit={hit} cursor={cursor} ornate={ornate} />;
     if (node.type === "bold") return <strong key={key}>{child}</strong>;
     if (node.type === "italic") return <em key={key}>{child}</em>;
     if (node.type === "underline") return <u key={key}>{child}</u>;
@@ -112,10 +149,12 @@ function RichInlineNodes({ nodes, hit, cursor = { value: 0 } }: { nodes: BridgeR
   });
 }
 
-function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false }: { blocks: BridgeRichBlock[]; media: MaterialMedia[]; hit?: BridgeSearchHit; prefix?: string; skipFirst?: boolean }) {
+function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, ornate }: { blocks: BridgeRichBlock[]; media: MaterialMedia[]; hit?: BridgeSearchHit; prefix?: string; skipFirst?: boolean; ornate?: { done: boolean } }) {
   return blocks.map((block, index) => {
     // Skip by rendering nothing so block IDs, which search hits point at, keep their indexes.
     if (skipFirst && index === 0) return null;
+    // "(Սաղմոս 3)" only repeats the number shown above the player.
+    if (block.type === "paragraph" && index < 4 && isPsalmLabel(plainInlineText(block.content))) return null;
     const key = `${block.type}-${index}`;
     const blockId = `${prefix}-${index}`;
     const blockHit = hit?.blockId === blockId ? hit : undefined;
@@ -127,7 +166,7 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false }:
       if (block.level === 2) return <h3 className={className} id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}>{content}</h3>;
       return <h4 className={className} id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}>{content}</h4>;
     }
-    if (block.type === "paragraph") return <p className="m-0 whitespace-pre-wrap break-words" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><RichInlineNodes nodes={block.content} hit={blockHit} /></p>;
+    if (block.type === "paragraph") return <p className="m-0 whitespace-pre-wrap break-words" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><RichInlineNodes nodes={block.content} hit={blockHit} ornate={ornate} /></p>;
     if (block.type === "pre") return <pre className="m-0 overflow-x-auto rounded-[14px] border border-glass-border bg-subtle p-4 text-[0.86em] leading-relaxed" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><code data-language={block.language ?? undefined}><RichInlineNodes nodes={block.content} hit={blockHit} /></code></pre>;
     if (block.type === "divider") return <hr className="my-1 w-full border-0 border-t border-gold/25" key={key} />;
     if (block.type === "media") {
@@ -150,18 +189,21 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false }:
   });
 }
 
-export function TelegramRichMessage({ value, media, hit, title }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit; title?: string }) {
+export function TelegramRichMessage({ value, media, hit, title, ornateInitial = false }: { value: BridgeRichContent; media: MaterialMedia[]; hit?: BridgeSearchHit; title?: string; ornateInitial?: boolean }) {
   const skipFirst = title ? richContentStartsWithTitle(value, title) : false;
-  return <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
+  // A fresh marker per render: only the first paragraph's first letter becomes the initial.
+  const ornate = ornateInitial ? { done: false } : undefined;
+  return <section className="grid gap-4 frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} ornate={ornate} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
-export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number }) {
+export function FormattedTelegramText({ value, hit, from = 0, ornateInitial = false }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number; ornateInitial?: boolean }) {
   if (!value.text || from >= value.text.length) return null;
+  const initial = ornateInitial ? firstLetterIndex(value.text, from) : -1;
   const entities = value.entities.filter((entity) =>
     entity.offset >= 0 && entity.length > 0 && entity.offset + entity.length <= value.text.length,
   );
   // Offsets stay absolute so entities and search hits still line up when a leading title is skipped.
-  const boundaries = [...new Set([from, value.text.length, ...entities.flatMap((entity) => [entity.offset, entity.offset + entity.length])])]
+  const boundaries = [...new Set([from, value.text.length, ...(initial >= 0 ? [initial, initial + 1] : []), ...entities.flatMap((entity) => [entity.offset, entity.offset + entity.length])])]
     .filter((boundary) => boundary >= from)
     .sort((left, right) => left - right);
 
@@ -169,7 +211,9 @@ export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeF
     <span className="whitespace-pre-wrap break-words">
       {boundaries.slice(0, -1).map((start, index) => {
         const end = boundaries[index + 1];
-        let node: ReactNode = <HitText text={value.text.slice(start, end)} start={start} hit={hit} />;
+        let node: ReactNode = start === initial
+          ? <OrnateInitial letter={value.text.slice(start, end)} />
+          : <HitText text={value.text.slice(start, end)} start={start} hit={hit} />;
         const active = entities.filter((entity) => entity.offset <= start && entity.offset + entity.length >= end);
         for (const [entityIndex, entity] of active.entries()) {
           node = entityWrapper(entity, node, `${start}-${end}-${entityIndex}`);
@@ -180,13 +224,15 @@ export function FormattedTelegramText({ value, hit, from = 0 }: { value: BridgeF
   );
 }
 
-export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; telegramUrl: string }) {
+export function TelegramPollCard({ poll, telegramUrl, title }: { poll: BridgePoll; telegramUrl: string; title?: string }) {
+  // The page title is usually the question itself; don't print it twice.
+  const repeatsTitle = Boolean(title) && poll.question.text.trim() === title?.trim();
   return (
-    <section className="grid gap-4 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-5 shadow-card" aria-label="Telegram հարցում">
+    <section className="grid gap-4 frosted-panel p-5 shadow-card" aria-label="Telegram հարցում">
       <header className="flex items-start gap-3">
         <BarChart3 className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={21} />
         <div className="grid gap-1">
-          <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>
+          {repeatsTitle ? <h2 className="m-0 text-[13px] font-semibold tracking-[0.3px] text-gold-bright">{poll.quiz ? "Վիկտորինա" : "Հարցում"}</h2> : <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>}
           <p className="m-0 text-[11px] text-faint">{poll.totalVoters} քվե · {poll.anonymous ? "անանուն" : "հրապարակային"}{poll.closed ? " · փակված" : ""}</p>
         </div>
       </header>
@@ -212,7 +258,7 @@ export function TelegramPollCard({ poll, telegramUrl }: { poll: BridgePoll; tele
 export function TelegramLocationCard({ location }: { location: BridgeLocation }) {
   const mapUrl = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(location.latitude)}&mlon=${encodeURIComponent(location.longitude)}#map=16/${encodeURIComponent(location.latitude)}/${encodeURIComponent(location.longitude)}`;
   return (
-    <section className="grid gap-3 rounded-[20px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] p-5 shadow-card" aria-label="Telegram տեղադրություն">
+    <section className="grid gap-3 frosted-panel p-5 shadow-card" aria-label="Telegram տեղադրություն">
       <header className="flex items-start gap-3"><MapPin className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={22} /><div><h2 className="m-0 text-[16px] leading-[1.5] text-ink">{location.title || "Տեղադրություն"}</h2>{location.address ? <p className="mt-1 mb-0 text-[13px] leading-[1.55] text-muted">{location.address}</p> : null}</div></header>
       <p className="m-0 font-mono text-[11px] text-faint">{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}{location.live ? " · live location" : ""}</p>
       <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright no-underline" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել քարտեզում</a>

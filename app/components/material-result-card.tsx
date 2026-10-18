@@ -342,7 +342,18 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {material.categoryName ? (
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
           ) : null}
-          <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
+          {variant === "text" && material.contentType === "poll" ? (
+            // Bible questions: the question with a gold "?" and how many answers it offers.
+            <span className="grid grid-cols-[30px_1fr] items-start gap-2.5">
+              <span className="mt-0.5 grid size-[30px] place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] font-noto text-[16px] font-bold text-gold-bright" aria-hidden="true">?</span>
+              <span className="grid gap-1">
+                <strong className="line-clamp-3 font-noto text-[15px] leading-[22px] font-semibold [overflow-wrap:anywhere]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
+                {material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան</span> : null}
+              </span>
+            </span>
+          ) : (
+            <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
+          )}
           {material.searchHit ? (
             <span className="grid gap-1 rounded-[10px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/6%)] px-2.5 py-2 text-[12px] leading-[1.5] text-muted">
               <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-gold">{hitSourceLabel(material.searchHit.source)}</span>

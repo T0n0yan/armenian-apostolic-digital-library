@@ -53,7 +53,7 @@ export function PageShell({children, width = "content"}: PageShellProps) {
     const maxWidth = width === "library" ? "max-w-[1180px]" : width === "admin" ? "max-w-[1160px]" : "max-w-[940px]";
 
     return (<main
-        className={`relative mx-auto min-h-svh w-full ${maxWidth} pt-[calc(var(--tg-content-safe-area-inset-top,0px)+12px)] pr-[calc(var(--tg-content-safe-area-inset-right,0px)+14px)] pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+88px)] pl-[calc(var(--tg-content-safe-area-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-content-safe-area-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+100px)] min-[560px]:pl-[calc(var(--tg-content-safe-area-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-content-safe-area-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-content-safe-area-inset-bottom,0px)+112px)] min-[960px]:pl-[calc(var(--tg-content-safe-area-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-content-safe-area-inset-top,0px)+26px)]`}
+        className={`relative mx-auto min-h-svh w-full ${maxWidth} pt-[calc(var(--tg-inset-top,0px)+12px)] pr-[calc(var(--tg-inset-right,0px)+14px)] pb-[calc(var(--tg-inset-bottom,0px)+88px)] pl-[calc(var(--tg-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-inset-bottom,0px)+100px)] min-[560px]:pl-[calc(var(--tg-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-inset-bottom,0px)+112px)] min-[960px]:pl-[calc(var(--tg-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-inset-top,0px)+26px)]`}
     >
         {children}
     </main>);
@@ -84,6 +84,14 @@ export function HeaderSearchLink() {
     >
         <Search aria-hidden="true" size={17} strokeWidth={2}/>
     </Link>);
+}
+
+/** Long titles (whole questions, feast names) get a calmer size instead of filling the screen. */
+function titleSize(title: ReactNode) {
+    const length = typeof title === "string" ? Array.from(title).length : 0;
+    if (length > 90) return "text-[20px] leading-[28px] tracking-[-0.2px] min-[560px]:text-[24px] min-[560px]:leading-[32px]";
+    if (length > 50) return "text-[23px] leading-[31px] tracking-[-0.4px] min-[560px]:text-[28px] min-[560px]:leading-[36px]";
+    return "text-[26px] leading-9 tracking-[-1.2px] min-[560px]:text-[38px] min-[560px]:leading-[45px] min-[960px]:text-[50px] min-[960px]:leading-[57px]";
 }
 
 export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, ornate = false, showSearch = true, title}: PageHeaderProps) {
@@ -119,19 +127,7 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
             {showSearch && !home ? <HeaderSearchLink/> : null}
         </div>) : null}
 
-        <h1 className="
-            w-full
-            text-[26px]
-            font-regular
-            text-balance
-            leading-9
-            max-w-[860px]
-            tracking-[-1.2px]
-            min-[560px]:text-[38px]
-            min-[560px]:leading-[45px]
-            min-[960px]:text-[50px]
-            min-[960px]:leading-[57px]
-            ">
+        <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>
             <PageTitle title={title} ornate={ornate}/>
         </h1>
         <p className="m-0 text-[8px] font-noto tracking-[1.6px] text-gold min-[960px]:text-[13px]">

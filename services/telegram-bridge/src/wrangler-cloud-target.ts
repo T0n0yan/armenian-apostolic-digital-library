@@ -148,6 +148,8 @@ export class WranglerCloudSyncTarget implements CloudLibrarySyncTarget {
   private readonly published = new Map<string, string | null>();
   private readonly objectKeys = new Set<string>();
   private readonly checkpoints = new Map<string, SyncCheckpoint>();
+  private readonly topicSignatures = new Map<string, string>();
+  private readonly cursorRows = new Map<string, string>();
   private readonly stagedMedia = new Map<string, Map<number, {
     original: string | null;
     thumbnail: string | null;
@@ -160,11 +162,16 @@ export class WranglerCloudSyncTarget implements CloudLibrarySyncTarget {
 
   static async create(options: { metadataOnly: boolean }) {
     const target = new WranglerCloudSyncTarget(options.metadataOnly);
-    const [materials, media, cursors] = await Promise.all([
+    const [materials, media, cursors, topics] = await Promise.all([
       query<ExistingMaterial>("SELECT chat_id,message_id,content_hash,sync_state,author_id FROM library_materials"),
       query<ExistingMedia>("SELECT r2_key,thumbnail_r2_key FROM library_media WHERE status='ready'"),
       query<CursorRow>("SELECT chat_id,topic_id,cursor,phase FROM library_sync_cursors"),
+      query<{ id: string; slug: string; title: string; default_sort: string; status: string; icon_color: number | null; icon_emoji_id: string | null; is_general: number; telegram_message_count: number | null }>(
+        "SELECT id,slug,title,default_sort,status,icon_color,icon_emoji_id,is_general,telegram_message_count FROM library_topics",
+      ),
     ]);
+    for (const row of topics) target.topicSignatures.set(row.id, JSON.stringify([row.slug, row.title, row.default_sort, row.status, row.icon_color, row.icon_emoji_id, Boolean(row.is_general), row.telegram_message_count]));
+    for (const row of cursors) target.cursorRows.set(`${row.chat_id}:${row.topic_id}`, `${row.phase}:${row.cursor ?? ""}`);
     for (const row of materials) {
       target.hashes.set(`${row.chat_id}:${row.message_id}`, row.content_hash);
       if (row.sync_state === "ready") target.published.set(`${row.chat_id}:${row.message_id}`, row.author_id);
@@ -193,6 +200,10 @@ VALUES(${sql(this.pendingRun.id)},${sql(input.chatId)},${sql(this.pendingRun.mod
 
   async upsertTopic(topic: BridgeCategory, dryRun: boolean) {
     if (dryRun || !topic.chatId || topic.topicId === null) return;
+    // D1 bills row writes; most runs see no topic changes.
+    const signature = JSON.stringify([topic.slug, topic.name, topic.defaultSort, topic.status, topic.iconColor, topic.iconEmojiId, topic.isGeneral, topic.messageCount]);
+    if (this.topicSignatures.get(topic.id) === signature) return;
+    this.topicSignatures.set(topic.id, signature);
     await executeSql(`INSERT INTO library_topics
 (id,chat_id,topic_id,slug,title,default_sort,status,icon_color,icon_emoji_id,is_general,telegram_message_count,last_synced_at,updated_at)
 VALUES(${sql(topic.id)},${sql(topic.chatId)},${topic.topicId},${sql(topic.slug)},${sql(topic.name)},${sql(topic.defaultSort)},${sql(topic.status)},${sql(topic.iconColor)},${sql(topic.iconEmojiId)},${topic.isGeneral ? 1 : 0},${sql(topic.messageCount)},strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -347,6 +358,10 @@ UPDATE library_sync_runs SET failures=failures+1 WHERE id=${sql(input.runId)};`)
     if (input.dryRun) return;
     const complete = this.metadataOnly ? false : input.complete;
     const phase = this.metadataOnly ? "media" : complete ? "complete" : "history";
+    const key = `${input.chatId}:${input.topicId}`;
+    const row = `${phase}:${input.cursor ?? ""}`;
+    if (this.cursorRows.get(key) === row) { this.checkpoints.set(key, { cursor: input.cursor, complete }); return; }
+    this.cursorRows.set(key, row);
     await executeSql(`INSERT INTO library_sync_cursors(chat_id,topic_id,phase,cursor,updated_at)
 VALUES(${sql(input.chatId)},${input.topicId},${sql(phase)},${sql(input.cursor)},strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 ON CONFLICT(chat_id,topic_id) DO UPDATE SET phase=excluded.phase,cursor=excluded.cursor,updated_at=excluded.updated_at;`);
@@ -359,7 +374,14 @@ ON CONFLICT(chat_id,topic_id) DO UPDATE SET phase=excluded.phase,cursor=excluded
   }
 
   async syncPublishers(input: { chatId: string; admins: TelegramAdmin[] | null; dryRun: boolean }): Promise<PublisherPolicy> {
-    if (input.admins && !input.dryRun) {
+    const existing = await query<{ telegram_user_id: string; display_name: string; username: string | null; source: string; status: string }>(
+      `SELECT telegram_user_id,display_name,username,source,status FROM library_publishers WHERE chat_id=${sql(input.chatId)}`,
+    );
+    const mirrored = existing.filter((row) => row.source === "telegram_admin");
+    const unchanged = input.admins !== null
+      && mirrored.length === input.admins.length
+      && input.admins.every((admin) => mirrored.some((row) => row.telegram_user_id === admin.userId && row.display_name === admin.displayName && row.username === admin.username));
+    if (input.admins && !input.dryRun && !unchanged) {
       // Mirror Telegram admins: add current ones, drop former ones (manual rows are left alone).
       const ids = input.admins.map((admin) => sql(admin.userId)).join(",");
       await executeSql(`${input.admins.map((admin) => `INSERT INTO library_publishers(chat_id,telegram_user_id,display_name,username,source,status,updated_at)
@@ -369,7 +391,7 @@ source=CASE WHEN library_publishers.source='manual' AND library_publishers.statu
 updated_at=excluded.updated_at;`).join("\n")}
 DELETE FROM library_publishers WHERE chat_id=${sql(input.chatId)} AND source='telegram_admin'${ids ? ` AND telegram_user_id NOT IN (${ids})` : ""};`);
     }
-    const rows = await query<{ telegram_user_id: string; status: string }>(
+    const rows = unchanged ? existing : await query<{ telegram_user_id: string; status: string }>(
       `SELECT telegram_user_id,status FROM library_publishers WHERE chat_id=${sql(input.chatId)}`,
     );
     return {
@@ -380,6 +402,16 @@ DELETE FROM library_publishers WHERE chat_id=${sql(input.chatId)} AND source='te
 
   async recordAuthors(input: { chatId: string; authors: AuthorTally[]; dryRun: boolean }) {
     if (input.dryRun || input.authors.length === 0) return;
+    const known = await query<{ telegram_user_id: string; display_name: string; post_count: number; withheld_count: number; last_post_at: string | null }>(
+      `SELECT telegram_user_id,display_name,post_count,withheld_count,last_post_at FROM library_post_authors WHERE chat_id=${sql(input.chatId)}`,
+    );
+    const changed = input.authors.filter((author) => {
+      const row = known.find((item) => item.telegram_user_id === author.userId);
+      return !row || row.withheld_count !== author.withheld || author.posts > row.post_count
+        || (author.displayName && row.display_name !== author.displayName) || (author.lastPostAt ?? "") > (row.last_post_at ?? "");
+    });
+    if (changed.length === 0) return;
+    input = { ...input, authors: changed };
     await executeSql(input.authors.map((author) => `INSERT INTO library_post_authors(chat_id,telegram_user_id,display_name,post_count,withheld_count,last_post_at,updated_at)
 VALUES(${sql(input.chatId)},${sql(author.userId)},${sql(author.displayName)},${author.posts},${author.withheld},${sql(author.lastPostAt)},strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 ON CONFLICT(chat_id,telegram_user_id) DO UPDATE SET display_name=CASE WHEN excluded.display_name<>'' THEN excluded.display_name ELSE library_post_authors.display_name END,

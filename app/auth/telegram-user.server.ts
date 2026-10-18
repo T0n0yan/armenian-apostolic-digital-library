@@ -291,7 +291,11 @@ export async function upsertAppUser(
        ON CONFLICT(id) DO UPDATE SET
          display_name = excluded.display_name,
          username = excluded.username,
-         last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+         last_seen_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       -- D1 bills row writes: touch the row only when something changed or a few hours passed.
+       WHERE app_users.display_name IS NOT excluded.display_name
+         OR app_users.username IS NOT excluded.username
+         OR app_users.last_seen_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-6 hours')`,
     )
     .bind(user.id, user.telegramId, user.displayName, user.username)
     .run();

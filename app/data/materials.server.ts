@@ -1,5 +1,19 @@
 import type { BridgeContentType, BridgePost } from "../../shared/telegram-bridge-contract";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { summarizeDailyReading, type DailyReadingSummary } from "../utils/daily-reading";
 import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
+
+/**
+ * How a topic's feed loads: Psalms all at once (their grid sorts by number, at most 151), Saints
+ * oldest first (the order they were introduced), everything else newest first, 12 per page.
+ */
+export function categoryFeedOptions(category: { id: string; name: string }) {
+  const kind = resolveContentCategoryId(category.id, category.name);
+  return {
+    limit: kind === "category_psalms" ? 200 : 12,
+    order: kind === "category_saints_lives" ? "asc" as const : "desc" as const,
+  };
+}
 
 export type PublicMaterial = {
   id: string;
@@ -29,6 +43,8 @@ export type MaterialCardPreview = {
   locationTitle: string | null;
   locationSummary: string | null;
   unsupportedType: string | null;
+  /** Feast and scripture references when the post is a daily reading. */
+  daily: DailyReadingSummary | null;
 };
 
 export type PublicMaterialPage = {
@@ -82,6 +98,7 @@ export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
       ? `${post.location.latitude.toFixed(4)}, ${post.location.longitude.toFixed(4)}`
       : null,
     unsupportedType: post.unsupportedType,
+    daily: summarizeDailyReading(post.contentText || post.captionText),
   };
 }
 
@@ -91,11 +108,11 @@ export async function listPublicMaterialPageByCategory(
   _defaultSort: "title-asc" | "manual" | "number-asc" | "date-desc",
   cursor: string | null,
   _signal?: AbortSignal,
-  limit = 12,
 ): Promise<PublicMaterialPage> {
   const category = (await listCloudLibraryCategories(database)).find((item) => item.id === categoryId);
   if (!category) return { materials: [], total: 0, nextCursor: null };
-  const page = await listCloudLibraryCategoryPosts(database, category.slug, cursor, limit);
+  const { limit, order } = categoryFeedOptions(category);
+  const page = await listCloudLibraryCategoryPosts(database, category.slug, cursor, limit, order);
   return {
     materials: page.posts.map(bridgePostToPublic),
     total: page.total ?? page.posts.length + (page.nextCursor ? 1 : 0),

@@ -1,13 +1,11 @@
 export const focusRing =
   "outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/42%)] focus-visible:ring-offset-3";
 
-export const glassPanel =
-  "rounded-[22px] border border-glass-border bg-[linear-gradient(145deg,var(--glass-highlight),transparent_46%),var(--glass)] shadow-glass";
+export const glassPanel = "frosted-panel";
 
-export const glassCard =
-  "relative isolate overflow-hidden rounded-[10px] border border-glass-border bg-[linear-gradient(145deg,rgb(255_255_255/7%),transparent_46%),var(--card-glass)] shadow-card before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-[linear-gradient(115deg,rgb(255_255_255/13%),transparent_24%_74%,rgb(217_181_111/6%))]";
+export const glassCard = "frosted-card";
 
-export const interactiveGlassCard = `${glassCard} transition-[border-color,transform,background] duration-[180ms] hover:-translate-y-px hover:border-[rgb(217_181_111/30%)] hover:bg-[linear-gradient(145deg,rgb(255_255_255/10%),transparent_48%),var(--glass-strong)] ${focusRing}`;
+export const interactiveGlassCard = `frosted-card ${focusRing}`;
 
 export const iconButton =
   `grid size-[36px] shrink-0 cursor-pointer place-items-center rounded-[12px] border border-glass-border bg-subtle p-0 text-muted transition-[border-color,color,background,transform] duration-[160ms] hover:-translate-y-px hover:border-[rgb(217_181_111/34%)] hover:bg-glass-highlight hover:text-gold-bright ${focusRing}`;
@@ -32,6 +30,6 @@ export const primaryButton =
   `inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-[8px] rounded-[14px] border border-[rgb(217_181_111/24%)] bg-[linear-gradient(135deg,#7b4a8e,#5c326d)] px-[18px] py-[11px] text-[14px] font-[760] text-[#fffaf3] shadow-card transition-[filter,transform] duration-[160ms] hover:-translate-y-px hover:brightness-110 disabled:cursor-wait disabled:opacity-60 ${focusRing}`;
 
 export const sectionHeader = "flex items-center justify-between gap-[12px] px-[4px]";
-export const sectionTitle = "m-0 text-[14px] min-[960px]:text-[20px]";
+export const sectionTitle = "m-0 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase";
 export const countBadge =
-  "grid min-h-[34px] min-w-[34px] place-items-center rounded-full border border-glass-border px-[8px] text-[13px] text-muted tabular-nums";
+  "grid min-h-[26px] min-w-[26px] place-items-center rounded-full border border-[rgb(217_181_111/30%)] px-[8px] text-[12px] text-gold-bright tabular-nums";

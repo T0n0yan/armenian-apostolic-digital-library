@@ -19,6 +19,7 @@ import { SiteNav } from "./components/site-nav";
 import {listActiveCategories} from "./data/categories.server";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
+import {InstallPrompt} from "./components/install-prompt";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -39,20 +40,28 @@ const initialThemeScript = `(() => {
       }
     } catch {}
     let preference = "system";
-    let textSize = "normal";
+    let textSize = 16;
     try {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark") preference = value;
       const size = localStorage.getItem("library-text-size-v1");
-      if (size === "large" || size === "xlarge") textSize = size;
+      const legacy = size === "large" ? 18 : size === "xlarge" ? 20 : Number(size);
+      if (size && legacy >= 12 && legacy <= 20) textSize = Math.round(legacy);
     } catch {}
     const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference;
     root.dataset.themePreference = preference;
     root.dataset.theme = theme;
-    root.dataset.textSize = textSize;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f2ebf4");
+    root.style.setProperty("--reading-size", textSize + "px");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#100817" : "#f4ead6");
   } catch {}
 })();`;
+
+export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.ico", sizes: "any" },
+  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  { rel: "manifest", href: "/manifest.webmanifest" },
+];
 
 export async function loader({request}: Route.LoaderArgs) {
   const [telegramAdmin, categories, telegramUser] = await Promise.all([
@@ -123,18 +132,15 @@ function loadTelegramSdk() {
 function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
   const safe = webApp.safeAreaInset ?? {};
-  const content = webApp.contentSafeAreaInset ?? safe;
+  const content = webApp.contentSafeAreaInset ?? {};
   for (const side of ["top", "right", "bottom", "left"] as const) {
-    if (typeof safe[side] === "number") {
-      root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safe[side]}px`);
-    }
-    const contentValue = content[side] ?? safe[side];
-    if (typeof contentValue === "number") {
-      root.style.setProperty(
-        `--tg-content-safe-area-inset-${side}`,
-        `${contentValue}px`,
-      );
-    }
+    const safeValue = typeof safe[side] === "number" ? safe[side] : 0;
+    const contentValue = typeof content[side] === "number" ? content[side] : 0;
+    root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
+    root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
+    // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the
+    // device safe area (status bar, notch), so the page must clear both.
+    root.style.setProperty(`--tg-inset-${side}`, `${safeValue + contentValue}px`);
   }
   if (typeof webApp.viewportHeight === "number") {
     root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`);
@@ -168,7 +174,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="width=device-width, initial-scale=1, viewport-fit=cover"
         />
         <meta name="color-scheme" content="light dark" />
-        <meta name="theme-color" content="#f2ebf4" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Հոգևոր ժառանգ." />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#f4ead6" />
         <Meta />
         <Links />
         <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
@@ -236,6 +245,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return <>
     <Outlet />
     <CandleLoader />
+    <InstallPrompt />
   </>;
 }
 

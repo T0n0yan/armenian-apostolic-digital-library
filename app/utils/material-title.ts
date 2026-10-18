@@ -35,3 +35,22 @@ export function leadingTitleLength(text: string, title: string) {
   while (end < text.length && /\s/u.test(text[end])) end += 1;
   return end;
 }
+
+const psalmLabel = /^[\s\u200B-\u200D\uFEFF]*\(?\s*սաղմոս\S*\s+\d{1,3}\s*\)?[\s.։]*$/iu;
+
+/** A line such as "(Սաղմոս 3)" that only repeats the psalm number already shown by the player. */
+export function isPsalmLabel(value: string) {
+  return psalmLabel.test(value.normalize("NFC"));
+}
+
+/** Extends `from` past a following "(Սաղմոս N)" line and the blank lines after it. */
+export function skipPsalmLabel(text: string, from: number) {
+  let start = from;
+  while (start < text.length && /\s/u.test(text[start])) start += 1;
+  const lineEnd = text.indexOf("\n", start);
+  const line = text.slice(start, lineEnd < 0 ? text.length : lineEnd);
+  if (!isPsalmLabel(line)) return from;
+  let end = lineEnd < 0 ? text.length : lineEnd;
+  while (end < text.length && /\s/u.test(text[end])) end += 1;
+  return end;
+}

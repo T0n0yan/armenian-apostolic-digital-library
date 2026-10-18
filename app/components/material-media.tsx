@@ -1,4 +1,4 @@
-import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, RotateCw, Video } from "lucide-react";
+import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react";
 
 import type { MaterialMedia } from "../data/material-detail.server";
@@ -25,8 +25,8 @@ function Waveform({ encoded }: { encoded: string }) {
 function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry: () => void }) {
   const busy = state === "initial" || state === "metadata" || state === "buffering" || state === "seeking";
   const failed = state.startsWith("error");
-  // The native controls already show idle, paused and playing; only surface waiting and failures.
-  const visible = failed || state === "buffering" || state === "seeking";
+  // The player itself shows loading; only a failure needs words (and a retry button).
+  const visible = failed;
   return (
     <div
       hidden={!visible}
@@ -43,6 +43,90 @@ function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry
           <RotateCw aria-hidden="true" size={14} /> Կրկին փորձել
         </button>
       ) : null}
+    </div>
+  );
+}
+
+function clock(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const whole = Math.floor(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
+/** Custom audio controls: large play button, scrubber with elapsed/remaining time, ±15 s skips. */
+function AudioControls({ elementRef, state, fallbackDuration }: {
+  elementRef: React.RefObject<HTMLMediaElement | null>;
+  state: MediaPlaybackState;
+  fallbackDuration: number | null;
+}) {
+  const [time, setTime] = useState(0);
+  const [duration, setDuration] = useState(fallbackDuration ?? 0);
+  const [paused, setPaused] = useState(true);
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    const sync = () => {
+      setTime(element.currentTime);
+      if (Number.isFinite(element.duration) && element.duration > 0) setDuration(element.duration);
+      setPaused(element.paused);
+    };
+    const events = ["timeupdate", "durationchange", "loadedmetadata", "play", "pause", "ended", "seeked"];
+    for (const name of events) element.addEventListener(name, sync);
+    sync();
+    return () => { for (const name of events) element.removeEventListener(name, sync); };
+  }, [elementRef]);
+  const element = () => elementRef.current;
+  const toggle = () => {
+    const audio = element();
+    if (!audio) return;
+    if (audio.paused) void audio.play().catch(() => {});
+    else audio.pause();
+  };
+  const seekTo = (seconds: number) => {
+    const audio = element();
+    if (!audio) return;
+    audio.currentTime = Math.max(0, Math.min(seconds, duration || seconds));
+  };
+  const busy = !paused && (state === "buffering" || state === "seeking" || state === "metadata");
+  const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
+  const skip = "grid size-11 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright outline-none transition-colors hover:bg-subtle focus-visible:ring-2 focus-visible:ring-[rgb(217_181_111/45%)]";
+  return (
+    <div className="grid w-full gap-3">
+      <div className="grid gap-1.5">
+        <input
+          className="audio-scrubber w-full"
+          type="range"
+          min={0}
+          max={duration || 0}
+          step={0.1}
+          value={Math.min(time, duration || 0)}
+          onChange={(event) => seekTo(Number(event.currentTarget.value))}
+          style={{ "--progress": `${progress}%` } as React.CSSProperties}
+          aria-label="Նվագարկման դիրք"
+        />
+        <div className="flex justify-between text-[11px] text-faint tabular-nums">
+          <span>{clock(time)}</span>
+          <span>−{clock(Math.max(0, duration - time))}</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-5">
+        <button className={skip} type="button" onClick={() => seekTo(time - 15)} aria-label="15 վայրկյան ետ">
+          <RotateCcw aria-hidden="true" size={21} strokeWidth={1.8} />
+        </button>
+        <button
+          className="grid size-[60px] cursor-pointer place-items-center rounded-full border-0 bg-[linear-gradient(160deg,#e4bd70,#b08035)] text-[#2b1a0b] shadow-[0_10px_24px_rgb(120_80_20/35%),inset_0_1px_0_rgb(255_255_255/45%)] outline-none transition-transform active:scale-95 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/40%)]"
+          type="button"
+          onClick={toggle}
+          aria-label={paused ? "Նվագարկել" : "Դադարեցնել"}
+        >
+          {busy ? <LoaderCircle className="motion-safe:animate-spin" aria-hidden="true" size={24} />
+            : paused ? <Play aria-hidden="true" size={24} fill="currentColor" className="translate-x-0.5" />
+              : <Pause aria-hidden="true" size={24} fill="currentColor" />}
+        </button>
+        <button className={skip} type="button" onClick={() => seekTo(time + 15)} aria-label="15 վայրկյան առաջ">
+          <RotateCw aria-hidden="true" size={21} strokeWidth={1.8} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -131,12 +215,16 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
           Բրաուզերդ չի աջակցում տեսանյութը։
         </video>
       ) : (
-        <audio
-          {...common}
-          ref={ref}
-          className="w-full"
-          aria-label={asset.altText || (asset.kind === "voice" ? "Telegram ձայնային հաղորդագրություն" : "Telegram հրապարակման աուդիո")}
-        />
+        <>
+          <audio
+            {...common}
+            controls={false}
+            ref={ref}
+            className="hidden"
+            aria-label={asset.altText || (asset.kind === "voice" ? "Telegram ձայնային հաղորդագրություն" : "Telegram հրապարակման աուդիո")}
+          />
+          <AudioControls elementRef={elementRef} state={state} fallbackDuration={asset.duration} />
+        </>
       )}
       <PlaybackStatus state={state} onRetry={retry} />
     </div>
@@ -228,15 +316,16 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
   }
 
   if (asset.kind === "audio" || asset.kind === "voice") {
+    // Telegram metadata can hold only invisible characters (soft hyphen, zero-width space).
+    const performerText = asset.performer?.trim() ?? "";
+    const performer = /[\p{L}\p{N}]/u.test(performerText.replace(/[\u3164\u115F\u1160\uFFA0]/gu, "")) ? performerText : null;
     return (
-      <div className="grid justify-items-center gap-4 rounded-[22px] border border-glass-border bg-[radial-gradient(circle_at_50%_0%,rgb(217_181_111/16%),transparent_60%),var(--glass)] px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
-        {asset.thumbnailUrl
-          ? <img className="aspect-square w-40 rounded-[20px] object-cover shadow-[0_18px_40px_rgb(10_4_14/40%)] min-[560px]:w-48" src={asset.thumbnailUrl} width={384} height={384} loading="lazy" decoding="async" alt={asset.title ? `${asset.title} շապիկ` : "Telegram աուդիոյի շապիկ"} />
-          : <span className="grid aspect-square w-32 place-items-center rounded-[20px] bg-subtle text-gold"><Headphones aria-hidden="true" size={40} strokeWidth={1.4} /></span>}
+      <div className="grid justify-items-center gap-4 frosted-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
+        <span className="grid size-14 place-items-center rounded-full border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] text-gold-bright" aria-hidden="true"><Headphones size={24} strokeWidth={1.6} /></span>
         <div className="grid gap-1">
           <strong className="font-noto text-[19px] leading-tight font-semibold text-gold-bright">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</strong>
-          {asset.performer?.trim() || durationLabel(asset.duration) ? (
-            <span className="text-[12px] text-muted">{[asset.performer?.trim(), durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
+          {performer || durationLabel(asset.duration) ? (
+            <span className="text-[12px] text-muted">{[performer, durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
           ) : null}
         </div>
         {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}

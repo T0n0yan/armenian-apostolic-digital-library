@@ -7,7 +7,9 @@ type CloudMediaRow = {
 function mediaHeaders(object: R2Object, contentType: string | null) {
   const headers = new Headers({
     "Accept-Ranges": "bytes",
-    "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+    // R2 objects are immutable per key (an edit gets a new key), so clients may keep media for a
+    // week; the ETag still lets them revalidate cheaply after that.
+    "Cache-Control": "public, max-age=604800, stale-while-revalidate=2592000",
     "Content-Type": contentType ?? object.httpMetadata?.contentType ?? "application/octet-stream",
     "X-Content-Type-Options": "nosniff",
   });

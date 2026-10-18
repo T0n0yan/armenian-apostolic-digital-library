@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Minus, Monitor, Moon, Plus, Sun } from "lucide-react";
 import { memo, useEffect, useState, type ReactNode } from "react";
 
 import {
@@ -6,6 +6,9 @@ import {
   applyThemePreference,
   readStoredTextSize,
   readStoredThemePreference,
+  TEXT_SIZE_DEFAULT,
+  TEXT_SIZE_MAX,
+  TEXT_SIZE_MIN,
   TEXT_SIZE_STORAGE_KEY,
   THEME_STORAGE_KEY,
   writeStorage,
@@ -44,22 +47,38 @@ function Segmented<T extends string>({ label, value, options, onChange }: {
   );
 }
 
+/** "− Aa +": reading text size in 1 px steps between 12 and 20 px, with a live sample. */
+function TextSizeStepper({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  const step = "grid size-10 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-gold-bright outline-none transition-colors hover:bg-glass-strong focus-visible:ring-2 focus-visible:ring-[rgb(217_181_111/45%)] disabled:cursor-default disabled:opacity-35";
+  return (
+    <div className="grid gap-2">
+      <span className="px-1 text-[12px] font-semibold text-muted">Տառաչափ</span>
+      <div className="grid grid-cols-[40px_1fr_40px] items-center gap-1 rounded-[14px] border border-glass-border bg-subtle p-1">
+        <button className={step} type="button" onClick={() => onChange(Math.max(TEXT_SIZE_MIN, value - 1))} disabled={value <= TEXT_SIZE_MIN} aria-label="Փոքրացնել տառաչափը">
+          <Minus aria-hidden="true" size={17} />
+        </button>
+        <span className="grid justify-items-center leading-none" aria-live="polite">
+          <span className="font-noto font-semibold text-ink" style={{ fontSize: `${value + 2}px` }}>Աա</span>
+          <span className="mt-1 text-[10px] text-faint tabular-nums">{value} px</span>
+        </span>
+        <button className={step} type="button" onClick={() => onChange(Math.min(TEXT_SIZE_MAX, value + 1))} disabled={value >= TEXT_SIZE_MAX} aria-label="Մեծացնել տառաչափը">
+          <Plus aria-hidden="true" size={17} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const themeOptions: Array<{ value: ThemePreference; label: string; icon: ReactNode }> = [
   { value: "system", label: "Ավտոմատ", icon: <Monitor aria-hidden="true" size={15} /> },
   { value: "light", label: "Բաց", icon: <Sun aria-hidden="true" size={15} /> },
   { value: "dark", label: "Մուգ", icon: <Moon aria-hidden="true" size={15} /> },
 ];
 
-const textSizeOptions: Array<{ value: TextSizePreference; label: string; icon: ReactNode }> = [
-  { value: "normal", label: "Սովորական", icon: <span aria-hidden="true" className="text-[12px] font-bold">Ա</span> },
-  { value: "large", label: "Մեծ", icon: <span aria-hidden="true" className="text-[15px] font-bold">Ա</span> },
-  { value: "xlarge", label: "Շատ մեծ", icon: <span aria-hidden="true" className="text-[18px] font-bold">Ա</span> },
-];
-
 /** Theme and reading-size preferences, stored per device. "Ավտոմատ" follows the phone (or Telegram). */
 export const ReadingSettings = memo(function ReadingSettings() {
   const [theme, setTheme] = useState<ThemePreference>("system");
-  const [textSize, setTextSize] = useState<TextSizePreference>("normal");
+  const [textSize, setTextSize] = useState<TextSizePreference>(TEXT_SIZE_DEFAULT);
 
   useEffect(() => {
     setTheme(readStoredThemePreference());
@@ -82,12 +101,7 @@ export const ReadingSettings = memo(function ReadingSettings() {
         options={themeOptions}
         onChange={(next) => { setTheme(next); writeStorage(THEME_STORAGE_KEY, next); applyThemePreference(next); }}
       />
-      <Segmented
-        label="Տառաչափ"
-        value={textSize}
-        options={textSizeOptions}
-        onChange={(next) => { setTextSize(next); writeStorage(TEXT_SIZE_STORAGE_KEY, next); applyTextSize(next); }}
-      />
+      <TextSizeStepper value={textSize} onChange={(next) => { setTextSize(next); writeStorage(TEXT_SIZE_STORAGE_KEY, String(next)); applyTextSize(next); }} />
     </div>
   );
 });

@@ -8,8 +8,10 @@ const requestHandler = createRequestHandler(
 export default {
   async fetch(request, _env, context) {
     const url = new URL(request.url);
+    // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
+    const sharedJson = url.pathname === "/api/search-page" || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
-      && !request.headers.has("cookie")
+      && (sharedJson || !request.headers.has("cookie"))
       && !url.searchParams.has("refresh")
       && (url.pathname === "/"
         || url.pathname === "/search"
@@ -19,13 +21,15 @@ export default {
         || url.pathname === "/api/search-page");
     if (!cacheable) return requestHandler(request);
     const cache = (caches as CacheStorage & { default: Cache }).default;
-    const cached = await cache.match(request);
+    // Cache by URL only, so a cookie never splits or leaks into the shared entry.
+    const cacheKey = new Request(url.toString(), { method: "GET" });
+    const cached = await cache.match(cacheKey);
     if (cached) return cached;
     const response = await requestHandler(request);
     if (response.status !== 200 || response.headers.has("set-cookie")) return response;
     const cacheResponse = new Response(response.body, response);
     cacheResponse.headers.set("Cache-Control", "public, max-age=30, s-maxage=60");
-    context.waitUntil(cache.put(request, cacheResponse.clone()));
+    context.waitUntil(cache.put(cacheKey, cacheResponse.clone()));
     return cacheResponse;
   },
 } satisfies ExportedHandler<Env>;

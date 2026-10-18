@@ -5,6 +5,7 @@ import { Link, useNavigation } from "react-router";
 import type { PublicMaterial } from "../data/materials.server";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { psalmNumber } from "../utils/psalm-number";
+import { calendarParts } from "../utils/daily-reading";
 
 type CardMaterial = Pick<PublicMaterial, "id" | "title" | "excerpt" | "preview">;
 
@@ -24,7 +25,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
         return (
           <li key={material.id}>
             <Link
-              className={`relative grid aspect-square place-items-center rounded-[14px] border text-inherit no-underline shadow-card transition-[transform,border-color,background] duration-150 active:scale-95 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)] ${isOpening ? "border-[rgb(217_181_111/55%)] bg-glass-strong" : "border-glass-border bg-[linear-gradient(150deg,var(--glass-highlight),transparent_55%),var(--card-glass)] hover:border-[rgb(217_181_111/40%)]"}`}
+              className={`frosted-card grid aspect-square place-items-center rounded-[16px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
               to={targetPath}
               prefetch="intent"
               aria-label={number ? `Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}` : material.title}
@@ -53,14 +54,14 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
         return (
           <li key={material.id}>
             <Link
-              className="group relative block aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card active:scale-[.985] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
+              className="group relative block aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
               to={targetPath}
               prefetch="intent"
               aria-busy={isOpening || undefined}
             >
               {image ? (
                 <img
-                  className="absolute inset-0 h-full w-full object-cover object-top opacity-80 transition-[transform,opacity] duration-500 group-hover:scale-[1.03] group-hover:opacity-90"
+                  className="absolute inset-0 h-full w-full object-cover object-top opacity-80 transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(.2,.8,.2,1)] will-change-transform group-hover:scale-[1.04] group-hover:opacity-90"
                   src={image}
                   alt=""
                   loading={index < 4 ? "eager" : "lazy"}
@@ -80,5 +81,61 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
         );
       })}
     </ol>
+  );
+});
+
+/** A topic's introduction post, shown as plain text above its grid: not a link, no actions. */
+export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial }) {
+  const title = material.title.replace(/[​-‍﻿]/gu, "").trim();
+  const excerpt = material.excerpt?.replace(/[​-‍﻿]/gu, "").trim() ?? "";
+  const body = excerpt.startsWith(title) ? excerpt.slice(title.length).replace(/^[\s.,:;։՝-]+/u, "") : excerpt;
+  return (
+    <section className="frosted-panel grid gap-1.5 px-5 py-4 text-center">
+      <h3 className="m-0 font-noto text-[15px] font-semibold tracking-[0.4px] text-gold-bright">{title}</h3>
+      {body ? <p className="m-0 text-[13px] leading-[1.6] text-muted">{body}</p> : null}
+    </section>
+  );
+});
+
+type DailyMaterial = CardMaterial & Pick<PublicMaterial, "dateValue" | "publishedAt">;
+
+/**
+ * A daily reading as a calendar leaf: the day and month on the left, the feast and the day's
+ * scripture references on the right, and the day's picture (when there is one) as a soft banner.
+ */
+export const DailyReadingCard = memo(function DailyReadingCard({ material }: { material: DailyMaterial }) {
+  const navigation = useNavigation();
+  const targetPath = `/materials/${material.id}`;
+  const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
+  const parts = calendarParts(material.dateValue ?? material.publishedAt);
+  const daily = material.preview.daily;
+  const image = material.preview.imageUrl ?? material.preview.thumbnailUrl;
+  return (
+    <li>
+      <Link className={`frosted-card grid overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath} prefetch="intent">
+        {image ? (
+          <span className="relative block aspect-[16/7] overflow-hidden" aria-hidden="true">
+            <img className="h-full w-full object-cover" src={image} alt="" loading="lazy" decoding="async" />
+          </span>
+        ) : null}
+        <span className="grid grid-cols-[72px_1fr] gap-3.5 p-4">
+          <span className="grid h-[76px] content-center justify-items-center self-start rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+            <span className="font-noto text-[28px] leading-none font-semibold text-gold-bright tabular-nums">{parts?.day ?? "•"}</span>
+            <span className="mt-1.5 max-w-full truncate px-1 text-[10px] font-semibold text-muted">{parts?.month ?? ""}</span>
+          </span>
+          <span className="grid min-w-0 content-start gap-1.5 pt-1">
+            <span className="text-[11px] font-semibold tracking-[0.4px] text-gold uppercase">{parts?.weekday ?? material.title}</span>
+            {daily?.feast ? <strong className="font-noto text-[14.5px] leading-[1.35] font-semibold text-ink [overflow-wrap:anywhere]">{daily.feast}</strong> : null}
+            {daily?.readings.length ? (
+              <span className="mt-0.5 flex flex-wrap gap-1.5">
+                {daily.readings.slice(0, 4).map((reading) => (
+                  <span className="rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-2 py-0.5 text-[11px] text-muted" key={reading}>{reading}</span>
+                ))}
+              </span>
+            ) : !daily?.feast ? <span className="text-[13px] text-muted">{material.excerpt}</span> : null}
+          </span>
+        </span>
+      </Link>
+    </li>
   );
 });

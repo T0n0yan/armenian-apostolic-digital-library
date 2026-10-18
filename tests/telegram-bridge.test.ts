@@ -962,7 +962,10 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(mediaSource, /src: asset\.url/u);
   assert.doesNotMatch(mediaSource, /key=\{(?:state|retry|retryKey)/u, "playback state must not remount the media element");
   // Only an explicit timestamp click (the "library:seek" handler) may move the playhead.
-  const mediaSourceOutsideSeek = mediaSource.replace(/const onSeek = [\s\S]*?window\.addEventListener\("library:seek", onSeek\);/u, "");
+  // Explicit user actions (timestamp links, the audio scrubber and skip buttons) may move it.
+  const mediaSourceOutsideSeek = mediaSource
+    .replace(/const onSeek = [\s\S]*?window\.addEventListener\("library:seek", onSeek\);/u, "")
+    .replace(/const seekTo = [\s\S]*?\n  \};/u, "");
   assert.doesNotMatch(mediaSourceOutsideSeek, /currentTime\s*=/u, "rerenders must not reset playback position");
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(resultCardSource, /state=\{material\.searchHit/u);
@@ -1302,12 +1305,13 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   // The leading rich heading repeats the page title, so it renders once in the header, not again in the body.
   assert.match(richHtml, /<h1[^>]*>.*աչափված ընթերցում<\/span><\/h1>/su);
   assert.doesNotMatch(richHtml, /<h2[^>]*>Ձևաչափված ընթերցում<\/h2>/u);
-  assert.match(richHtml, /<strong>Թավ տեքստ<\/strong>/u);
+  // The fixture topic is Prayers, so the first letter is a bird-letter initial.
+  assert.match(richHtml, /<strong><span class="ornate-initial">Թ<\/span>ավ տեքստ<\/strong>/u);
   assert.match(richHtml, /<blockquote/u);
   assert.match(richHtml, /Նկարի բացատրություն/u);
   assert.doesNotMatch(richHtml, /dangerouslySetInnerHTML|javascript:/u);
   const formattedPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_101");
-  assert.match(await formattedPage.text(), /<strong>Տե՛ր<\/strong>/u);
+  assert.match(await formattedPage.text(), /<strong><span class="ornate-initial">Տ<\/span><\/strong><strong>ե՛ր<\/strong>/u);
   const videoPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_106");
   const videoHtml = await videoPage.text();
   assert.match(videoHtml, /<video/u);
@@ -1503,8 +1507,13 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   await database.prepare(
     "INSERT INTO saved_materials (user_id,chat_id,message_id,personal_note) VALUES ('telegram:70001',?,999,'Հին նշում')",
   ).bind(MOCK_CHAT_ID).run();
+  // Legacy rows stored the chat ID without its -100 prefix; they must not break the page.
+  await database.prepare(
+    "INSERT INTO saved_materials (user_id,chat_id,message_id,personal_note) VALUES ('telegram:70001','900',998,'')",
+  ).run();
   const savedPage = await mf.dispatchFetch("https://app.fixture/saved", { headers: { cookie } });
   const savedHtml = await savedPage.text();
+  assert.equal(savedPage.status, 200, savedHtml.slice(0, 300));
   assert.match(savedHtml, /Առավոտյան աղոթք/u);
   assert.match(savedHtml, /Հրապարակումն այլևս հասանելի չէ/u);
   const unavailableNoteSearch = await mf.dispatchFetch(

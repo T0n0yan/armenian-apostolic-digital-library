@@ -1,4 +1,4 @@
-import { Bookmark, Church, Search, Settings, X } from "lucide-react";
+import { Bookmark, Church, Search, Settings, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -6,6 +6,7 @@ import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
+import { INSTALL_REQUEST_EVENT, isInstalledApp } from "./install-prompt";
 import { ReadingSettings } from "./reading-settings";
 
 type SiteNavProps = { showAdminLink?: boolean };
@@ -23,33 +24,14 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
   const topicItems = rootData?.categories ?? [];
   const [isOpen, setIsOpen] = useState(false);
+  // Hidden once the library already runs as an installed app.
+  const [canInstall, setCanInstall] = useState(false);
+  useEffect(() => setCanInstall(!isInstalledApp()), []);
   const location = useLocation();
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const [isTucked, setIsTucked] = useState(false);
-
   useEffect(() => setIsOpen(false), [location.pathname]);
-
-  // Tuck the floating trigger away while reading downward so it never covers text or card actions.
-  useEffect(() => {
-    let lastY = window.scrollY;
-    let frame = 0;
-    const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const y = window.scrollY;
-        const nearBottom = window.innerHeight + y >= document.documentElement.scrollHeight - 24;
-        if (y < 80 || nearBottom || y < lastY - 6) setIsTucked(false);
-        else if (y > lastY + 6) setIsTucked(true);
-        lastY = y;
-      });
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(frame); };
-  }, []);
-  useEffect(() => setIsTucked(false), [location.pathname]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -86,23 +68,25 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
   return (
     <>
-      {isOpen ? (
-        <button
-          className="fixed inset-0 z-40 cursor-default border-0 bg-[rgb(12_5_15/52%)] p-0 backdrop-blur-[3px] motion-safe:animate-[glass-enter_180ms_ease-out]"
-          type="button"
-          aria-label="Փակել մենյուն"
-          onClick={() => setIsOpen(false)}
-        />
-      ) : null}
+      {/* Always mounted so it can fade out; a tap anywhere outside the menu closes it. */}
+      <button
+        className="menu-scrim fixed inset-0 z-40 cursor-default border-0 p-0"
+        data-open={isOpen || undefined}
+        type="button"
+        tabIndex={-1}
+        aria-hidden={!isOpen}
+        aria-label="Փակել մենյուն"
+        onClick={() => setIsOpen(false)}
+      />
 
       <nav
         ref={dialogRef}
-        className={`fixed right-[calc(var(--tg-content-safe-area-inset-right,0px)+12px)] bottom-[calc(var(--tg-content-safe-area-inset-bottom,0px)+12px)] z-50 grid justify-items-end transition-transform duration-200 min-[960px]:right-[calc(var(--tg-content-safe-area-inset-right,0px)+max(24px,calc((100vw-1180px)/2+24px)))] ${isOpen ? "" : "pointer-events-none"}`}
+        className={`fixed right-[calc(var(--tg-inset-right,0px)+12px)] bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-50 grid justify-items-end transition-transform duration-200 min-[960px]:right-[calc(var(--tg-inset-right,0px)+max(24px,calc((100vw-1180px)/2+24px)))] ${isOpen ? "" : "pointer-events-none"}`}
         aria-label="Հիմնական նավիգացիա"
         aria-modal={isOpen || undefined}
         role={isOpen ? "dialog" : undefined}
       >
-        <div className={`mb-3 w-[min(360px,calc(100vw-24px))] origin-bottom-right overflow-hidden rounded-[22px] border border-glass-border bg-nav-surface p-2.5 shadow-[0_24px_70px_rgb(12_4_17/38%)] backdrop-blur-[24px] transition-[opacity,transform] duration-200 ${isOpen ? "translate-y-0 scale-100 opacity-100" : "translate-y-3 scale-[.96] opacity-0"}`} aria-hidden={!isOpen}>
+        <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-[24px] p-2.5" data-open={isOpen || undefined} aria-hidden={!isOpen}>
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
             <span className="text-[13px] font-bold text-ink">Մենյու</span>
             <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted hover:text-ink" type="button" onClick={() => setIsOpen(false)} aria-label="Փակել մենյուն">
@@ -126,11 +110,10 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-topics">Բաժիններ</h2>
                 <ul className="m-0 grid list-none gap-0.5 p-0">
                   {topicItems.map((topic) => {
-                    const topicColor = topic.iconColor === null ? "var(--gold)" : `#${topic.iconColor.toString(16).padStart(6, "0")}`;
                     return (
                       <li key={topic.id}>
                         <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1}>
-                          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-white/15 bg-[var(--topic-color)] text-white" style={{ "--topic-color": topicColor } as React.CSSProperties} data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
+                          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="min-w-0 flex-1 truncate">{topic.name}</span>
                           {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
                         </NavLink>
@@ -144,6 +127,12 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
               <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
               <ReadingSettings />
+              {canInstall ? (
+                <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => { setIsOpen(false); window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT)); }}>
+                  <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Smartphone aria-hidden="true" size={17} /></span>
+                  Ավելացնել գլխավոր էկրանին
+                </button>
+              ) : null}
               {canManage ? (
                 <NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink>
               ) : null}
@@ -153,15 +142,14 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
         <button
           ref={triggerRef}
-          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[rgb(217_181_111/22%)] bg-[rgb(36_19_40/72%)] p-0 shadow-[0_10px_34px_rgb(16_5_21/30%)] backdrop-blur-xl outline-none transition-[transform,opacity] duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 ${isTucked && !isOpen ? "pointer-events-none translate-y-[calc(100%+28px)] opacity-0" : "pointer-events-auto hover:-translate-y-0.5"}`}
+          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] p-0 shadow-[var(--fab-shadow)] backdrop-blur-xl outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
           type="button"
           aria-label={isOpen ? "Փակել մենյուն" : "Բացել մենյուն"}
           aria-expanded={isOpen}
-          onFocus={() => setIsTucked(false)}
           onClick={() => setIsOpen((open) => !open)}
         >
           <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_60s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
-          <img className="pointer-events-none relative size-[25px] object-contain" src={ArmenianEternity} width={48} height={48} alt="" aria-hidden="true" />
+          <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
         </button>
       </nav>
     </>
