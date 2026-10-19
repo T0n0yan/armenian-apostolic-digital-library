@@ -88,8 +88,8 @@ function HomeTitle() {
         <h1 className="hero-rise hero-rise-delay m-0 font-noto text-[33px] leading-[1.12] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[36px] min-[560px]:text-[46px] min-[960px]:text-[56px]">
             Հոգևոր ժառանգություն
         </h1>
-        <p className="hero-rise hero-rise-delay-2 m-0 grid max-w-full justify-items-center gap-0.5 rounded-[18px] border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-4 py-1.5 text-center text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)]">
-            <span className="inline-flex items-center gap-1.5 text-[clamp(11px,3.4vw,14px)] leading-snug font-semibold whitespace-nowrap"><ArmenianCross size={12}/>Հայաստանյայց Առաքելական Եկեղեցուն<ArmenianCross size={12}/></span>
+        <p className="hero-rise hero-rise-delay-2 m-0 grid max-w-full justify-items-center gap-0.5 rounded-[18px] border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3 py-1.5 min-[380px]:px-4 text-center text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)]">
+            <span className="inline-flex items-center gap-1 text-[clamp(10px,3.15vw,14px)] leading-snug font-semibold whitespace-nowrap min-[380px]:gap-1.5"><ArmenianCross size={12}/>Հայաստանյայց Առաքելական Եկեղեցուն<ArmenianCross size={12}/></span>
             <span className="text-[10.5px] font-semibold tracking-[2px] text-gold uppercase">նվիրված</span>
         </p>
     </header>);
