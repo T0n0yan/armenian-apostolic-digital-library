@@ -77,3 +77,14 @@ test("psalm verses split on invisible characters and on two verses sharing a lin
   // A number that isn't the next verse stays inside the line.
   assert.equal(splitVerses("3 Հազար 5 անգամ։ 7 ոչ").length, 1);
 });
+
+test("a whole word beats a word that only starts with it, across classical spelling", () => {
+  const love = document([{ kind: "body", value: "Աստուած սէր է, եւ սիրով ապրողը", primary: false, blockId: "block-0" }]);
+  const sower = document([{ kind: "title", value: "Սերմնացանի առակը", primary: true, blockId: null }]);
+  const query = parseTelegramSearchQuery("Սեր");
+  const exact = matchSearchableTelegramDocument(love, query);
+  const prefix = matchSearchableTelegramDocument(sower, query);
+  assert.ok(exact && prefix);
+  assert.ok(exact.rank > prefix.rank, `${exact.rank} > ${prefix.rank}`);
+  assert.equal(exact.scoreCategory, "exact-token");
+});

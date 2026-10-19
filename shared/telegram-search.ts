@@ -79,6 +79,24 @@ export function normalizeTelegramSearchText(value: string) {
     .trim();
 }
 
+/**
+ * Classical and reformed Armenian spellings compared as one: է/ե and օ/ո ("սէր" = "սեր",
+ * "Օրհնեալ" ≈ "որհնեալ"). One letter for one letter, so match positions stay the same.
+ */
+export function foldSpelling(value: string) {
+  return value.replaceAll("է", "ե").replaceAll("օ", "ո");
+}
+
+/** Classical spellings of a reformed word, for finding it in classical texts ("սեր" → "սէր"). */
+export function classicalVariants(token: string) {
+  const variants = new Set<string>();
+  if (token.includes("ե")) variants.add(token.replaceAll("ե", "է"));
+  if (token.startsWith("ո")) variants.add(`օ${token.slice(1)}`);
+  if (token.includes("յու")) variants.add(token.replaceAll("յու", "իւ"));
+  variants.delete(token);
+  return [...variants];
+}
+
 export function armenianToLatin(value: string) {
   return replacePairs(normalizeTelegramSearchText(value), armenianToLatinPairs).replace(/\s+/gu, " ").trim();
 }
@@ -219,12 +237,13 @@ function category(rank: number): BridgeSearchScoreCategory {
   return "fuzzy";
 }
 
-export function matchSearchableTelegramDocument(document: SearchableTelegramDocument, parsed: ParsedTelegramSearchQuery): RankedTelegramSearchMatch | null {
-  if (!parsed.normalized || parsed.messageIdIntent) return null;
+export function matchSearchableTelegramDocument(document: SearchableTelegramDocument, query: ParsedTelegramSearchQuery): RankedTelegramSearchMatch | null {
+  if (!query.normalized || query.messageIdIntent) return null;
+  const parsed = { ...query, normalized: foldSpelling(query.normalized), tokens: query.tokens.map(foldSpelling) };
   let bestRank = 0; const reasons = new Set<BridgeSearchMatchReason>(); let usedTransliteration = false; let usedFuzzy = false;
   let bestHit: BridgeSearchHit | undefined; let strength = 0;
   for (const field of document.fields) {
-    const normalized = normalizeTelegramSearchText(field.value);
+    const normalized = foldSpelling(normalizeTelegramSearchText(field.value));
     if (!normalized) continue;
     const tokens = normalized.split(" ").filter(Boolean).slice(0, 256);
     let fieldRank = 0;
@@ -301,7 +320,7 @@ function normalizedWithOriginalMap(value: string): NormalizedMap {
       index += 1;
     } else equivalent.push(collapsed[index]);
   }
-  return { text: equivalent.map((item) => item.value).join(""), starts: equivalent.map((item) => item.start), ends: equivalent.map((item) => item.end) };
+  return { text: foldSpelling(equivalent.map((item) => item.value).join("")), starts: equivalent.map((item) => item.start), ends: equivalent.map((item) => item.end) };
 }
 
 function sourceFor(kind: SearchableTelegramFieldKind): BridgeSearchHitSource {

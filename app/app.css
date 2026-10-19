@@ -319,11 +319,11 @@
 .ti-gospel { animation-name: ti-gospel; transform-origin: 50% 90%; }
 @keyframes ti-gospel { 0%, 70%, 100% { transform: none; } 78% { transform: scaleX(.94) translateY(-4%); } 86% { transform: scaleX(1.03); } 92% { transform: none; } }
 .ti-pray { animation-name: ti-pray; transform-origin: 50% 90%; }
-@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: translateY(-5%) scale(1.04); filter: drop-shadow(0 0 3px rgb(240 211 151 / 75%)); } }
-.ti-harp { animation-name: ti-harp; animation-duration: 3.2s; transform-origin: 30% 95%; }
+@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: scale(1.03); filter: drop-shadow(0 0 3px rgb(240 211 151 / 80%)); } }
+.ti-harp { animation-name: ti-harp; animation-duration: 3.2s; transform-origin: 50% 95%; }
 @keyframes ti-harp { 0%, 55%, 100% { transform: none; } 62% { transform: rotate(-4deg); } 70% { transform: rotate(3deg); } 78% { transform: rotate(-1.5deg); } 86% { transform: none; } }
 .ti-halo { animation-name: ti-halo; animation-duration: 3.6s; }
-@keyframes ti-halo { 0%, 100% { transform: translateY(0); filter: none; } 50% { transform: translateY(-6%); filter: drop-shadow(0 -2px 3px rgb(240 211 151 / 80%)); } }
+@keyframes ti-halo { 0%, 100% { filter: none; } 50% { filter: drop-shadow(0 0 3px rgb(240 211 151 / 85%)); } }
 .ti-calendar { animation-name: ti-calendar; transform-origin: 50% 15%; }
 @keyframes ti-calendar { 0%, 70%, 100% { transform: none; } 78% { transform: perspective(60px) rotateX(-28deg); } 86% { transform: perspective(60px) rotateX(10deg); } 92% { transform: none; } }
 .ti-question { animation-name: ti-question; animation-duration: 3.4s; transform-origin: 30% 90%; }
@@ -454,6 +454,8 @@ html[data-tg-fullscreen="true"] body::before {
 }
 .prayer-cards li strong { font-size: 17px; line-height: 1.35; }
 .prayer-cards li .line-clamp-2 { font-size: 13.5px; line-height: 1.6; }
+/* On wide screens a prayer card is a short entry: the title and one line of its opening. */
+@media (min-width: 860px) { .prayer-cards li span.line-clamp-2 { -webkit-line-clamp: 1; line-clamp: 1; } .prayer-cards li strong { font-size: 16.5px; } }
 
 /* The floating reminder bell swings left and right when a reminder rings, then settles. */
 .bell-swing { animation: bell-swing 1.6s cubic-bezier(.36,.07,.19,.97); transform-origin: 50% 12%; }

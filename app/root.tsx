@@ -266,6 +266,24 @@ export default function App({ loaderData }: Route.ComponentProps) {
     };
   }, []);
 
+  // After a new deploy, an open page may ask for scripts that no longer exist; reload it once
+  // instead of leaving it broken.
+  useEffect(() => {
+    const KEY = "library-reloaded-for-update";
+    const reload = () => {
+      try { if (sessionStorage.getItem(KEY) === "1") return; sessionStorage.setItem(KEY, "1"); } catch { /* reload anyway */ }
+      window.location.reload();
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      const message = String((event.reason as { message?: string } | null)?.message ?? event.reason ?? "");
+      if (/dynamically imported module|Importing a module script failed|error loading dynamically imported module|Failed to fetch/iu.test(message) && /module|import/iu.test(message)) reload();
+    };
+    window.addEventListener("vite:preloadError", reload);
+    window.addEventListener("unhandledrejection", onRejection);
+    const clear = window.setTimeout(() => { try { sessionStorage.removeItem(KEY); } catch { /* ignore */ } }, 10_000);
+    return () => { window.removeEventListener("vite:preloadError", reload); window.removeEventListener("unhandledrejection", onRejection); window.clearTimeout(clear); };
+  }, []);
+
   // The service worker keeps visited pages and pictures for slow or missing connections.
   useEffect(() => {
     if (!("serviceWorker" in navigator) || window.location.protocol !== "https:") return;

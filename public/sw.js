@@ -7,7 +7,7 @@
 //   when offline, so pages already visited open without internet;
 // - pictures from /media: cache first, so thumbnails and saints' icons stay available.
 // Personal and sign-in requests, writes, and audio/video streams are never cached.
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const MEDIA = `media-${VERSION}`;
@@ -49,7 +49,9 @@ async function networkFirst(request) {
     if (response.ok) { await cache.put(request, response.clone()); void trim(PAGES); }
     return response;
   });
-  const timeout = new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS));
+  // A page (HTML) is only ever answered from the cache when offline: an old copy may point at
+  // scripts a newer deploy has replaced, which would break the page. Data falls back sooner.
+  const timeout = request.mode === "navigate" ? new Promise(() => {}) : new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS));
   try {
     const first = await Promise.race([network, timeout]);
     if (first) return first;

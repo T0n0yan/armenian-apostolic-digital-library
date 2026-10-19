@@ -51,6 +51,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
 import { SearchSuggestions } from "../components/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
+import { psalmNumber } from "../utils/psalm-number";
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
@@ -69,7 +70,10 @@ const searchRank = {
 
 function stableSearchOrder(left: SearchMaterial, right: SearchMaterial) {
   const scoreDifference = (searchRank[right.scoreCategory ?? "content"] ?? 0) - (searchRank[left.scoreCategory ?? "content"] ?? 0);
-  return scoreDifference || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || left.id.localeCompare(right.id);
+  // Psalms that match equally well keep their own order (1, 2, 3…).
+  const psalms = left.categoryName === right.categoryName && cardVariantFor(left) === "psalm" ? [psalmNumber(left), psalmNumber(right)] : [null, null];
+  const psalmDifference = psalms[0] !== null && psalms[1] !== null ? psalms[0] - psalms[1] : 0;
+  return scoreDifference || psalmDifference || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || left.id.localeCompare(right.id);
 }
 
 function noteReasons(material: Awaited<ReturnType<typeof searchSavedMaterialNotes>>[number]): SearchMaterial["matchReasons"] {
@@ -600,6 +604,12 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           <div className="grid gap-3">
             {telegramResults.length ? (
               <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
+                {/* Say so when nothing has the exact word, and that these are the closest matches. */}
+                {filters.query && !telegramResults.some((item) => item.scoreCategory === "exact-token" || item.scoreCategory === "exact-primary" || item.scoreCategory === "message-id") ? (
+                  <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
+                    «<strong>{filters.query}</strong>» բառով ճշգրիտ համընկնում չգտնվեց։ Ահա ամենամոտ արդյունքները։
+                  </p>
+                ) : null}
                 <SearchResults
                   canSave={loaderData.canSave}
                   allowNoteEditing={false}

@@ -18,7 +18,7 @@ type ShareButtonProps = {
   text: string;
   /** Link that recipients open (the Telegram post). */
   url: string;
-  /** This page in the library (kept for callers; sharing sends the Telegram post). */
+  /** This page in the library: what browser readers share and copy. */
   pageUrl: string;
   /** Lets the Mini App share the material through Telegram's share sheet. */
   materialId?: string;
@@ -91,7 +91,15 @@ function Sheet({ title, open, onClose, children }: { title: string; open: boolea
  * sheet). In a browser, opens the phone's share
  * sheet (Android Quick Share, iOS share sheet); without one, the link is copied.
  */
-export function ShareButton({ title, text, url, className, materialId, label = false }: ShareButtonProps) {
+/** The page's address without search/marking parameters, absolute. */
+function siteUrl(pageUrl: string) {
+  const address = new URL(pageUrl, window.location.origin);
+  address.search = "";
+  address.hash = "";
+  return address.toString();
+}
+
+export function ShareButton({ title, text, url, pageUrl, className, materialId, label = false }: ShareButtonProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, markCopied] = useCopied();
 
@@ -116,13 +124,14 @@ export function ShareButton({ title, text, url, className, materialId, label = f
       webApp.openTelegramLink(picker.toString());
       return;
     }
-    if (await systemShare({ title, text, url })) return;
+    // In a browser, share the library's own page (the Telegram post is for Telegram readers).
+    if (await systemShare({ title, text, url: siteUrl(pageUrl) })) return;
     setSheetOpen(true);
-  }, [materialId, text, title, url]);
+  }, [materialId, pageUrl, text, title, url]);
 
   const close = useCallback(() => setSheetOpen(false), []);
   const copyLink = async () => {
-    await copyText(url);
+    await copyText(telegramWebApp()?.initData ? url : siteUrl(pageUrl));
     markCopied();
     setSheetOpen(false);
   };

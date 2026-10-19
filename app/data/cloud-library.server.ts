@@ -3,6 +3,7 @@ import {
   matchSearchableTelegramDocument,
   messageIdSearchMatch,
   parseTelegramSearchQuery,
+  classicalVariants,
   searchScoreRank,
   type SearchableTelegramDocument,
   type SearchableTelegramFieldKind,
@@ -402,7 +403,8 @@ export async function searchCloudLibraryPosts(
     return { posts: page, total: page.length, nextCursor: null };
   }
 
-  const candidateValues = [parsed.normalized, ...parsed.tokens, ...parsed.aliases];
+  // Classical spellings too: the psalms and prayers are written "սէր", "օրհնեալ"…
+  const candidateValues = [parsed.normalized, ...parsed.tokens, ...parsed.tokens.flatMap(classicalVariants), ...parsed.aliases];
   const ftsExpression = ftsCandidateExpression(candidateValues);
   if (!ftsExpression) return { posts: [], total: 0, nextCursor: null };
   const ftsBindings: unknown[] = [ftsExpression];
@@ -503,11 +505,26 @@ export async function searchCloudLibraryPosts(
     });
     documents.set(key, document);
   }
+  // Psalms that match equally well read in their own order (1, 2, 3…), not by when they were posted.
+  // The number comes from the audio title ("Սաղմոս 42") or the text ("(Սաղմոս 42)").
+  const psalmNumberOf = (document: SearchableTelegramDocument) => {
+    for (const field of [...document.fields].sort((a, b) => Number(b.primary) - Number(a.primary))) {
+      const found = /սաղմոս\S*\s*(\d{1,3})(?!\d)/iu.exec(field.value);
+      if (found) return Number(found[1]);
+    }
+    return null;
+  };
+  const psalmOrder = (left: SearchableTelegramDocument, right: SearchableTelegramDocument) => {
+    if (left.topicId !== right.topicId) return 0;
+    const a = psalmNumberOf(left), b = psalmNumberOf(right);
+    return a !== null && b !== null ? a - b : 0;
+  };
   const matches = [...documents.values()].flatMap((document) => {
     const match = matchSearchableTelegramDocument(document, parsed);
     return match ? [{ document, match, rank: match.rank }] : [];
   }).sort((left, right) =>
     right.rank - left.rank ||
+    psalmOrder(left.document, right.document) ||
     (right.match.strength ?? 0) - (left.match.strength ?? 0) ||
     (right.document.publishedAt ?? "").localeCompare(left.document.publishedAt ?? "") ||
     right.document.messageId - left.document.messageId,
