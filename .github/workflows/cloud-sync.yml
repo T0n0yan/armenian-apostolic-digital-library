@@ -19,7 +19,8 @@ permissions:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The first sync of an empty environment uploads all media and can take an hour.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       # One after the other: both read the same Telegram account, which dislikes parallel logins.
