@@ -226,34 +226,27 @@ export function FormattedTelegramText({ value, hit, from = 0, to, ornateInitial 
 type PollVotes = { counts: number[]; mine: number | null };
 
 /**
- * A Telegram poll or quiz the reader can answer in the library. Before answering, the options are
- * buttons; afterwards the results show (Telegram's votes plus the library's), and a quiz marks the
- * right answer and, if the reader missed it, their choice, with the explanation when there is one.
+ * A Telegram quiz or poll the reader answers for themselves (library votes can't be added to
+ * Telegram's count, so no numbers are shown). After answering, a quiz turns the reader's choice
+ * red if it was wrong, marks the right answer green and opens the explanation below.
  */
-export function TelegramPollCard({ poll, telegramUrl, title, materialId, votes, canVote = false }: {
-  poll: BridgePoll; telegramUrl: string; title?: string; materialId?: string; votes?: PollVotes | null; canVote?: boolean;
+export function TelegramPollCard({ poll, title, materialId, votes, canVote = false }: {
+  poll: BridgePoll; telegramUrl?: string; title?: string; materialId?: string; votes?: PollVotes | null; canVote?: boolean;
 }) {
-  const [current, setCurrent] = useState<PollVotes | null>(votes ?? null);
-  const [sending, setSending] = useState<number | null>(null);
-  const mine = current?.mine ?? null;
-  // Guests see the results; readers who can vote see the options until they answer.
-  const answered = mine !== null || poll.closed || !canVote;
-  const revealed = mine !== null || poll.closed;
-  const canAnswer = canVote && Boolean(materialId) && !answered;
-  const counts = poll.options.map((option, index) => option.voterCount + (current?.counts[index] ?? 0));
-  const total = counts.reduce((sum, count) => sum + count, 0);
-  const knowsAnswer = poll.quiz && poll.options.some((option) => option.correct);
+  const [mine, setMine] = useState<number | null>(votes?.mine ?? null);
+  const [sending, setSending] = useState(false);
+  const answered = mine !== null;
+  const canAnswer = canVote && Boolean(materialId) && !answered && !poll.closed;
+  const correctIndex = poll.quiz ? poll.options.findIndex((option) => option.correct) : -1;
   // The page title is usually the question itself; don't print it twice.
   const repeatsTitle = Boolean(title) && poll.question.text.trim() === title?.trim();
 
   const vote = async (index: number) => {
-    if (!canAnswer || sending !== null) return;
-    setSending(index);
-    setCurrent((value) => ({ counts: (value?.counts ?? poll.options.map(() => 0)).map((count, i) => i === index ? count + 1 : count), mine: index }));
-    const response = await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index }) }).catch(() => null);
-    const data = response?.ok ? await response.json().catch(() => null) as { votes?: PollVotes } | null : null;
-    if (data?.votes) setCurrent(data.votes);
-    setSending(null);
+    if (!canAnswer || sending) return;
+    setSending(true);
+    setMine(index);
+    await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index }) }).catch(() => null);
+    setSending(false);
   };
 
   return (
@@ -262,45 +255,42 @@ export function TelegramPollCard({ poll, telegramUrl, title, materialId, votes, 
         <BarChart3 className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={21} />
         <div className="grid gap-1">
           {repeatsTitle ? <h2 className="m-0 text-[13px] font-semibold tracking-[0.3px] text-gold-bright">{poll.quiz ? "Վիկտորինա" : "Հարցում"}</h2> : <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>}
-          <p className="m-0 text-[11px] text-faint">
-            {total} քվե · {poll.anonymous ? "անանուն" : "հրապարակային"}{poll.closed ? " · փակված" : ""}
-            {canAnswer ? " · ընտրեք պատասխանը" : ""}
+          <p className="m-0 text-[11.5px] text-faint">
+            {canAnswer ? "Ընտրեք պատասխանը" : answered ? (correctIndex < 0 ? "Ձեր պատասխանը պահված է" : mine === correctIndex ? "Ճիշտ է, ապրեք 🙏" : "Սխալ է. ճիշտ պատասխանը նշված է կանաչով") : poll.closed ? "Հարցումը փակված է" : "Պատասխանելու համար մուտք գործեք"}
           </p>
         </div>
       </header>
       <ol className="m-0 grid list-none gap-2.5 p-0">
         {poll.options.map((option, index) => {
-          const percent = total > 0 ? Math.round(counts[index] / total * 100) : 0;
           const chosen = mine === index;
-          const right = revealed && knowsAnswer && option.correct;
-          const wrong = revealed && knowsAnswer && chosen && !option.correct;
-          const tone = right ? "border-[rgb(74_160_96/55%)] bg-[rgb(74_160_96/12%)]" : wrong ? "border-[rgb(200_80_60/55%)] bg-[rgb(200_80_60/10%)]" : chosen ? "border-[rgb(217_181_111/55%)] bg-[rgb(217_181_111/12%)]" : "border-glass-border bg-subtle";
+          const right = answered && index === correctIndex;
+          const wrong = answered && chosen && correctIndex >= 0 && index !== correctIndex;
+          const tone = right ? "border-[rgb(74_160_96/60%)] bg-[rgb(74_160_96/14%)]" : wrong ? "border-[rgb(205_70_55/60%)] bg-[rgb(205_70_55/12%)]" : chosen ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)]" : "border-glass-border bg-subtle";
           const content = (
-            <>
-              <div className="flex items-start justify-between gap-3 text-[13.5px] text-ink">
-                <span className="flex items-start gap-1.5">
-                  {right ? <span className="font-bold text-[rgb(74_160_96)]" aria-label="Ճիշտ պատասխան">✓</span> : wrong ? <span className="font-bold text-[rgb(200_80_60)]" aria-label="Սխալ պատասխան">✗</span> : null}
-                  <FormattedTelegramText value={option.text} />
-                </span>
-                {answered ? <span className="shrink-0 tabular-nums text-muted">{counts[index]} · {percent}%</span> : null}
-              </div>
-              {answered ? <span className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><span className={`block h-full rounded-full transition-[width] duration-700 ease-out ${right ? "bg-[rgb(74_160_96/75%)]" : wrong ? "bg-[rgb(200_80_60/70%)]" : "bg-gold/65"}`} style={{ width: `${percent}%` }} /></span> : null}
-            </>
+            <span className="flex items-center justify-between gap-3 text-[14px] leading-snug text-ink">
+              <span><FormattedTelegramText value={option.text} /></span>
+              {right ? <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[rgb(74_160_96)] text-[13px] font-bold text-white" aria-label="Ճիշտ պատասխան">✓</span> : wrong ? <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[rgb(205_70_55)] text-[13px] font-bold text-white" aria-label="Սխալ պատասխան">✕</span> : null}
+            </span>
           );
           return (
             <li key={`${index}-${option.text.text}`}>
               {canAnswer ? (
-                <button className={`grid w-full cursor-pointer gap-1.5 rounded-[12px] border p-3 text-left transition-[background,transform] duration-150 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending !== null} onClick={() => vote(index)}>{content}</button>
+                <button className={`w-full cursor-pointer rounded-[13px] border p-3.5 text-left transition-[background,transform,border-color] duration-200 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending} onClick={() => vote(index)}>{content}</button>
               ) : (
-                <div className={`grid gap-1.5 rounded-[12px] border p-3 ${tone}`}>{content}</div>
+                <div className={`rounded-[13px] border p-3.5 transition-[background,border-color] duration-500 ${tone}`}>{content}</div>
               )}
             </li>
           );
         })}
       </ol>
-      {revealed && poll.quiz && poll.solution ? <p className="m-0 rounded-[12px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-[1.6] text-ink"><strong className="text-gold-bright">Բացատրություն՝ </strong>{poll.solution}</p> : null}
-      {!canVote && !poll.closed ? <p className="m-0 text-[12px] text-muted">Քվեարկելու համար մուտք գործեք «Իմ անկյունը» բաժնից կամ Telegram-ից։</p> : null}
-      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել Telegram-ում</a>
+      {/* The explanation opens smoothly once the reader has answered. */}
+      {poll.quiz && poll.solution ? (
+        <div className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] ${answered ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!answered}>
+          <div className="overflow-hidden">
+            <p className="m-0 rounded-[13px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-4 py-3 text-[13.5px] leading-[1.65] text-ink whitespace-pre-line"><strong className="mb-1 block text-[11.5px] tracking-[0.4px] text-gold uppercase">Բացատրություն</strong>{poll.solution}</p>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
