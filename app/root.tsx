@@ -251,9 +251,19 @@ export default function App({ loaderData }: Route.ComponentProps) {
       event.clipboardData.setData("text/plain", `${text}\n\nԱղբյուր՝ «Հոգևոր ժառանգություն» — ${window.location.href}`);
       event.preventDefault();
     };
+    // No selection starts outside form fields (iOS can still try on a long press).
+    const onSelectStart = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest?.("input, textarea, select, [contenteditable='true']")) event.preventDefault();
+    };
     document.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("copy", onCopy);
-    return () => { document.removeEventListener("contextmenu", onContextMenu); document.removeEventListener("copy", onCopy); };
+    document.addEventListener("selectstart", onSelectStart);
+    return () => {
+      document.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("selectstart", onSelectStart);
+    };
   }, []);
 
   // The service worker keeps visited pages and pictures for slow or missing connections.
