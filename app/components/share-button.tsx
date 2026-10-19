@@ -1,6 +1,6 @@
 import { Check, Copy, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { BottomSheet } from "./bottom-sheet";
 
 type TelegramShareWindow = Window & {
   Telegram?: {
@@ -73,24 +73,15 @@ function useCopied() {
 
 const sheetItem = "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[14px] border-0 bg-subtle px-4 text-left text-[14px] font-semibold text-ink hover:bg-glass-strong";
 
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return createPortal(
-    <div className="fixed inset-0 z-[60] grid items-end justify-items-center p-3 pb-[calc(var(--tg-inset-bottom,0px)+12px)]" role="dialog" aria-label="Կիսվել">
-      <button className="absolute inset-0 cursor-default border-0 bg-[rgb(20_10_24/40%)] p-0 motion-safe:animate-[glass-enter_200ms_ease-out]" type="button" aria-label="Փակել" onClick={onClose} />
-      <div className="install-toast relative grid w-full max-w-[420px] gap-2 rounded-[22px] border border-glass-border bg-[var(--page-bg)] p-3 shadow-[0_24px_60px_rgb(20_8_24/40%)]" data-phase="in">
-        <div className="flex items-center justify-between px-1 pb-1">
-          <strong className="line-clamp-1 text-[13px] text-muted">{title}</strong>
-          <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
-        </div>
-        {children}
+function Sheet({ title, open, onClose, children }: { title: string; open: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <BottomSheet open={open} onClose={onClose} label="Կիսվել" className="gap-2 p-3">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <strong className="line-clamp-1 text-[13px] text-muted">{title}</strong>
+        <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
       </div>
-    </div>,
-    document.body,
+      {children}
+    </BottomSheet>
   );
 }
 
@@ -142,11 +133,9 @@ export function ShareButton({ title, text, url, className, materialId, label = f
         {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
         {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
       </button>
-      {sheetOpen ? (
-        <Sheet title={title} onClose={close}>
+      <Sheet title={title} open={sheetOpen} onClose={close}>
           <button className={sheetItem} type="button" onClick={copyLink}><Copy aria-hidden="true" size={18} className="text-gold" /> Պատճենել հղումը</button>
-        </Sheet>
-      ) : null}
+      </Sheet>
     </>
   );
 }

@@ -6,6 +6,11 @@ self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim(
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
+  // If the library is open on screen, let it ring the bell itself.
+  const materialId = /\/materials\/([^/?]+)/u.exec(data.url || "")?.[1];
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+    for (const client of windows) client.postMessage({ type: "reminder", materialId, title: data.body, category: data.category });
+  }));
   event.waitUntil(self.registration.showNotification(data.title || "🔔 Ժամանակն է կարդալու", {
     body: data.body || "Հոգևոր ժառանգություն",
     icon: "/icon-192.png",

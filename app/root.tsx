@@ -46,8 +46,11 @@ const initialThemeScript = `(() => {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark" || value === "sun") preference = value;
       // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
-      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["small", "large"]], leading: ["library-leading", ["wide"]], motion: ["library-motion", ["reduced"]] };
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]] };
       for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
+      if (!root.dataset.titleSize) root.dataset.titleSize = "small";
+      // Unless chosen, animations follow the phone: off in power-saving / reduced-motion / data-saver.
+      if (!root.dataset.motion) root.dataset.motion = matchMedia("(prefers-reduced-motion: reduce)").matches || (navigator.connection && navigator.connection.saveData) ? "reduced" : "full";
       const size = localStorage.getItem("library-text-size-v1");
       const legacy = size === "large" ? 18 : size === "xlarge" ? 20 : Number(size);
       if (size && legacy >= 12 && legacy <= 20) textSize = Math.round(legacy);

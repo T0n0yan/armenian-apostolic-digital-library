@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState, type RefObject } from "react";
 
-import { normalizeTelegramSearchText } from "../../shared/telegram-search";
+import { normalizeTelegramSearchText, searchAliases } from "../../shared/telegram-search";
 
 const MAX_SUGGESTIONS = 6;
 let termsPromise: Promise<string[]> | null = null;
@@ -15,15 +15,36 @@ function loadTerms() {
   return termsPromise;
 }
 
-/** Terms whose words start with what was typed; whole-term prefixes first, then shorter terms. */
+// Latin letters that stand for more than one Armenian letter ("t" is տ or թ, "p" պ or փ…).
+const AMBIGUOUS: Array<[string, string]> = [["տ", "թ"], ["պ", "փ"], ["կ", "ք"], ["ր", "ռ"], ["ե", "է"], ["ո", "օ"], ["չ", "ճ"], ["ց", "ծ"]];
+
+function latinVariants(query: string) {
+  const variants = new Set([query, ...searchAliases(query)]);
+  for (const alias of [...variants]) {
+    if (!/\p{Script=Armenian}/u.test(alias)) continue;
+    for (const [from, to] of AMBIGUOUS) if (alias.includes(from)) variants.add(alias.replaceAll(from, to));
+  }
+  return [...variants].slice(0, 16);
+}
+
+/**
+ * Terms whose words start with what was typed; whole-term prefixes first, then shorter terms.
+ * Latin typing ("sax", "aghot") is matched through its Armenian spelling, so the suggestions stay
+ * in Armenian.
+ */
 function rank(terms: string[], typed: string) {
   const query = normalizeTelegramSearchText(typed);
   if (!query) return [];
+  const variants = /\p{Script=Latin}/u.test(query) ? latinVariants(query) : [query];
   const scored: Array<{ term: string; score: number }> = [];
   for (const term of terms) {
     const normalized = normalizeTelegramSearchText(term);
-    if (!normalized || normalized === query) continue;
-    const score = normalized.startsWith(query) ? 0 : ` ${normalized}`.includes(` ${query}`) ? 1 : -1;
+    if (!normalized || variants.includes(normalized)) continue;
+    let score = -1;
+    for (const variant of variants) {
+      const s = normalized.startsWith(variant) ? 0 : ` ${normalized}`.includes(` ${variant}`) ? 1 : -1;
+      if (s >= 0 && (score < 0 || s < score)) score = s;
+    }
     if (score >= 0) scored.push({ term, score });
   }
   return scored

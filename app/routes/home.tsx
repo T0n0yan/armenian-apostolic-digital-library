@@ -1,13 +1,14 @@
 import {env} from "cloudflare:workers";
 import {ArrowRight, LoaderCircle, RotateCw, Search} from "lucide-react";
-import {memo} from "react";
-import {Form, Link, useNavigation} from "react-router";
+import {memo, useRef, useState} from "react";
+import {Form, Link, useNavigate, useNavigation} from "react-router";
 
 import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
 import {PageHeader, PageShell} from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
 import {DailyVerseCard} from "../components/daily-verse";
+import {SearchSuggestions} from "../components/search-suggestions";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
@@ -88,10 +89,38 @@ function HomeTitle() {
         </h1>
         <p className="hero-rise hero-rise-delay-2 m-0 inline-flex max-w-full items-center gap-2 rounded-full border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3 py-1.5 text-[11px] font-semibold tracking-[0.1px] whitespace-nowrap text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)] min-[380px]:text-[12px] min-[560px]:px-4 min-[560px]:text-[13px]">
             <ArmenianCross size={13}/>
-            Նվիրված Հայ Առաքելական Սուրբ Եկեղեցուն
+            Նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցուն
             <ArmenianCross size={13}/>
         </p>
     </header>);
+}
+
+/** The home search box: suggestions as you type, a search button, and results after a pause. */
+function HomeSearch() {
+    const navigate = useNavigate();
+    const inputRef = useRef<HTMLInputElement>(null);
+    const timer = useRef<number | undefined>(undefined);
+    const [value, setValue] = useState("");
+    const go = (query: string) => {
+        window.clearTimeout(timer.current);
+        const trimmed = query.trim();
+        if (Array.from(trimmed).length >= 2) navigate(`/search?q=${encodeURIComponent(trimmed)}&focus=1`);
+    };
+    return (<Form className="hero-rise hero-rise-delay-2 relative z-30 mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control pr-[6px] pl-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search" onSubmit={(event) => { event.preventDefault(); go(value); }}>
+        <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
+        <SearchSuggestions inputRef={inputRef} onPick={go}/>
+        <input ref={inputRef} className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"
+            value={value} onChange={(event) => {
+                const next = event.target.value;
+                setValue(next);
+                window.clearTimeout(timer.current);
+                // Results open by themselves after a short pause in typing.
+                if (Array.from(next.trim()).length >= 2) timer.current = window.setTimeout(() => go(next), 900);
+            }}/>
+        <button className={`grid size-10 shrink-0 cursor-pointer place-items-center rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] transition-[opacity,transform] duration-200 ${value.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"}`} type="submit" aria-label="Որոնել">
+            <ArrowRight aria-hidden="true" size={18}/>
+        </button>
+    </Form>);
 }
 
 export default function Home({loaderData}: Route.ComponentProps) {
@@ -114,11 +143,8 @@ export default function Home({loaderData}: Route.ComponentProps) {
             </div>
         </div>
         <HomeTitle/>
-        <Form className="hero-rise hero-rise-delay-2 mt-2 mb-1 flex min-h-[50px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search">
-            <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
-            <input className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"/>
-        </Form>
-        <div className="hero-rise hero-rise-delay-2 mt-3"><DailyVerseCard/></div>
+        <div className="hero-rise hero-rise-delay-2 mt-2"><DailyVerseCard/></div>
+        <HomeSearch/>
         <section className="mt-4 grid gap-3" aria-labelledby="categories-title">
             <h2 className="m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase" id="categories-title">
                 Բաժիններ

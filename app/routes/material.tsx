@@ -18,6 +18,7 @@ import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
+import { ReadingTracker } from "../components/reading-tracker";
 import { getPollVotes } from "../data/poll-votes.server";
 import { getOptionalTelegramAdmin } from "../auth/admin.server";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
@@ -183,6 +184,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           />
         </div>
       </article>
+      <ReadingTracker materialId={material.id} enabled={loaderData.canSave} />
       </TimestampSeekContext.Provider>
       </PsalmNavContext.Provider>
     </PageShell>

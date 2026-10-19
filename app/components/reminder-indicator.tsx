@@ -1,10 +1,10 @@
-import { BellRing } from "lucide-react";
+import { BellRing, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, useActiveReminders } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, markReminderRead, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
 
 const REPEAT_TEXT: Record<string, string> = { daily: "ամեն օր", weekly: "ամեն շաբաթ", monthly: "ամեն ամիս", yearly: "ամեն տարի" };
 
@@ -24,6 +24,7 @@ function formatWhen(iso: string) {
  */
 export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
   const reminders = useActiveReminders();
+  const missed = useMissedReminders();
   const [open, setOpen] = useState(false);
   const [swinging, setSwinging] = useState(false);
 
@@ -52,7 +53,8 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
 
-  if (reminders.length === 0) return null;
+  if (reminders.length === 0 && missed.length === 0) return null;
+  const count = missed.length || reminders.length;
   return (
     <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "pointer-events-none opacity-0" : "opacity-100"}`} ref={rootRef}>
       <button
@@ -65,15 +67,32 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
           setOpen((value) => !value);
         }}
         aria-expanded={open}
-        aria-label={`Հիշեցումներ՝ ${reminders.length}`}
+        aria-label={`Հիշեցումներ՝ ${count}`}
         title="Հիշեցումներ"
       >
         <BellRing aria-hidden="true" size={20} strokeWidth={1.9} />
-        <span className="absolute -top-1 -right-1 grid min-w-[17px] place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-1 text-[10px] font-bold leading-[17px] text-[#2a1708]">{reminders.length}</span>
+        <span className={`absolute -top-1 -right-1 grid min-w-[17px] place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-1 text-[10px] font-bold leading-[17px] ${missed.length ? "bg-[rgb(205_70_55)] !bg-none text-white" : "text-[#2a1708]"}`}>{count}</span>
       </button>
       {open && anchor ? createPortal(
-        <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(300px,calc(100vw-32px))] gap-1 rounded-[18px] border border-glass-border bg-[var(--page-bg)] p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
-          <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span>
+        <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(340px,calc(100vw-32px))] gap-1 rounded-[18px] border border-glass-border bg-[var(--page-bg)] p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
+          {missed.length ? (
+            <>
+              <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-[rgb(205_70_55)] uppercase">Ժամանակն է կարդալու</span>
+              {missed.map((item) => (
+                <div key={item.materialId} className="grid grid-cols-[30px_1fr_auto] items-center gap-2.5 rounded-[12px] px-2 py-1.5">
+                  <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright"><CategoryIcon categoryId="" categoryName={item.categoryName} size={16} /></span>
+                  <Link className="grid min-w-0 text-inherit no-underline" to={`/materials/${item.materialId}`} onClick={() => setOpen(false)}>
+                    <strong className="truncate text-[13px] text-ink">{item.title}</strong>
+                    <span className="text-[11.5px] text-muted">{formatWhen(item.rangAt)}</span>
+                  </Link>
+                  <button className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-full border border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/12%)] px-2.5 text-[11.5px] font-bold text-[rgb(52_130_74)]" type="button" onClick={() => void markReminderRead(item.materialId)}>
+                    <Check aria-hidden="true" size={13} /> Կարդացել եմ
+                  </button>
+                </div>
+              ))}
+            </>
+          ) : null}
+          {reminders.length ? <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span> : null}
           {reminders.slice(0, 8).map((reminder) => (
             <Link key={reminder.materialId} className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle" to={`/materials/${reminder.materialId}`} onClick={() => setOpen(false)}>
               <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright"><CategoryIcon categoryId="" categoryName={reminder.categoryName} size={16} /></span>

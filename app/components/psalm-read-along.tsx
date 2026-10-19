@@ -24,12 +24,27 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
   text: string; superscription: boolean; materialId: string; timings?: Timings | null; canMark?: boolean;
 }) {
   const lines = useMemo(() => text.split("\n").map((line) => line.trim()).filter(Boolean), [text]);
-  const [timings, setTimings] = useState<Timings | null>(savedTimings && savedTimings.length === lines.length ? savedTimings : null);
-  const estimated = useMemo(() => {
-    const total = lines.reduce((sum, line) => sum + line.length, 0) || 1;
-    let running = 0;
-    return lines.map((line) => { const start = running / total; running += line.length; return start; });
+  // Only numbered verses are marked and followed ("1 Երանելի է…"); the title, the psalm number and
+  // the superscription are not. Numbering may start at 2; an unnumbered line after a verse belongs to it.
+  const { verseOf, verseCount, verseNumbers } = useMemo(() => {
+    const map: number[] = [];
+    const numbers: number[] = [];
+    let current = -1;
+    for (const line of lines) {
+      const number = /^(\d{1,3})(?=[\s.)։])/u.exec(line)?.[1];
+      if (number) { current += 1; numbers.push(Number(number)); }
+      map.push(current);
+    }
+    return { verseOf: map, verseCount: current + 1, verseNumbers: numbers };
   }, [lines]);
+  const [timings, setTimings] = useState<Timings | null>(savedTimings && savedTimings.length === verseCount ? savedTimings : null);
+  const estimated = useMemo(() => {
+    const lengths = Array.from({ length: verseCount }, () => 0);
+    lines.forEach((line, index) => { if (verseOf[index] >= 0) lengths[verseOf[index]] += line.length; });
+    const total = lengths.reduce((sum, length) => sum + length, 0) || 1;
+    let running = 0;
+    return lengths.map((length) => { const start = running / total; running += length; return start; });
+  }, [lines, verseCount, verseOf]);
   const [active, setActive] = useState(-1);
   const lineRefs = useRef<Array<HTMLParagraphElement | null>>([]);
 
@@ -61,7 +76,7 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
       const index = indexAt(audio);
       setActive((current) => {
         if (current !== index && !audio.paused) {
-          const element = lineRefs.current[index];
+          const element = lineRefs.current[verseOf.indexOf(index)];
           const rect = element?.getBoundingClientRect();
           // Keep the verse in view without yanking the page while the reader looks elsewhere.
           if (element && rect && (rect.top < 80 || rect.bottom > window.innerHeight - 160)) element.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -72,10 +87,10 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
     const types = ["timeupdate", "play", "pause", "ended", "seeked"];
     for (const type of types) document.addEventListener(type, update, true);
     return () => { for (const type of types) document.removeEventListener(type, update, true); };
-  }, [indexAt, marking]);
+  }, [indexAt, marking, verseOf]);
 
   const startMarking = () => {
-    setDraft(timings ? [...timings] : lines.map(() => null));
+    setDraft(timings ? [...timings] : Array.from({ length: verseCount }, () => null));
     setMessage(null);
     setMarking(true);
     const audio = currentAudio();
@@ -125,7 +140,9 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
     setMessage(starts ? "Պահված է։ Հիմա տեքստը կհետևի ձայնին ճշգրիտ։" : "Նշումները ջնջված են։");
   };
 
-  const onLineClick = (index: number) => {
+  const onLineClick = (lineIndex: number) => {
+    const index = verseOf[lineIndex];
+    if (index < 0) return;
     const audio = currentAudio();
     if (!audio || !Number.isFinite(audio.duration)) return;
     if (marking) {
@@ -158,10 +175,10 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
           <p
             key={index}
             ref={(element) => { lineRefs.current[index] = element; }}
-            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity] duration-500 ${superscription && index === 0 ? "psalm-superscription mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center" : ""} ${following ? index === active ? "bg-[rgb(217_181_111/16%)] opacity-100" : "opacity-45" : ""} ${marking && index === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""}`}
+            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity] duration-500 ${superscription && index === 0 ? "psalm-superscription mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "bg-[rgb(217_181_111/16%)] opacity-100" : "opacity-45" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
             onClick={() => onLineClick(index)}
           >
-            {marking ? <span className="mr-2 inline-block min-w-[38px] font-sans text-[11px] font-bold text-gold tabular-nums">{draft[index] !== null && draft[index] !== undefined ? formatSeconds(draft[index] as number) : "—"}</span> : null}
+            {marking && verseOf[index] >= 0 && verseOf[index - 1] !== verseOf[index] ? <span className="mr-2 inline-block min-w-[38px] font-sans text-[11px] font-bold text-gold tabular-nums">{typeof draft[verseOf[index]] === "number" ? formatSeconds(draft[verseOf[index]] as number) : "—"}</span> : null}
             {line}
           </p>
         ))}
@@ -174,7 +191,7 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
           </p>
           <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2">
             <button className={`${button} min-h-12 border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] text-[#2a1708]`} type="button" disabled={nextIndex < 0} onClick={markNext}>
-              <SkipForward aria-hidden="true" size={17} /> {nextIndex < 0 ? "Բոլորը նշված են" : `Հաջորդ համարը (${nextIndex + 1}/${lines.length})`}
+              <SkipForward aria-hidden="true" size={17} /> {nextIndex < 0 ? "Բոլորը նշված են" : `Հաջորդ՝ համար ${verseNumbers[nextIndex]} (${nextIndex + 1}/${verseCount})`}
             </button>
             <button className={`${button} border-glass-border bg-subtle text-ink`} type="button" onClick={undo} aria-label="Հետարկել վերջին նշումը" title="Հետարկել"><RotateCcw aria-hidden="true" size={16} /></button>
             <button className={`${button} border-[rgb(74_160_96/50%)] bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]`} type="button" disabled={saving || draft.every((value) => value === null)} onClick={() => save(draft)} aria-label="Պահել" title="Պահել"><Check aria-hidden="true" size={17} /></button>

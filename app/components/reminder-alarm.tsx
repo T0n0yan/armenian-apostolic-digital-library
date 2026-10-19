@@ -1,9 +1,9 @@
 import { BookOpen, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, loadReminders, type ActiveReminder } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, loadReminders, markReminderRead, type ActiveReminder } from "../utils/reminder-store";
 
 type Upcoming = ActiveReminder;
 type Ducked = { media: HTMLMediaElement; volume: number; paused: boolean };
@@ -55,7 +55,12 @@ export function ReminderAlarm() {
   const bell = useRef<HTMLAudioElement | null>(null);
   const current = queue[0] ?? null;
 
+  const recentlyRung = useRef(new Map<string, number>());
   const ring = useCallback((reminder: Upcoming) => {
+    // The page's own timer and a push from the server can both announce the same reminder.
+    const last = recentlyRung.current.get(reminder.materialId) ?? 0;
+    if (Date.now() - last < 120_000) return;
+    recentlyRung.current.set(reminder.materialId, Date.now());
     // Mark it rung right away so the bot doesn't also send it.
     void post({ materialId: reminder.materialId, rang: true }).then(() => window.setTimeout(() => void loadReminders(), 500));
     setQueue((items) => items.some((item) => item.materialId === reminder.materialId) ? items : [...items, reminder]);
@@ -71,6 +76,39 @@ export function ReminderAlarm() {
       timers.current.set(reminder.materialId, window.setTimeout(() => ring(reminder), Math.max(0, startAt - Date.now())));
     }
   }, [ring]);
+
+  // Phones only let a page play sound after a tap; the first tap anywhere unlocks the bell.
+  useEffect(() => {
+    const unlock = () => {
+      const audio = bell.current;
+      if (!audio) return;
+      audio.muted = true;
+      void audio.play().then(() => { audio.pause(); audio.currentTime = 0; audio.muted = false; }).catch(() => { audio.muted = false; });
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => { window.removeEventListener("pointerdown", unlock); window.removeEventListener("keydown", unlock); };
+  }, []);
+
+  // A push that arrives while the library is open rings here too (see public/sw.js).
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string; materialId?: string; title?: string; category?: string | null } | null;
+      if (data?.type === "reminder" && data.materialId && document.visibilityState === "visible") ring({ materialId: data.materialId, at: new Date().toISOString(), repeat: "none", title: data.title ?? "", categoryName: data.category ?? null });
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [ring]);
+
+  // Opening a reminded material counts as reading it.
+  const location = useLocation();
+  useEffect(() => {
+    const match = /^\/materials\/([^/]+)$/u.exec(location.pathname);
+    if (match) void markReminderRead(decodeURIComponent(match[1]));
+  }, [location.pathname]);
 
   useEffect(() => {
     bell.current = new Audio(BELL_URL);

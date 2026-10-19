@@ -22,7 +22,7 @@ export const PREFERENCE_KEYS = {
 
 type Preferences = { readingFont: ReadingFont; titleSize: TitleSize; leading: Leading; motion: Motion; alarmSound: Toggle; dailyVerse: Toggle };
 
-const DEFAULTS: Preferences = { readingFont: "auto", titleSize: "medium", leading: "normal", motion: "full", alarmSound: "on", dailyVerse: "on" };
+const DEFAULTS: Preferences = { readingFont: "auto", titleSize: "small", leading: "normal", motion: "full", alarmSound: "on", dailyVerse: "on" };
 const ALLOWED: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   readingFont: ["auto", "book", "serif", "sans"],
   titleSize: ["small", "medium", "large"],
@@ -42,6 +42,8 @@ function read(key: string) {
 
 export function readPreference<K extends keyof Preferences>(name: K): Preferences[K] {
   const value = typeof window === "undefined" ? null : read(PREFERENCE_KEYS[name]);
+  // Animations default off when the phone asks for less motion or to save data/battery.
+  if (name === "motion" && value === null && typeof window !== "undefined" && document.documentElement.dataset.motion === "reduced") return "reduced" as Preferences[K];
   return (ALLOWED[name] as readonly string[]).includes(value ?? "") ? value as Preferences[K] : DEFAULTS[name];
 }
 

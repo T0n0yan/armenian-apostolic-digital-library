@@ -446,14 +446,14 @@ html[data-tg-fullscreen="true"] body::before {
 @media (prefers-reduced-motion: reduce) { .reminder-ring { animation: none; } }
 
 /* The prayers list reads in the same prayer-book face as the prayers themselves. */
-.prayer-cards li strong, .prayer-cards li .line-clamp-3 {
+.prayer-cards li strong, .prayer-cards li .line-clamp-2 {
   font-family: var(--font-book);
   font-weight: 400;
   font-synthesis: weight style;
   letter-spacing: .01em;
 }
 .prayer-cards li strong { font-size: 17px; line-height: 1.35; }
-.prayer-cards li .line-clamp-3 { font-size: 13.5px; line-height: 1.6; }
+.prayer-cards li .line-clamp-2 { font-size: 13.5px; line-height: 1.6; }
 
 /* The floating reminder bell swings left and right when a reminder rings, then settles. */
 .bell-swing { animation: bell-swing 1.6s cubic-bezier(.36,.07,.19,.97); transform-origin: 50% 12%; }
@@ -466,7 +466,26 @@ html[data-reading-font="serif"] article :is(p, li, blockquote, figcaption, #tele
 html[data-reading-font="sans"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-sans) !important; font-style: normal; }
 html[data-title-size="small"] main h1 { zoom: .85; }
 html[data-title-size="large"] main h1 { zoom: 1.18; }
-html[data-leading="wide"] article :is(p, li, #telegram-formatted-text) { line-height: 2.15 !important; }
-html[data-motion="reduced"] *, html[data-motion="reduced"] ::before, html[data-motion="reduced"] ::after {
+/* With animations off everything is still, except the candle intro. */
+html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-motion="reduced"] :not(.candle-loader, .candle-loader *)::before, html[data-motion="reduced"] :not(.candle-loader, .candle-loader *)::after {
   animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
 }
+
+/* Switching between the menu's links and its settings slides the view in. */
+.menu-view { animation: menu-view-in 320ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes menu-view-in { from { opacity: 0; transform: translate3d(14px, 0, 0); } to { opacity: 1; transform: none; } }
+
+/* The search filter's date fields: the calendar icon is decorative, the whole field opens it. */
+.date-field::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
+.date-field::-webkit-date-and-time-value { text-align: left; }
+
+/* Bottom sheets: the dimmed page fades in and out with the sheet. */
+.sheet-scrim[data-phase="in"] { animation: sheet-scrim-in 240ms ease-out both; }
+.sheet-scrim[data-phase="out"] { animation: sheet-scrim-out 380ms ease-in both; }
+@keyframes sheet-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-scrim-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* Time wheels in the reminder sheet. */
+.time-wheel { scroll-snap-type: y mandatory; scrollbar-width: none; mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent); }
+.time-wheel::-webkit-scrollbar { display: none; }
+.time-wheel > * { scroll-snap-align: center; }

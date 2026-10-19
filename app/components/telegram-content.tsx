@@ -1,4 +1,5 @@
 import { BarChart3, ExternalLink, MapPin, TriangleAlert } from "lucide-react";
+import { localDay } from "../utils/local-day";
 import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
 
 import type {
@@ -245,7 +246,7 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
     if (!canAnswer || sending) return;
     setSending(true);
     setMine(index);
-    await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index }) }).catch(() => null);
+    await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index, day: localDay() }) }).catch(() => null);
     setSending(false);
   };
 

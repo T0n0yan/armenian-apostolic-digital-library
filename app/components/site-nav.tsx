@@ -1,4 +1,4 @@
-import { Bookmark, Church, Search, Settings, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -8,7 +8,7 @@ import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
 import { ReminderIndicator } from "./reminder-indicator";
 import { INSTALL_REQUEST_EVENT, isInstalledApp } from "./install-prompt";
-import { ReadingSettings } from "./reading-settings";
+import { SettingsPanel } from "./settings-panel";
 
 type SiteNavProps = { showAdminLink?: boolean };
 
@@ -25,6 +25,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
   const topicItems = rootData?.categories ?? [];
   const [isOpen, setIsOpen] = useState(false);
+  // The menu shows either its links or, in place, the settings (with a way back).
+  const [view, setView] = useState<"main" | "settings">("main");
+  useEffect(() => { if (!isOpen) { const timer = window.setTimeout(() => setView("main"), 300); return () => window.clearTimeout(timer); } }, [isOpen]);
   // Hidden once the library already runs as an installed app.
   const [canInstall, setCanInstall] = useState(false);
   useEffect(() => setCanInstall(!isInstalledApp()), []);
@@ -89,12 +92,19 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
       >
         <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-[24px] p-2.5" data-open={isOpen || undefined} aria-hidden={!isOpen}>
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
-            <span className="text-[13px] font-bold text-ink">Մենյու</span>
+            {view === "settings" ? (
+              <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-transparent px-1 text-[13px] font-bold text-gold-bright" type="button" onClick={() => setView("main")}>
+                <ArrowLeft aria-hidden="true" size={17} /> Կարգավորումներ
+              </button>
+            ) : <span className="text-[13px] font-bold text-ink">Մենյու</span>}
             <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted hover:text-ink" type="button" onClick={() => setIsOpen(false)} aria-label="Փակել մենյուն">
               <X aria-hidden="true" size={18} />
             </button>
           </div>
-          <div className="grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5">
+          {view === "settings" ? (
+            <div className="menu-view max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
+          ) : (
+          <div className="menu-view grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
             <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
@@ -127,7 +137,11 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
             <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
               <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
-              <ReadingSettings />
+              <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")}>
+                <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings2 aria-hidden="true" size={17} /></span>
+                <span className="flex-1">Թեմա, տառաչափ, տառատեսակ…</span>
+                <ChevronRight aria-hidden="true" size={17} className="text-faint" />
+              </button>
               {canInstall ? (
                 <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => { setIsOpen(false); window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT)); }}>
                   <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Smartphone aria-hidden="true" size={17} /></span>
@@ -139,6 +153,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               ) : null}
             </section>
           </div>
+          )}
         </div>
 
         <ReminderIndicator hidden={isOpen} />

@@ -68,6 +68,8 @@ type MaterialResultCardProps = {
   variant?: MaterialCardVariant;
   /** The topic's usual content type (e.g. polls in Bible questions); its badge is redundant there. */
   typicalType?: BridgeContentType;
+  /** For questions the reader answered: whether the answer was right. */
+  quizResult?: "right" | "wrong" | "answered";
   isSaved: boolean;
   isSaving?: boolean;
   allowNoteEditing?: boolean;
@@ -172,7 +174,8 @@ function highlightText(value: string, pattern: HighlightPattern | null) {
   );
 }
 
-const HIT_LEAD_CHARACTERS = 48;
+const HIT_LEAD_CHARACTERS = 40;
+const HIT_TAIL_CHARACTERS = 90;
 
 function highlightHit(hit: BridgeSearchHit) {
   let snippet = hit.snippet;
@@ -185,6 +188,11 @@ function highlightHit(hit: BridgeSearchHit) {
     start = start - cut + 1;
   }
   const end = Math.max(start, Math.min(snippet.length, start + hit.snippetMatchLength));
+  // Cards show a fixed amount of text: about two lines around the found words.
+  if (snippet.length > end + HIT_TAIL_CHARACTERS) {
+    const space = snippet.lastIndexOf(" ", end + HIT_TAIL_CHARACTERS);
+    snippet = `${snippet.slice(0, space > end ? space : end + HIT_TAIL_CHARACTERS).trimEnd()}…`;
+  }
   hit = { ...hit, snippet };
   return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
 }
@@ -211,6 +219,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   highlightQuery = "",
   variant = "default",
   typicalType,
+  quizResult,
   isSaved,
   isSaving = false,
   allowNoteEditing = false,
@@ -394,7 +403,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <span className="mt-0.5 grid size-[30px] place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] font-noto text-[16px] font-bold text-gold-bright" aria-hidden="true">?</span>
               <span className="grid gap-1">
                 <strong className="line-clamp-3 font-noto text-[15px] leading-[22px] font-semibold [overflow-wrap:anywhere]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
-                {material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան</span> : null}
+                {quizResult ? (
+                  <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${quizResult === "right" ? "bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]" : quizResult === "wrong" ? "bg-[rgb(205_70_55/12%)] text-[rgb(180_60_45)]" : "bg-[rgb(217_181_111/14%)] text-gold-bright"}`}>
+                    {quizResult === "right" ? "✓ Ճիշտ եք պատասխանել" : quizResult === "wrong" ? "✕ Սխալ եք պատասխանել" : "Պատասխանել եք"}
+                  </span>
+                ) : material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան{canSave ? " · չեք պատասխանել" : ""}</span> : null}
               </span>
             </span>
           ) : variant === "portrait" ? null : (
@@ -402,9 +415,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           )}
           {material.searchHit && !(variant === "portrait" && material.searchHit.source === "title") ? (
             // The line where the words were found, with them highlighted.
-            <span className="line-clamp-3 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
+            <span className="line-clamp-2 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
           ) : excerpt || material.preview.performer || material.preview.locationSummary ? (
-            <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
+            <span className="line-clamp-2 overflow-hidden text-[12px] leading-[1.5] text-muted">
               {highlightText(excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
             </span>
           ) : null}

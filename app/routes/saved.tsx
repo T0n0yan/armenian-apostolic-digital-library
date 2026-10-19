@@ -12,6 +12,8 @@ import {
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { googleConfig } from "../auth/google.server";
+import { readingDays } from "../data/reading-log.server";
+import { ReadingCalendar } from "../components/reading-calendar";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
 import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
@@ -54,6 +56,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
+  const readingLog = await readingDays(env.DB, user.id).catch(() => ({} as Record<string, number>));
   try {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
   } catch (error) {
@@ -71,6 +74,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     total: materials.length,
     googleAvailable,
     signInFailed,
+    readingLog,
   };
 }
 
@@ -208,6 +212,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         </EmptyState>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
+          {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} /> : null}
           {loaderData.user?.source === "google" ? (
             <Form className="flex items-center justify-between gap-3 rounded-[14px] border border-glass-border bg-subtle px-3.5 py-2 text-[12.5px] text-muted" method="post" action="/auth/logout">
               <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>

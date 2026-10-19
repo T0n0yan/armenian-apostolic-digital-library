@@ -29,7 +29,6 @@ import { SiteNav } from "../components/site-nav";
 import {
   countBadge,
   fieldControl,
-  fieldLabel,
   sectionHeader,
   sectionTitle,
 } from "../components/ui-styles";
@@ -266,6 +265,14 @@ const SearchForm = memo(function SearchForm({
   const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
     useDebouncedFormSubmit(320, 2);
   const inputRef = useSyncedQueryInput(filters.query);
+  // Arriving from the home search box: keep typing where you left off.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("focus") !== "1") return;
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [inputRef]);
   const navigation = useNavigation();
   const isSearching = navigation.state !== "idle" && navigation.location?.pathname === "/search";
 
@@ -328,9 +335,9 @@ const SearchForm = memo(function SearchForm({
             size={18}
           />
         </summary>
-        <div className="grid gap-2.5 px-3 pt-1 pb-3 min-[560px]:grid-cols-2 min-[960px]:grid-cols-[1.4fr_1fr_1fr]">
-          <label className={fieldLabel}>
-            <span>Բաժին</span>
+        <div className="grid gap-3 px-3 pt-1 pb-3">
+          <label className="grid gap-1.5">
+            <span className="px-1 text-[13px] font-bold text-ink">Բաժին</span>
             <select
               className={`${fieldControl} pr-[42px]`}
               name="category"
@@ -345,26 +352,15 @@ const SearchForm = memo(function SearchForm({
               ))}
             </select>
           </label>
-          <label className={fieldLabel}>
-            <span>Սկսած</span>
-            <input
-              className={fieldControl}
-              type="date"
-              name="from"
-              defaultValue={filters.dateFrom}
-              onChange={submitImmediately}
-            />
-          </label>
-          <label className={fieldLabel}>
-            <span>Մինչև</span>
-            <input
-              className={fieldControl}
-              type="date"
-              name="to"
-              defaultValue={filters.dateTo}
-              onChange={submitImmediately}
-            />
-          </label>
+          <div className="grid gap-1.5">
+            <span className="px-1 text-[13px] font-bold text-ink">Ամսաթիվ</span>
+            {/* Side by side; a tap anywhere on a field opens its calendar. */}
+            <div className="grid grid-cols-2 gap-2">
+              {([["from", "Սկսած", filters.dateFrom], ["to", "Մինչև", filters.dateTo]] as const).map(([name, label, value]) => (
+                <DateField key={name} name={name} label={label} value={value} onChange={submitImmediately} />
+              ))}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3.5 px-3 pb-3">
           <Link className="inline-flex items-center gap-1.5 text-[12px] font-[720] text-gold-bright no-underline" to="/search">
@@ -375,6 +371,28 @@ const SearchForm = memo(function SearchForm({
     </Form>
   );
 });
+
+const DATE_MONTHS = ["հունվարի", "փետրվարի", "մարտի", "ապրիլի", "մայիսի", "հունիսի", "հուլիսի", "օգոստոսի", "սեպտեմբերի", "հոկտեմբերի", "նոյեմբերի", "դեկտեմբերի"];
+
+/** A date filter field: shows the chosen day (or "Ընտրել"), and a tap anywhere opens the calendar. */
+function DateField({ name, label, value, onChange }: { name: string; label: string; value: string; onChange: () => void }) {
+  const [current, setCurrent] = useState(value);
+  const shown = current ? `${Number(current.slice(8))} ${DATE_MONTHS[Number(current.slice(5, 7)) - 1]} ${current.slice(0, 4)}` : "Ընտրել";
+  return (
+    <label className="relative grid cursor-pointer gap-0.5 rounded-[14px] border border-glass-border bg-control px-3 py-1.5">
+      <span className="text-[11px] font-semibold text-muted">{label}</span>
+      <span className={`text-[14px] ${current ? "text-ink" : "text-faint"}`}>{shown}</span>
+      <input
+        className="absolute inset-0 cursor-pointer opacity-0"
+        type="date"
+        name={name}
+        value={current}
+        onChange={(event) => { setCurrent(event.target.value); window.setTimeout(onChange, 0); }}
+        onClick={(event) => { try { event.currentTarget.showPicker(); } catch { /* Older browsers open it themselves. */ } }}
+      />
+    </label>
+  );
+}
 
 const SearchResults = memo(function SearchResults({
   canSave,
@@ -533,7 +551,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         backLabel="Գրադարան"
         eyebrow="Ամբողջ գրադարանը"
         title="Որոնում"
-        description="Փնտրիր Telegram հրապարակումների վերնագրերի և ամբողջ տեքստի մեջ։"
+        description="Աղոթքներ, սաղմոսներ, սրբերի վարքեր, ընթերցումներ և հարցեր՝ մեկ տեղում։"
       />
 
       <SearchForm

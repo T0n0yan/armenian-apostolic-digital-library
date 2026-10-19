@@ -7,6 +7,7 @@ import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
+import { quizResults, type QuizResult } from "../data/poll-votes.server";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { MaterialListSkeleton } from "../components/material-skeleton";
@@ -97,11 +98,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     dateFrom: "",
     dateTo: "",
   };
-  const [materialResult, savedMaterialIds] = await Promise.all([
+  const isQuestions = resolveContentCategoryId(category.id, category.name) === "category_bible_questions";
+  const [materialResult, savedMaterialIds, quizAnswers] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
       : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
+    // Which questions the reader already answered, and how.
+    user && isQuestions ? quizResults(env.DB, user.id, category.id).catch(() => ({})) : Promise.resolve({}),
   ]);
   // Grid and question topics show their introduction post as a header (it is their oldest post,
   // so on paged feeds it would otherwise only appear at the very end).
@@ -121,6 +125,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     nextCursor: materialResult.nextCursor,
     highlightQuery: resolvedQuery?.highlightQuery ?? "",
     savedMaterialIds,
+    quizAnswers: quizAnswers as Record<string, QuizResult>,
     canSave: Boolean(user),
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: await getTelegramUserCacheScope(user),
@@ -140,12 +145,14 @@ const MaterialsList = memo(function MaterialsList({
   materials,
   savedMaterialIds,
   highlightQuery,
+  quizAnswers = {},
 }: {
   canSave: boolean;
   layout: CategoryLayout;
   materials: CategoryMaterial[];
   savedMaterialIds: string[];
   highlightQuery?: string;
+  quizAnswers?: Record<string, QuizResult>;
 }) {
   const { isSaving, pendingMaterialId, savedIds, setSaved } =
     useSavedMaterials(savedMaterialIds);
@@ -176,6 +183,7 @@ const MaterialsList = memo(function MaterialsList({
             material={material}
             variant={layout === "default" && "categoryName" in material ? cardVariantFor(material) : listVariant}
             typicalType={layout === "default" ? "poll" : typicalType}
+            quizResult={quizAnswers[material.id]}
             highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}
@@ -335,6 +343,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             materials={materials}
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}
+            quizAnswers={loaderData.quizAnswers}
           />
           </div>
         )}
