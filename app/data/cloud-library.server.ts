@@ -64,7 +64,18 @@ type MediaRow = {
   waveform: string | null;
   alt_text: string;
   thumbnail_r2_key: string | null;
+  r2_key?: string | null;
+  r2_etag?: string | null;
+  thumbnail_etag?: string | null;
 };
+
+/** A short stable tag for the stored file, so a replaced file gets a new URL. */
+function mediaVersion(item: MediaRow) {
+  const source = `${item.r2_etag ?? item.r2_key ?? ""}|${item.thumbnail_etag ?? ""}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
+  return source === "|" ? null : (hash >>> 0).toString(36);
+}
 
 type FeedCursor = { version: 1; scope: string; publishedAt: string; messageId: number };
 type SearchCursor = { version: 1; scope: string; offset: number };
@@ -155,7 +166,7 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
     const media = await database.prepare(
       `SELECT chat_id, message_id, media_index, kind, mime_type, file_name,
          size_bytes, width, height, duration, title, performer, waveform,
-         alt_text, thumbnail_r2_key
+         alt_text, thumbnail_r2_key, r2_key, r2_etag, thumbnail_etag
        FROM library_media WHERE status = 'ready' AND (${clauses})
        ORDER BY chat_id, message_id, media_index`,
     ).bind(...bindings).all<MediaRow>();
@@ -179,6 +190,7 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
       waveform: item.waveform,
       hasThumbnail: Boolean(item.thumbnail_r2_key),
       altText: item.alt_text,
+      version: mediaVersion(item),
     });
     byMaterial.set(key, values);
   }

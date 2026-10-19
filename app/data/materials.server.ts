@@ -80,10 +80,10 @@ export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
   const canPreview = Boolean(asset && (asset.kind === "photo" || asset.hasThumbnail));
   return {
     thumbnailUrl: asset && canPreview
-      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1`
+      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1${asset.version ? `&v=${asset.version}` : ""}`
       : null,
     imageUrl: asset?.kind === "photo"
-      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}`
+      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}${asset.version ? `?v=${asset.version}` : ""}`
       : null,
     width: asset?.width ?? null,
     height: asset?.height ?? null,

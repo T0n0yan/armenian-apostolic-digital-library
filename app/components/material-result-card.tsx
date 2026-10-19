@@ -237,7 +237,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
   const isVideo = variant === "video" || material.contentType === "video";
   const videoPoster = useVideoPoster(
-    isVideo ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
+    isVideo ? material.preview.thumbnailUrl?.replace("?thumbnail=1&", "?").replace(/\?thumbnail=1$/u, "") ?? null : null,
     isVideo ? material.preview.thumbnailUrl : null,
   );
   const psalm = variant === "psalm" ? psalmNumber(material) : null;

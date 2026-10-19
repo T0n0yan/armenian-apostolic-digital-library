@@ -78,9 +78,9 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
       id: `${post.id}_${asset.index}`,
       ...asset,
       status: "ready",
-      url: `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}`,
+      url: `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}${asset.version ? `?v=${asset.version}` : ""}`,
       thumbnailUrl: asset.hasThumbnail
-        ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1`
+        ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1${asset.version ? `&v=${asset.version}` : ""}`
         : null,
     })),
   };
