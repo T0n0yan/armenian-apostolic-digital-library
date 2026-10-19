@@ -454,8 +454,6 @@ html[data-tg-fullscreen="true"] body::before {
 }
 .prayer-cards li strong { font-size: 17px; line-height: 1.35; }
 .prayer-cards li .line-clamp-2 { font-size: 13.5px; line-height: 1.6; }
-/* On wide screens a prayer card is a short entry: the title and one line of its opening. */
-@media (min-width: 860px) { .prayer-cards li span.line-clamp-2 { -webkit-line-clamp: 1; line-clamp: 1; } .prayer-cards li strong { font-size: 16.5px; } }
 
 /* The floating reminder bell swings left and right when a reminder rings, then settles. */
 .bell-swing { animation: bell-swing 1.6s cubic-bezier(.36,.07,.19,.97); transform-origin: 50% 12%; }
@@ -519,3 +517,5 @@ img, video { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: no
 html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 a, img, video, button { -webkit-touch-callout: none; }
 input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* Developer mode (admins only): texts can be selected and copied again. */
+html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"] main * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }

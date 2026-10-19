@@ -18,11 +18,12 @@ export const PREFERENCE_KEYS = {
   alarmSound: "library-alarm-sound",
   dailyVerse: "library-daily-verse",
   sunPlace: "library-sun-place",
+  devMode: "library-dev-mode",
 } as const;
 
-type Preferences = { readingFont: ReadingFont; titleSize: TitleSize; leading: Leading; motion: Motion; alarmSound: Toggle; dailyVerse: Toggle };
+type Preferences = { readingFont: ReadingFont; titleSize: TitleSize; leading: Leading; motion: Motion; alarmSound: Toggle; dailyVerse: Toggle; devMode: Toggle };
 
-const DEFAULTS: Preferences = { readingFont: "auto", titleSize: "small", leading: "normal", motion: "full", alarmSound: "on", dailyVerse: "on" };
+const DEFAULTS: Preferences = { readingFont: "auto", titleSize: "small", leading: "normal", motion: "full", alarmSound: "on", dailyVerse: "on", devMode: "off" };
 const ALLOWED: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   readingFont: ["auto", "book", "serif", "sans"],
   titleSize: ["small", "medium", "large"],
@@ -30,10 +31,11 @@ const ALLOWED: { [K in keyof Preferences]: readonly Preferences[K][] } = {
   motion: ["full", "reduced"],
   alarmSound: ["on", "off"],
   dailyVerse: ["on", "off"],
+  devMode: ["on", "off"],
 };
 /** Attribute names on <html> (the boot script uses the same). */
 const ATTRIBUTES: { [K in keyof Preferences]: string } = {
-  readingFont: "readingFont", titleSize: "titleSize", leading: "leading", motion: "motion", alarmSound: "alarmSound", dailyVerse: "dailyVerse",
+  readingFont: "readingFont", titleSize: "titleSize", leading: "leading", motion: "motion", alarmSound: "alarmSound", dailyVerse: "dailyVerse", devMode: "devMode",
 };
 
 function read(key: string) {

@@ -1,5 +1,6 @@
 import { createMaterialId } from "../../shared/telegram-bridge-contract";
 import { sendWebPush, type PushKeys, type PushSubscriptionRow } from "./web-push.server";
+import { materialPath } from "../utils/material-path";
 
 export type ReminderRepeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 export type Reminder = { materialId: string; remindAt: string; repeat: ReminderRepeat };
@@ -186,7 +187,7 @@ async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow,
     const outcome = await sendWebPush(subscription, {
       title: "🔔 Ժամանակն է կարդալու",
       body: row.title?.trim() || "Հոգևոր ժառանգություն",
-      url: `${publicUrl}/materials/${materialId}?reminder=1`,
+      url: `${publicUrl}${materialPath(materialId, row.category_name)}?reminder=1`,
       tag: `reminder-${materialId}`,
       category: row.category_name,
     }, keys);
@@ -229,7 +230,7 @@ export async function sendDueReminders(database: D1Database, options: { token: s
       const result = await callBot(options.token, "sendMessage", {
         chat_id: Number(row.telegram_id),
         text: `🔔 Ժամանակն է կարդալու\n\n${title}`,
-        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}/materials/${materialId}` } }]] },
+        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}${materialPath(materialId, row.category_name)}` } }]] },
       });
       // A blocked bot or a missing chat can never deliver; anything else is retried next minute.
       if (result.ok) delivered = true;

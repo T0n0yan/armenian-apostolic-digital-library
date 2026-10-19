@@ -1,5 +1,6 @@
-import { BookOpen, Check, LocateFixed, Monitor, Moon, Sparkles, Sun, SunMoon, Type } from "lucide-react";
+import { BookOpen, Check, Code2, LocateFixed, Monitor, Moon, Sparkles, Sun, SunMoon, Type } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { useRouteLoaderData } from "react-router";
 
 import {
   applyTextSize, applyThemePreference, readStoredTextSize, readStoredThemePreference,
@@ -67,6 +68,8 @@ export function SettingsPanel() {
   const [motion, setMotion] = useState<Motion>("full");
   const [alarmSound, setAlarmSound] = useState<Toggle>("on");
   const [dailyVerse, setDailyVerse] = useState<Toggle>("on");
+  const [devMode, setDevMode] = useState<Toggle>("off");
+  const isAdmin = Boolean((useRouteLoaderData("root") as { isAdmin?: boolean } | undefined)?.isAdmin);
   const [sunText, setSunText] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
 
@@ -78,6 +81,7 @@ export function SettingsPanel() {
     setMotion(readPreference("motion"));
     setAlarmSound(readPreference("alarmSound"));
     setDailyVerse(readPreference("dailyVerse"));
+    setDevMode(readPreference("devMode"));
   }, []);
 
   // Today's sunrise and sunset for the "sun" theme.
@@ -147,6 +151,13 @@ export function SettingsPanel() {
           <Switch label="Հիշեցման զանգի ձայնը" checked={alarmSound === "on"} onChange={(on) => { const next = on ? "on" : "off"; setAlarmSound(next); setPreference("alarmSound", next); }} />
           <Switch label="Անիմացիաներ" checked={motion === "full"} onChange={(on) => { const next = on ? "full" : "reduced"; setMotion(next); setPreference("motion", next); }} />
         </Setting>
+
+        {isAdmin ? (
+          // Admins only: lifts the copy/selection protections to work with the texts.
+          <Setting icon={<Code2 aria-hidden="true" size={18} />} title="Մշակողի ռեժիմ">
+            <Switch label="Թույլատրել ընտրել և պատճենել" checked={devMode === "on"} onChange={(on) => { const next = on ? "on" : "off"; setDevMode(next); setPreference("devMode", next); }} />
+          </Setting>
+        ) : null}
 
         <p className="m-0 flex items-center justify-center gap-1.5 text-[12px] text-faint"><Check aria-hidden="true" size={14} /> Փոփոխությունները պահվում են անմիջապես</p>
       </div>

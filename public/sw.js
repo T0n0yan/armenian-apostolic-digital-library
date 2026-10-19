@@ -7,7 +7,7 @@
 //   when offline, so pages already visited open without internet;
 // - pictures from /media: cache first, so thumbnails and saints' icons stay available.
 // Personal and sign-in requests, writes, and audio/video streams are never cached.
-const VERSION = "v2";
+const VERSION = "v3";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const MEDIA = `media-${VERSION}`;

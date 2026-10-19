@@ -1,4 +1,4 @@
-import { Check, Copy, Share2, X } from "lucide-react";
+import { Check, Copy, Send, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BottomSheet } from "./bottom-sheet";
 
@@ -85,12 +85,6 @@ function Sheet({ title, open, onClose, children }: { title: string; open: boolea
   );
 }
 
-/**
- * Inside the Mini App, opens Telegram's share sheet over the app (shareMessage), or failing that
- * Telegram's "send to a chat" picker (Telegram's Android Mini App WebView has no system share
- * sheet). In a browser, opens the phone's share
- * sheet (Android Quick Share, iOS share sheet); without one, the link is copied.
- */
 /** The page's address without search/marking parameters, absolute. */
 function siteUrl(pageUrl: string) {
   const address = new URL(pageUrl, window.location.origin);
@@ -99,13 +93,31 @@ function siteUrl(pageUrl: string) {
   return address.toString();
 }
 
+/**
+ * Shares the same way in a browser and in the Mini App: the phone's share sheet when there is one
+ * (Android Quick Share, iOS share sheet), otherwise our own sheet with "copy link" and "send in
+ * Telegram". Only the link differs: in a browser the site's page, in the Mini App the Telegram link.
+ */
 export function ShareButton({ title, text, url, pageUrl, className, materialId, label = false }: ShareButtonProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, markCopied] = useCopied();
+  const link = () => telegramWebApp()?.initData ? url : siteUrl(pageUrl);
 
   const share = useCallback(async () => {
+    if (await systemShare({ title, text, url: telegramWebApp()?.initData ? url : siteUrl(pageUrl) })) return;
+    setSheetOpen(true);
+  }, [pageUrl, text, title, url]);
+
+  const close = useCallback(() => setSheetOpen(false), []);
+  const copyLink = async () => {
+    await copyText(link());
+    markCopied();
+    setSheetOpen(false);
+  };
+  const sendInTelegram = async () => {
+    setSheetOpen(false);
     const webApp = telegramWebApp();
-    // Telegram's share sheet over the Mini App, so the reader stays in the library.
+    // In the Mini App, Telegram's own "send to a chat" sheet over the app.
     if (webApp?.initData && webApp.shareMessage && materialId) {
       const prepared = await fetch("/api/share-prepare", {
         method: "POST",
@@ -117,23 +129,11 @@ export function ShareButton({ title, text, url, pageUrl, className, materialId, 
         return;
       }
     }
-    if (webApp?.initData && webApp.openTelegramLink) {
-      const picker = new URL("https://t.me/share/url");
-      picker.searchParams.set("url", url);
-      if (text) picker.searchParams.set("text", text);
-      webApp.openTelegramLink(picker.toString());
-      return;
-    }
-    // In a browser, share the library's own page (the Telegram post is for Telegram readers).
-    if (await systemShare({ title, text, url: siteUrl(pageUrl) })) return;
-    setSheetOpen(true);
-  }, [materialId, pageUrl, text, title, url]);
-
-  const close = useCallback(() => setSheetOpen(false), []);
-  const copyLink = async () => {
-    await copyText(telegramWebApp()?.initData ? url : siteUrl(pageUrl));
-    markCopied();
-    setSheetOpen(false);
+    const picker = new URL("https://t.me/share/url");
+    picker.searchParams.set("url", link());
+    if (text) picker.searchParams.set("text", text);
+    if (webApp?.initData && webApp.openTelegramLink) webApp.openTelegramLink(picker.toString());
+    else window.open(picker.toString(), "_blank", "noopener");
   };
 
   return (
@@ -144,6 +144,7 @@ export function ShareButton({ title, text, url, pageUrl, className, materialId, 
       </button>
       <Sheet title={title} open={sheetOpen} onClose={close}>
           <button className={sheetItem} type="button" onClick={copyLink}><Copy aria-hidden="true" size={18} className="text-gold" /> Պատճենել հղումը</button>
+          <button className={sheetItem} type="button" onClick={sendInTelegram}><Send aria-hidden="true" size={18} className="text-gold" /> Ուղարկել Telegram-ով</button>
       </Sheet>
     </>
   );

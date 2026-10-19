@@ -2,6 +2,7 @@ import { createRequestHandler } from "react-router";
 
 import { sendDueReminders } from "../app/data/reminders.server";
 import { pushKeysFrom } from "../app/data/web-push.server";
+import { isShortMaterialPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -75,6 +76,7 @@ async function handle(request: Request, _env: Env, context: ExecutionContext): P
         || url.pathname === "/search"
         || url.pathname.startsWith("/categories/")
         || url.pathname.startsWith("/materials/")
+        || isShortMaterialPath(url.pathname)
         || url.pathname.startsWith("/api/categories/")
         || url.pathname === "/api/search-page"
         || url.pathname === "/api/search-suggestions");

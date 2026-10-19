@@ -1,10 +1,8 @@
-import { env } from "cloudflare:workers";
 import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { isRouteErrorResponse, Link, useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
-import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { MaterialMediaGallery, PsalmNavContext } from "../components/material-media";
 import {
   FormattedTelegramText,
@@ -19,42 +17,15 @@ import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
 import { ReadingTracker } from "../components/reading-tracker";
-import { getPollVotes } from "../data/poll-votes.server";
-import { getOptionalTelegramAdmin } from "../auth/admin.server";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
-import { getPublicMaterialDetail } from "../data/material-detail.server";
-import { listSavedMaterialIds } from "../data/saved-materials.server";
-import { findPsalmNeighbors } from "../data/psalm-neighbors.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
+import { materialPath } from "../utils/material-path";
+import { loadMaterialPage } from "../data/material-page.server";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  if (!/^material_[a-zA-Z0-9_-]{1,220}$/.test(params.materialId)) {
-    throw new Response("Not Found", { status: 404 });
-  }
-  const [material, user] = await Promise.all([
-    getPublicMaterialDetail(env.DB, params.materialId, request.signal),
-    getOptionalTelegramUser(request),
-  ]);
-  if (!material) throw new Response("Not Found", { status: 404 });
-  const isPsalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms";
-  const [savedIds, psalm] = await Promise.all([
-    user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
-    isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
-  ]);
-  const reference = material.poll ? parseMaterialId(material.id) : null;
-  const pollVotes = reference && material.poll
-    ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
-    : null;
-  // A psalm's marked verse timings, and whether this reader may mark them.
-  const psalmReference = isPsalm ? parseMaterialId(material.id) : null;
-  const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
-    env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
-      .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
-    getOptionalTelegramAdmin(request, env.DB).then(Boolean).catch(() => false),
-  ]) : [null, false];
-  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm };
+  return loadMaterialPage(params.materialId, request);
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -124,6 +95,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
+        {material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} materialId={material.id} votes={loaderData.pollVotes} canVote={loaderData.canSave} /> : null}
@@ -179,7 +151,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             text={material.title}
             url={material.telegramUrl}
             materialId={material.id}
-            pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
+            pageUrl={typeof window === "undefined" ? materialPath(material.id, material.categoryName) : window.location.href}
             label
           />
         </div>

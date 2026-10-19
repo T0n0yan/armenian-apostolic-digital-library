@@ -5,6 +5,7 @@ import { Link } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
 import { REMINDER_RINGING_EVENT, markReminderRead, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
+import { materialPath } from "../utils/material-path";
 
 const REPEAT_TEXT: Record<string, string> = { daily: "ամեն օր", weekly: "ամեն շաբաթ", monthly: "ամեն ամիս", yearly: "ամեն տարի" };
 
@@ -81,7 +82,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
               {missed.map((item) => (
                 <div key={item.materialId} className="grid grid-cols-[30px_1fr_auto] items-center gap-2.5 rounded-[12px] px-2 py-1.5">
                   <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright"><CategoryIcon categoryId="" categoryName={item.categoryName} size={16} /></span>
-                  <Link className="grid min-w-0 text-inherit no-underline" to={`/materials/${item.materialId}`} onClick={() => setOpen(false)}>
+                  <Link className="grid min-w-0 text-inherit no-underline" to={materialPath(item.materialId, item.categoryName)} onClick={() => setOpen(false)}>
                     <strong className="truncate text-[13px] text-ink">{item.title}</strong>
                     <span className="text-[11.5px] text-muted">{formatWhen(item.rangAt)}</span>
                   </Link>
@@ -94,7 +95,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
           ) : null}
           {reminders.length ? <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span> : null}
           {reminders.slice(0, 8).map((reminder) => (
-            <Link key={reminder.materialId} className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle" to={`/materials/${reminder.materialId}`} onClick={() => setOpen(false)}>
+            <Link key={reminder.materialId} className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle" to={materialPath(reminder.materialId, reminder.categoryName)} onClick={() => setOpen(false)}>
               <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright"><CategoryIcon categoryId="" categoryName={reminder.categoryName} size={16} /></span>
               <span className="grid min-w-0">
                 <strong className="truncate text-[13px] text-ink">{reminder.title}</strong>

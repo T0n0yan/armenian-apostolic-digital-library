@@ -164,13 +164,19 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
     const batch = rows.slice(offset, offset + batchSize);
     const clauses = batch.map(() => "(chat_id = ? AND message_id = ?)").join(" OR ");
     const bindings = batch.flatMap((row) => [row.chat_id, row.message_id]);
+    // Telegram's own media, then recordings added on the site (material_attachments).
     const media = await database.prepare(
       `SELECT chat_id, message_id, media_index, kind, mime_type, file_name,
          size_bytes, width, height, duration, title, performer, waveform,
          alt_text, thumbnail_r2_key, r2_key, r2_etag, thumbnail_etag
        FROM library_media WHERE status = 'ready' AND (${clauses})
+       UNION ALL
+       SELECT chat_id, message_id, media_index, kind, mime_type, file_name,
+         size_bytes, NULL, NULL, duration, title, performer, NULL,
+         '', NULL, r2_key, r2_etag, NULL
+       FROM material_attachments WHERE (${clauses})
        ORDER BY chat_id, message_id, media_index`,
-    ).bind(...bindings).all<MediaRow>();
+    ).bind(...bindings, ...bindings).all<MediaRow>();
     mediaRows.push(...media.results);
   }
   const byMaterial = new Map<string, BridgeMedia[]>();

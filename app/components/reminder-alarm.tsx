@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
 import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, type ActiveReminder } from "../utils/reminder-store";
+import { materialPath } from "../utils/material-path";
 
 type Upcoming = ActiveReminder;
 type Ducked = { media: HTMLMediaElement; volume: number; paused: boolean };
@@ -194,7 +195,7 @@ export function ReminderAlarm() {
         <button
           className={`${action} inline-flex items-center justify-center gap-1.5 border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`}
           type="button"
-          onClick={() => { const id = current.materialId; void markReminderRead(id); dismiss(); navigate(`/materials/${id}`); }}
+          onClick={() => { const id = current.materialId; void markReminderRead(id); dismiss(); navigate(materialPath(id, current.categoryName)); }}
         >
           <BookOpen aria-hidden="true" size={16} /> Կարդալ
         </button>

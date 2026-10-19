@@ -24,6 +24,8 @@ export type MaterialMedia = {
   thumbnailUrl: string | null;
   altText: string;
   url: string | null;
+  /** Added on the site (material_attachments), not part of the Telegram post. */
+  attached?: boolean;
 };
 
 export type MaterialDetail = {
@@ -78,6 +80,7 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
       id: `${post.id}_${asset.index}`,
       ...asset,
       status: "ready",
+      attached: asset.index >= 100,
       url: `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}${asset.version ? `?v=${asset.version}` : ""}`,
       thumbnailUrl: asset.hasThumbnail
         ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1${asset.version ? `&v=${asset.version}` : ""}`

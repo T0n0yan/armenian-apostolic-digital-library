@@ -47,7 +47,7 @@ const initialThemeScript = `(() => {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark" || value === "sun") preference = value;
       // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
-      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]] };
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]], devMode: ["library-dev-mode", ["on"]] };
       for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
       if (!root.dataset.titleSize) root.dataset.titleSize = "small";
       // Unless chosen, animations follow the phone: off in power-saving / reduced-motion / data-saver.
@@ -82,6 +82,7 @@ export async function loader({request}: Route.LoaderArgs) {
 
   const value = {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
+    isAdmin: Boolean(telegramAdmin),
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };
@@ -239,13 +240,17 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
 
-  // Protects the library's artwork and texts: no "save image" on pictures, and copied text
-  // carries its source. (A web page cannot block screenshots; apps like Telegram can.)
+  // Protects the library's artwork and texts: holding a link, card or picture opens no system
+  // menu (Android's link menu, Telegram's "Open in…" popup, "save image"), and copied text
+  // carries its source. Admins can lift this with developer mode. (Screenshots can't be blocked.)
   useEffect(() => {
+    const devMode = () => document.documentElement.dataset.devMode === "on";
+    const isField = (target: EventTarget | null) => Boolean((target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']"));
     const onContextMenu = (event: MouseEvent) => {
-      if (event.target instanceof HTMLImageElement || event.target instanceof HTMLVideoElement) event.preventDefault();
+      if (!devMode() && !isField(event.target)) event.preventDefault();
     };
     const onCopy = (event: ClipboardEvent) => {
+      if (devMode()) return;
       const text = window.getSelection()?.toString() ?? "";
       if (text.trim().length < 40 || !event.clipboardData) return;
       event.clipboardData.setData("text/plain", `${text}\n\nԱղբյուր՝ «Հոգևոր ժառանգություն» — ${window.location.href}`);
@@ -253,8 +258,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     };
     // No selection starts outside form fields (iOS can still try on a long press).
     const onSelectStart = (event: Event) => {
-      const target = event.target as HTMLElement | null;
-      if (!target?.closest?.("input, textarea, select, [contenteditable='true']")) event.preventDefault();
+      if (!devMode() && !isField(event.target)) event.preventDefault();
     };
     document.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("copy", onCopy);
