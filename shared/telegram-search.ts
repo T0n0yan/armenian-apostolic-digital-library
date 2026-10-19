@@ -111,7 +111,10 @@ export function parseTelegramSearchQuery(value: string): ParsedTelegramSearchQue
     ? { kind: "message-id" as const, messageId: parsedId, explicit: Boolean(idMatch[1]) }
     : null;
   const normalized = normalizeTelegramSearchText(original);
-  return { original, normalized, tokens: normalized.split(" ").filter(Boolean).slice(0, 12), aliases: searchAliases(normalized), messageIdIntent };
+  // Someone typing in Armenian letters means those words: transliterated spellings only help
+  // queries typed in Latin letters ("saghmos"), so an Armenian query gets no aliases.
+  const aliases = /\p{Script=Latin}/u.test(normalized) ? searchAliases(normalized) : [];
+  return { original, normalized, tokens: normalized.split(" ").filter(Boolean).slice(0, 12), aliases, messageIdIntent };
 }
 
 function addField(fields: SearchableTelegramDocument["fields"], kind: SearchableTelegramFieldKind, value: string | null | undefined, primary = primaryKinds.has(kind), blockId: string | null = null) {
@@ -188,6 +191,8 @@ function boundedDistance(first: string, second: string, maximum: number) {
 }
 
 function tokenBoundaryIncludes(value: string, query: string) { return ` ${value} `.includes(` ${query} `); }
+// The query starts where a word starts ("sax" finds "saxmos", not the middle of "tsaxik").
+function startsAtWord(value: string, query: string) { return ` ${value}`.includes(` ${query}`); }
 function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"); }
 const numericToken = /^\p{N}+$/u;
 // Substring containment that never splits a number ("սաղմոս 1" must not hit "սաղմոս 14").
@@ -226,11 +231,13 @@ export function matchSearchableTelegramDocument(document: SearchableTelegramDocu
     if (normalized === parsed.normalized && field.primary) fieldRank = 7;
     else if (tokenBoundaryIncludes(normalized, parsed.normalized)) fieldRank = 5;
     else if (parsed.tokens.length && prefixMatches(normalized, tokens, parsed.tokens)) fieldRank = 4;
-    else if (includesWhole(normalized, parsed.normalized)) fieldRank = 3;
+    // Inside a word only for longer queries; a short one ("սաղ") would hit unrelated words.
+    else if (Array.from(parsed.normalized).length >= 4 && includesWhole(normalized, parsed.normalized)) fieldRank = 3;
     if (!fieldRank) {
       const fieldAliases = searchAliases(normalized); const queryVariants = [parsed.normalized, ...parsed.aliases];
-      if (fieldAliases.some((alias) => queryVariants.some((query) => tokenBoundaryIncludes(alias, query) || includesWhole(alias, query))) ||
-          parsed.aliases.some((alias) => tokenBoundaryIncludes(normalized, alias) || includesWhole(normalized, alias))) {
+      if (parsed.aliases.length > 0 && (
+        fieldAliases.some((alias) => queryVariants.some((query) => startsAtWord(alias, query))) ||
+        parsed.aliases.some((alias) => startsAtWord(normalized, alias)))) {
         fieldRank = 2; usedTransliteration = true;
       }
     }
@@ -325,7 +332,10 @@ function locateSearchHit(value: string, kind: SearchableTelegramFieldKind, block
   const directCandidates = [parsed.normalized, ...parsed.tokens].filter(Boolean).sort((a, b) => b.length - a.length);
   if (rank >= 3) {
     for (const candidate of directCandidates) {
-      const index = mapped.text.indexOf(candidate);
+      // Highlight where a word starts with the query; inside a word only for longer queries
+      // (the same rule the matching uses), so "սա" marks "Սաղմոս", not the middle of "Եսայի".
+      const atWord = ` ${mapped.text}`.indexOf(` ${candidate}`);
+      const index = atWord >= 0 ? atWord : Array.from(candidate).length >= 4 ? mapped.text.indexOf(candidate) : -1;
       if (index >= 0) { normalizedStart = index; normalizedLength = candidate.length; break; }
     }
   }

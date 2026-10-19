@@ -143,7 +143,7 @@ export function InstallPrompt() {
   const canInstall = mode === "telegram" || mode === "browser" || mode === "open-browser";
   return (
     <aside
-      className="install-toast fixed right-[calc(var(--tg-inset-right,0px)+88px)] bottom-[calc(var(--tg-inset-bottom,0px)+14px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-40 mx-auto grid max-w-[420px] grid-cols-[44px_1fr_auto] items-center gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] px-3.5 py-3 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
+      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] grid-cols-[44px_1fr_auto] items-center gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] px-3.5 py-3 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
       data-phase={phase}
       role="dialog"
       aria-label="Ավելացնել գլխավոր էկրանին"

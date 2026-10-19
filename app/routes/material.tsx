@@ -5,7 +5,7 @@ import { isRouteErrorResponse, Link, useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
-import { MaterialMediaGallery } from "../components/material-media";
+import { MaterialMediaGallery, PsalmNavContext } from "../components/material-media";
 import {
   FormattedTelegramText,
   TelegramRichMessage,
@@ -16,13 +16,17 @@ import {
 } from "../components/telegram-content";
 import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
+import { ReminderButton } from "../components/reminder-button";
+import { PsalmReadAlong } from "../components/psalm-read-along";
+import { getPollVotes } from "../data/poll-votes.server";
+import { getOptionalTelegramAdmin } from "../auth/admin.server";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
 import { findPsalmNeighbors } from "../data/psalm-neighbors.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { isBridgeSearchHit, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
+import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   if (!/^material_[a-zA-Z0-9_-]{1,220}$/.test(params.materialId)) {
@@ -38,7 +42,18 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
     isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
   ]);
-  return { material, canSave: Boolean(user), savedIds, psalm };
+  const reference = material.poll ? parseMaterialId(material.id) : null;
+  const pollVotes = reference && material.poll
+    ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
+    : null;
+  // A psalm's marked verse timings, and whether this reader may mark them.
+  const psalmReference = isPsalm ? parseMaterialId(material.id) : null;
+  const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
+    env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
+      .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
+    getOptionalTelegramAdmin(request, env.DB).then(Boolean).catch(() => false),
+  ]) : [null, false];
+  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -47,6 +62,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
+
+const actionTile = "flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/12%)] px-1 text-[11.5px] font-bold text-gold-bright no-underline shadow-card transition-[transform,background] duration-150 hover:bg-[rgb(217_181_111/20%)] active:scale-[.96] disabled:opacity-60";
 
 export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { material } = loaderData;
@@ -59,9 +76,27 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     : undefined;
   const [activeHit, setActiveHit] = useState(stateHit);
   // Prayers open with a bird-letter initial, as in old manuscripts.
-  const isPrayer = resolveContentCategoryId(null, material.categoryName) === "category_prayers";
+  const contentCategory = resolveContentCategoryId(null, material.categoryName);
+  const isPrayer = contentCategory === "category_prayers";
+  const isPsalm = contentCategory === "category_psalms";
+  // Prayers and psalms read in a prayer-book face, saints' lives and readings in a book serif;
+  // teaching notes and questions keep the interface face.
+  const readingClass = isPrayer ? "prayer-text" : isPsalm ? "prayer-text psalm-text"
+    : contentCategory === "category_saints_lives" || contentCategory === "category_daily_readings" ? "sacred-text" : "";
   // The header already shows the title, so don't repeat it as the first line of the text.
   const textTitleLength = skipPsalmLabel(material.formattedText.text, leadingTitleLength(material.formattedText.text, material.title));
+  // A psalm's superscription ("Սաղմոս Դաւթի, երբ…") is its first line; it stands apart from the verses.
+  const superscriptionEnd = (() => {
+    if (!isPsalm) return -1;
+    const text = material.formattedText.text;
+    let start = textTitleLength;
+    while (start < text.length && /\s/u.test(text[start])) start += 1;
+    const end = text.indexOf("\n", start);
+    return end > start && end - start < 220 && /^\(?սաղմոս/iu.test(text.slice(start, end)) ? end : -1;
+  })();
+  // The verses begin after the blank lines that follow the superscription.
+  let versesStart = superscriptionEnd + 1;
+  while (superscriptionEnd > 0 && versesStart < material.formattedText.text.length && /\s/u.test(material.formattedText.text[versesStart])) versesStart += 1;
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
 
   useEffect(() => {
@@ -83,14 +118,14 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PageHeader
         backTo={`/categories/${material.categorySlug}`}
         backLabel={material.categoryName}
-        eyebrow={material.categoryName}
         title={material.title}
       />
+      <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className="mt-3 grid gap-4 min-[560px]:mt-4">
+      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
-        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} /> : null}
+        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} materialId={material.id} votes={loaderData.pollVotes} canVote={loaderData.canSave} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
         {material.contentType === "unsupported" ? <TelegramUnsupportedCard type={material.unsupportedType} telegramUrl={material.telegramUrl} /> : null}
 
@@ -104,49 +139,52 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {!material.richContent && material.formattedText.text.length > textTitleLength ? (
+        {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
+          // Psalms follow their recording verse by verse.
+          <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+            <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
+          </div>
+        ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
-            <FormattedTelegramText value={material.formattedText} from={textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+            {superscriptionEnd > 0 ? (
+              <p className="psalm-superscription m-0 mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center">
+                <FormattedTelegramText value={material.formattedText} from={textTitleLength} to={superscriptionEnd} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
+              </p>
+            ) : null}
+            <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? versesStart : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
           <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
-        {loaderData.psalm ? (
-          <nav className="grid grid-cols-2 gap-2.5" aria-label="Այլ սաղմոսներ">
-            {loaderData.psalm.previous ? (
-              <Link className="frosted-card flex min-h-14 items-center gap-2 px-4 text-[13px] font-semibold text-gold-bright no-underline" to={`/materials/${loaderData.psalm.previous.id}`} prefetch="intent">
-                <ChevronLeft aria-hidden="true" size={18} /> Սաղմոս {loaderData.psalm.previous.number}
-              </Link>
-            ) : <span />}
-            {loaderData.psalm.next ? (
-              <Link className="frosted-card flex min-h-14 items-center justify-end gap-2 px-4 text-[13px] font-semibold text-gold-bright no-underline" to={`/materials/${loaderData.psalm.next.id}`} prefetch="intent">
-                Սաղմոս {loaderData.psalm.next.number} <ChevronRight aria-hidden="true" size={18} />
-              </Link>
-            ) : <span />}
-          </nav>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2.5">
+        {/* One row of equal tiles: an icon with a short name under it. */}
+        <div className={`grid gap-2 ${loaderData.canSave ? "grid-cols-4" : "grid-cols-2"}`}>
           {loaderData.canSave ? (
-            <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright" type="button" disabled={isSaving} onClick={toggleSaved}>
-              <Bookmark aria-hidden="true" size={17} fill={isSaved ? "currentColor" : "none"} />
-              {isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+            <button className={actionTile} type="button" disabled={isSaving} onClick={toggleSaved} aria-pressed={isSaved} aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}>
+              <Bookmark aria-hidden="true" size={20} strokeWidth={1.9} fill={isSaved ? "currentColor" : "none"} />
+              <span>{isSaved ? "Պահված է" : "Պահել"}</span>
             </button>
           ) : null}
-          <a className="inline-flex min-h-11 items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-muted no-underline hover:text-gold-bright" href={material.telegramUrl} target="_blank" rel="noreferrer">
-            <ExternalLink aria-hidden="true" size={17} /> Բացել Telegram-ում
+          {loaderData.canSave ? (
+            <ReminderButton className={actionTile} materialId={material.id} title={material.title} label prefetch />
+          ) : null}
+          <a className={actionTile} href={material.telegramUrl} target="_blank" rel="noreferrer" aria-label="Բացել Telegram-ում">
+            <ExternalLink aria-hidden="true" size={20} strokeWidth={1.9} />
+            <span>Telegram</span>
           </a>
           <ShareButton
-            className="grid size-11 cursor-pointer place-items-center rounded-[13px] border border-glass-border bg-subtle text-gold-bright"
+            className={actionTile}
             title={material.title}
             text={material.title}
             url={material.telegramUrl}
+            materialId={material.id}
             pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
+            label
           />
         </div>
       </article>
       </TimestampSeekContext.Provider>
+      </PsalmNavContext.Provider>
     </PageShell>
   );
 }

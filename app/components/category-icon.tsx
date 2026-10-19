@@ -1,25 +1,26 @@
-import { type LucideProps, Sparkles } from "lucide-react";
-import { memo } from "react";
+import { type ComponentProps, memo } from "react";
 
-import { BooksIcon, CalendarIcon, DoveIcon, LyreIcon, PrayerIcon, QuestionBookIcon } from "./topic-icons";
+import { CalendarIcon, CrossIcon, GospelIcon, PrayerIcon, PsalmIcon, QuestionIcon, SaintIcon } from "./topic-icons";
 
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
-const categoryIcons: Record<string, React.ComponentType<LucideProps>> = {
-  category_saints_lives: DoveIcon as React.ComponentType<LucideProps>,
-  category_gospel_teachings: BooksIcon as React.ComponentType<LucideProps>,
-  category_psalms: LyreIcon as React.ComponentType<LucideProps>,
-  category_daily_readings: CalendarIcon as React.ComponentType<LucideProps>,
-  category_bible_questions: QuestionBookIcon as React.ComponentType<LucideProps>,
-  category_prayers: PrayerIcon as React.ComponentType<LucideProps>,
+type IconProps = ComponentProps<typeof CrossIcon>;
+
+const categoryIcons: Record<string, (props: IconProps) => React.ReactElement> = {
+  category_saints_lives: SaintIcon,
+  category_gospel_teachings: GospelIcon,
+  category_psalms: PsalmIcon,
+  category_daily_readings: CalendarIcon,
+  category_bible_questions: QuestionIcon,
+  category_prayers: PrayerIcon,
 };
 
 export const CategoryIcon = memo(function CategoryIcon({
   categoryId,
   categoryName,
   ...props
-}: LucideProps & { categoryId: string; categoryName?: string | null }) {
+}: IconProps & { categoryId: string; categoryName?: string | null }) {
   const resolved = resolveContentCategoryId(categoryId, categoryName);
-  const Icon = (resolved && categoryIcons[resolved]) || Sparkles;
+  const Icon = (resolved && categoryIcons[resolved]) || CrossIcon;
   return <Icon {...props} />;
 });

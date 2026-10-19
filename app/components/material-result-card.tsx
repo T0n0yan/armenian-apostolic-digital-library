@@ -37,6 +37,10 @@ import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 import { useVideoPoster } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { ShareButton } from "./share-button";
+import { ReminderButton } from "./reminder-button";
+import { psalmNumber } from "../utils/psalm-number";
+import { calendarParts } from "../utils/daily-reading";
+import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant";
 
 type MaterialResultCardProps = {
   material: {
@@ -61,7 +65,7 @@ type MaterialResultCardProps = {
    * "text": no thumbnail column or type badge (prayers, Bible questions).
    * "video": full-width 16:9 poster on top (gospel teachings).
    */
-  variant?: "default" | "text" | "video";
+  variant?: MaterialCardVariant;
   /** The topic's usual content type (e.g. polls in Bible questions); its badge is redundant there. */
   typicalType?: BridgeContentType;
   isSaved: boolean;
@@ -168,20 +172,21 @@ function highlightText(value: string, pattern: HighlightPattern | null) {
   );
 }
 
-function highlightHit(hit: BridgeSearchHit) {
-  const start = Math.max(0, Math.min(hit.snippet.length, hit.snippetMatchStart));
-  const end = Math.max(start, Math.min(hit.snippet.length, start + hit.snippetMatchLength));
-  return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
-}
+const HIT_LEAD_CHARACTERS = 48;
 
-function hitSourceLabel(source: BridgeSearchHit["source"]) {
-  const labels: Record<BridgeSearchHit["source"], string> = {
-    title: "Վերնագրից", content: "Նյութի տեքստից", caption: "Նկարագրությունից",
-    poll: "Հարցումից", location: "Տեղադրությունից", audio: "Աուդիոյից",
-    document: "Փաստաթղթից", topic: "Բաժնից", hashtag: "Պիտակից",
-    "personal-note": "Իմ նշումից",
-  };
-  return labels[source];
+function highlightHit(hit: BridgeSearchHit) {
+  let snippet = hit.snippet;
+  let start = Math.max(0, Math.min(snippet.length, hit.snippetMatchStart));
+  // Start the line shortly before the match, at a word, so the found words are always visible.
+  if (start > HIT_LEAD_CHARACTERS) {
+    const space = snippet.indexOf(" ", start - HIT_LEAD_CHARACTERS);
+    const cut = space >= 0 && space < start ? space + 1 : start - HIT_LEAD_CHARACTERS;
+    snippet = `…${snippet.slice(cut)}`;
+    start = start - cut + 1;
+  }
+  const end = Math.max(start, Math.min(snippet.length, start + hit.snippetMatchLength));
+  hit = { ...hit, snippet };
+  return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
 }
 
 type TelegramWindow = Window & {
@@ -221,13 +226,20 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
+  const isVideo = variant === "video" || material.contentType === "video";
   const videoPoster = useVideoPoster(
-    variant === "video" ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
-    variant === "video" ? material.preview.thumbnailUrl : null,
+    isVideo ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
+    isVideo ? material.preview.thumbnailUrl : null,
   );
+  const psalm = variant === "psalm" ? psalmNumber(material) : null;
+  const day = variant === "daily" ? calendarParts(material.dateValue ?? material.publishedAt ?? null) : null;
+  const thumbnail = isVideo ? videoPoster.poster : material.preview.thumbnailUrl;
   const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
   const TypeIcon = typeMeta.Icon;
-  const previewTitle = material.contentType === "poll"
+  // A daily reading's date is already on its calendar leaf; its feast (or weekday) is the title.
+  const previewTitle = day
+    ? material.preview.daily?.feast ?? day.weekday
+    : material.contentType === "poll"
     ? material.preview.pollQuestion
     : material.contentType === "location"
       ? material.preview.locationTitle
@@ -261,7 +273,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     if (noteTransitionRef.current) clearTimeout(noteTransitionRef.current);
     setNoteDraft(material.personalNote ?? "");
     setIsNoteMounted(true);
-    requestAnimationFrame(() => setIsNoteExpanded(true));
+    // Two frames: the collapsed state must paint once, or the browser skips the transition.
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsNoteExpanded(true)));
   }, [material.personalNote]);
 
   const closeNoteComposer = useCallback(() => {
@@ -270,7 +283,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     noteTransitionRef.current = setTimeout(() => {
       setIsNoteMounted(false);
       noteTransitionRef.current = null;
-    }, 220);
+    }, 420);
   }, []);
 
   const handleBookmark = useCallback(() => {
@@ -295,7 +308,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} grid items-start gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : "min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]"}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
@@ -313,12 +326,38 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
             {duration ? <span className="absolute right-2 bottom-2 rounded-full bg-[rgb(17_8_22/80%)] px-2 py-1 text-[11px] font-bold text-white tabular-nums">{duration}</span> : null}
           </span>
-        ) : variant === "text" ? null : (
-          <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle">
-            {material.preview.thumbnailUrl && !thumbnailFailed ? (
+        ) : variant === "portrait" ? (
+          // Saints: the portrait fills the top of the card with the name on it, as in their section.
+          <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[14px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
+            {thumbnail && !thumbnailFailed ? (
+              <img className="h-full w-full object-cover object-top" src={material.preview.imageUrl ?? thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
+            ) : null}
+            <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgb(20_10_24/82%))]" aria-hidden="true" />
+            <span className="absolute inset-x-0 bottom-0 grid justify-items-center gap-1.5 px-4 pb-3.5 text-center">
+              <span className="h-px w-10 bg-[rgb(240_211_151/70%)]" aria-hidden="true" />
+              <strong className="line-clamp-2 font-noto text-[16px] leading-[1.3] font-semibold text-white [text-shadow:0_1px_8px_rgb(0_0_0/50%)]">{highlightText(material.title, highlightPattern)}</strong>
+            </span>
+          </span>
+        ) : variant === "text" ? null : psalm ? (
+          // Psalms: the number is what readers look for.
+          <span className="relative z-1 grid aspect-square w-full place-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
+            <span className="grid justify-items-center leading-none">
+              <span className="text-[9.5px] font-bold tracking-[0.08em] text-gold uppercase">Սաղմոս</span>
+              <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span>
+            </span>
+          </span>
+        ) : day ? (
+          // Daily readings: a calendar leaf with the day and month.
+          <span className="relative z-1 grid aspect-square w-full content-center justify-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+            <span className="font-noto text-[28px] leading-none font-semibold text-gold-bright tabular-nums">{day.day}</span>
+            <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] font-semibold text-muted">{day.month}</span>
+          </span>
+        ) : (
+          <span ref={isVideo ? videoPoster.ref : undefined} className={`relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle aspect-[4/3]`}>
+            {thumbnail && !thumbnailFailed ? (
               <img
-                className="h-full w-full object-cover"
-                src={material.preview.thumbnailUrl}
+                className="h-full w-full object-cover object-top"
+                src={thumbnail}
                 width={material.preview.width ?? 320}
                 height={material.preview.height ?? 240}
                 sizes="(min-width: 560px) 96px, 78px"
@@ -327,7 +366,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 alt=""
                 onError={() => setThumbnailFailed(true)}
               />
-            ) : (
+            ) : isVideo ? null : (
               <span className="grid h-full w-full place-items-center text-gold"><TypeIcon aria-hidden="true" size={25} strokeWidth={1.55} /></span>
             )}
             {material.contentType === "video" ? <span className="absolute inset-0 grid place-items-center bg-black/15 text-white"><span className="grid size-9 place-items-center rounded-full bg-black/55"><Play aria-hidden="true" size={18} fill="currentColor" /></span></span> : null}
@@ -343,7 +382,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 {matchReasonLabel(extraMatchReason, material)}
               </span>
             ) : null}
-            {date ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
+            {/* Only daily readings are about a date; elsewhere when a post was added doesn't matter. */}
+            {date && !day && cardVariantFor(material) === "daily" ? <span className="text-[11px] font-[700] text-gold">{date}</span> : null}
           </span>
           {material.categoryName ? (
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
@@ -357,14 +397,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
                 {material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան</span> : null}
               </span>
             </span>
-          ) : (
+          ) : variant === "portrait" ? null : (
             <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
           )}
-          {material.searchHit ? (
-            <span className="grid gap-1 rounded-[10px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/6%)] px-2.5 py-2 text-[12px] leading-[1.5] text-muted">
-              <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-gold">{hitSourceLabel(material.searchHit.source)}</span>
-              <span className="line-clamp-3 overflow-hidden">{highlightHit(material.searchHit)}</span>
-            </span>
+          {material.searchHit && !(variant === "portrait" && material.searchHit.source === "title") ? (
+            // The line where the words were found, with them highlighted.
+            <span className="line-clamp-3 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
           ) : excerpt || material.preview.performer || material.preview.locationSummary ? (
             <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
               {highlightText(excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
@@ -379,11 +417,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {isOpening ? <span className="inline-flex items-center gap-2 text-[11px] font-bold text-gold-bright" role="status"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={14} /> Բացվում է…</span> : null}
         </span>
         </Link>
-      {!isNoteMounted ? (
-        <span className="absolute right-[11px] bottom-[11px] z-3 flex gap-1.5">
+      {/* The buttons fade out (not vanish) while the note opens, so the card doesn't jump. */}
+        <span className={`absolute right-[11px] bottom-[11px] z-3 flex gap-1.5 transition-opacity duration-300 ${isNoteMounted ? "pointer-events-none opacity-0" : "opacity-100"}`} aria-hidden={isNoteMounted || undefined}>
           {canSave ? (
             <button
-              className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass disabled:cursor-wait disabled:opacity-60 ${isSaved ? "border-[rgb(217_181_111/34%)] text-gold-bright" : "text-faint"}`}
+              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)] disabled:cursor-wait disabled:opacity-60`}
               type="button"
               disabled={isSaving}
               onClick={handleBookmark}
@@ -398,9 +436,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               />
             </button>
           ) : null}
+          {canSave ? (
+            <ReminderButton className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`} materialId={material.id} title={material.title} />
+          ) : null}
           {allowNoteEditing && isSaved ? (
             <button
-              className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-faint`}
+              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
               type="button"
               onClick={openNoteComposer}
               aria-label="Խմբագրել անձնական նշումը"
@@ -410,7 +451,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             </button>
           ) : null}
           <a
-            className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-muted`}
+            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
             href={material.telegramUrl}
             target="_blank"
             rel="noreferrer"
@@ -421,22 +462,22 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
           </a>
           <ShareButton
-            className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-gold`}
+            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
             title={material.title}
             text={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
             url={material.telegramUrl}
+            materialId={material.id}
             pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
           />
         </span>
-      ) : null}
       </div>
       {isNoteMounted ? (
         <div
-          className={`grid transition-[grid-template-rows,opacity,margin] duration-[220ms] ease-out ${isNoteExpanded ? "mt-[10px] grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
+          className={`grid transition-[grid-template-rows,opacity,margin] duration-[420ms] ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:duration-0 ${isNoteExpanded ? "mt-[10px] grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
         >
           <div className="overflow-hidden">
         <form
-          className="grid gap-[8px] rounded-[15px] border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card"
+          className={`grid gap-[8px] rounded-[15px] transition-transform duration-[420ms] ease-[cubic-bezier(.2,.8,.2,1)] ${isNoteExpanded ? "translate-y-0 scale-100" : "-translate-y-2 scale-[.98]"} border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card`}
           onSubmit={handleNoteSubmit}
           role="dialog"
           aria-label={`${material.title} — անձնական հուշում`}

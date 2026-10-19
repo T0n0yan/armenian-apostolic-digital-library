@@ -1,7 +1,22 @@
-import { AlertCircle, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video } from "lucide-react";
-import { memo, useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { AlertCircle, ChevronLeft, ChevronRight, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video } from "lucide-react";
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { Link } from "react-router";
 
 import type { MaterialMedia } from "../data/material-detail.server";
+
+type PsalmLink = { id: string; number: number } | null;
+/** The previous and next psalm, shown on a psalm's player (set by the material page). */
+export const PsalmNavContext = createContext<{ previous: PsalmLink; next: PsalmLink } | null>(null);
+
+function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous" | "next" }) {
+  if (!link) return <span className="size-11" aria-hidden="true" />;
+  const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
+  return (
+    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={`/materials/${link.id}`} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
+      <Icon aria-hidden="true" size={20} />
+    </Link>
+  );
+}
 import { useVideoPoster } from "../utils/video-frame";
 import { isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
 
@@ -297,6 +312,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
 }
 
 export function MaterialMediaItem({ asset, priority = false }: { asset: MaterialMedia; priority?: boolean }) {
+  const psalmNav = useContext(PsalmNavContext);
   if (!asset.url) return <PendingMedia asset={asset} />;
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
@@ -315,20 +331,19 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
     const performer = /[\p{L}\p{N}]/u.test(performerText.replace(/[\u3164\u115F\u1160\uFFA0]/gu, "")) ? performerText : null;
     return (
       <div className="grid justify-items-center gap-4 frosted-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
-        {psalm ? (
-          // A psalm shows its number as a gold medallion instead of a generic icon.
-          <span className="relative grid size-[104px] place-items-center rounded-full border border-[rgb(217_181_111/45%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_235_190/22%),rgb(217_181_111/8%)_60%)] shadow-[inset_0_0_0_6px_rgb(217_181_111/8%),0_12px_30px_rgb(60_35_10/18%)]" aria-hidden="true">
-            <span className="absolute inset-[7px] rounded-full border border-dashed border-[rgb(217_181_111/35%)]" />
-            <span className="font-noto text-[40px] leading-none font-semibold text-gold-bright tabular-nums">{psalm}</span>
-          </span>
-        ) : (
+        {/* A psalm's title already names it ("Սաղմոս 3"); other audio gets a headphones mark. */}
+        {psalm ? null : (
           <span className="grid size-14 place-items-center rounded-full border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] text-gold-bright" aria-hidden="true"><Headphones size={24} strokeWidth={1.6} /></span>
         )}
+        <div className={psalm && psalmNav ? "grid w-full grid-cols-[44px_1fr_44px] items-center gap-2" : "contents"}>
+        {psalm && psalmNav ? <PsalmStep link={psalmNav.previous} direction="previous" /> : null}
         <div className="grid gap-1">
           <strong className="font-noto text-[19px] leading-tight font-semibold text-gold-bright">{asset.title || asset.fileName || (asset.kind === "voice" ? "Ձայնային հաղորդագրություն" : "Աուդիո")}</strong>
           {performer || durationLabel(asset.duration) ? (
             <span className="text-[12px] text-muted">{[performer, durationLabel(asset.duration)].filter(Boolean).join(" · ")}</span>
           ) : null}
+        </div>
+        {psalm && psalmNav ? <PsalmStep link={psalmNav.next} direction="next" /> : null}
         </div>
         {asset.waveform ? <Waveform encoded={asset.waveform} /> : null}
         <div className="w-full"><StreamingMedia asset={asset} kind="audio" /></div>

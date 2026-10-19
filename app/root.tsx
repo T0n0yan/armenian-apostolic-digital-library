@@ -20,6 +20,7 @@ import {listActiveCategories} from "./data/categories.server";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
+import { ReminderAlarm } from "./components/reminder-alarm";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -43,12 +44,17 @@ const initialThemeScript = `(() => {
     let textSize = 16;
     try {
       const value = localStorage.getItem("library-theme-v1");
-      if (value === "light" || value === "dark") preference = value;
+      if (value === "light" || value === "dark" || value === "sun") preference = value;
+      // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["small", "large"]], leading: ["library-leading", ["wide"]], motion: ["library-motion", ["reduced"]] };
+      for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
       const size = localStorage.getItem("library-text-size-v1");
       const legacy = size === "large" ? 18 : size === "xlarge" ? 20 : Number(size);
       if (size && legacy >= 12 && legacy <= 20) textSize = Math.round(legacy);
     } catch {}
-    const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference;
+    // "sun" is refined with the real sunrise/sunset after load; until then day is 7:00–19:00.
+    const hour = new Date().getHours();
+    const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference === "sun" ? (hour >= 7 && hour < 19 ? "light" : "dark") : preference;
     root.dataset.themePreference = preference;
     root.dataset.theme = theme;
     root.style.setProperty("--reading-size", textSize + "px");
@@ -84,6 +90,8 @@ type TelegramWebApp = {
   expand?: () => void;
   safeAreaInset?: TelegramInset;
   contentSafeAreaInset?: TelegramInset;
+  isFullscreen?: boolean;
+  platform?: string;
   colorScheme?: "light" | "dark";
   themeParams?: Record<string, string | undefined>;
   viewportHeight?: number;
@@ -129,19 +137,47 @@ function loadTelegramSdk() {
   return telegramSdkPromise;
 }
 
+/**
+ * Whether Telegram's Close/⋯ buttons float over the top of the page. On phones the library's bot
+ * opens fullscreen, but some Android clients report neither isFullscreen nor a content inset, so a
+ * phone Mini App counts as fullscreen unless Telegram reports a header of its own.
+ */
+function isTelegramFullscreen(webApp: TelegramWebApp) {
+  if (webApp.isFullscreen) return true;
+  return webApp.platform === "android" || webApp.platform === "ios";
+}
+
+/** `?tgdebug` shows what Telegram reports about the screen, to diagnose layout on a device. */
+function showTelegramDebug(webApp: TelegramWebApp) {
+  if (!new URLSearchParams(window.location.search).has("tgdebug")) return;
+  const panel = document.getElementById("tg-debug") ?? document.body.appendChild(Object.assign(document.createElement("pre"), { id: "tg-debug" }));
+  panel.setAttribute("style", "position:fixed;left:8px;right:8px;bottom:90px;z-index:99999;margin:0;padding:8px;border-radius:10px;background:rgb(0 0 0/80%);color:#fff;font:11px/1.4 monospace;white-space:pre-wrap");
+  panel.textContent = JSON.stringify({
+    platform: webApp.platform, isFullscreen: webApp.isFullscreen, safe: webApp.safeAreaInset, content: webApp.contentSafeAreaInset,
+    inner: [window.innerWidth, window.innerHeight], screen: [window.screen.width, window.screen.height],
+    inset: getComputedStyle(document.documentElement).getPropertyValue("--tg-inset-top"),
+  }, null, 1);
+}
+
 function syncTelegramSafeArea(webApp: TelegramWebApp) {
   const root = document.documentElement;
   const safe = webApp.safeAreaInset ?? {};
   const content = webApp.contentSafeAreaInset ?? {};
+  const fullscreen = isTelegramFullscreen(webApp);
+  root.dataset.tgFullscreen = fullscreen ? "true" : "false";
   for (const side of ["top", "right", "bottom", "left"] as const) {
     const safeValue = typeof safe[side] === "number" ? safe[side] : 0;
-    const contentValue = typeof content[side] === "number" ? content[side] : 0;
+    let contentValue = typeof content[side] === "number" ? content[side] : 0;
+    // Some Android clients report no content inset in fullscreen although Telegram's Close and ⋯
+    // buttons float over the top of the page; keep the page clear of them anyway.
+    if (side === "top" && fullscreen && contentValue < 40) contentValue = 52;
     root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
     root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
     // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the
     // device safe area (status bar, notch), so the page must clear both.
     root.style.setProperty(`--tg-inset-${side}`, `${safeValue + contentValue}px`);
   }
+  showTelegramDebug(webApp);
   if (typeof webApp.viewportHeight === "number") {
     root.style.setProperty("--tg-viewport-height", `${webApp.viewportHeight}px`);
   }
@@ -199,6 +235,14 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
 
+  // The "sun" theme turns at the real sunrise and sunset; check again every few minutes.
+  useEffect(() => {
+    const refresh = () => { if (readStoredThemePreference() === "sun") applyThemePreference("sun"); };
+    refresh();
+    const timer = window.setInterval(refresh, 5 * 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (sessionAttempted.current) return;
     sessionAttempted.current = true;
@@ -218,6 +262,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
       webApp.onEvent?.("safeAreaChanged", handleSafeArea);
       webApp.onEvent?.("contentSafeAreaChanged", handleSafeArea);
       webApp.onEvent?.("viewportChanged", handleSafeArea);
+      webApp.onEvent?.("fullscreenChanged", handleSafeArea);
       webApp.onEvent?.("themeChanged", handleTheme);
       webApp.ready?.();
       webApp.expand?.();
@@ -238,6 +283,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
       webAppForCleanup?.offEvent?.("safeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("contentSafeAreaChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("viewportChanged", handleSafeArea);
+      webAppForCleanup?.offEvent?.("fullscreenChanged", handleSafeArea);
       webAppForCleanup?.offEvent?.("themeChanged", handleTheme);
     };
   }, [revalidator]);
@@ -246,6 +292,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <Outlet />
     <CandleLoader />
     <InstallPrompt />
+    <ReminderAlarm />
   </>;
 }
 

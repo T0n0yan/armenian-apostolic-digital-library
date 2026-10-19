@@ -17,6 +17,15 @@ type TelegramChrome = {
   setBottomBarColor?: (color: string) => void;
 };
 
+function readSunPlaceSafely() {
+  try {
+    const place = JSON.parse(window.localStorage.getItem("library-sun-place") ?? "null") as { latitude?: number; longitude?: number } | null;
+    return place && typeof place.latitude === "number" && typeof place.longitude === "number" ? { latitude: place.latitude, longitude: place.longitude } : null;
+  } catch {
+    return null;
+  }
+}
+
 function readStorage(key: string) {
   try {
     return window.localStorage.getItem(key);
@@ -51,6 +60,7 @@ export function applyThemePreference(preference: ThemePreference) {
     preference,
     window.matchMedia("(prefers-color-scheme: dark)").matches,
     telegramTheme,
+    readSunPlaceSafely(),
   );
   root.dataset.themePreference = preference;
   root.dataset.theme = resolved;

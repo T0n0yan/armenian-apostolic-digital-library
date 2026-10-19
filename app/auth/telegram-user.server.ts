@@ -13,14 +13,16 @@ type TelegramInitUser = {
 
 type SessionPayload = {
   id: string;
+  /** Telegram user id; for Google accounts "google:<sub>" (no bot can message them). */
   telegramId: string;
   displayName: string;
   username: string | null;
+  provider?: "telegram" | "google";
   expiresAt: number;
 };
 
 export type TelegramUserIdentity = Omit<SessionPayload, "expiresAt"> & {
-  source: "telegram" | "local-development";
+  source: "telegram" | "google" | "local-development";
 };
 
 export type TelegramUserState =
@@ -234,7 +236,7 @@ export async function getTelegramUserState(request: Request): Promise<TelegramUs
   const payload = await readSignedSession(request, botToken);
   if (!payload) return { status: "invalid", user: null };
 
-  return { status: "authenticated", user: { ...payload, source: "telegram" } };
+  return { status: "authenticated", user: { ...payload, source: payload.provider ?? "telegram" } };
 }
 
 export async function requireTelegramUser(request: Request) {
@@ -258,26 +260,33 @@ export function requireSameOriginUserRequest(request: Request) {
   }
 }
 
-export async function createTelegramSession(request: Request, initData: string) {
+/** A signed session cookie for a signed-in reader (Telegram or Google). */
+export async function createSessionCookie(request: Request, identity: Omit<SessionPayload, "expiresAt">) {
   const botToken = getBotToken();
-  if (!botToken || isLocalDevelopmentRequest(request)) return null;
-  const user = await validateTelegramInitData(initData, botToken);
-  if (!user) return null;
-
-  const payload: SessionPayload = {
-    ...user,
-    expiresAt: Date.now() + SESSION_SECONDS * 1000,
-  };
+  if (!botToken) return null;
+  const payload: SessionPayload = { ...identity, expiresAt: Date.now() + SESSION_SECONDS * 1000 };
   const encodedPayload = encodeBase64Url(JSON.stringify(payload));
   const signature = toHex(
     await signHmac(await getSessionKey(botToken), encoder.encode(encodedPayload)),
   );
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `${SESSION_COOKIE}=${encodedPayload}.${signature}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; SameSite=Lax${secure}`;
+}
 
-  return {
-    user: { ...user, source: "telegram" as const },
-    cookie: `${SESSION_COOKIE}=${encodedPayload}.${signature}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; SameSite=Lax${secure}`,
-  };
+/** Signs the reader out. */
+export function clearSessionCookie(request: Request) {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+}
+
+export async function createTelegramSession(request: Request, initData: string) {
+  const botToken = getBotToken();
+  if (!botToken || isLocalDevelopmentRequest(request)) return null;
+  const user = await validateTelegramInitData(initData, botToken);
+  if (!user) return null;
+  const cookie = await createSessionCookie(request, { ...user, provider: "telegram" });
+  if (!cookie) return null;
+  return { user: { ...user, source: "telegram" as const }, cookie };
 }
 
 export async function upsertAppUser(

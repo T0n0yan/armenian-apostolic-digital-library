@@ -1,5 +1,5 @@
 import { LoaderCircle } from "lucide-react";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { Link, useNavigation } from "react-router";
 
 import type { PublicMaterial } from "../data/materials.server";
@@ -86,17 +86,62 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
 });
 
 /** A topic's introduction post, shown as plain text above its grid: not a link, no actions. */
-export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial }) {
-  // Emoji decorations (🕊) are dropped so every intro reads the same.
-  const clean = (value: string) => stripZeroWidth(value).replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").replace(/\s{2,}/gu, " ").trim();
-  const title = clean(material.title);
-  const excerpt = clean(material.excerpt ?? "");
-  const body = excerpt.startsWith(title) ? excerpt.slice(title.length).replace(/^[\s.,:;։՝-]+/u, "") : excerpt;
+const INTRO_COLLAPSED_CHARS = 420;
+
+/** A gold cross between two fading rules, framing a topic intro above and below. */
+function IntroOrnament() {
   return (
-    <section className="frosted-panel grid gap-1.5 px-5 py-4 text-center">
-      <h3 className="m-0 font-noto text-[15px] font-semibold tracking-[0.4px] text-gold-bright">{title}</h3>
-      {body ? <p className="m-0 text-[13px] leading-[1.6] text-muted">{body}</p> : null}
+    <span className="flex items-center justify-center gap-2.5 text-gold" aria-hidden="true">
+      <span className="h-px w-16 bg-[linear-gradient(90deg,transparent,currentColor)]" />
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M5.2 0h1.6v4.4H11V6H6.8v6H5.2V6H1V4.4h4.2Z" /></svg>
+      <span className="h-px w-16 bg-[linear-gradient(90deg,currentColor,transparent)]" />
+    </span>
+  );
+}
+
+/** Emoji decorations (🕊) are dropped so every intro reads the same; line breaks are kept. */
+function introLines(value: string) {
+  return stripZeroWidth(value).split(/\n/u)
+    .map((line) => line.replace(/\p{Extended_Pictographic}\uFE0F?/gu, "").replace(/\s{2,}/gu, " ").trim())
+    .filter(Boolean);
+}
+
+/**
+ * A topic's introduction post, shown above its materials: the first line as the heading, the
+ * rest line by line (intros are often a quote or a short poem), and a closing "(Author)" line as
+ * the attribution. Long intros open with "Կարդալ ամբողջը".
+ */
+export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial & { introText?: string } }) {
+  const [expanded, setExpanded] = useState(false);
+  const lines = introLines(material.introText || material.excerpt || material.title);
+  const attributionMatch = lines.length > 1 ? /^\((.+)\)$|^[—–-]\s*(.+)$/u.exec(lines[lines.length - 1]) : null;
+  const attribution = attributionMatch ? (attributionMatch[1] ?? attributionMatch[2]).trim() : null;
+  // A signed intro is a quote: every line reads alike, in the prayer-book face, with no heading.
+  const quote = Boolean(attribution);
+  const textLines = attribution ? lines.slice(0, -1) : lines;
+  const title = quote ? null : textLines[0] ?? stripZeroWidth(material.title);
+  const body = quote ? textLines : textLines.slice(1);
+  const long = body.join(" ").length > INTRO_COLLAPSED_CHARS;
+  const collapsed = long && !expanded;
+  return (
+    <div className="grid gap-2.5">
+    <IntroOrnament />
+    <section className={`frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center ${quote ? "prayer-intro" : ""}`}>
+      {title ? <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3> : null}
+      {body.length ? (
+        <div className={`relative grid gap-1 ${collapsed ? "max-h-[9.5em] overflow-hidden [mask-image:linear-gradient(180deg,#000_60%,transparent)]" : ""}`}>
+          {body.map((line, index) => <p key={index} className={`m-0 font-noto text-[14px] leading-[1.7] [text-wrap:pretty] ${quote ? "text-ink" : "text-muted"}`}>{line}</p>)}
+        </div>
+      ) : null}
+      {long ? (
+        <button className="cursor-pointer rounded-full border border-[rgb(217_181_111/35%)] bg-transparent px-3.5 py-1.5 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}>
+          {expanded ? "Ծալել" : "Կարդալ ամբողջը"}
+        </button>
+      ) : null}
+      {attribution ? <p className="m-0 text-[12.5px] font-semibold tracking-[0.3px] text-gold">— {attribution}</p> : null}
     </section>
+    <IntroOrnament />
+    </div>
   );
 });
 

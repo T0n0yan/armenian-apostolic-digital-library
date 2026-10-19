@@ -1,6 +1,6 @@
-import type { BridgePost } from "../../shared/telegram-bridge-contract";
+import { resolveContentCategoryId, type BridgePost } from "../../shared/telegram-bridge-contract";
 import { bridgePostToCardPreview } from "./materials.server";
-import { searchCloudLibraryPosts } from "./cloud-library.server";
+import { INTRO_TOPICS, searchCloudLibraryPosts } from "./cloud-library.server";
 import type { SearchFilters, SearchMaterialPage } from "./search-materials";
 import { resolveSearchQuery, type ResolvedSearchQuery } from "./search-query.server";
 
@@ -55,6 +55,21 @@ function matchesDate(post: BridgePost, filters: SearchFilters) {
   return (!filters.dateFrom || date >= filters.dateFrom) && (!filters.dateTo || date <= filters.dateTo);
 }
 
+
+/** Ids ("chat:message") of the topics' introduction posts, which search results leave out. */
+async function topicIntroKeys(database: D1Database) {
+  const { results } = await database.prepare(
+    `SELECT chat_id, MIN(message_id) AS message_id FROM library_materials
+     WHERE sync_state = 'ready' AND deleted_at IS NULL GROUP BY topic_key`,
+  ).all<{ chat_id: string; message_id: number }>();
+  return new Set(results.map((row) => `${row.chat_id}:${row.message_id}`));
+}
+
+function isTopicIntro(post: BridgePost, introKeys: Set<string>) {
+  return introKeys.has(`${post.chatId}:${post.messageId}`) && post.contentType === "text" && post.media.length === 0 &&
+    INTRO_TOPICS.has(resolveContentCategoryId(post.categoryId, post.categoryName) ?? "");
+}
+
 export async function searchMaterials(
   database: D1Database,
   filters: SearchFilters,
@@ -72,7 +87,8 @@ export async function searchMaterials(
     cursor,
     20,
   );
-  const posts = page.posts.filter((post) => matchesDate(post, filters));
+  const introKeys = page.posts.length ? await topicIntroKeys(database) : new Set<string>();
+  const posts = page.posts.filter((post) => matchesDate(post, filters) && !isTopicIntro(post, introKeys));
   return {
     materials: posts.map((post) => ({
       id: post.id,

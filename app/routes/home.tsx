@@ -7,6 +7,7 @@ import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
 import {PageHeader, PageShell} from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
+import {DailyVerseCard} from "../components/daily-verse";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
@@ -117,6 +118,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
             <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
             <input className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"/>
         </Form>
+        <div className="hero-rise hero-rise-delay-2 mt-3"><DailyVerseCard/></div>
         <section className="mt-4 grid gap-3" aria-labelledby="categories-title">
             <h2 className="m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase" id="categories-title">
                 Բաժիններ

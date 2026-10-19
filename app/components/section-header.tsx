@@ -15,7 +15,8 @@ import prayersImage from "../assets/prayers.webp";
 import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
-import { useDebouncedFormSubmit } from "../hooks/use-debounced-form-submit";
+import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
+import { SearchSuggestions } from "./search-suggestions";
 import { HeaderSearchLink, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
@@ -83,8 +84,9 @@ export const SectionHeader = memo(function SectionHeader({
   title,
   description,
 }: SectionHeaderProps) {
-  const { cancelPending, formRef, scheduleSubmit } =
+  const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
     useDebouncedFormSubmit(320, 2);
+  const inputRef = useSyncedQueryInput(query);
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === searchAction;
 
@@ -116,7 +118,7 @@ export const SectionHeader = memo(function SectionHeader({
         </div>
         {/*min-[768px]:justify-items-start min-[768px]:text-left*/}
         <div className="grid justify-items-center gap-[9px] text-center ">
-          <h1 className="m-0 w-full text-[32px] leading-[38px] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[34px] min-[390px]:leading-[40px] min-[768px]:text-[44px] min-[768px]:leading-[50px] min-[960px]:text-[50px] min-[960px]:leading-[56px]">
+          <h1 className="m-0 w-full text-[26px] leading-[32px] font-medium tracking-[-0.4px] text-balance text-ink min-[390px]:text-[28px] min-[390px]:leading-[34px] min-[768px]:text-[34px] min-[768px]:leading-[40px] min-[960px]:text-[40px] min-[960px]:leading-[46px]">
             <PageTitle title={title} />
           </h1>
           {/*<BotanicalDivider />*/}
@@ -126,9 +128,8 @@ export const SectionHeader = memo(function SectionHeader({
 
           {showSearch ? (
             <Form
-              key={query}
               ref={formRef}
-              className="flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
+              className="relative z-30 flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
               action={searchAction}
               method="get"
               role="search"
@@ -136,10 +137,12 @@ export const SectionHeader = memo(function SectionHeader({
               aria-busy={isSearching || undefined}
             >
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
+              <SearchSuggestions inputRef={inputRef} onPick={submitImmediately} />
               <input
                 className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
                 type="search"
                 name="q"
+                ref={inputRef}
                 defaultValue={query}
                 placeholder={searchPlaceholder}
                 aria-label={searchLabel}

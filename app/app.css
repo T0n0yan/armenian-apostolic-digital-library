@@ -32,6 +32,15 @@
   font-display: swap;
 }
 
+/* Arian Grqi by Ruben Tarumian, free to use and distribute; licence in assets/fonts/ArianGrqi-License.txt. */
+@font-face {
+  font-family: "Arian Grqi";
+  src: url("./assets/fonts/ArianGrqi-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Trchnatar Birds Color";
   src: url("./assets/fonts/Trchnatar.woff2") format("woff2");
@@ -63,6 +72,7 @@
     "Noto Color Emoji";
   --font-noto: "Noto Serif Armenian", Georgia, serif;
   --font-trchnatar: "Trchnatar Birds Color", "Noto Serif Armenian", serif;
+  --font-book: "Arian Grqi", "Noto Serif Armenian", Georgia, serif;
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
@@ -247,6 +257,12 @@
 @keyframes toast-out { from { transform: none; opacity: 1; } to { transform: translate3d(0, calc(100% + 40px), 0); opacity: 0; } }
 .install-toast[data-phase="in"] { animation: toast-in 620ms cubic-bezier(.2, .9, .3, 1.05) both; }
 .install-toast[data-phase="out"] { animation: toast-out 400ms cubic-bezier(.5, 0, .75, .3) both; }
+/* Toasts that drop in from the top of the screen and rise back when closed. */
+@keyframes toast-drop-in { 0% { transform: translate3d(0, calc(-100% - 40px), 0); opacity: 0; } 65% { transform: translate3d(0, 6px, 0); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes toast-rise-out { from { transform: none; opacity: 1; } to { transform: translate3d(0, calc(-100% - 40px), 0); opacity: 0; } }
+.top-toast[data-phase="in"] { animation: toast-drop-in 650ms cubic-bezier(.2, .9, .3, 1.05) both; }
+.top-toast[data-phase="out"] { animation: toast-rise-out 420ms cubic-bezier(.5, 0, .75, .3) both; }
+@media (prefers-reduced-motion: reduce) { .top-toast[data-phase] { animation-duration: 1ms; } }
 
 /* Menu: frosted glass that springs open from the button and settles back into it. */
 .menu-scrim {
@@ -295,25 +311,25 @@
 /* Gold monochrome mark from an SVG file, in both themes. */
 .gold-mark { background: var(--gold); -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat; }
 
-/* Topic icons (topic-icons.tsx): each motion says what the topic is. --ti-delay staggers cards. */
-.ti-book { transform-box: fill-box; transform-origin: center; animation: ti-book 5s cubic-bezier(.3,.7,.3,1) infinite; animation-delay: var(--ti-delay, 0s); }
-.ti-book-2 { animation-name: ti-book-2; } .ti-book-3 { animation-name: ti-book-3; }
-@keyframes ti-book { 0%, 100% { transform: none; } }
-@keyframes ti-book-2 { 0%, 8% { transform: translateY(-6px); opacity: 0; } 22%, 92% { transform: none; opacity: 1; } 100% { opacity: 0; } }
-@keyframes ti-book-3 { 0%, 22% { transform: translateY(-7px) rotate(-8deg); opacity: 0; } 38%, 92% { transform: none; opacity: 1; } 100% { opacity: 0; } }
-.ti-glow { animation: ti-glow 3.2s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
-@keyframes ti-glow { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
-.ti-string { transform-box: fill-box; transform-origin: center; animation: ti-string 2.6s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
-.ti-string-2 { animation-delay: calc(var(--ti-delay, 0s) + .12s); } .ti-string-3 { animation-delay: calc(var(--ti-delay, 0s) + .24s); }
-@keyframes ti-string { 0%, 60%, 100% { transform: none; } 66% { transform: translateX(.6px); } 72% { transform: translateX(-.5px); } 78% { transform: translateX(.3px); } 84% { transform: none; } }
-.ti-wing { transform-box: fill-box; animation: ti-wing 1.8s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
-.ti-wing-front { transform-origin: 100% 100%; } .ti-wing-back { transform-origin: 0% 100%; animation-name: ti-wing-back; }
-@keyframes ti-wing { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-22deg) scaleY(.85); } }
-@keyframes ti-wing-back { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(18deg) scaleY(.85); } }
-.ti-page { transform-box: fill-box; transform-origin: 50% 0%; animation: ti-page 4.5s cubic-bezier(.5,0,.3,1) infinite; animation-delay: var(--ti-delay, 0s); }
-@keyframes ti-page { 0%, 70%, 100% { transform: none; opacity: 1; } 82% { transform: perspective(40px) rotateX(-75deg); opacity: .2; } 83% { transform: perspective(40px) rotateX(75deg); opacity: .2; } 94% { transform: none; opacity: 1; } }
-.ti-question { transform-box: fill-box; transform-origin: 50% 100%; animation: ti-question 3.4s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
-@keyframes ti-question { 0%, 100% { transform: translateY(0) rotate(0); } 30% { transform: translateY(-1.2px) rotate(-8deg); } 60% { transform: translateY(-.4px) rotate(6deg); } }
+/* Topic icons (topic-icons.tsx): each draws itself in, then keeps a slow motion that says what
+   the topic is. --ti-delay staggers the cards so they don't move in lockstep. */
+.ti { overflow: visible; transform-box: fill-box; transform-origin: 50% 50%; animation: 4.8s cubic-bezier(.45,.05,.35,1) var(--ti-delay, 0s) infinite; }
+.ti .ti-stroke { stroke-dasharray: 1; stroke-dashoffset: 0; animation: ti-draw 1.4s cubic-bezier(.6,.1,.3,1) calc(var(--ti-delay, 0s) * .4) both; }
+@keyframes ti-draw { from { stroke-dashoffset: 1; opacity: .2; } to { stroke-dashoffset: 0; opacity: 1; } }
+.ti-gospel { animation-name: ti-gospel; transform-origin: 50% 90%; }
+@keyframes ti-gospel { 0%, 70%, 100% { transform: none; } 78% { transform: scaleX(.94) translateY(-4%); } 86% { transform: scaleX(1.03); } 92% { transform: none; } }
+.ti-pray { animation-name: ti-pray; transform-origin: 50% 90%; }
+@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: translateY(-5%) scale(1.04); filter: drop-shadow(0 0 3px rgb(240 211 151 / 75%)); } }
+.ti-harp { animation-name: ti-harp; animation-duration: 3.2s; transform-origin: 30% 95%; }
+@keyframes ti-harp { 0%, 55%, 100% { transform: none; } 62% { transform: rotate(-4deg); } 70% { transform: rotate(3deg); } 78% { transform: rotate(-1.5deg); } 86% { transform: none; } }
+.ti-halo { animation-name: ti-halo; animation-duration: 3.6s; }
+@keyframes ti-halo { 0%, 100% { transform: translateY(0); filter: none; } 50% { transform: translateY(-6%); filter: drop-shadow(0 -2px 3px rgb(240 211 151 / 80%)); } }
+.ti-calendar { animation-name: ti-calendar; transform-origin: 50% 15%; }
+@keyframes ti-calendar { 0%, 70%, 100% { transform: none; } 78% { transform: perspective(60px) rotateX(-28deg); } 86% { transform: perspective(60px) rotateX(10deg); } 92% { transform: none; } }
+.ti-question { animation-name: ti-question; animation-duration: 3.4s; transform-origin: 30% 90%; }
+@keyframes ti-question { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-3deg); } }
+.ti-cross { animation-name: ti-pray; }
+@media (prefers-reduced-motion: reduce) { .ti, .ti .ti-stroke { animation: none; } }
 
 /* Loader candle. */
 @keyframes candle-flicker { 0%, 100% { transform: scale(1, 1) rotate(-1deg); opacity: 1; } 25% { transform: scale(.96, 1.06) rotate(1.5deg); } 50% { transform: scale(1.03, .95) rotate(-1.5deg); opacity: .92; } 75% { transform: scale(.98, 1.04) rotate(1deg); } }
@@ -382,4 +398,75 @@ body { position: relative; isolation: isolate; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* Telegram fullscreen: content scrolling under Telegram's floating Close/⋯ buttons fades out
+   behind a soft band instead of clashing with them. */
+html[data-tg-fullscreen="true"] body::before {
+  content: ""; position: fixed; inset: 0 0 auto; z-index: 30; height: calc(var(--tg-inset-top, 0px) + 8px); pointer-events: none;
+  background: linear-gradient(to bottom, var(--page-bg) 55%, transparent);
+}
+
+/* Saints' lives and daily readings read in Noto Serif Armenian at book weight and leading. */
+.sacred-text :is(p, li, blockquote, figcaption, #telegram-formatted-text) {
+  font-family: var(--font-noto);
+  font-weight: 400;
+  line-height: 1.9;
+  letter-spacing: .005em;
+  text-wrap: pretty;
+  font-feature-settings: "kern", "liga";
+}
+.sacred-text :is(strong, b) { font-weight: 600; }
+
+/* Prayers and psalms read like a printed prayer book, in Arian Grqi (the bird-letter initial keeps
+   its own face). Arian has one weight, so bold is synthesized. */
+.prayer-text :is(p, li, blockquote, figcaption, #telegram-formatted-text), .prayer-intro :is(p, h3) {
+  font-family: var(--font-book);
+  font-weight: 400;
+  font-size: 1.08em;
+  line-height: 1.85;
+  letter-spacing: .01em;
+  text-wrap: pretty;
+  font-synthesis: weight style;
+}
+/* A psalm's superscription ("Սաղմոս Դաւթի, երբ…") stands apart from the verses. */
+/* The superscription reads in the verses' own face and size; a rule sets it apart. */
+.psalm-text .psalm-superscription { font-size: 1em !important; }
+.psalm-text .psalm-superscription span { font-size: inherit; }
+.psalm-text section > p:first-of-type {
+  margin-bottom: .35em !important;
+  padding-bottom: .9em;
+  border-bottom: 1px solid rgb(217 181 111 / 32%);
+  text-align: center;
+}
+
+/* The in-app reminder: the topic icon swings like a struck bell when it rings. */
+.reminder-ring { animation: reminder-ring 1.6s ease-in-out 2; transform-origin: 50% 10%; }
+@keyframes reminder-ring { 0%, 100% { rotate: 0deg; } 10% { rotate: 14deg; } 25% { rotate: -12deg; } 40% { rotate: 8deg; } 55% { rotate: -5deg; } 70% { rotate: 2deg; } }
+@media (prefers-reduced-motion: reduce) { .reminder-ring { animation: none; } }
+
+/* The prayers list reads in the same prayer-book face as the prayers themselves. */
+.prayer-cards li strong, .prayer-cards li .line-clamp-3 {
+  font-family: var(--font-book);
+  font-weight: 400;
+  font-synthesis: weight style;
+  letter-spacing: .01em;
+}
+.prayer-cards li strong { font-size: 17px; line-height: 1.35; }
+.prayer-cards li .line-clamp-3 { font-size: 13.5px; line-height: 1.6; }
+
+/* The floating reminder bell swings left and right when a reminder rings, then settles. */
+.bell-swing { animation: bell-swing 1.6s cubic-bezier(.36,.07,.19,.97); transform-origin: 50% 12%; }
+@keyframes bell-swing { 0%, 100% { rotate: 0deg; } 12% { rotate: -20deg; } 28% { rotate: 17deg; } 44% { rotate: -11deg; } 60% { rotate: 7deg; } 76% { rotate: -3deg; } 90% { rotate: 1deg; } }
+@media (prefers-reduced-motion: reduce) { .bell-swing { animation: none; } }
+
+/* Reader preferences from the settings page (app/utils/preferences.ts). */
+html[data-reading-font="book"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
+html[data-reading-font="serif"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-noto) !important; font-style: normal; }
+html[data-reading-font="sans"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-sans) !important; font-style: normal; }
+html[data-title-size="small"] main h1 { zoom: .85; }
+html[data-title-size="large"] main h1 { zoom: 1.18; }
+html[data-leading="wide"] article :is(p, li, #telegram-formatted-text) { line-height: 2.15 !important; }
+html[data-motion="reduced"] *, html[data-motion="reduced"] ::before, html[data-motion="reduced"] ::after {
+  animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
 }

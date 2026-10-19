@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Bookmark, ChevronDown, Search } from "lucide-react";
 import { memo, useCallback, useMemo } from "react";
-import { Link } from "react-router";
+import { Form, Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -11,7 +11,9 @@ import {
   upsertAppUser,
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
+import { googleConfig } from "../auth/google.server";
 import { MaterialResultCard } from "../components/material-result-card";
+import { cardVariantFor } from "../utils/card-variant";
 import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
 import {
   MY_CORNER_IMAGE,
@@ -42,12 +44,14 @@ export async function loader({ request }: Route.LoaderArgs) {
     .slice(0, 120);
   const auth = await getTelegramUserState(request);
   const user = auth.user;
-  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0 };
+  const googleAvailable = Boolean(googleConfig());
+  const signInFailed = new URL(request.url).searchParams.get("signin") === "failed";
+  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0, googleAvailable, signInFailed };
   try {
     await upsertAppUser(env.DB, user);
   } catch {
     console.error(JSON.stringify({ event: "saved_loader_error", kind: "database" }));
-    return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0 };
+    return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
   try {
@@ -56,7 +60,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     if (request.signal.aborted) throw error;
     const errorKind = "database" as const;
     console.error(JSON.stringify({ event: "saved_loader_error", kind: errorKind }));
-    return { user, authStatus: auth.status, errorKind, groups: [], query, total: 0 };
+    return { user, authStatus: auth.status, errorKind, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   return {
     user,
@@ -65,6 +69,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     groups: groupSavedMaterials(materials),
     query,
     total: materials.length,
+    googleAvailable,
+    signInFailed,
   };
 }
 
@@ -135,6 +141,7 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
             key={material.id}
             material={material}
             highlightQuery={query}
+            variant={cardVariantFor(material)}
             canSave
             isSaved={savedIds.has(material.id)}
             isSaving={isSaving && pendingMaterialId === material.id}
@@ -174,31 +181,39 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             ? "Փակիր և նորից բացիր Mini App-ը Telegram-ից։"
             : loaderData.authStatus === "unavailable"
               ? "Telegram նույնականացումը այս միջավայրում կազմաձևված չէ։"
-              : "Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս։"}</p>
+              : "Մտիր, որ պահես նյութեր, գրես նշումներ և դնես հիշեցումներ։ Telegram Mini App-ում մուտքն ավտոմատ է։"}</p>
+          {loaderData.signInFailed ? <p className="m-0 text-[12.5px] text-[#b4472f]" role="alert">Google-ով մուտքը չհաջողվեց։ Փորձիր նորից։</p> : null}
           {loaderData.authStatus === "guest" ? (
             <div className="mt-3 grid w-full gap-2">
-              <span className="text-[12px] text-faint">Շուտով կարող ես մտնել նաև՝</span>
-              {[
-                { name: "Google", mark: "G" },
-                { name: "Facebook", mark: "f" },
-              ].map((provider) => (
-                <button
-                  key={provider.name}
-                  className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-[13px] border border-glass-border bg-subtle px-3 text-left text-[13px] font-semibold text-muted opacity-80"
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                >
-                  <span className="grid size-7 place-items-center rounded-full bg-glass-strong font-bold text-ink" aria-hidden="true">{provider.mark}</span>
-                  Մուտք {provider.name}-ով
-                  <span className="ml-auto rounded-full border border-[rgb(217_181_111/35%)] px-2 py-0.5 text-[10.5px] text-gold-bright">Շուտով</span>
-                </button>
-              ))}
+              {loaderData.googleAvailable ? (
+                <a className="flex min-h-12 w-full items-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-left text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                  Մուտք Google-ով
+                </a>
+              ) : null}
+              <button
+                className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-[13px] border border-glass-border bg-subtle px-3 text-left text-[13px] font-semibold text-muted opacity-80"
+                type="button"
+                disabled
+                aria-disabled="true"
+              >
+                <span className="grid size-7 place-items-center rounded-full bg-glass-strong font-bold text-ink" aria-hidden="true">f</span>
+                Մուտք Facebook-ով
+                <span className="ml-auto rounded-full border border-[rgb(217_181_111/35%)] px-2 py-0.5 text-[10.5px] text-gold-bright">Շուտով</span>
+              </button>
+              {!loaderData.googleAvailable ? <span className="text-[11.5px] text-faint">Google-ով մուտքը շուտով կմիանա։</span> : null}
+              <Link className="text-center text-[11.5px] text-faint underline" to="/privacy">Գաղտնիության քաղաքականություն</Link>
             </div>
           ) : null}
         </EmptyState>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
+          {loaderData.user?.source === "google" ? (
+            <Form className="flex items-center justify-between gap-3 rounded-[14px] border border-glass-border bg-subtle px-3.5 py-2 text-[12.5px] text-muted" method="post" action="/auth/logout">
+              <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>
+              <button className="shrink-0 cursor-pointer rounded-full border border-glass-border bg-transparent px-3 py-1 text-[12px] font-semibold text-gold-bright" type="submit">Ելք</button>
+            </Form>
+          ) : null}
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">
               {loaderData.query ? "Գտնված նյութեր" : "Պահված նյութեր"}

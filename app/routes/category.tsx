@@ -6,6 +6,7 @@ import { isRouteErrorResponse, Link, useNavigation } from "react-router";
 import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
 import { MaterialResultCard } from "../components/material-result-card";
+import { cardVariantFor } from "../utils/card-variant";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { MaterialListSkeleton } from "../components/material-skeleton";
@@ -115,7 +116,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     intro,
     materials,
     query,
-    total: materialResult.total,
+    // The intro is shown as the header, not counted as a material.
+    total: intro && typeof materialResult.total === "number" ? Math.max(0, materialResult.total - 1) : materialResult.total,
     nextCursor: materialResult.nextCursor,
     highlightQuery: resolvedQuery?.highlightQuery ?? "",
     savedMaterialIds,
@@ -172,8 +174,8 @@ const MaterialsList = memo(function MaterialsList({
           <MaterialResultCard
             key={material.id}
             material={material}
-            variant={listVariant}
-            typicalType={typicalType}
+            variant={layout === "default" && "categoryName" in material ? cardVariantFor(material) : listVariant}
+            typicalType={layout === "default" ? "poll" : typicalType}
             highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}
@@ -326,6 +328,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>
           )
         ) : (
+          <div className={resolveContentCategoryId(category.id, category.name) === "category_prayers" ? "prayer-cards" : undefined}>
           <MaterialsList
             canSave={loaderData.canSave}
             layout={loaderData.query ? "default" : categoryLayout(category)}
@@ -333,6 +336,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}
           />
+          </div>
         )}
         {!isRefreshing && materials.length > 0 ? (
           <InfiniteLoadControls

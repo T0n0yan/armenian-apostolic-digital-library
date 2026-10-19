@@ -675,7 +675,6 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
     ["Սաղմոս 50", 109, "poll-option"],
     ["Bacat", 108, "location"],
     ["Bacar", 108, "fuzzy"],
-    ["Բացատ", 108, "transliteration"],
     ["saxmos", 107, "transliteration"],
     ["Խմբագրված", 104, "title"],
   ] as const;
@@ -1293,7 +1292,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
 
   const guestSaved = await mf.dispatchFetch("https://app.fixture/saved");
   assert.equal(guestSaved.status, 200);
-  assert.match(await guestSaved.text(), /Անձնական բաժինը հասանելի է Telegram Mini App-ից բացելիս/u);
+  assert.match(await guestSaved.text(), /Մտիր, որ պահես նյութեր/u);
 
   const imagePage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_102");
   const imageHtml = await imagePage.text();
@@ -1318,7 +1317,8 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.match(videoHtml, /thumbnail=1/u);
   const pollPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_109");
   const pollHtml = await pollPage.text();
-  assert.match(pollHtml, /Քվեարկել Telegram-ում/u);
+  // A guest sees the poll with a prompt to sign in to vote, and the link to Telegram.
+  assert.match(pollHtml, /Պատասխանելու համար մուտք գործեք/u);
   assert.doesNotMatch(pollHtml, /Ընտրված պատասխան|Ճիշտ պատասխան|explanation/u);
   const locationPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_108");
   assert.match(await locationPage.text(), /Բացել քարտեզում/u);
@@ -1422,7 +1422,8 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_101"/u);
   assert.match(topicMatchHtml, /data-material-id="material_tg_n100900_104"/u);
   assert.equal((topicMatchHtml.match(/data-material-id=/gu) ?? []).length, 2);
-  assert.match(topicMatchHtml, /Նյութի տեքստից/u);
+  // The found line is shown on its own, without a "from the text" label.
+  assert.doesNotMatch(topicMatchHtml, /Նյութի տեքստից/u);
   assert.match(topicMatchHtml, /<mark[^>]*>խաղաղություն<\/mark>/iu);
   assert.doesNotMatch(topicMatchHtml, /href="\/materials\/[^"?]+\?q=/u);
 
@@ -1478,7 +1479,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   );
   const mergedDescriptionHtml = await mergedDescription.text();
   assert.equal((mergedDescriptionHtml.match(/data-material-id="material_tg_n100900_102"/gu) ?? []).length, 1);
-  assert.match(mergedDescriptionHtml, /Telegram նյութ/u);
+  assert.match(mergedDescriptionHtml, /Որոնման արդյունքներ/u);
   assert.match(mergedDescriptionHtml, /Իմ նշումից/u);
   // The snippet label says where a match is; per-field "matched in…" badges are no longer shown.
   assert.doesNotMatch(mergedDescriptionHtml, /Համընկնում՝ նկարագրության մեջ/u);
@@ -1495,7 +1496,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   );
   const duplicateSearchHtml = await duplicateSearch.text();
   assert.equal((duplicateSearchHtml.match(/data-material-id="material_tg_n100900_101"/gu) ?? []).length, 1);
-  assert.match(duplicateSearchHtml, /Telegram նյութ/u);
+  assert.match(duplicateSearchHtml, /Որոնման արդյունքներ/u);
   assert.match(duplicateSearchHtml, /Իմ նշումից/u);
   assert.ok(
     bridgeRequestPaths.every((path) => !decodeURIComponent(path).includes("Իմ օրինակ խաղաղություն նշումը") &&

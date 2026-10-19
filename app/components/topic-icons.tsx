@@ -1,84 +1,51 @@
 import type { SVGProps } from "react";
 
 /**
- * Topic icons: one line style (24 px grid, round 1.6 px strokes, currentColor) with a slow motion
- * that says what the topic is. Motions live in app.css (.ti-*) and stop for reduced motion.
+ * Topic icons from IconOven (MIT, https://iconoven.com), one stroke style for every topic. Each
+ * draws itself in when it appears, then moves slowly in a way that says what the topic is. The
+ * motions live in app.css (.ti-*) and stop when animations are turned off.
  */
-type IconProps = SVGProps<SVGSVGElement> & { size?: number };
+type IconProps = Omit<SVGProps<SVGSVGElement>, "strokeWidth"> & { size?: number; strokeWidth?: number | string };
 
-function Frame({ size = 24, children, ...props }: IconProps) {
+function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = "", ...props }: IconProps & { motion: string; body: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-      {children}
-    </svg>
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={`ti ${motion} ${className}`} {...props}
+      // Every stroke gets pathLength=1 so the draw-in animation works the same for all shapes.
+      dangerouslySetInnerHTML={{ __html: body.replaceAll("<path ", '<path pathLength="1" class="ti-stroke" ') }} />
   );
 }
 
-/** Gospel teaching: books settling one onto another. */
-export function BooksIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <g className="ti-book ti-book-1"><rect x="3.5" y="16.5" width="17" height="4" rx="1" /><path d="M6.5 16.5v4" /></g>
-      <g className="ti-book ti-book-2"><rect x="5" y="11.5" width="14" height="4" rx="1" /><path d="M16 11.5v4" /></g>
-      <g className="ti-book ti-book-3"><rect x="4" y="6.5" width="15" height="4" rx="1" /><path d="M7 6.5v4" /><path d="M11.5 3.5v3M10 5h3" /></g>
-    </Frame>
-  );
+/** Gospel teaching: the open Gospel with a cross; its pages stir. */
+export function GospelIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-gospel" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13M5.25 9.5H9m-3.75 3H9m-3.75 3h2.5m8.75-7V16m-2-5.25h4\"/>"} />;
 }
 
-/** Prayers: hands joined in prayer, with light kindling above them. */
+/** Prayers: hands joined in prayer, softly glowing. */
 export function PrayerIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <g className="ti-glow"><path d="M12 1.8v1.6M8.6 3.1l.8 1.2M15.4 3.1l-.8 1.2" /></g>
-      <path d="M12 6.5c-.9.4-1.5 1.3-1.6 2.4L10 14.5l-2.6 2.2a1.5 1.5 0 0 0-.4 1.7l1.3 3.1" />
-      <path d="M12 6.5c.9.4 1.5 1.3 1.6 2.4l.4 5.6 2.6 2.2a1.5 1.5 0 0 1 .4 1.7l-1.3 3.1" />
-      <path d="M12 6.5v8.5" />
-    </Frame>
-  );
+  return <Icon {...props} motion="ti-pray" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M10.5 18V4.75a1.75 1.75 0 0 0-3.5 0v5.5c-1.5 1-2.25 2.5-2.25 4.25c0 1.5.5 2.75 1.5 3.5Zm3 0V4.75a1.75 1.75 0 0 1 3.5 0v5.5c1.5 1 2.25 2.5 2.25 4.25c0 1.5-.5 2.75-1.5 3.5Zm-7.25 3h11.5\"/>"} />;
 }
 
-/** Psalms: David's lyre with its strings trembling. */
-export function LyreIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <path d="M6.5 4.5C4 7 4.5 12 7 15.5c1 1.4 1.5 2.6 1.5 4h7c0-1.4.5-2.6 1.5-4 2.5-3.5 3-8.5.5-11" />
-      <path d="M6.5 4.5c1.6.8 3.5 1.2 5.5 1.2s3.9-.4 5.5-1.2" />
-      <path d="M8 19.5h8" />
-      <g className="ti-strings"><path className="ti-string ti-string-1" d="M10 6v13" /><path className="ti-string ti-string-2" d="M12 6.2V19" /><path className="ti-string ti-string-3" d="M14 6v13" /></g>
-    </Frame>
-  );
+/** Psalms: David's harp, its strings trembling. */
+export function PsalmIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-harp" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M5.75 3.75v17h3m-3-17c2.5 0 4 3 7.5 3c2.5 0 4-1.5 5.75-1.5m-9.75.65v12.5M12.5 7.35V14m3.25-6.9v2.5M19 5.25L7.5 20.75\"/>"} />;
 }
 
-/** Lives of the saints: a dove in flight. */
-export function DoveIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <path className="ti-wing ti-wing-back" d="M12.5 10.5 16 4.5c1.5 2 1.8 4.4.6 6.4" />
-      <path d="M3.5 13.5c2.4-.3 4.4-1.4 6-3 1.4-1.4 3.6-1.6 5.2-.5l1.6 1.1 3.2-.6-2.3 2.1c-.6 3.3-3.4 5.7-6.8 5.9l-3.4.2 1.6-2.2c-2.2.2-4-.7-5.1-3Z" />
-      <path className="ti-wing ti-wing-front" d="M10.5 10.5 7 3.5c-1.8 2.4-1.8 5.4-.1 7.6" />
-      <circle cx="16.4" cy="10.9" r=".4" fill="currentColor" />
-    </Frame>
-  );
+/** Lives of the saints: a face beneath a halo that floats and shines. */
+export function SaintIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"14.75\" r=\"6.5\"/><path d=\"M8.5 13c.6-.6 1.65-.6 2.25 0m2.5 0c.6-.6 1.65-.6 2.25 0m-6 3.5c1.4 1 3.6 1 5 0M12 2.75c3 0 5.5.6 5.5 1.38S15 5.5 12 5.5s-5.5-.6-5.5-1.37S9 2.75 12 2.75\"/></g>"} />;
 }
 
-/** Daily readings: a calendar whose page turns over. */
+/** Daily readings: the calendar page turns over. */
 export function CalendarIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <rect x="3.5" y="5" width="17" height="15.5" rx="2.2" />
-      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
-      <g className="ti-page"><rect x="7" y="12" width="10" height="6" rx="1" /><path d="M9.5 15h5" /></g>
-    </Frame>
-  );
+  return <Icon {...props} motion="ti-calendar" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><rect width=\"16.5\" height=\"15\" x=\"3.75\" y=\"5.25\" rx=\"2.5\"/><path d=\"M3.75 10h16.5M8 2.75v4.5m8-4.5v4.5\"/><rect width=\"5.5\" height=\"5\" x=\"9.25\" y=\"12.75\" rx=\"1.25\"/></g>"} />;
 }
 
-/** Questions from the Bible: an open book with a question rising from it. */
-export function QuestionBookIcon(props: IconProps) {
-  return (
-    <Frame {...props}>
-      <path d="M12 20c-1.8-1.1-4.6-1.6-8.5-1.4V8.8c3.9-.2 6.7.3 8.5 1.4 1.8-1.1 4.6-1.6 8.5-1.4v9.8c-3.9-.2-6.7.3-8.5 1.4Z" />
-      <path d="M12 10.2V20" />
-      <g className="ti-question"><path d="M10.3 3.6a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.9.7-.9 1.3" /><circle cx="12" cy="8" r=".35" fill="currentColor" /></g>
-    </Frame>
-  );
+/** Questions from the Bible: a question that tilts as if wondering. */
+export function QuestionIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-question" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path stroke-width=\"1.5\" d=\"M12 3.25c4.85 0 8.75 3.5 8.75 7.85s-3.9 7.85-8.75 7.85c-1.1 0-2.15-.18-3.1-.5L4.6 20c-.6.2-1.15-.4-.9-.95l1.2-2.9c-1-1.4-1.65-3.15-1.65-5.05c0-4.35 3.9-7.85 8.75-7.85\"/><path stroke-width=\"1.5\" d=\"M9.75 9.1a2.25 2.25 0 1 1 3.1 2.08c-.5.2-.85.66-.85 1.2v.37\"/><path stroke-width=\"2\" d=\"M12 15.25h.01\"/></g>"} />;
+}
+
+/** Any other topic: a cross. */
+export function CrossIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-cross" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M10.75 2.75h2.5q.75 0 .75.75v1.25q0 .75.75.75h3.5q.75 0 .75.75v2.5q0 .75-.75.75h-3.5q-.75 0-.75.75v4.25q0 .75-.75.75h-2.5q-.75 0-.75-.75v-4.25q0-.75-.75-.75h-3.5Q5 9.5 5 8.75v-2.5q0-.75.75-.75h3.5q.75 0 .75-.75V3.5q0-.75.75-.75\"/><rect width=\"11\" height=\"3\" x=\"6.5\" y=\"18.25\" rx=\"1\"/></g>"} />;
 }

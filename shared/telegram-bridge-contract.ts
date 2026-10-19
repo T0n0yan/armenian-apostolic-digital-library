@@ -86,12 +86,16 @@ export type BridgePoll = {
   options: Array<{
     text: BridgeFormattedText;
     voterCount: number;
+    /** A quiz's right answer, when Telegram tells the syncing account. */
+    correct?: boolean;
   }>;
   totalVoters: number;
   closed: boolean;
   anonymous: boolean;
   multipleChoice: boolean;
   quiz: boolean;
+  /** A quiz's explanation, shown after answering. */
+  solution?: string | null;
 };
 
 export type BridgeLocation = {

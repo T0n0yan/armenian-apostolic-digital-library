@@ -6,6 +6,7 @@ import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
+import { ReminderIndicator } from "./reminder-indicator";
 import { INSTALL_REQUEST_EVENT, isInstalledApp } from "./install-prompt";
 import { ReadingSettings } from "./reading-settings";
 
@@ -140,6 +141,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           </div>
         </div>
 
+        <ReminderIndicator hidden={isOpen} />
         <button
           ref={triggerRef}
           className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] p-0 shadow-[var(--fab-shadow)] backdrop-blur-xl outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
