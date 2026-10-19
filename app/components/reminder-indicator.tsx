@@ -1,7 +1,7 @@
-import { BellRing, Check } from "lucide-react";
+import { BellRing, Check, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
 import { REMINDER_RINGING_EVENT, markReminderRead, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
@@ -19,6 +19,14 @@ function formatWhen(iso: string) {
   return `${date.toLocaleDateString("hy-AM", { day: "numeric", month: "long" })}, ${time}`;
 }
 
+function ItemIcon({ categoryName, busy }: { categoryName: string | null; busy: boolean }) {
+  return (
+    <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright">
+      {busy ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={16} /> : <CategoryIcon categoryId="" categoryName={categoryName} size={16} />}
+    </span>
+  );
+}
+
 /**
  * A bell sitting right above the menu button (inside the menu's corner) while the reader has reminders; tapping it lists them.
  * When a reminder rings it swings left and right and settles.
@@ -28,6 +36,10 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
   const missed = useMissedReminders();
   const [open, setOpen] = useState(false);
   const [swinging, setSwinging] = useState(false);
+  // The item being opened stays highlighted with a spinner until its page has opened.
+  const [opening, setOpening] = useState<string | null>(null);
+  const location = useLocation();
+  useEffect(() => { setOpening(null); setOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     let timer = 0;
@@ -80,11 +92,13 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
             <>
               <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-[rgb(205_70_55)] uppercase">Ժամանակն է կարդալու</span>
               {missed.map((item) => (
-                <div key={item.materialId} className="grid grid-cols-[30px_1fr_auto] items-center gap-2.5 rounded-[12px] px-2 py-1.5">
-                  <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright"><CategoryIcon categoryId="" categoryName={item.categoryName} size={16} /></span>
-                  <Link className="grid min-w-0 text-inherit no-underline" to={materialPath(item.materialId, item.categoryName)} onClick={() => setOpen(false)}>
-                    <strong className="truncate text-[13px] text-ink">{item.title}</strong>
-                    <span className="text-[11.5px] text-muted">{formatWhen(item.rangAt)}</span>
+                <div key={item.materialId} className={`grid grid-cols-[1fr_auto] items-center gap-2 rounded-[12px] px-1 py-1 transition-colors ${opening === item.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
+                  <Link className="grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-[10px] px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName)} onClick={() => setOpening(item.materialId)} aria-busy={opening === item.materialId}>
+                    <ItemIcon categoryName={item.categoryName} busy={opening === item.materialId} />
+                    <span className="grid min-w-0">
+                      <strong className="truncate text-[13px] text-ink">{item.title}</strong>
+                      <span className="text-[11.5px] text-muted">{opening === item.materialId ? "Բացվում է…" : formatWhen(item.rangAt)}</span>
+                    </span>
                   </Link>
                   <button className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-full border border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/12%)] px-2.5 text-[11.5px] font-bold text-[rgb(52_130_74)]" type="button" onClick={() => void markReminderRead(item.materialId)}>
                     <Check aria-hidden="true" size={13} /> Կարդացել եմ
@@ -95,11 +109,11 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
           ) : null}
           {reminders.length ? <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span> : null}
           {reminders.slice(0, 8).map((reminder) => (
-            <Link key={reminder.materialId} className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle" to={materialPath(reminder.materialId, reminder.categoryName)} onClick={() => setOpen(false)}>
-              <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/12%)] text-gold-bright"><CategoryIcon categoryId="" categoryName={reminder.categoryName} size={16} /></span>
+            <Link key={reminder.materialId} className={`grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle active:scale-[.98] ${opening === reminder.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`} to={materialPath(reminder.materialId, reminder.categoryName)} onClick={() => setOpening(reminder.materialId)} aria-busy={opening === reminder.materialId}>
+              <ItemIcon categoryName={reminder.categoryName} busy={opening === reminder.materialId} />
               <span className="grid min-w-0">
                 <strong className="truncate text-[13px] text-ink">{reminder.title}</strong>
-                <span className="text-[11.5px] text-muted">{formatWhen(reminder.at)}{REPEAT_TEXT[reminder.repeat] ? ` · ${REPEAT_TEXT[reminder.repeat]}` : ""}</span>
+                <span className="text-[11.5px] text-muted">{opening === reminder.materialId ? "Բացվում է…" : formatWhen(reminder.at)}{REPEAT_TEXT[reminder.repeat] ? ` · ${REPEAT_TEXT[reminder.repeat]}` : ""}</span>
               </span>
             </Link>
           ))}

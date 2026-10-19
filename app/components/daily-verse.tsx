@@ -33,14 +33,14 @@ export function DailyVerseCard() {
   }, []);
   if (hidden) return null;
   return (
-    <section className="daily-verse relative mx-auto grid w-full max-w-[600px] justify-items-center min-[860px]:max-w-[960px] gap-2.5 px-5 pt-5 pb-4 text-center" aria-label="Աստվածաշունչն ասում է">
+    <section className="daily-verse relative mx-auto grid w-full max-w-[600px] justify-items-center min-[860px]:max-w-[1040px] gap-2.5 px-5 pt-5 pb-4 text-center" aria-label="Աստվածաշունչն ասում է">
       <span className="flex w-full items-center gap-3 text-gold" aria-hidden="true">
         <span className="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgb(217_181_111/60%))]" />
         <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor"><path d="M5.2 0h1.6v4.4H11V6H6.8v6H5.2V6H1V4.4h4.2Z" /></svg>
         <span className="h-px flex-1 bg-[linear-gradient(90deg,rgb(217_181_111/60%),transparent)]" />
       </span>
       <span className="text-[10.5px] font-bold tracking-[2.6px] text-gold uppercase">Աստվածաշունչն ասում է</span>
-      <blockquote className="m-0 max-w-[34ch] font-book text-[18px] leading-[1.65] text-ink [text-wrap:balance] min-[560px]:text-[20px] min-[860px]:max-w-[64ch] min-[860px]:leading-[1.55]">
+      <blockquote className="m-0 max-w-[34ch] font-book text-[18px] leading-[1.65] text-ink [text-wrap:balance] min-[560px]:text-[20px] min-[860px]:max-w-[78ch] min-[860px]:leading-[1.55] min-[1200px]:max-w-[88ch]">
         {/* Verses that already quote a speaker keep their own quotation marks. */}
         {verse.text.includes("«") ? verse.text : `«${verse.text}»`}
       </blockquote>

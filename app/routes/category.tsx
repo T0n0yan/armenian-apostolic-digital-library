@@ -153,8 +153,11 @@ const MaterialsList = memo(function MaterialsList({
   savedMaterialIds,
   highlightQuery,
   quizAnswers = {},
+  category,
 }: {
   canSave: boolean;
+  /** The section, for the materials' short addresses (/pray_364). */
+  category?: string;
   layout: CategoryLayout;
   materials: CategoryMaterial[];
   savedMaterialIds: string[];
@@ -191,6 +194,7 @@ const MaterialsList = memo(function MaterialsList({
             variant={layout === "default" && "categoryName" in material ? cardVariantFor(material) : listVariant}
             typicalType={layout === "default" ? "poll" : typicalType}
             quizResult={quizAnswers[material.id]}
+            category={category}
             highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}
@@ -351,6 +355,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}
             quizAnswers={loaderData.quizAnswers}
+            category={category.name}
           />
           </div>
         )}

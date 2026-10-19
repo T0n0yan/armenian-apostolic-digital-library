@@ -44,6 +44,8 @@ import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant"
 import { materialPath } from "../utils/material-path";
 
 type MaterialResultCardProps = {
+  /** The section when the material doesn't carry its name (a section's own list). */
+  category?: string;
   material: {
     id: string;
     title: string;
@@ -225,6 +227,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   isSaving = false,
   allowNoteEditing = false,
   onSavedChange,
+  category,
 }: MaterialResultCardProps) {
   const date = formatArmenianDate(material.dateValue ?? material.publishedAt ?? null);
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
@@ -232,7 +235,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const navigation = useNavigation();
-  const targetPath = materialPath(material.id, material.categoryName);
+  const targetPath = materialPath(material.id, material.categoryName ?? category);
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.

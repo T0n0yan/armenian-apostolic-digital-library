@@ -7,6 +7,7 @@ import { getPublicMaterialDetail } from "./material-detail.server";
 import { getPollVotes } from "./poll-votes.server";
 import { findPsalmNeighbors } from "./psalm-neighbors.server";
 import { listSavedMaterialIds } from "./saved-materials.server";
+import { materialMarks } from "./reading-log.server";
 import { materialPath } from "../utils/material-path";
 import { parseMaterialId, resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
@@ -23,7 +24,14 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   // Old long links and wrong prefixes move to the material's one short address.
   const address = new URL(request.url);
   const canonical = materialPath(material.id, material.categoryName);
-  if (address.pathname !== canonical) throw redirect(`${canonical}${address.search}`);
+  // Data requests for client navigation end in ".data"; compare the page's own path.
+  const pathname = address.pathname.replace(/\.data$/u, "");
+  if (decodeURIComponent(pathname) !== canonical) {
+    const search = new URLSearchParams(address.search);
+    search.delete("_routes");
+    const query = search.toString();
+    throw redirect(`${canonical}${query ? `?${query}` : ""}`);
+  }
   const isPsalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms";
   const [savedIds, psalm] = await Promise.all([
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
@@ -40,5 +48,8 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
       .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
     getOptionalTelegramAdmin(request, env.DB).then(Boolean).catch(() => false),
   ]) : [null, false];
-  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm };
+  // When this reader marked the material as read (the page compares with their local date).
+  const own = user ? parseMaterialId(material.id) : null;
+  const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
+  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks };
 }

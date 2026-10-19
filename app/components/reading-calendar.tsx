@@ -1,5 +1,8 @@
-import { ChevronLeft, ChevronRight, Flame } from "lucide-react";
+import { BookOpenCheck, ChevronLeft, ChevronRight, CircleHelp, Flame, Headphones, LoaderCircle, MonitorPlay } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
+
+import { materialPath } from "../utils/material-path";
 
 import { localDay } from "../utils/local-day";
 
@@ -19,7 +22,7 @@ function level(count: number) {
 }
 
 /** Days read in a month, as a calendar page with day numbers. */
-function MonthView({ days, month, today }: { days: Record<string, number>; month: Date; today: string | null }) {
+function MonthView({ days, month, today, selected, onSelect }: { days: Record<string, number>; month: Date; today: string | null; selected: string | null; onSelect: (day: string) => void }) {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const lead = (first.getDay() + 6) % 7;
   const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
@@ -32,9 +35,11 @@ function MonthView({ days, month, today }: { days: Record<string, number>; month
         const read = days[key] ?? 0;
         const future = today !== null && key > today;
         return (
-          <span key={key} className={`grid aspect-square place-items-center rounded-[10px] text-[12.5px] font-semibold tabular-nums ${future ? "text-faint/50" : read ? `${level(read)} text-[#2a1708]` : "bg-[rgb(160_130_90/10%)] text-muted"} ${key === today ? "ring-2 ring-gold" : ""}`} title={read ? `${read} նյութ` : undefined}>
+          <button key={key} type="button" disabled={future} onClick={() => onSelect(key)} aria-pressed={key === selected}
+            className={`grid aspect-square cursor-pointer place-items-center rounded-[10px] border-0 p-0 text-[12.5px] font-semibold tabular-nums transition-transform active:scale-95 disabled:cursor-default min-[860px]:text-[13.5px] ${future ? "bg-transparent text-faint/50" : read ? `${level(read)} text-[#2a1708]` : "bg-[rgb(160_130_90/10%)] text-muted"} ${key === selected ? "ring-2 ring-gold ring-offset-2 ring-offset-[var(--page-bg)]" : key === today ? "ring-1 ring-gold/70" : ""}`}
+            title={read ? `${read} նյութ` : undefined}>
             {index + 1}
-          </span>
+          </button>
         );
       })}
     </div>
@@ -62,6 +67,61 @@ function WeeksView({ days, weeks }: { days: Record<string, number>; weeks: numbe
   );
 }
 
+type Entry = { materialId: string; kind: "read" | "listen" | "watch" | "quiz"; title: string; categoryName: string | null };
+const ENTRY_TEXT: Record<Entry["kind"], { verb: string; icon: typeof Flame }> = {
+  read: { verb: "Կարդացել եք", icon: BookOpenCheck },
+  listen: { verb: "Լսել եք", icon: Headphones },
+  watch: { verb: "Դիտել եք", icon: MonitorPlay },
+  quiz: { verb: "Պատասխանել եք", icon: CircleHelp },
+};
+
+function dayTitle(day: string, today: string | null) {
+  if (day === today) return "Այսօր";
+  const [year, month, date] = day.split("-").map(Number);
+  return `${date} ${MONTHS[month - 1].toLowerCase()}${year !== new Date().getFullYear() ? ` ${year}` : ""}`;
+}
+
+/** What the reader read, listened to or watched on the chosen day. */
+function DayEntries({ day, today, count }: { day: string; today: string | null; count: number }) {
+  const [entries, setEntries] = useState<Entry[] | null>(null);
+  useEffect(() => {
+    let active = true;
+    setEntries(null);
+    fetch(`/api/reading-log?day=${day}`, { headers: { accept: "application/json" } })
+      .then((response) => response.ok ? response.json() as Promise<{ entries: Entry[] }> : { entries: [] })
+      .then((data) => { if (active) setEntries(data.entries); })
+      .catch(() => { if (active) setEntries([]); });
+    return () => { active = false; };
+  }, [day, count]);
+  return (
+    <div className="grid content-start gap-2 rounded-[16px] bg-subtle p-3">
+      <strong className="px-1 text-[13px] text-ink">{dayTitle(day, today)}</strong>
+      {entries === null ? (
+        <span className="flex items-center gap-2 px-1 py-2 text-[12.5px] text-muted"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={15} /> Բեռնվում է…</span>
+      ) : entries.length === 0 ? (
+        <span className="px-1 py-1 text-[12.5px] leading-snug text-muted">Այս օրը նշված նյութ չկա։ Նյութի էջում սեղմեք «Կարդացել եմ», «Լսել եմ» կամ «Դիտել եմ»։</span>
+      ) : (
+        <ul className="m-0 grid list-none gap-1 p-0">
+          {entries.map((entry) => {
+            const { verb, icon: Icon } = ENTRY_TEXT[entry.kind];
+            return (
+              <li key={entry.materialId}>
+                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-1.5 py-1.5 text-inherit no-underline hover:bg-glass-strong" to={materialPath(entry.materialId, entry.categoryName)}>
+                  <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/14%)] text-gold-bright"><Icon aria-hidden="true" size={15} /></span>
+                  <span className="grid min-w-0">
+                    <span className="text-[11px] font-semibold text-muted">{verb}{entry.categoryName ? ` · ${entry.categoryName}` : ""}</span>
+                    <strong className="truncate text-[13px] text-ink">{entry.title}</strong>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /**
  * The reader's reading calendar: this month as a calendar page by default, or 3, 6, 12 months or
  * everything since the first reading day, with today's status and the current streak.
@@ -70,7 +130,8 @@ export function ReadingCalendar({ days }: { days: Record<string, number> }) {
   const [today, setToday] = useState<string | null>(null);
   const [range, setRange] = useState<Range>("month");
   const [month, setMonth] = useState(() => new Date());
-  useEffect(() => setToday(localDay()), []);
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => { const day = localDay(); setToday(day); setSelected(day); }, []);
 
   const { streak, inRange, weeks } = useMemo(() => {
     let run = 0;
@@ -116,17 +177,23 @@ export function ReadingCalendar({ days }: { days: Record<string, number> }) {
       </div>
       {range === "month" ? (
         <>
-          <div className="flex items-center justify-between">
-            <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright" type="button" onClick={() => shift(-1)} aria-label="Նախորդ ամիս"><ChevronLeft aria-hidden="true" size={18} /></button>
-            <strong className="text-[13.5px] text-ink">{MONTHS[month.getMonth()]} {month.getFullYear()}</strong>
-            <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright disabled:opacity-30" type="button" onClick={() => shift(1)} disabled={isCurrentMonth} aria-label="Հաջորդ ամիս"><ChevronRight aria-hidden="true" size={18} /></button>
+          {/* Phones: the day's list under the calendar; tablets and computers: side by side. */}
+          <div className="grid gap-3 min-[860px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] min-[860px]:items-start min-[860px]:gap-5">
+            <div className="mx-auto grid w-full max-w-[460px] gap-2">
+              <div className="flex items-center justify-between">
+                <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright" type="button" onClick={() => shift(-1)} aria-label="Նախորդ ամիս"><ChevronLeft aria-hidden="true" size={18} /></button>
+                <strong className="text-[13.5px] text-ink">{MONTHS[month.getMonth()]} {month.getFullYear()}</strong>
+                <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright disabled:opacity-30" type="button" onClick={() => shift(1)} disabled={isCurrentMonth} aria-label="Հաջորդ ամիս"><ChevronRight aria-hidden="true" size={18} /></button>
+              </div>
+              <MonthView days={days} month={month} today={today} selected={selected} onSelect={setSelected} />
+            </div>
+            {selected ? <DayEntries day={selected} today={today} count={days[selected] ?? 0} /> : null}
           </div>
-          <MonthView days={days} month={month} today={today} />
         </>
       ) : (
         <WeeksView days={days} weeks={weeks} />
       )}
-      <p className="m-0 text-[11.5px] leading-snug text-faint">Օրը նշվում է, երբ նյութը կարդում եք առնվազն մեկ րոպե, ձայնագրությունը լսում եք մինչև վերջ կամ պատասխանում եք հարցին։</p>
+      <p className="m-0 text-[11.5px] leading-snug text-faint">Օրը նշվում է, երբ նյութի էջում սեղմում եք «Կարդացել եմ», «Լսել եմ» կամ «Դիտել եմ», կամ պատասխանում եք հարցին։ Սեղմեք օրվա վրա՝ տեսնելու, թե ինչ եք կարդացել։</p>
     </section>
   );
 }

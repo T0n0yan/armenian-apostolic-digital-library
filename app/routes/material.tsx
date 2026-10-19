@@ -16,7 +16,7 @@ import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
-import { ReadingTracker } from "../components/reading-tracker";
+import { ReadMark, readKindFor } from "../components/read-mark";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
@@ -130,6 +130,8 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           <p className="reading-body m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
+        {loaderData.canSave && !material.poll ? <ReadMark materialId={material.id} kind={readKindFor(material.media)} marks={loaderData.readMarks} /> : null}
+
         {/* One row of equal tiles: an icon with a short name under it. */}
         <div className={`grid gap-2 ${loaderData.canSave ? "grid-cols-4" : "grid-cols-2"}`}>
           {loaderData.canSave ? (
@@ -156,7 +158,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           />
         </div>
       </article>
-      <ReadingTracker materialId={material.id} enabled={loaderData.canSave} />
       </TimestampSeekContext.Provider>
       </PsalmNavContext.Provider>
     </PageShell>

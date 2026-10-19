@@ -159,7 +159,8 @@ function searchMaterialSelect() {
 async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
   if (rows.length === 0) return [];
   const mediaRows: MediaRow[] = [];
-  const batchSize = 40;
+  // Each row binds 4 values (media and site attachments); D1 allows 100 per statement.
+  const batchSize = 20;
   for (let offset = 0; offset < rows.length; offset += batchSize) {
     const batch = rows.slice(offset, offset + batchSize);
     const clauses = batch.map(() => "(chat_id = ? AND message_id = ?)").join(" OR ");
