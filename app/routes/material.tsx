@@ -19,6 +19,7 @@ import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
 import { getPollVotes } from "../data/poll-votes.server";
+import { getOptionalTelegramAdmin } from "../auth/admin.server";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
@@ -45,7 +46,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const pollVotes = reference && material.poll
     ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
     : null;
-  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes };
+  // A psalm's marked verse timings, and whether this reader may mark them.
+  const psalmReference = isPsalm ? parseMaterialId(material.id) : null;
+  const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
+    env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
+      .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
+    getOptionalTelegramAdmin(request, env.DB).then(Boolean).catch(() => false),
+  ]) : [null, false];
+  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -134,7 +142,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
           // Psalms follow their recording verse by verse.
           <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
-            <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} />
+            <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
