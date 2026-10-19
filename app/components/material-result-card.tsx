@@ -36,8 +36,8 @@ import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 import { useVideoPoster } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
-import { ShareButton } from "./share-button";
-import { ReminderButton } from "./reminder-button";
+import { MaterialActionSheet } from "./material-action-sheet";
+import { useLongPress } from "../hooks/use-long-press";
 import { psalmNumber } from "../utils/psalm-number";
 import { calendarParts } from "../utils/daily-reading";
 import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant";
@@ -295,6 +295,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     }, 420);
   }, []);
 
+  // Holding a card (or right-clicking it) opens its actions: save, remind, Telegram, share.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const closeActions = useCallback(() => setActionsOpen(false), []);
+  const longPress = useLongPress(useCallback(() => setActionsOpen(true), []));
+
   const handleBookmark = useCallback(() => {
     if (isSaved) {
       onSavedChange(material.id, false);
@@ -317,14 +322,15 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} hold-card grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] py-[14px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
           aria-busy={isOpening || undefined}
-          onClick={(event) => { if (isOpening) event.preventDefault(); }}
+          onClick={(event) => { if (isOpening || longPress.consumeClick()) event.preventDefault(); }}
+          {...longPress.handlers}
         >
         {variant === "video" ? (
           <span ref={videoPoster.ref} className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
@@ -430,59 +436,19 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {isOpening ? <span className="inline-flex items-center gap-2 text-[11px] font-bold text-gold-bright" role="status"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={14} /> Բացվում է…</span> : null}
         </span>
         </Link>
-      {/* The buttons fade out (not vanish) while the note opens, so the card doesn't jump. */}
-        <span className={`absolute right-[11px] bottom-[11px] z-3 flex gap-1.5 transition-opacity duration-300 ${isNoteMounted ? "pointer-events-none opacity-0" : "opacity-100"}`} aria-hidden={isNoteMounted || undefined}>
-          {canSave ? (
-            <button
-              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)] disabled:cursor-wait disabled:opacity-60`}
-              type="button"
-              disabled={isSaving}
-              onClick={handleBookmark}
-              aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-              title={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-            >
-              <Bookmark
-                aria-hidden="true"
-                size={17}
-                strokeWidth={1.9}
-                fill={isSaved ? "currentColor" : "none"}
-              />
-            </button>
-          ) : null}
-          {canSave ? (
-            <ReminderButton className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`} materialId={material.id} title={material.title} />
-          ) : null}
-          {allowNoteEditing && isSaved ? (
-            <button
-              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
-              type="button"
-              onClick={openNoteComposer}
-              aria-label="Խմբագրել անձնական նշումը"
-              title="Խմբագրել անձնական նշումը"
-            >
-              <Pencil aria-hidden="true" size={16} strokeWidth={1.9} />
-            </button>
-          ) : null}
-          <a
-            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
-            href={material.telegramUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={openTelegramPost}
-            aria-label="Բացել Telegram-ում"
-            title="Telegram"
-          >
-            <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
-          </a>
-          <ShareButton
-            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
-            title={material.title}
-            text={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
-            url={material.telegramUrl}
-            materialId={material.id}
-            pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
-          />
-        </span>
+      <MaterialActionSheet
+        open={actionsOpen}
+        onClose={closeActions}
+        material={material}
+        canSave={canSave}
+        isSaved={isSaved}
+        isSaving={isSaving}
+        allowNoteEditing={allowNoteEditing}
+        onBookmark={() => { closeActions(); window.setTimeout(handleBookmark, 250); }}
+        onEditNote={() => { closeActions(); window.setTimeout(openNoteComposer, 250); }}
+        shareText={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
+        pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
+      />
       </div>
       {isNoteMounted ? (
         <div

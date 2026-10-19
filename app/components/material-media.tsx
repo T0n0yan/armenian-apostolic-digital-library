@@ -211,7 +211,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   return (
     <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
       {kind === "video" ? (
-        <video
+        <video controlsList="nodownload"
           {...common}
           ref={ref}
           className="block max-h-[74svh] w-full bg-transparent object-contain"
@@ -224,7 +224,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
         </video>
       ) : (
         <>
-          <audio
+          <audio controlsList="nodownload"
             {...common}
             controls={false}
             ref={ref}

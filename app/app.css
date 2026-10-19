@@ -462,9 +462,9 @@ html[data-tg-fullscreen="true"] body::before {
 
 /* Reader preferences from the settings page (app/utils/preferences.ts). The reading font changes
    only the text of a material (.reading-body), never titles or cards. */
-html[data-reading-font="book"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span)) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
-html[data-reading-font="serif"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span)) { font-family: var(--font-noto) !important; font-style: normal; }
-html[data-reading-font="sans"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span)) { font-family: var(--font-sans) !important; font-style: normal; }
+html[data-reading-font="book"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
+html[data-reading-font="serif"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-noto) !important; font-style: normal; }
+html[data-reading-font="sans"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-sans) !important; font-style: normal; }
 html[data-title-size="small"] main h1 { zoom: .85; }
 html[data-title-size="large"] main h1 { zoom: 1.18; }
 /* With animations off everything is still, except the candle intro. */
@@ -490,3 +490,24 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
 .time-wheel { scroll-snap-type: y mandatory; scrollbar-width: none; mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent); }
 .time-wheel::-webkit-scrollbar { display: none; }
 .time-wheel > * { scroll-snap-align: center; }
+
+/* Action tiles (material page, action sheet): clearly buttons in both themes. */
+.action-tile {
+  border: 1px solid rgb(176 125 46 / 55%);
+  background: linear-gradient(180deg, #f8ecd0, #ecd6a4);
+  color: #6b4512;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%), 0 3px 10px rgb(120 80 20 / 18%);
+}
+.action-tile:hover { background: linear-gradient(180deg, #fbf1da, #efd9a9); }
+:root[data-theme="dark"] .action-tile {
+  border-color: rgb(217 181 111 / 38%);
+  background: linear-gradient(180deg, rgb(217 181 111 / 16%), rgb(217 181 111 / 8%));
+  color: var(--gold-bright, #f0d397);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 4px 14px rgb(0 0 0 / 30%);
+}
+
+/* Cards open their actions on a long press: no system callout or text selection on hold. */
+.hold-card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* Pictures can't be dragged out or long-pressed to save. */
+img, video { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: none; }

@@ -1,9 +1,9 @@
-import { BookOpen, X } from "lucide-react";
+import { BookOpen, Check, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, loadReminders, markReminderRead, type ActiveReminder } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, type ActiveReminder } from "../utils/reminder-store";
 
 type Upcoming = ActiveReminder;
 type Ducked = { media: HTMLMediaElement; volume: number; paused: boolean };
@@ -107,7 +107,7 @@ export function ReminderAlarm() {
   const location = useLocation();
   useEffect(() => {
     const match = /^\/materials\/([^/]+)$/u.exec(location.pathname);
-    if (match) void markReminderRead(decodeURIComponent(match[1]));
+    if (match) void markReminderRead(decodeURIComponent(match[1]), { quiet: true });
   }, [location.pathname]);
 
   useEffect(() => {
@@ -194,12 +194,20 @@ export function ReminderAlarm() {
         <button
           className={`${action} inline-flex items-center justify-center gap-1.5 border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`}
           type="button"
-          onClick={() => { const id = current.materialId; dismiss(); navigate(`/materials/${id}`); }}
+          onClick={() => { const id = current.materialId; void markReminderRead(id); dismiss(); navigate(`/materials/${id}`); }}
         >
           <BookOpen aria-hidden="true" size={16} /> Կարդալ
         </button>
         <button className={`${action} border-glass-border bg-subtle text-ink`} type="button" onClick={() => snooze(1)}>1 րոպեից</button>
         <button className={`${action} border-glass-border bg-subtle text-ink`} type="button" onClick={() => snooze(5)}>5 րոպեից</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button className={`${action} inline-flex items-center justify-center gap-1.5 border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/12%)] text-[rgb(52_130_74)]`} type="button" onClick={() => { void markReminderRead(current.materialId); dismiss(); }}>
+          <Check aria-hidden="true" size={15} /> Արդեն կարդացել եմ
+        </button>
+        <button className={`${action} border-glass-border bg-transparent text-muted`} type="button" onClick={() => { void cancelReminder(current.materialId); dismiss(); }}>
+          Չեղարկել հիշեցումը
+        </button>
       </div>
     </aside>
   );

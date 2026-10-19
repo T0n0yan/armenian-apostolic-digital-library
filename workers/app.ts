@@ -33,6 +33,18 @@ async function dispatchCloudSync(env: SyncEnv) {
   if (!response.ok) console.error("cloud sync dispatch failed", response.status, await response.text());
 }
 
+/** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
+function secure(response: Response) {
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  headers.set("Content-Security-Policy", "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org; object-src 'none'; base-uri 'self'");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export default {
   async scheduled(controller, env, context) {
     const reminderEnv = env as unknown as ReminderEnv;
@@ -46,7 +58,13 @@ export default {
     // The cron fires every minute; the sync only needs to start every half hour.
     if (new Date(controller.scheduledTime).getUTCMinutes() % 30 === 0) context.waitUntil(dispatchCloudSync(env as SyncEnv));
   },
-  async fetch(request, _env, context) {
+  async fetch(request, env, context) {
+    return secure(await handle(request, env, context));
+  },
+} satisfies ExportedHandler<Env>;
+
+async function handle(request: Request, _env: Env, context: ExecutionContext): Promise<Response> {
+  {
     const url = new URL(request.url);
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
     const sharedJson = url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname.startsWith("/api/categories/");
@@ -72,5 +90,5 @@ export default {
     cacheResponse.headers.set("Cache-Control", "public, max-age=30, s-maxage=60");
     context.waitUntil(cache.put(cacheKey, cacheResponse.clone()));
     return cacheResponse;
-  },
-} satisfies ExportedHandler<Env>;
+  }
+}

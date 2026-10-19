@@ -64,7 +64,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   ];
 }
 
-const actionTile = "flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/12%)] px-1 text-[11.5px] font-bold text-gold-bright no-underline shadow-card transition-[transform,background] duration-150 hover:bg-[rgb(217_181_111/20%)] active:scale-[.96] disabled:opacity-60";
+const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline transition-[transform,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";
 
 export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { material } = loaderData;

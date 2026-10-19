@@ -46,8 +46,16 @@ export function useMissedReminders() {
 }
 
 /** "Կարդացել եմ": removes a rung reminder from the bell's list. */
-export async function markReminderRead(materialId: string) {
-  if (!missed.some((item) => item.materialId === materialId)) return;
+export async function markReminderRead(materialId: string, { quiet = false } = {}) {
+  const listed = missed.some((item) => item.materialId === materialId);
+  if (quiet && !listed) return;
   emit(reminders, missed.filter((item) => item.materialId !== materialId));
   await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, read: true }) }).catch(() => null);
+}
+
+/** Cancels a reminder (and its repeats) right away, everywhere it is shown. */
+export async function cancelReminder(materialId: string) {
+  emit(reminders.filter((item) => item.materialId !== materialId), missed.filter((item) => item.materialId !== materialId));
+  const post = (body: Record<string, unknown>) => fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, ...body }) }).catch(() => null);
+  await Promise.all([post({ remove: true }), post({ read: true })]);
 }

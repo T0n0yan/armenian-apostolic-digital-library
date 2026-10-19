@@ -213,12 +213,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
           {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} /> : null}
-          {loaderData.user?.source === "google" ? (
-            <Form className="flex items-center justify-between gap-3 rounded-[14px] border border-glass-border bg-subtle px-3.5 py-2 text-[12.5px] text-muted" method="post" action="/auth/logout">
-              <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>
-              <button className="shrink-0 cursor-pointer rounded-full border border-glass-border bg-transparent px-3 py-1 text-[12px] font-semibold text-gold-bright" type="submit">Ելք</button>
-            </Form>
-          ) : null}
+
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">
               {loaderData.query ? "Գտնված նյութեր" : "Պահված նյութեր"}
@@ -255,6 +250,12 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
               ))}
             </div>
           )}
+          {loaderData.user?.source === "google" ? (
+            <Form className="mt-4 flex items-center justify-between gap-3 border-t border-glass-border px-1 pt-4 text-[12.5px] text-muted" method="post" action="/auth/logout">
+              <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>
+              <button className="shrink-0 cursor-pointer rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-4 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit">Ելք</button>
+            </Form>
+          ) : null}
         </section>
       )}
     </PageShell>

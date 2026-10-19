@@ -13,6 +13,7 @@ import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
 import LastSupperImg from '../assets/last-supper.webp'
+import {ArtImage} from "../components/art-image";
 import AngelLeft from "../assets/angel-left.webp"
 import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
@@ -87,10 +88,9 @@ function HomeTitle() {
         <h1 className="hero-rise hero-rise-delay m-0 font-noto text-[33px] leading-[1.12] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[36px] min-[560px]:text-[46px] min-[960px]:text-[56px]">
             Հոգևոր ժառանգություն
         </h1>
-        <p className="hero-rise hero-rise-delay-2 m-0 inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-2.5 py-1.5 text-center text-[clamp(9.5px,2.75vw,13px)] leading-snug font-semibold text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)] min-[560px]:gap-2 min-[560px]:px-4">
-            <ArmenianCross size={13}/>
-            Նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցուն
-            <ArmenianCross size={13}/>
+        <p className="hero-rise hero-rise-delay-2 m-0 grid max-w-full justify-items-center gap-0.5 rounded-[18px] border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-4 py-1.5 text-center text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)]">
+            <span className="inline-flex items-center gap-1.5 text-[clamp(11px,3.2vw,13.5px)] leading-snug font-semibold"><ArmenianCross size={12}/>Հայաստանյայց Առաքելական Սուրբ Եկեղեցուն<ArmenianCross size={12}/></span>
+            <span className="text-[10.5px] font-semibold tracking-[2px] text-gold uppercase">նվիրված</span>
         </p>
     </header>);
 }
@@ -129,9 +129,10 @@ export default function Home({loaderData}: Route.ComponentProps) {
             <div className="absolute top-[12px] -left-[10px] z-4 w-[27%] min-[560px]:top-[20px]">
                 <img className="block h-auto w-full" src={AngelLeft} alt="" width={540} height={728} decoding="async"/>
             </div>
-            <img
+            <ArtImage
                 className="relative z-1 block h-auto w-full"
                 src={LastSupperImg}
+                sizes="(max-width: 1100px) 100vw, 1100px"
                 alt="Խորհրդավոր ընթրիքը"
                 width={1774}
                 height={887}

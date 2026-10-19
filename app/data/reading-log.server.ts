@@ -12,10 +12,9 @@ export async function logReading(database: D1Database, entry: { userId: string; 
     .bind(entry.userId, entry.day, entry.chatId, entry.messageId, entry.kind).run();
 }
 
-/** Materials read per day over the last `days` days. */
-export async function readingDays(database: D1Database, userId: string, days = 140) {
-  const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
-  const { results } = await database.prepare("SELECT day, COUNT(*) AS count FROM reading_log WHERE user_id = ? AND day >= ? GROUP BY day")
-    .bind(userId, since).all<{ day: string; count: number }>();
+/** Materials read per day, from the reader's first reading day on (at most about five years). */
+export async function readingDays(database: D1Database, userId: string) {
+  const { results } = await database.prepare("SELECT day, COUNT(*) AS count FROM reading_log WHERE user_id = ? GROUP BY day ORDER BY day DESC LIMIT 1900")
+    .bind(userId).all<{ day: string; count: number }>();
   return Object.fromEntries(results.map((row) => [row.day, row.count])) as Record<string, number>;
 }

@@ -108,7 +108,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
-                  <NavLink className={({ isActive }) => `flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[14px] border px-1 text-center text-[11px] font-semibold no-underline outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1}>
+                  <NavLink className={({ isActive }) => `flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[14px] border px-1 text-center text-[11px] font-semibold no-underline outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                     <Icon aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
                     <span>{label}</span>
                   </NavLink>
@@ -123,7 +123,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   {topicItems.map((topic) => {
                     return (
                       <li key={topic.id}>
-                        <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1}>
+                        <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                           <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="min-w-0 flex-1 truncate">{topic.name}</span>
                           {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
@@ -165,7 +165,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
         >
-          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_60s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
+          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_24s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
           <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
         </button>
       </nav>
