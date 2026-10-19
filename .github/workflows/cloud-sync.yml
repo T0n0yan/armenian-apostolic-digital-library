@@ -1,5 +1,6 @@
-# Hourly Telegram → Cloudflare sync. Reconciles the content forum into D1/R2: new and edited
-# posts appear on the site, deleted ones are taken down. Free within GitHub's monthly minutes.
+# Telegram → Cloudflare sync for both sites. Reconciles the content forum into each environment's
+# D1/R2: new and edited posts appear, deleted ones are taken down. Started every 30 minutes by the
+# Workers' cron (GitHub's own schedule below is only a fallback). Free within GitHub's minutes.
 name: Cloud sync
 
 on:
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: cloud-sync
+  group: cloud-sync-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -19,8 +20,14 @@ jobs:
   reconcile:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # One after the other: both read the same Telegram account, which dislikes parallel logins.
+      max-parallel: 1
+      matrix:
+        environment: [production, staging]
     env:
-      CLOUD_SYNC_ENV: ${{ vars.CLOUD_SYNC_ENV || 'staging' }}
+      CLOUD_SYNC_ENV: ${{ matrix.environment }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
