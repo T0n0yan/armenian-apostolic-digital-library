@@ -134,14 +134,14 @@ export function ReminderAlarm() {
   const action = "min-h-10 cursor-pointer rounded-[12px] border px-3 text-[12.5px] font-bold";
   return (
     <aside
-      className="install-toast fixed right-[calc(var(--tg-inset-right,0px)+12px)] bottom-[calc(var(--tg-inset-bottom,0px)+14px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-[22px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
+      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-[22px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
       data-phase={phase}
       role="alertdialog"
       aria-live="assertive"
       aria-label="Հիշեցում"
     >
       <div className="grid grid-cols-[48px_1fr_auto] items-center gap-3">
-        <span className={`relative grid size-12 place-items-center rounded-full border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/12%)] text-gold-bright ${counting ? "" : "reminder-ring"}`} aria-hidden="true">
+        <span className={`relative grid size-12 place-items-center rounded-full border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/12%)] text-gold-bright`} aria-hidden="true">
           <CategoryIcon categoryId="" categoryName={current.categoryName} size={24} />
           {counting ? <span className="absolute -right-1 -bottom-1 grid size-6 place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[12px] font-bold text-[#2a1708] tabular-nums">{secondsLeft}</span> : null}
         </span>

@@ -170,6 +170,7 @@ async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow,
       category: row.category_name,
     }, keys);
     if (outcome === "sent") delivered = true;
+    console.log(JSON.stringify({ event: "reminder_push", outcome, service: new URL(subscription.endpoint).hostname }));
     if (outcome === "gone") await database.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(subscription.endpoint).run();
   }
   return { delivered, browsers: results.length };

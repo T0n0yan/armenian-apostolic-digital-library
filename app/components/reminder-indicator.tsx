@@ -19,10 +19,10 @@ function formatWhen(iso: string) {
 }
 
 /**
- * A bell floating above the menu button while the reader has reminders; tapping it lists them.
+ * A bell sitting right above the menu button (inside the menu's corner) while the reader has reminders; tapping it lists them.
  * When a reminder rings it swings left and right and settles.
  */
-export function ReminderIndicator() {
+export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
   const reminders = useActiveReminders();
   const [open, setOpen] = useState(false);
   const [swinging, setSwinging] = useState(false);
@@ -54,7 +54,7 @@ export function ReminderIndicator() {
 
   if (reminders.length === 0) return null;
   return (
-    <div className="fixed right-[calc(var(--tg-inset-right,0px)+20px)] bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-50 min-[960px]:right-[calc(var(--tg-inset-right,0px)+max(32px,calc((100vw-1180px)/2+32px)))]" ref={rootRef}>
+    <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "pointer-events-none opacity-0" : "opacity-100"}`} ref={rootRef}>
       <button
         className={`relative grid size-[46px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] text-gold-bright shadow-[var(--fab-shadow)] backdrop-blur-xl ${swinging ? "bell-swing" : ""}`}
         type="button"
