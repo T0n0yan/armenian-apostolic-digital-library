@@ -143,7 +143,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
           // Psalms follow their recording verse by verse.
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
-            <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
+            <PsalmReadAlong key={material.id} text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>

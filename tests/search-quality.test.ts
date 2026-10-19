@@ -67,3 +67,13 @@ test("the sun theme is light by day and dark by night in Yerevan", async () => {
   assert.equal(themeBySun(new Date("2026-06-21T08:00:00Z"), null), "light");
   assert.equal(themeBySun(new Date("2026-06-21T19:00:00Z"), null), "dark");
 });
+
+test("psalm verses split on invisible characters and on two verses sharing a line", async () => {
+  const { splitVerses, verseNumber } = await import("../app/utils/psalm-verses");
+  const psalm5 = "(Սաղմոս 5)\n​\n2 Ակա՛նջ դիր\n4 Աղաչում եմ\n​5 Դու անօրէնութիւն\n​11 Գերեզմանի\n​12 Թող ուրախանան";
+  assert.deepEqual(splitVerses(psalm5).map(verseNumber).filter((n) => n !== null), [2, 4, 5, 11, 12]);
+  const psalm28 = "7 Տիրոջ ձայնը ճեղքում է կրակի բոցը: 8 Տիրոջ ձայնը ցնցում է անապատը\n9 Տիրոջ ձայնը";
+  assert.deepEqual(splitVerses(psalm28).map(verseNumber), [7, 8, 9]);
+  // A number that isn't the next verse stays inside the line.
+  assert.equal(splitVerses("3 Հազար 5 անգամ։ 7 ոչ").length, 1);
+});

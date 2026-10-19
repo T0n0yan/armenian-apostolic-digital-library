@@ -1,4 +1,5 @@
 import { Check, PencilLine, RotateCcw, SkipForward, X } from "lucide-react";
+import { splitVerses, verseNumber } from "../utils/psalm-verses";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
@@ -23,7 +24,7 @@ function currentAudio() {
 export function PsalmReadAlong({ text, superscription, materialId, timings: savedTimings, canMark = false }: {
   text: string; superscription: boolean; materialId: string; timings?: Timings | null; canMark?: boolean;
 }) {
-  const lines = useMemo(() => text.split("\n").map((line) => line.trim()).filter(Boolean), [text]);
+  const lines = useMemo(() => splitVerses(text), [text]);
   // Only numbered verses are marked and followed ("1 Երանելի է…"); the title, the psalm number and
   // the superscription are not. Numbering may start at 2; an unnumbered line after a verse belongs to it.
   const { verseOf, verseCount, verseNumbers } = useMemo(() => {
@@ -31,7 +32,7 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
     const numbers: number[] = [];
     let current = -1;
     for (const line of lines) {
-      const number = /^(\d{1,3})(?=[\s.)։])/u.exec(line)?.[1];
+      const number = verseNumber(line);
       if (number) { current += 1; numbers.push(Number(number)); }
       map.push(current);
     }
