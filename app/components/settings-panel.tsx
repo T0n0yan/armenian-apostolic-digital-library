@@ -86,7 +86,7 @@ export function SettingsPanel() {
     const place = readSunPlace() ?? { latitude: 40.18, longitude: 44.51 };
     const times = sunTimes(new Date(), place.latitude, place.longitude);
     const time = (date: Date) => date.toLocaleTimeString("hy-AM", { hour: "2-digit", minute: "2-digit" });
-    setSunText(times ? `Այսօր՝ արևածագ ${time(times.sunrise)}, մայրամուտ ${time(times.sunset)}${readSunPlace() ? "" : " (Երևանի համար)"}` : null);
+    setSunText(times ? `Բաց՝ ${time(times.sunrise)}-ից, մուգ՝ ${time(times.sunset)}-ից${readSunPlace() ? "" : " (Երևանի ժամով)"}` : null);
   }, [theme, locating]);
 
   const chooseTheme = (next: ThemePreference) => { setTheme(next); writeStorage(THEME_STORAGE_KEY, next); applyThemePreference(next); };
@@ -102,10 +102,10 @@ export function SettingsPanel() {
 
   return (
       <div className="grid gap-3">
-        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Թեմա" hint={sunText ?? "«Արևով»՝ արևածագից մինչև մայրամուտ բաց, գիշերը՝ մուգ։"}>
+        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Թեմա" hint={theme === "sun" ? sunText ?? "Ցերեկը բաց, երեկոյից մուգ" : theme === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}>
           <Choice columns={4} value={theme} onChange={chooseTheme} options={[
-            { value: "system", label: "Ավտոմատ", icon: <Monitor aria-hidden="true" size={17} /> },
-            { value: "sun", label: "Արևով", icon: <SunMoon aria-hidden="true" size={17} /> },
+            { value: "system", label: "Սարքի պես", icon: <Monitor aria-hidden="true" size={17} /> },
+            { value: "sun", label: "Ըստ ժամի", icon: <SunMoon aria-hidden="true" size={17} /> },
             { value: "light", label: "Բաց", icon: <Sun aria-hidden="true" size={17} /> },
             { value: "dark", label: "Մուգ", icon: <Moon aria-hidden="true" size={17} /> },
           ]} />
@@ -138,6 +138,8 @@ export function SettingsPanel() {
             { value: "medium", label: "Միջին", sample: <span className="font-noto text-[19px] leading-none">Ա</span> },
             { value: "large", label: "Մեծ", sample: <span className="font-noto text-[23px] leading-none">Ա</span> },
           ]} />
+          {/* Shows right here how page titles will look. */}
+          <p className="m-0 rounded-[12px] bg-subtle px-3.5 py-3 text-center font-noto font-medium leading-tight text-ink transition-[font-size] duration-200" style={{ fontSize: `${(titleSize === "small" ? 0.85 : titleSize === "large" ? 1.18 : 1) * 26}px` }}>Սաղմոս Դաւթի</p>
         </Setting>
 
         <Setting icon={<Sparkles aria-hidden="true" size={18} />} title="Այլ">

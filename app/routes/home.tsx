@@ -13,7 +13,8 @@ import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
 import LastSupperImg from '../assets/last-supper.webp'
-import {ArtImage} from "../components/art-image";
+import {ArtImage, preloadArt} from "../components/art-image";
+import {getCategoryImage} from "../components/section-header";
 import AngelLeft from "../assets/angel-left.webp"
 import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
@@ -37,6 +38,9 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
             to={targetPath}
             prefetch="intent"
             aria-busy={isOpening || undefined}
+            // Start the section's picture as soon as a finger or pointer reaches the card.
+            onPointerEnter={() => void preloadArt(getCategoryImage(category.id, category.name))}
+            onTouchStart={() => void preloadArt(getCategoryImage(category.id, category.name))}
             onClick={(event) => { if (isOpening) event.preventDefault(); }}>
             <span
                 className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"

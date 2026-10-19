@@ -9,6 +9,7 @@ import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
 import { quizResults, type QuizResult } from "../data/poll-votes.server";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
+import { preloadArt } from "../components/art-image";
 import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { MaterialListSkeleton } from "../components/material-skeleton";
 import {
@@ -134,8 +135,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 type CategoryLoaderData = Awaited<ReturnType<typeof loader>>;
 
+let hydrated = false;
+
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
-  return loadNavigationData("topic-feed", request.url, async () => await serverLoader() as CategoryLoaderData);
+  const data = await loadNavigationData("topic-feed", request.url, async () => await serverLoader() as CategoryLoaderData);
+  // On navigation, wait (briefly) for the section's picture so the page shows all at once.
+  if (hydrated) await preloadArt(getCategoryImage(data.category.id, data.category.name));
+  hydrated = true;
+  return data;
 }
 clientLoader.hydrate = true as const;
 
