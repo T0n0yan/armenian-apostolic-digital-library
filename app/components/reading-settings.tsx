@@ -1,4 +1,5 @@
-import { Minus, Monitor, Moon, Plus, Sun } from "lucide-react";
+import { Minus, Monitor, Moon, Plus, Settings2, Sun } from "lucide-react";
+import { Link } from "react-router";
 import { memo, useEffect, useState, type ReactNode } from "react";
 
 import {
@@ -102,6 +103,9 @@ export const ReadingSettings = memo(function ReadingSettings() {
         onChange={(next) => { setTheme(next); writeStorage(THEME_STORAGE_KEY, next); applyThemePreference(next); }}
       />
       <TextSizeStepper value={textSize} onChange={(next) => { setTextSize(next); writeStorage(TEXT_SIZE_STORAGE_KEY, String(next)); applyTextSize(next); }} />
+      <Link className="flex min-h-11 items-center justify-center gap-2 rounded-[13px] border border-glass-border bg-subtle text-[12.5px] font-semibold text-gold-bright no-underline" to="/settings">
+        <Settings2 aria-hidden="true" size={16} /> Բոլոր կարգավորումները
+      </Link>
     </div>
   );
 });

@@ -57,6 +57,8 @@ export function CandleLoader() {
     const later = (callback: () => void, ms: number) => { timers.push(window.setTimeout(() => active && callback(), ms)); };
     let seen = false;
     try { seen = sessionStorage.getItem(SESSION_KEY) === "1"; } catch { /* Storage may be blocked. */ }
+    // Readers who turned animations off skip the intro too.
+    if (document.documentElement.dataset.motion === "reduced") seen = true;
     if (seen) {
       // Later visits skip the intro; the light-flood exit is only for the first one.
       setPhase("removed");

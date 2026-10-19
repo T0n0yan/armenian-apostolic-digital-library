@@ -2,6 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { DAILY_VERSES, type DailyVerse } from "../data/daily-verses";
+import { readPreference } from "../utils/preferences";
 
 /** The reader's calendar day as a number (local midnight), so the verse turns over at midnight. */
 function dayNumber(date = new Date()) {
@@ -25,13 +26,19 @@ export function verseForDay(day: number): DailyVerse {
 export function DailyVerseCard() {
   // Server render picks by UTC; the reader's own day replaces it after hydration.
   const [verse, setVerse] = useState(() => verseForDay(Math.floor(Date.now() / 86_400_000)));
-  useEffect(() => setVerse(verseForDay(dayNumber())), []);
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    setVerse(verseForDay(dayNumber()));
+    setHidden(readPreference("dailyVerse") === "off");
+  }, []);
+  if (hidden) return null;
   return (
     <section className="frosted-panel relative mx-auto grid w-full max-w-[640px] justify-items-center gap-3 overflow-hidden px-6 pt-6 pb-5 text-center" aria-label="Աստվածաշունչն ասում է">
       <span className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(ellipse_at_top,rgb(240_211_151/22%),transparent_70%)]" aria-hidden="true" />
       <span className="relative text-[11px] font-bold tracking-[2.4px] text-gold uppercase">Աստվածաշունչն ասում է…</span>
       <blockquote className="relative m-0 font-book text-[19px] leading-[1.6] text-ink [text-wrap:balance] min-[560px]:text-[21px]">
-        «{verse.text.replace(/^«|»$/gu, "")}»
+        {/* Verses that already quote a speaker keep their own quotation marks. */}
+        {verse.text.includes("«") ? verse.text : `«${verse.text}»`}
       </blockquote>
       <a className="relative inline-flex items-center gap-1.5 text-[13px] font-semibold text-gold-bright no-underline hover:underline" href={verse.url} target="_blank" rel="noreferrer">
         {verse.reference} <ExternalLink aria-hidden="true" size={13} />

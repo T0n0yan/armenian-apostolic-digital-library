@@ -7,6 +7,7 @@ export default [
   route("api/search-suggestions", "routes/search-suggestions.ts"),
   route("saved", "routes/saved.tsx"),
   route("privacy", "routes/privacy.tsx"),
+  route("settings", "routes/settings.tsx"),
   route("telegram/session", "routes/telegram-session.ts"),
   route("auth/google", "routes/auth-google.ts"),
   route("auth/google/callback", "routes/auth-google-callback.ts"),

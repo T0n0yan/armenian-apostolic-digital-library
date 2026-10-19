@@ -1,13 +1,13 @@
 import { type ComponentProps, memo } from "react";
 
-import { CalendarIcon, CrossIcon, DoveIcon, GospelIcon, PrayerIcon, PsalmIcon, QuestionIcon } from "./topic-icons";
+import { CalendarIcon, CrossIcon, GospelIcon, PrayerIcon, PsalmIcon, QuestionIcon, SaintIcon } from "./topic-icons";
 
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
 type IconProps = ComponentProps<typeof CrossIcon>;
 
 const categoryIcons: Record<string, (props: IconProps) => React.ReactElement> = {
-  category_saints_lives: DoveIcon,
+  category_saints_lives: SaintIcon,
   category_gospel_teachings: GospelIcon,
   category_psalms: PsalmIcon,
   category_daily_readings: CalendarIcon,

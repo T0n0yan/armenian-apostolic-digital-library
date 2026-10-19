@@ -103,7 +103,8 @@ export function ReminderAlarm() {
       if (left === 0) {
         window.clearInterval(interval);
         const audio = bell.current;
-        if (audio) { audio.currentTime = 0; void audio.play().catch(() => undefined); }
+        const soundOn = (() => { try { return localStorage.getItem("library-alarm-sound") !== "off"; } catch { return true; } })();
+        if (audio && soundOn) { audio.currentTime = 0; void audio.play().catch(() => undefined); }
         navigator.vibrate?.([120, 80, 120]);
         window.dispatchEvent(new Event(REMINDER_RINGING_EVENT));
         // Bring the psalm or video back once the bell has faded.

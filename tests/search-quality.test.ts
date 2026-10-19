@@ -56,3 +56,14 @@ test("Armenian queries are not transliterated and short ones never match inside 
   assert.equal(matchSearchableTelegramDocument(flowers, parseTelegramSearchQuery("sax")), null);
   assert.ok(matchSearchableTelegramDocument(psalm(1), parseTelegramSearchQuery("Սաղ")));
 });
+
+test("the sun theme is light by day and dark by night in Yerevan", async () => {
+  const { sunTimes, themeBySun } = await import("../shared/theme");
+  const times = sunTimes(new Date("2026-06-21T12:00:00Z"), 40.18, 44.51);
+  assert.ok(times);
+  // Midsummer in Yerevan: sunrise about 05:30 and sunset about 20:40 local time (UTC+4).
+  assert.ok(Math.abs(times.sunrise.getUTCHours() * 60 + times.sunrise.getUTCMinutes() - 90) < 20, times.sunrise.toISOString());
+  assert.ok(Math.abs(times.sunset.getUTCHours() * 60 + times.sunset.getUTCMinutes() - 1000) < 20, times.sunset.toISOString());
+  assert.equal(themeBySun(new Date("2026-06-21T08:00:00Z"), null), "light");
+  assert.equal(themeBySun(new Date("2026-06-21T19:00:00Z"), null), "dark");
+});

@@ -44,12 +44,17 @@ const initialThemeScript = `(() => {
     let textSize = 16;
     try {
       const value = localStorage.getItem("library-theme-v1");
-      if (value === "light" || value === "dark") preference = value;
+      if (value === "light" || value === "dark" || value === "sun") preference = value;
+      // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["small", "large"]], leading: ["library-leading", ["wide"]], motion: ["library-motion", ["reduced"]] };
+      for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
       const size = localStorage.getItem("library-text-size-v1");
       const legacy = size === "large" ? 18 : size === "xlarge" ? 20 : Number(size);
       if (size && legacy >= 12 && legacy <= 20) textSize = Math.round(legacy);
     } catch {}
-    const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference;
+    // "sun" is refined with the real sunrise/sunset after load; until then day is 7:00–19:00.
+    const hour = new Date().getHours();
+    const theme = preference === "system" ? (telegramTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) : preference === "sun" ? (hour >= 7 && hour < 19 ? "light" : "dark") : preference;
     root.dataset.themePreference = preference;
     root.dataset.theme = theme;
     root.style.setProperty("--reading-size", textSize + "px");
@@ -229,6 +234,14 @@ export default function App({ loaderData }: Route.ComponentProps) {
   useLayoutEffect(() => {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
+
+  // The "sun" theme turns at the real sunrise and sunset; check again every few minutes.
+  useEffect(() => {
+    const refresh = () => { if (readStoredThemePreference() === "sun") applyThemePreference("sun"); };
+    refresh();
+    const timer = window.setInterval(refresh, 5 * 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (sessionAttempted.current) return;

@@ -311,25 +311,25 @@
 /* Gold monochrome mark from an SVG file, in both themes. */
 .gold-mark { background: var(--gold); -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat; }
 
-/* Topic icons (topic-icons.tsx): each motion says what the topic is; the duotone fill breathes.
-   --ti-delay staggers the cards so the icons don't move in lockstep. */
-.ti { transform-box: fill-box; transform-origin: 50% 50%; overflow: visible; animation-duration: 4.8s; animation-iteration-count: infinite; animation-delay: var(--ti-delay, 0s); animation-timing-function: cubic-bezier(.45,.05,.35,1); }
-.ti-tone { animation: ti-tone 4.8s ease-in-out infinite; animation-delay: var(--ti-delay, 0s); }
-@keyframes ti-tone { 0%, 100% { opacity: .2; } 50% { opacity: .5; } }
-.ti-books { animation-name: ti-books; transform-origin: 50% 100%; }
-@keyframes ti-books { 0%, 62%, 100% { transform: none; } 70% { transform: translateY(-9%) scaleY(1.04); } 78% { transform: translateY(0) scale(1.06, .92); } 85% { transform: translateY(-3%); } 91% { transform: none; } }
+/* Topic icons (topic-icons.tsx): each draws itself in, then keeps a slow motion that says what
+   the topic is. --ti-delay staggers the cards so they don't move in lockstep. */
+.ti { overflow: visible; transform-box: fill-box; transform-origin: 50% 50%; animation: 4.8s cubic-bezier(.45,.05,.35,1) var(--ti-delay, 0s) infinite; }
+.ti .ti-stroke { stroke-dasharray: 1; stroke-dashoffset: 0; animation: ti-draw 1.4s cubic-bezier(.6,.1,.3,1) calc(var(--ti-delay, 0s) * .4) both; }
+@keyframes ti-draw { from { stroke-dashoffset: 1; opacity: .2; } to { stroke-dashoffset: 0; opacity: 1; } }
+.ti-gospel { animation-name: ti-gospel; transform-origin: 50% 90%; }
+@keyframes ti-gospel { 0%, 70%, 100% { transform: none; } 78% { transform: scaleX(.94) translateY(-4%); } 86% { transform: scaleX(1.03); } 92% { transform: none; } }
 .ti-pray { animation-name: ti-pray; transform-origin: 50% 90%; }
-@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: translateY(-4%) scale(1.04); filter: drop-shadow(0 0 3px rgb(240 211 151 / 70%)); } }
-.ti-notes { animation-name: ti-notes; animation-duration: 2.4s; transform-origin: 50% 85%; }
-@keyframes ti-notes { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg) translateY(-3%); } 50% { transform: rotate(0); } 75% { transform: rotate(7deg) translateY(-3%); } }
-.ti-dove { animation-name: ti-dove; animation-duration: 3.6s; }
-@keyframes ti-dove { 0%, 100% { transform: translate(0, 0) rotate(0); } 30% { transform: translate(4%, -9%) rotate(-6deg); } 55% { transform: translate(6%, -4%) rotate(3deg); } 80% { transform: translate(1%, -2%) rotate(-1deg); } }
-.ti-calendar { animation-name: ti-calendar; transform-origin: 50% 0%; }
+@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: translateY(-5%) scale(1.04); filter: drop-shadow(0 0 3px rgb(240 211 151 / 75%)); } }
+.ti-harp { animation-name: ti-harp; animation-duration: 3.2s; transform-origin: 30% 95%; }
+@keyframes ti-harp { 0%, 55%, 100% { transform: none; } 62% { transform: rotate(-4deg); } 70% { transform: rotate(3deg); } 78% { transform: rotate(-1.5deg); } 86% { transform: none; } }
+.ti-halo { animation-name: ti-halo; animation-duration: 3.6s; }
+@keyframes ti-halo { 0%, 100% { transform: translateY(0); filter: none; } 50% { transform: translateY(-6%); filter: drop-shadow(0 -2px 3px rgb(240 211 151 / 80%)); } }
+.ti-calendar { animation-name: ti-calendar; transform-origin: 50% 15%; }
 @keyframes ti-calendar { 0%, 70%, 100% { transform: none; } 78% { transform: perspective(60px) rotateX(-28deg); } 86% { transform: perspective(60px) rotateX(10deg); } 92% { transform: none; } }
-.ti-question { animation-name: ti-question; animation-duration: 3.4s; transform-origin: 50% 80%; }
-@keyframes ti-question { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 55% { transform: rotate(9deg); } 75% { transform: rotate(-3deg); } }
+.ti-question { animation-name: ti-question; animation-duration: 3.4s; transform-origin: 30% 90%; }
+@keyframes ti-question { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-3deg); } }
 .ti-cross { animation-name: ti-pray; }
-@media (prefers-reduced-motion: reduce) { .ti, .ti-tone { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ti, .ti .ti-stroke { animation: none; } }
 
 /* Loader candle. */
 @keyframes candle-flicker { 0%, 100% { transform: scale(1, 1) rotate(-1deg); opacity: 1; } 25% { transform: scale(.96, 1.06) rotate(1.5deg); } 50% { transform: scale(1.03, .95) rotate(-1.5deg); opacity: .92; } 75% { transform: scale(.98, 1.04) rotate(1deg); } }
@@ -459,3 +459,14 @@ html[data-tg-fullscreen="true"] body::before {
 .bell-swing { animation: bell-swing 1.6s cubic-bezier(.36,.07,.19,.97); transform-origin: 50% 12%; }
 @keyframes bell-swing { 0%, 100% { rotate: 0deg; } 12% { rotate: -20deg; } 28% { rotate: 17deg; } 44% { rotate: -11deg; } 60% { rotate: 7deg; } 76% { rotate: -3deg; } 90% { rotate: 1deg; } }
 @media (prefers-reduced-motion: reduce) { .bell-swing { animation: none; } }
+
+/* Reader preferences from the settings page (app/utils/preferences.ts). */
+html[data-reading-font="book"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
+html[data-reading-font="serif"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-noto) !important; font-style: normal; }
+html[data-reading-font="sans"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-sans) !important; font-style: normal; }
+html[data-title-size="small"] main h1 { zoom: .85; }
+html[data-title-size="large"] main h1 { zoom: 1.18; }
+html[data-leading="wide"] article :is(p, li, #telegram-formatted-text) { line-height: 2.15 !important; }
+html[data-motion="reduced"] *, html[data-motion="reduced"] ::before, html[data-motion="reduced"] ::after {
+  animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
+}
