@@ -1,5 +1,5 @@
 import { BarChart3, ExternalLink, MapPin, TriangleAlert } from "lucide-react";
-import { createContext, Fragment, useContext, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
 
 import type {
   BridgeFormattedText,
@@ -223,33 +223,84 @@ export function FormattedTelegramText({ value, hit, from = 0, to, ornateInitial 
   );
 }
 
-export function TelegramPollCard({ poll, telegramUrl, title }: { poll: BridgePoll; telegramUrl: string; title?: string }) {
+type PollVotes = { counts: number[]; mine: number | null };
+
+/**
+ * A Telegram poll or quiz the reader can answer in the library. Before answering, the options are
+ * buttons; afterwards the results show (Telegram's votes plus the library's), and a quiz marks the
+ * right answer and, if the reader missed it, their choice, with the explanation when there is one.
+ */
+export function TelegramPollCard({ poll, telegramUrl, title, materialId, votes, canVote = false }: {
+  poll: BridgePoll; telegramUrl: string; title?: string; materialId?: string; votes?: PollVotes | null; canVote?: boolean;
+}) {
+  const [current, setCurrent] = useState<PollVotes | null>(votes ?? null);
+  const [sending, setSending] = useState<number | null>(null);
+  const mine = current?.mine ?? null;
+  // Guests see the results; readers who can vote see the options until they answer.
+  const answered = mine !== null || poll.closed || !canVote;
+  const revealed = mine !== null || poll.closed;
+  const canAnswer = canVote && Boolean(materialId) && !answered;
+  const counts = poll.options.map((option, index) => option.voterCount + (current?.counts[index] ?? 0));
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  const knowsAnswer = poll.quiz && poll.options.some((option) => option.correct);
   // The page title is usually the question itself; don't print it twice.
   const repeatsTitle = Boolean(title) && poll.question.text.trim() === title?.trim();
+
+  const vote = async (index: number) => {
+    if (!canAnswer || sending !== null) return;
+    setSending(index);
+    setCurrent((value) => ({ counts: (value?.counts ?? poll.options.map(() => 0)).map((count, i) => i === index ? count + 1 : count), mine: index }));
+    const response = await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index }) }).catch(() => null);
+    const data = response?.ok ? await response.json().catch(() => null) as { votes?: PollVotes } | null : null;
+    if (data?.votes) setCurrent(data.votes);
+    setSending(null);
+  };
+
   return (
-    <section className="grid gap-4 frosted-panel p-5 shadow-card" aria-label="Telegram հարցում">
+    <section className="grid gap-4 frosted-panel p-5 shadow-card" aria-label={poll.quiz ? "Վիկտորինա" : "Հարցում"}>
       <header className="flex items-start gap-3">
         <BarChart3 className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={21} />
         <div className="grid gap-1">
           {repeatsTitle ? <h2 className="m-0 text-[13px] font-semibold tracking-[0.3px] text-gold-bright">{poll.quiz ? "Վիկտորինա" : "Հարցում"}</h2> : <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>}
-          <p className="m-0 text-[11px] text-faint">{poll.totalVoters} քվե · {poll.anonymous ? "անանուն" : "հրապարակային"}{poll.closed ? " · փակված" : ""}</p>
+          <p className="m-0 text-[11px] text-faint">
+            {total} քվե · {poll.anonymous ? "անանուն" : "հրապարակային"}{poll.closed ? " · փակված" : ""}
+            {canAnswer ? " · ընտրեք պատասխանը" : ""}
+          </p>
         </div>
       </header>
-      <ol className="m-0 grid list-none gap-3 p-0">
+      <ol className="m-0 grid list-none gap-2.5 p-0">
         {poll.options.map((option, index) => {
-          const percent = poll.totalVoters > 0 ? Math.round(option.voterCount / poll.totalVoters * 100) : 0;
-          return (
-            <li className="grid gap-1.5 rounded-[12px] border border-glass-border bg-subtle p-2.5" key={`${index}-${option.text.text}`}>
-              <div className="flex items-start justify-between gap-3 text-[13px] text-ink">
-                <span className="flex items-start gap-1.5"><FormattedTelegramText value={option.text} /></span>
-                <span className="shrink-0 tabular-nums text-muted">{option.voterCount} · {percent}%</span>
+          const percent = total > 0 ? Math.round(counts[index] / total * 100) : 0;
+          const chosen = mine === index;
+          const right = revealed && knowsAnswer && option.correct;
+          const wrong = revealed && knowsAnswer && chosen && !option.correct;
+          const tone = right ? "border-[rgb(74_160_96/55%)] bg-[rgb(74_160_96/12%)]" : wrong ? "border-[rgb(200_80_60/55%)] bg-[rgb(200_80_60/10%)]" : chosen ? "border-[rgb(217_181_111/55%)] bg-[rgb(217_181_111/12%)]" : "border-glass-border bg-subtle";
+          const content = (
+            <>
+              <div className="flex items-start justify-between gap-3 text-[13.5px] text-ink">
+                <span className="flex items-start gap-1.5">
+                  {right ? <span className="font-bold text-[rgb(74_160_96)]" aria-label="Ճիշտ պատասխան">✓</span> : wrong ? <span className="font-bold text-[rgb(200_80_60)]" aria-label="Սխալ պատասխան">✗</span> : null}
+                  <FormattedTelegramText value={option.text} />
+                </span>
+                {answered ? <span className="shrink-0 tabular-nums text-muted">{counts[index]} · {percent}%</span> : null}
               </div>
-              <span className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><span className="block h-full rounded-full bg-gold/65" style={{ width: `${percent}%` }} /></span>
+              {answered ? <span className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><span className={`block h-full rounded-full transition-[width] duration-700 ease-out ${right ? "bg-[rgb(74_160_96/75%)]" : wrong ? "bg-[rgb(200_80_60/70%)]" : "bg-gold/65"}`} style={{ width: `${percent}%` }} /></span> : null}
+            </>
+          );
+          return (
+            <li key={`${index}-${option.text.text}`}>
+              {canAnswer ? (
+                <button className={`grid w-full cursor-pointer gap-1.5 rounded-[12px] border p-3 text-left transition-[background,transform] duration-150 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending !== null} onClick={() => vote(index)}>{content}</button>
+              ) : (
+                <div className={`grid gap-1.5 rounded-[12px] border p-3 ${tone}`}>{content}</div>
+              )}
             </li>
           );
         })}
       </ol>
-      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> {poll.closed ? "Բացել Telegram-ում" : "Քվեարկել Telegram-ում"}</a>
+      {revealed && poll.quiz && poll.solution ? <p className="m-0 rounded-[12px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-[1.6] text-ink"><strong className="text-gold-bright">Բացատրություն՝ </strong>{poll.solution}</p> : null}
+      {!canVote && !poll.closed ? <p className="m-0 text-[12px] text-muted">Քվեարկելու համար մուտք գործեք «Իմ անկյունը» բաժնից կամ Telegram-ից։</p> : null}
+      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել Telegram-ում</a>
     </section>
   );
 }

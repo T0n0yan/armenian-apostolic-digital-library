@@ -273,7 +273,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     if (noteTransitionRef.current) clearTimeout(noteTransitionRef.current);
     setNoteDraft(material.personalNote ?? "");
     setIsNoteMounted(true);
-    requestAnimationFrame(() => setIsNoteExpanded(true));
+    // Two frames: the collapsed state must paint once, or the browser skips the transition.
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsNoteExpanded(true)));
   }, [material.personalNote]);
 
   const closeNoteComposer = useCallback(() => {
@@ -282,7 +283,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     noteTransitionRef.current = setTimeout(() => {
       setIsNoteMounted(false);
       noteTransitionRef.current = null;
-    }, 220);
+    }, 420);
   }, []);
 
   const handleBookmark = useCallback(() => {
@@ -416,11 +417,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {isOpening ? <span className="inline-flex items-center gap-2 text-[11px] font-bold text-gold-bright" role="status"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={14} /> Բացվում է…</span> : null}
         </span>
         </Link>
-      {!isNoteMounted ? (
-        <span className="absolute right-[11px] bottom-[11px] z-3 flex gap-1.5">
+      {/* The buttons fade out (not vanish) while the note opens, so the card doesn't jump. */}
+        <span className={`absolute right-[11px] bottom-[11px] z-3 flex gap-1.5 transition-opacity duration-300 ${isNoteMounted ? "pointer-events-none opacity-0" : "opacity-100"}`} aria-hidden={isNoteMounted || undefined}>
           {canSave ? (
             <button
-              className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass disabled:cursor-wait disabled:opacity-60 ${isSaved ? "border-[rgb(217_181_111/34%)] text-gold-bright" : "text-faint"}`}
+              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)] disabled:cursor-wait disabled:opacity-60`}
               type="button"
               disabled={isSaving}
               onClick={handleBookmark}
@@ -436,11 +437,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             </button>
           ) : null}
           {canSave ? (
-            <ReminderButton className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-faint`} materialId={material.id} title={material.title} />
+            <ReminderButton className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`} materialId={material.id} title={material.title} />
           ) : null}
           {allowNoteEditing && isSaved ? (
             <button
-              className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-faint`}
+              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
               type="button"
               onClick={openNoteComposer}
               aria-label="Խմբագրել անձնական նշումը"
@@ -450,7 +451,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             </button>
           ) : null}
           <a
-            className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-muted`}
+            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
             href={material.telegramUrl}
             target="_blank"
             rel="noreferrer"
@@ -461,7 +462,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
           </a>
           <ShareButton
-            className={`${iconButton} size-[34px] rounded-[11px] bg-nav-glass text-gold`}
+            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
             title={material.title}
             text={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
             url={material.telegramUrl}
@@ -469,15 +470,14 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
           />
         </span>
-      ) : null}
       </div>
       {isNoteMounted ? (
         <div
-          className={`grid transition-[grid-template-rows,opacity,margin] duration-[220ms] ease-out ${isNoteExpanded ? "mt-[10px] grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
+          className={`grid transition-[grid-template-rows,opacity,margin] duration-[420ms] ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:duration-0 ${isNoteExpanded ? "mt-[10px] grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"}`}
         >
           <div className="overflow-hidden">
         <form
-          className="grid gap-[8px] rounded-[15px] border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card"
+          className={`grid gap-[8px] rounded-[15px] transition-transform duration-[420ms] ease-[cubic-bezier(.2,.8,.2,1)] ${isNoteExpanded ? "translate-y-0 scale-100" : "-translate-y-2 scale-[.98]"} border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card`}
           onSubmit={handleNoteSubmit}
           role="dialog"
           aria-label={`${material.title} — անձնական հուշում`}

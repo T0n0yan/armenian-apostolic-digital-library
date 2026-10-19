@@ -1317,7 +1317,8 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.match(videoHtml, /thumbnail=1/u);
   const pollPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_109");
   const pollHtml = await pollPage.text();
-  assert.match(pollHtml, /Քվեարկել Telegram-ում/u);
+  // A guest sees the poll with a prompt to sign in to vote, and the link to Telegram.
+  assert.match(pollHtml, /Քվեարկելու համար մուտք գործեք/u);
   assert.doesNotMatch(pollHtml, /Ընտրված պատասխան|Ճիշտ պատասխան|explanation/u);
   const locationPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_108");
   assert.match(await locationPage.text(), /Բացել քարտեզում/u);

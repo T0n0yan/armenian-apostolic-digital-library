@@ -328,6 +328,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>
           )
         ) : (
+          <div className={resolveContentCategoryId(category.id, category.name) === "category_prayers" ? "prayer-cards" : undefined}>
           <MaterialsList
             canSave={loaderData.canSave}
             layout={loaderData.query ? "default" : categoryLayout(category)}
@@ -335,6 +336,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}
           />
+          </div>
         )}
         {!isRefreshing && materials.length > 0 ? (
           <InfiniteLoadControls

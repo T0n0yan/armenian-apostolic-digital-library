@@ -155,8 +155,8 @@ export function ReminderButton({ materialId, title, className, label = false, pr
   return (
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">
-        <Icon aria-hidden="true" size={17} strokeWidth={1.9} fill={reminder ? "currentColor" : "none"} />
-        {label ? (reminder ? "Հիշեցումը դրված է" : "Հիշեցնել") : null}
+        <Icon aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} fill={reminder ? "currentColor" : "none"} />
+        {label ? <span>{reminder ? "Դրված է" : "Հիշեցնել"}</span> : null}
       </button>
       {mounted && open ? createPortal(
         <div className="fixed inset-0 z-[60] grid items-end justify-items-center p-3 pb-[calc(var(--tg-inset-bottom,0px)+12px)]" role="dialog" aria-label="Հիշեցում">

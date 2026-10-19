@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDERS_CHANGED_EVENT, loadReminders, type ActiveReminder } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, loadReminders, type ActiveReminder } from "../utils/reminder-store";
 
 type Upcoming = ActiveReminder;
 type Ducked = { media: HTMLMediaElement; volume: number; paused: boolean };
@@ -105,6 +105,7 @@ export function ReminderAlarm() {
         const audio = bell.current;
         if (audio) { audio.currentTime = 0; void audio.play().catch(() => undefined); }
         navigator.vibrate?.([120, 80, 120]);
+        window.dispatchEvent(new Event(REMINDER_RINGING_EVENT));
         // Bring the psalm or video back once the bell has faded.
         restoreTimer = window.setTimeout(restore, 5_000);
       }

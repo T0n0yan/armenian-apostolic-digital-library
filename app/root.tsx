@@ -21,6 +21,7 @@ import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { ReminderAlarm } from "./components/reminder-alarm";
+import { ReminderIndicator } from "./components/reminder-indicator";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -280,6 +281,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <CandleLoader />
     <InstallPrompt />
     <ReminderAlarm />
+    <ReminderIndicator />
   </>;
 }
 

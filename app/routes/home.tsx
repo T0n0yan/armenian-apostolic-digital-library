@@ -7,7 +7,6 @@ import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
 import {PageHeader, PageShell} from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
-import {ReminderIndicator} from "../components/reminder-indicator";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
 import {isPendingNavigation} from "../../shared/navigation-state";
@@ -78,7 +77,6 @@ function ArmenianCross({size = 14}: { size?: number }) {
 
 function HomeTitle() {
     return (<header className="relative z-5 -mt-[6px] grid justify-items-center gap-3 px-2 pt-1 pb-2 text-center min-[560px]:gap-4">
-        <span className="absolute top-1 right-1 z-10"><ReminderIndicator/></span>
         <div className="hero-rise flex w-full max-w-[340px] items-center gap-3 text-gold" aria-hidden="true">
             <span className="h-px flex-1 bg-[linear-gradient(90deg,transparent,currentColor)] opacity-60"/>
             <span className="gold-mark size-[22px]" style={{"--mark": `url(${ArmenianEternity})`} as React.CSSProperties}/>

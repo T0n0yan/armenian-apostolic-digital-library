@@ -4,6 +4,8 @@ export type ActiveReminder = { materialId: string; at: string; repeat: string; t
 
 /** Tells the in-app alarm and the header bell to reload the reader's reminders. */
 export const REMINDERS_CHANGED_EVENT = "library:reminders-changed";
+/** Fired when the in-app alarm rings, so the floating bell swings. */
+export const REMINDER_RINGING_EVENT = "library:reminder-ringing";
 
 let reminders: ActiveReminder[] = [];
 let loading: Promise<ActiveReminder[]> | null = null;

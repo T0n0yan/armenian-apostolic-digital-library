@@ -289,6 +289,7 @@ function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
       return {
         text: mapFormattedText(answer.text.text, answer.text.entities),
         voterCount: result?.voters ?? 0,
+        ...(result?.correct ? { correct: true } : {}),
       };
     }),
     totalVoters: results.totalVoters ?? 0,
@@ -296,6 +297,7 @@ function pollDto(poll: PollShape, results: PollResultsShape): BridgePoll {
     anonymous: !poll.publicVoters,
     multipleChoice: Boolean(poll.multipleChoice),
     quiz: Boolean(poll.quiz),
+    ...(results.solution ? { solution: results.solution } : {}),
   };
 }
 

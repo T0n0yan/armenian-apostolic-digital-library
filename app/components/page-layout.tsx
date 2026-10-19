@@ -1,5 +1,4 @@
 import type {ReactNode} from "react";
-import {ReminderIndicator} from "./reminder-indicator";
 import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
@@ -55,7 +54,7 @@ export function PageShell({children, width = "content"}: PageShellProps) {
     const maxWidth = width === "library" ? "max-w-[1180px]" : width === "admin" ? "max-w-[1160px]" : "max-w-[940px]";
 
     return (<main
-        className={`relative mx-auto min-h-svh w-full ${maxWidth} pt-[calc(var(--tg-inset-top,0px)+12px)] pr-[calc(var(--tg-inset-right,0px)+14px)] pb-[calc(var(--tg-inset-bottom,0px)+88px)] pl-[calc(var(--tg-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-inset-bottom,0px)+100px)] min-[560px]:pl-[calc(var(--tg-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-inset-bottom,0px)+112px)] min-[960px]:pl-[calc(var(--tg-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-inset-top,0px)+26px)]`}
+        className={`relative mx-auto min-h-svh w-full ${maxWidth} pt-[calc(var(--tg-inset-top,0px)+12px)] pr-[calc(var(--tg-inset-right,0px)+14px)] pb-[calc(var(--tg-inset-bottom,0px)+150px)] pl-[calc(var(--tg-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-inset-bottom,0px)+100px)] min-[560px]:pl-[calc(var(--tg-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-inset-bottom,0px)+112px)] min-[960px]:pl-[calc(var(--tg-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-inset-top,0px)+26px)]`}
     >
         {children}
     </main>);
@@ -78,7 +77,7 @@ export function PageTitle({title, ornate = false}: { title: ReactNode; ornate?: 
 }
 
 export function HeaderSearchLink() {
-    return (<span className="ml-auto flex items-center gap-2"><ReminderIndicator/><Link
+    return (<span className="ml-auto flex items-center gap-2"><Link
         className="grid size-9 shrink-0 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
         to="/search"
         aria-label="Որոնում"
@@ -91,9 +90,9 @@ export function HeaderSearchLink() {
 /** Long titles (whole questions, feast names) get a calmer size instead of filling the screen. */
 function titleSize(title: ReactNode) {
     const length = typeof title === "string" ? Array.from(title).length : 0;
-    if (length > 90) return "text-[20px] leading-[28px] tracking-[-0.2px] min-[560px]:text-[24px] min-[560px]:leading-[32px]";
-    if (length > 50) return "text-[23px] leading-[31px] tracking-[-0.4px] min-[560px]:text-[28px] min-[560px]:leading-[36px]";
-    return "text-[26px] leading-9 tracking-[-1.2px] min-[560px]:text-[38px] min-[560px]:leading-[45px] min-[960px]:text-[50px] min-[960px]:leading-[57px]";
+    if (length > 90) return "text-[18px] leading-[26px] tracking-[-0.1px] min-[560px]:text-[21px] min-[560px]:leading-[29px]";
+    if (length > 50) return "text-[20px] leading-[28px] tracking-[-0.2px] min-[560px]:text-[24px] min-[560px]:leading-[32px]";
+    return "text-[22px] leading-[30px] tracking-[-0.4px] min-[560px]:text-[28px] min-[560px]:leading-[36px] min-[960px]:text-[34px] min-[960px]:leading-[42px]";
 }
 
 export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, ornate = false, showSearch = true, title}: PageHeaderProps) {

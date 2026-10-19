@@ -23,6 +23,8 @@ type ShareButtonProps = {
   /** Lets the Mini App share the material through Telegram's share sheet. */
   materialId?: string;
   className: string;
+  /** Shows a short "Կիսվել" label under the icon (material page toolbar). */
+  label?: boolean;
 };
 
 function telegramWebApp() {
@@ -98,7 +100,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
  * sheet). In a browser, opens the phone's share
  * sheet (Android Quick Share, iOS share sheet); without one, the link is copied.
  */
-export function ShareButton({ title, text, url, className, materialId }: ShareButtonProps) {
+export function ShareButton({ title, text, url, className, materialId, label = false }: ShareButtonProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, markCopied] = useCopied();
 
@@ -137,7 +139,8 @@ export function ShareButton({ title, text, url, className, materialId }: ShareBu
   return (
     <>
       <button className={className} type="button" onClick={share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Պատճենվեց" : "Կիսվել"}>
-        {copied ? <Check aria-hidden="true" size={17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={17} strokeWidth={1.9} />}
+        {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
+        {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
       </button>
       {sheetOpen ? (
         <Sheet title={title} onClose={close}>

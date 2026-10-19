@@ -14,6 +14,7 @@ export default [
   route("api/share-prepare", "routes/share-prepare.ts"),
   route("api/reminders", "routes/reminders.ts"),
   route("api/push", "routes/push.ts"),
+  route("api/poll-vote", "routes/poll-vote.ts"),
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),

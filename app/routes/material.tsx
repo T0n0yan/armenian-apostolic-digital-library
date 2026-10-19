@@ -17,13 +17,15 @@ import {
 import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
+import { PsalmReadAlong } from "../components/psalm-read-along";
+import { getPollVotes } from "../data/poll-votes.server";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
 import { findPsalmNeighbors } from "../data/psalm-neighbors.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { isBridgeSearchHit, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
+import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   if (!/^material_[a-zA-Z0-9_-]{1,220}$/.test(params.materialId)) {
@@ -39,7 +41,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
     isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
   ]);
-  return { material, canSave: Boolean(user), savedIds, psalm };
+  const reference = material.poll ? parseMaterialId(material.id) : null;
+  const pollVotes = reference && material.poll
+    ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
+    : null;
+  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -48,6 +54,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
     { name: "robots", content: "noindex, nofollow" },
   ];
 }
+
+const actionTile = "flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/12%)] px-1 text-[11.5px] font-bold text-gold-bright no-underline shadow-card transition-[transform,background] duration-150 hover:bg-[rgb(217_181_111/20%)] active:scale-[.96] disabled:opacity-60";
 
 export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { material } = loaderData;
@@ -109,7 +117,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
-        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} /> : null}
+        {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} materialId={material.id} votes={loaderData.pollVotes} canVote={loaderData.canSave} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
         {material.contentType === "unsupported" ? <TelegramUnsupportedCard type={material.unsupportedType} telegramUrl={material.telegramUrl} /> : null}
 
@@ -123,7 +131,12 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {!material.richContent && material.formattedText.text.length > textTitleLength ? (
+        {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
+          // Psalms follow their recording verse by verse.
+          <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+            <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} />
+          </div>
+        ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
             {superscriptionEnd > 0 ? (
               <p className="psalm-superscription m-0 mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center">
@@ -136,32 +149,29 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
-        <div className="flex flex-wrap gap-2.5">
+        {/* One row of equal tiles: an icon with a short name under it. */}
+        <div className={`grid gap-2 ${loaderData.canSave ? "grid-cols-4" : "grid-cols-2"}`}>
           {loaderData.canSave ? (
-            <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright" type="button" disabled={isSaving} onClick={toggleSaved}>
-              <Bookmark aria-hidden="true" size={17} fill={isSaved ? "currentColor" : "none"} />
-              {isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
+            <button className={actionTile} type="button" disabled={isSaving} onClick={toggleSaved} aria-pressed={isSaved} aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}>
+              <Bookmark aria-hidden="true" size={20} strokeWidth={1.9} fill={isSaved ? "currentColor" : "none"} />
+              <span>{isSaved ? "Պահված է" : "Պահել"}</span>
             </button>
           ) : null}
           {loaderData.canSave ? (
-            <ReminderButton
-              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[13px] border border-[rgb(217_181_111/25%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
-              materialId={material.id}
-              title={material.title}
-              label
-              prefetch
-            />
+            <ReminderButton className={actionTile} materialId={material.id} title={material.title} label prefetch />
           ) : null}
-          <a className="inline-flex min-h-11 items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-muted no-underline hover:text-gold-bright" href={material.telegramUrl} target="_blank" rel="noreferrer">
-            <ExternalLink aria-hidden="true" size={17} /> Բացել Telegram-ում
+          <a className={actionTile} href={material.telegramUrl} target="_blank" rel="noreferrer" aria-label="Բացել Telegram-ում">
+            <ExternalLink aria-hidden="true" size={20} strokeWidth={1.9} />
+            <span>Telegram</span>
           </a>
           <ShareButton
-            className="grid size-11 cursor-pointer place-items-center rounded-[13px] border border-glass-border bg-subtle text-gold-bright"
+            className={actionTile}
             title={material.title}
             text={material.title}
             url={material.telegramUrl}
             materialId={material.id}
             pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
+            label
           />
         </div>
       </article>
