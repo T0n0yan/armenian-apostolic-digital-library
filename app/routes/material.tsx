@@ -142,11 +142,11 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
 
         {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
           // Psalms follow their recording verse by verse.
-          <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
             <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
-          <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
+          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
             {superscriptionEnd > 0 ? (
               <p className="psalm-superscription m-0 mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center">
                 <FormattedTelegramText value={material.formattedText} from={textTitleLength} to={superscriptionEnd} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
@@ -155,7 +155,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? versesStart : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
-          <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
+          <p className="reading-body m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
         {/* One row of equal tiles: an icon with a short name under it. */}

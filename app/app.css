@@ -460,10 +460,11 @@ html[data-tg-fullscreen="true"] body::before {
 @keyframes bell-swing { 0%, 100% { rotate: 0deg; } 12% { rotate: -20deg; } 28% { rotate: 17deg; } 44% { rotate: -11deg; } 60% { rotate: 7deg; } 76% { rotate: -3deg; } 90% { rotate: 1deg; } }
 @media (prefers-reduced-motion: reduce) { .bell-swing { animation: none; } }
 
-/* Reader preferences from the settings page (app/utils/preferences.ts). */
-html[data-reading-font="book"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
-html[data-reading-font="serif"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-noto) !important; font-style: normal; }
-html[data-reading-font="sans"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-sans) !important; font-style: normal; }
+/* Reader preferences from the settings page (app/utils/preferences.ts). The reading font changes
+   only the text of a material (.reading-body), never titles or cards. */
+html[data-reading-font="book"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span)) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
+html[data-reading-font="serif"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span)) { font-family: var(--font-noto) !important; font-style: normal; }
+html[data-reading-font="sans"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span)) { font-family: var(--font-sans) !important; font-style: normal; }
 html[data-title-size="small"] main h1 { zoom: .85; }
 html[data-title-size="large"] main h1 { zoom: 1.18; }
 /* With animations off everything is still, except the candle intro. */

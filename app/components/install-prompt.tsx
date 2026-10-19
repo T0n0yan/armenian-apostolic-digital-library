@@ -13,7 +13,7 @@ type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{
 type TelegramHomeScreen = {
   initData?: string;
   platform?: string;
-  openLink?: (url: string) => void;
+  openLink?: (url: string, options?: { try_browser?: string; try_instant_view?: boolean }) => void;
   addToHomeScreen?: () => void;
   checkHomeScreenStatus?: (callback: (status: "unsupported" | "unknown" | "added" | "missed") => void) => void;
 };
@@ -53,7 +53,7 @@ if (typeof window !== "undefined") {
 /** Which way of adding to the home screen this device supports right now. */
 function currentMode(): Mode {
   const telegram = telegramWebApp();
-  if (telegram?.initData && telegram.addToHomeScreen && telegram.platform !== "ios") return "telegram";
+  // Inside Telegram the site is installed from the phone's browser, not from Telegram itself.
   if (telegram?.initData) return "open-browser";
   if (deferredInstall) return "browser";
   if (/iphone|ipad|ipod/iu.test(navigator.userAgent)) return "ios";
@@ -124,7 +124,7 @@ export function InstallPrompt() {
       const url = new URL(window.location.href);
       url.hash = "";
       const telegram = telegramWebApp();
-      if (telegram?.openLink) telegram.openLink(url.toString());
+      if (telegram?.openLink) telegram.openLink(url.toString(), { try_browser: telegram.platform === "ios" ? "safari" : "chrome", try_instant_view: false });
       else window.open(url.toString(), "_blank", "noopener,noreferrer");
       dismiss();
     } else if (mode === "telegram") {
@@ -156,7 +156,7 @@ export function InstallPrompt() {
             Սեղմիր <Share aria-label="Share" className="inline size-[13px] align-[-2px] text-gold-bright" />, թերթիր ներքև և ընտրիր «Add to Home Screen» («На экран «Домой»»)
           </span>
         ) : mode === "open-browser" ? (
-          <span className="text-[11.5px] leading-snug text-muted">Բացիր բրաուզերում, ապա Share → «Add to Home Screen»</span>
+          <span className="text-[11.5px] leading-snug text-muted"><strong className="text-ink">Միայն բրաուզերից</strong> (Chrome, Safari), ոչ Telegram-ից։ Բացեք բրաուզերում, ապա {/iphone|ipad|ipod/iu.test(typeof navigator === "undefined" ? "" : navigator.userAgent) ? "Share → «Add to Home Screen»" : "⋮ → «Add to Home screen»"}</span>
         ) : mode === "manual" ? (
           <span className="text-[11.5px] leading-snug text-muted">Բրաուզերի մենյուում (⋮) ընտրիր «Add to Home screen» կամ «Install»</span>
         ) : (
@@ -166,7 +166,7 @@ export function InstallPrompt() {
       <div className="flex items-center gap-1.5">
         {canInstall ? (
           <button className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-[11px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/16%)] px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={install}>
-            {mode === "open-browser" ? <><ExternalLink aria-hidden="true" size={14} /> Բացել</> : <><Plus aria-hidden="true" size={14} /> Ավելացնել</>}
+            {mode === "open-browser" ? <><ExternalLink aria-hidden="true" size={14} /> Բացել բրաուզերում</> : <><Plus aria-hidden="true" size={14} /> Ավելացնել</>}
           </button>
         ) : null}
         <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:text-ink" type="button" onClick={dismiss} aria-label="Հետո">

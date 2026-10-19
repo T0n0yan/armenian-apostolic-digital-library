@@ -87,7 +87,7 @@ function HomeTitle() {
         <h1 className="hero-rise hero-rise-delay m-0 font-noto text-[33px] leading-[1.12] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[36px] min-[560px]:text-[46px] min-[960px]:text-[56px]">
             Հոգևոր ժառանգություն
         </h1>
-        <p className="hero-rise hero-rise-delay-2 m-0 inline-flex max-w-full items-center gap-2 rounded-full border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3 py-1.5 text-[11px] font-semibold tracking-[0.1px] whitespace-nowrap text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)] min-[380px]:text-[12px] min-[560px]:px-4 min-[560px]:text-[13px]">
+        <p className="hero-rise hero-rise-delay-2 m-0 inline-flex max-w-full items-center justify-center gap-1.5 rounded-full border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-2.5 py-1.5 text-center text-[clamp(9.5px,2.75vw,13px)] leading-snug font-semibold text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)] min-[560px]:gap-2 min-[560px]:px-4">
             <ArmenianCross size={13}/>
             Նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցուն
             <ArmenianCross size={13}/>
