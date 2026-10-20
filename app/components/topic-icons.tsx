@@ -31,9 +31,9 @@ export function PsalmIcon(props: IconProps) {
   return <Icon {...props} motion="ti-harp" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M9 19.5C6.2 18 4.8 14.6 5.5 11.4c.5-2.3 2-3.2 1.5-5.8c-.2-1-1-1.6-2-1.3M15 19.5c2.8-1.5 4.2-4.9 3.5-8.1c-.5-2.3-2-3.2-1.5-5.8c.2-1 1-1.6 2-1.3\"/><path d=\"M6.6 7.4h10.8M8.5 19.5h7\"/><path d=\"M10 7.4v12.1M12 7.4v12.1M14 7.4v12.1\"/></g>"} />;
 }
 
-/** Lives of the saints: a saint with a shining halo. */
+/** Lives of the saints: a saint's head inside a golden halo, as on the icons. */
 export function SaintIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M7.6 6.3a5.6 5.6 0 0 1 8.8 0M6.4 9.4a5.6 5.6 0 0 1 .3-2.2M17.6 9.4a5.6 5.6 0 0 0-.3-2.2\"/><circle cx=\"12\" cy=\"9.4\" r=\"2.7\"/><path d=\"M5.5 21.5c0-4 2.9-6.6 6.5-6.6s6.5 2.6 6.5 6.6\"/><path d=\"M12 2.2v1.3M7.3 3.6l.7 1.1M16.7 3.6l-.7 1.1\"/></g>"} />;
+  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"8\" r=\"6.6\" fill=\"currentColor\" fill-opacity=\".14\"/><path d=\"M9.1 9.2a2.9 3.2 0 1 1 5.8 0v.5a2.9 3.2 0 0 1-5.8 0Z\"/><path d=\"M9.2 8.4c.6-1.3 1.7-1.9 2.8-1.9s2.2.6 2.8 1.9\"/><path d=\"M4.5 22.5c0-4.3 3.4-7.1 7.5-7.1s7.5 2.8 7.5 7.1\"/></g>"} />;
 }
 
 /** Daily readings: a calendar leaf showing today's date; the page turns over. */
