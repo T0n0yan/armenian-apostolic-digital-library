@@ -10,8 +10,11 @@ import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./clo
 export function categoryFeedOptions(category: { id: string; name: string }) {
   const kind = resolveContentCategoryId(category.id, category.name);
   return {
-    limit: kind === "category_psalms" ? 200 : 12,
-    order: kind === "category_saints_lives" ? "asc" as const : "desc" as const,
+    // Psalms, prayers and questions load whole: the grid, the prayer groups and the quiz filter
+    // need every post at once.
+    limit: kind === "category_psalms" || kind === "category_prayers" || kind === "category_bible_questions" ? 200 : 12,
+    // Saints and prayers read in book order (oldest post first).
+    order: kind === "category_saints_lives" || kind === "category_prayers" ? "asc" as const : "desc" as const,
   };
 }
 

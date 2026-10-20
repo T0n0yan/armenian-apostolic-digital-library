@@ -270,6 +270,28 @@ export default function App({ loaderData }: Route.ComponentProps) {
     };
   }, []);
 
+  // Tells the site this device has a page open (every 3 minutes while visible), for the admin's
+  // "online now" and device numbers. A random id stays in the browser; nothing else is sent.
+  useEffect(() => {
+    let visitorId = "";
+    try {
+      visitorId = localStorage.getItem("library-visitor") ?? "";
+      if (!visitorId) { visitorId = crypto.randomUUID(); localStorage.setItem("library-visitor", visitorId); }
+    } catch { visitorId = crypto.randomUUID(); }
+    const agent = navigator.userAgent;
+    const platform = /iPhone|iPad|iPod/u.test(agent) || (/Macintosh/u.test(agent) && navigator.maxTouchPoints > 1) ? "ios"
+      : /Android/u.test(agent) ? "android" : /Windows/u.test(agent) ? "windows" : /Macintosh|Mac OS X/u.test(agent) ? "macos" : /Linux|CrOS/u.test(agent) ? "linux" : "other";
+    const inTelegram = Boolean((window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData);
+    const send = () => {
+      if (document.visibilityState !== "visible") return;
+      void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true }).catch(() => null);
+    };
+    send();
+    const timer = window.setInterval(send, 180_000);
+    document.addEventListener("visibilitychange", send);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", send); };
+  }, []);
+
   // After a new deploy, an open page may ask for scripts that no longer exist; reload it once
   // instead of leaving it broken.
   useEffect(() => {

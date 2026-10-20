@@ -2,7 +2,7 @@ import { useEffect, useState, type SVGProps } from "react";
 
 /**
  * Topic icons in one 1.5px stroke style: IconOven (MIT) for the Gospel and questions, and our own drawings
- * for the candle, the lyre, the saint and the calendar. Each
+ * for the candle, the lyre, the saint and the calendar (the Gospel's lines are ours too). Each
  * draws itself in when it appears, then moves slowly in a way that says what the topic is. The
  * motions live in app.css (.ti-*) and stop when animations are turned off.
  */
@@ -16,9 +16,9 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   );
 }
 
-/** Gospel teaching: the open Gospel with a cross; its pages stir. */
+/** Gospel teaching: the open Gospel, its lines following the curve of the pages, with a cross. */
 export function GospelIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-gospel" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13M5.25 9.5H9m-3.75 3H9m-3.75 3h2.5m8.75-7V16m-2-5.25h4\"/>"} />;
+  return <Icon {...props} motion="ti-gospel" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13\"/><path d=\"M5.2 8.7c1.4 0 2.8.35 4.1 1M5.2 11.7c1.4 0 2.8.35 4.1 1M5.2 14.7c.9 0 1.8.15 2.7.45\"/><path d=\"M16.75 8.5v7.2M14.75 10.9c1.3-.35 2.7-.45 4-.3\"/></g>"} />;
 }
 
 /** Prayers: a church candle whose light shines out. */
@@ -31,9 +31,9 @@ export function PsalmIcon(props: IconProps) {
   return <Icon {...props} motion="ti-harp" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M9 19.5C6.2 18 4.8 14.6 5.5 11.4c.5-2.3 2-3.2 1.5-5.8c-.2-1-1-1.6-2-1.3M15 19.5c2.8-1.5 4.2-4.9 3.5-8.1c-.5-2.3-2-3.2-1.5-5.8c.2-1 1-1.6 2-1.3\"/><path d=\"M6.6 7.4h10.8M8.5 19.5h7\"/><path d=\"M10 7.4v12.1M12 7.4v12.1M14 7.4v12.1\"/></g>"} />;
 }
 
-/** Lives of the saints: a saint's icon in its arched frame, the halo shining. */
+/** Lives of the saints: a saint with a shining halo. */
 export function SaintIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M5 21V9.5a7 7 0 0 1 14 0V21Z\"/><circle cx=\"12\" cy=\"10.3\" r=\"3.5\"/><circle cx=\"12\" cy=\"10.5\" r=\"1.7\"/><path d=\"M8.2 21c0-3 1.7-5.2 3.8-5.2s3.8 2.2 3.8 5.2\"/></g>"} />;
+  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M7.6 6.3a5.6 5.6 0 0 1 8.8 0M6.4 9.4a5.6 5.6 0 0 1 .3-2.2M17.6 9.4a5.6 5.6 0 0 0-.3-2.2\"/><circle cx=\"12\" cy=\"9.4\" r=\"2.7\"/><path d=\"M5.5 21.5c0-4 2.9-6.6 6.5-6.6s6.5 2.6 6.5 6.6\"/><path d=\"M12 2.2v1.3M7.3 3.6l.7 1.1M16.7 3.6l-.7 1.1\"/></g>"} />;
 }
 
 /** Daily readings: a calendar leaf showing today's date; the page turns over. */

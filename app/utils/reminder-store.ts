@@ -53,6 +53,19 @@ export async function markReminderRead(materialId: string, { quiet = false } = {
   await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, read: true }) }).catch(() => null);
 }
 
+/** "Կարդացել եմ" in the bell's list: clears the reminder and marks the material read today. */
+export async function markReminderDone(materialId: string) {
+  const now = new Date();
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  await Promise.all([
+    markReminderRead(materialId),
+    fetch("/api/reading-log", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, day, kind: "read" }) }).catch(() => null),
+  ]);
+}
+
+/** Removes a rung reminder from the bell's list without marking anything read. */
+export const dismissReminder = (materialId: string) => markReminderRead(materialId);
+
 /** Cancels a reminder (and its repeats) right away, everywhere it is shown. */
 export async function cancelReminder(materialId: string) {
   emit(reminders.filter((item) => item.materialId !== materialId), missed.filter((item) => item.materialId !== materialId));

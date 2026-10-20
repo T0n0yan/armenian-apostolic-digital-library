@@ -2,6 +2,7 @@ import { createRequestHandler } from "react-router";
 
 import { sendDueReminders } from "../app/data/reminders.server";
 import { pushKeysFrom } from "../app/data/web-push.server";
+import { cacheEpoch, dispatchCloudSync } from "../app/data/site-refresh.server";
 import { isShortMaterialPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -12,27 +13,8 @@ const requestHandler = createRequestHandler(
 type SyncEnv = { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string };
 type ReminderEnv = { DB: D1Database; TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_JWK?: string; VAPID_SUBJECT?: string };
 
-/**
- * GitHub skips many of its own scheduled runs (hours apart), so Cloudflare's cron starts the
- * Telegram → cloud sync workflow instead. Needs a GitHub token allowed to run Actions on the
- * repository (secret GITHUB_SYNC_TOKEN); without it this does nothing.
- */
-async function dispatchCloudSync(env: SyncEnv) {
-  const token = env.GITHUB_SYNC_TOKEN?.trim();
-  if (!token) return;
-  const repository = env.GITHUB_SYNC_REPO?.trim() || "T0n0yan/armenian-apostolic-digital-library";
-  const response = await fetch(`https://api.github.com/repos/${repository}/actions/workflows/cloud-sync.yml/dispatches`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      accept: "application/vnd.github+json",
-      "user-agent": "armenian-apostolic-digital-library",
-      "x-github-api-version": "2022-11-28",
-    },
-    body: JSON.stringify({ ref: "main" }),
-  });
-  if (!response.ok) console.error("cloud sync dispatch failed", response.status, await response.text());
-}
+// GitHub skips many of its own scheduled runs (hours apart), so Cloudflare's cron starts the
+// Telegram → cloud sync workflow instead (dispatchCloudSync).
 
 /** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
 function secure(response: Response) {
@@ -64,7 +46,7 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-async function handle(request: Request, _env: Env, context: ExecutionContext): Promise<Response> {
+async function handle(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
   {
     const url = new URL(request.url);
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
@@ -82,8 +64,11 @@ async function handle(request: Request, _env: Env, context: ExecutionContext): P
         || url.pathname === "/api/search-suggestions");
     if (!cacheable) return requestHandler(request);
     const cache = (caches as CacheStorage & { default: Cache }).default;
-    // Cache by URL only, so a cookie never splits or leaks into the shared entry.
-    const cacheKey = new Request(url.toString(), { method: "GET" });
+    // Cache by URL only, so a cookie never splits or leaks into the shared entry. The site's cache
+    // version is part of the key, so an admin's "refresh now" makes every page fresh at once.
+    const keyUrl = new URL(url);
+    keyUrl.searchParams.set("__cache", await cacheEpoch((env as unknown as { DB: D1Database }).DB));
+    const cacheKey = new Request(keyUrl.toString(), { method: "GET" });
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
     const response = await requestHandler(request);

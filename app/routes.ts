@@ -18,6 +18,7 @@ export default [
   route("api/poll-vote", "routes/poll-vote.ts"),
   route("api/psalm-timings", "routes/psalm-timings.ts"),
   route("api/reading-log", "routes/reading-log.ts"),
+  route("api/presence", "routes/presence.ts"),
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),

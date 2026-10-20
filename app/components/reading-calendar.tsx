@@ -126,7 +126,10 @@ function DayEntries({ day, today, count }: { day: string; today: string | null; 
  * The reader's reading calendar: this month as a calendar page by default, or 3, 6, 12 months or
  * everything since the first reading day, with today's status and the current streak.
  */
-export function ReadingCalendar({ days }: { days: Record<string, number> }) {
+/** Longer views only once the account is old enough for them to show more than emptiness. */
+const RANGE_MIN_DAYS: Record<Range, number> = { month: 0, "3": 60, "6": 150, "12": 300, all: 60 };
+
+export function ReadingCalendar({ days, joinedAt }: { days: Record<string, number>; joinedAt: string | null }) {
   const [today, setToday] = useState<string | null>(null);
   const [range, setRange] = useState<Range>("month");
   const [month, setMonth] = useState(() => new Date());
@@ -147,15 +150,22 @@ export function ReadingCalendar({ days }: { days: Record<string, number> }) {
     }
     const since = new Date();
     if (range === "all") {
-      const firstDay = keys[0] ? new Date(`${keys[0]}T12:00:00`) : new Date();
+      const firstDay = joinedAt ? new Date(joinedAt) : keys[0] ? new Date(`${keys[0]}T12:00:00`) : new Date();
       from = localDay(firstDay);
       return { streak: run, inRange: keys.length, weeks: Math.max(4, Math.ceil((Date.now() - firstDay.getTime()) / (7 * 86_400_000)) + 1) };
     }
     since.setMonth(since.getMonth() - Number(range));
     from = localDay(since);
     return { streak: run, inRange: keys.filter((key) => key >= from).length, weeks: Math.ceil(Number(range) * 4.35) };
-  }, [days, month, range]);
+  }, [days, joinedAt, month, range]);
 
+  const joined = joinedAt ? new Date(joinedAt) : null;
+  const joinedDay = joined ? localDay(joined) : null;
+  const ageDays = joined ? Math.max(0, Math.floor((Date.now() - joined.getTime()) / 86_400_000)) : 9999;
+  const ranges = RANGES.filter((option) => ageDays >= RANGE_MIN_DAYS[option.value]);
+  // Days since joining (today included) and how many of them had a reading.
+  const sinceJoined = joinedDay ? Object.keys(days).filter((key) => key >= joinedDay).length : 0;
+  const totalDays = ageDays + 1;
   const readToday = today ? Boolean(days[today]) : false;
   const isCurrentMonth = month.getFullYear() === new Date().getFullYear() && month.getMonth() === new Date().getMonth();
   const shift = (by: number) => setMonth((value) => new Date(value.getFullYear(), value.getMonth() + by, 1));
@@ -170,11 +180,20 @@ export function ReadingCalendar({ days }: { days: Record<string, number> }) {
           <Flame aria-hidden="true" size={15} /> {streak}
         </span>
       </div>
-      <div className="grid grid-cols-5 gap-1 rounded-[13px] bg-subtle p-1" role="radiogroup" aria-label="Ժամանակահատված">
-        {RANGES.map((option) => (
+      {joined ? (
+        <p className="m-0 flex flex-wrap gap-x-3 gap-y-1 rounded-[12px] bg-subtle px-3 py-2 text-[12px] text-muted">
+          <span>Գրանցվել եք՝ <strong className="font-semibold text-ink">{joined.getDate()} {MONTHS[joined.getMonth()].toLowerCase()} {joined.getFullYear()}</strong></span>
+          <span>Կարդացել եք՝ <strong className="font-semibold text-[rgb(52_130_74)]">{sinceJoined} օր</strong></span>
+          <span>Չեք կարդացել՝ <strong className="font-semibold text-ink">{Math.max(0, totalDays - sinceJoined)} օր</strong></span>
+        </p>
+      ) : null}
+      {ranges.length > 1 ? (
+      <div className="grid gap-1 rounded-[13px] bg-subtle p-1" style={{ gridTemplateColumns: `repeat(${ranges.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="Ժամանակահատված">
+        {ranges.map((option) => (
           <button key={option.value} className={`min-h-8 cursor-pointer rounded-[9px] border-0 text-[11.5px] font-semibold ${range === option.value ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
         ))}
       </div>
+      ) : null}
       {range === "month" ? (
         <>
           {/* Phones: the day's list under the calendar; tablets and computers: side by side. */}

@@ -30,7 +30,7 @@ export function BottomSheet({ open, onClose, label, children, className = "" }: 
 
   if (!rendered || typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[60] grid items-end justify-items-center p-3 pb-[calc(var(--tg-inset-bottom,0px)+12px)]" role="dialog" aria-label={label}>
+    <div className="fixed inset-0 z-[90] grid items-end justify-items-center p-3 pb-[calc(var(--tg-inset-bottom,0px)+12px)]" role="dialog" aria-label={label}>
       <button className={`sheet-scrim absolute inset-0 cursor-default border-0 bg-[rgb(20_10_24/40%)] p-0`} data-phase={phase} type="button" aria-label="Փակել" onClick={onClose} />
       <div className={`install-toast relative grid max-h-[calc(100svh-24px)] w-full max-w-[440px] overflow-y-auto rounded-[22px] border border-glass-border bg-[var(--page-bg)] shadow-[0_24px_60px_rgb(20_8_24/40%)] ${className}`} data-phase={phase}>
         {children}
