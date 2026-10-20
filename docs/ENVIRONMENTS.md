@@ -16,28 +16,29 @@ materials, notes, reminders, quiz answers, push subscriptions) is separate in ea
 
 ## How a change travels
 
-1. Work on a feature branch; deploy it to **staging** and test there:
+Deploys run on GitHub Actions (`.github/workflows/deploy.yml`) on every push:
 
-   ```bash
-   CLOUDFLARE_ENV=staging pnpm run build && pnpm exec wrangler deploy --env staging
-   ```
+| Branch | Deploys to |
+| --- | --- |
+| `staging` | staging |
+| `main` | production |
 
-2. When it is right, open a pull request into `main` and merge it.
-3. Deploy `main` to **production**:
+1. Work on a feature branch and open a pull request into `staging`. Merging it deploys staging
+   (tests → migrations → build → deploy).
+2. When staging is right, open a pull request from `staging` into `main`. Merging it deploys
+   production the same way.
 
-   ```bash
-   git checkout main && git pull
-   CLOUDFLARE_ENV=production pnpm run build && pnpm exec wrangler deploy --env production
-   ```
+Each deploy applies that environment's new D1 migrations before the new code goes live, so a
+migration must keep working with the code still running until the deploy finishes.
 
-New database migrations go to staging first, then production:
+Never push straight to `main`. Manual deploys are still possible for emergencies:
 
 ```bash
-pnpm exec wrangler d1 migrations apply armenian-apostolic-digital-library-staging --env staging --remote
-pnpm exec wrangler d1 migrations apply armenian-apostolic-digital-library-production --env production --remote
+CLOUDFLARE_ENV=staging pnpm run build && pnpm exec wrangler deploy --env staging
 ```
 
-Never deploy a feature branch to production.
+The workflow uses the `CLOUDFLARE_API_TOKEN` secret (Workers Scripts: Edit, D1: Edit, R2: Edit)
+and the `CLOUDFLARE_ACCOUNT_ID` variable of the repository.
 
 ## Telegram sync
 
