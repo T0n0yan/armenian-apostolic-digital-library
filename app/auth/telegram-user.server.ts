@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
 
+import { cacheEpoch } from "../data/site-refresh.server";
+
 type TelegramEnvironment = Env & {
   TELEGRAM_BOT_TOKEN?: string;
 };
@@ -30,12 +32,15 @@ export type TelegramUserState =
   | { status: "guest" | "invalid" | "unavailable"; user: null };
 
 export async function getTelegramUserCacheScope(user: TelegramUserIdentity | null) {
-  if (!user) return "guest";
+  // The site's cache version is part of the scope, so "refresh now" also clears what open pages
+  // keep in memory.
+  const epoch = await cacheEpoch(env.DB).catch(() => "0");
+  if (!user) return `guest:${epoch}`;
   const botToken = getBotToken();
-  if (!botToken) return "guest";
+  if (!botToken) return `guest:${epoch}`;
   const key = await getSessionKey(botToken);
   const signature = await signHmac(key, encoder.encode(user.id));
-  return `telegram:${toHex(signature).slice(0, 32)}`;
+  return `telegram:${toHex(signature).slice(0, 32)}:${epoch}`;
 }
 
 const SESSION_COOKIE = "library_telegram_session";

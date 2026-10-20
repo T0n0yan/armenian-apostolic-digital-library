@@ -49,8 +49,18 @@ export async function readCloudMedia(
      INNER JOIN library_topics AS topics ON topics.id = materials.topic_key
      WHERE media.chat_id = ? AND media.message_id = ? AND media.media_index = ?
        AND media.status = 'ready' AND materials.sync_state = 'ready' AND materials.deleted_at IS NULL
-       AND topics.is_general = 0 AND topics.status != 'hidden'`,
-  ).bind(chatId, messageId, mediaIndex).first<CloudMediaRow>();
+       AND topics.is_general = 0 AND topics.status != 'hidden'
+     UNION ALL
+     SELECT attachment.r2_key, NULL, attachment.mime_type
+     FROM material_attachments AS attachment
+     INNER JOIN library_materials AS materials
+       ON materials.chat_id = attachment.chat_id AND materials.message_id = attachment.message_id
+     INNER JOIN library_topics AS topics ON topics.id = materials.topic_key
+     WHERE attachment.chat_id = ? AND attachment.message_id = ? AND attachment.media_index = ?
+       AND materials.sync_state = 'ready' AND materials.deleted_at IS NULL
+       AND topics.is_general = 0 AND topics.status != 'hidden'
+     LIMIT 1`,
+  ).bind(chatId, messageId, mediaIndex, chatId, messageId, mediaIndex).first<CloudMediaRow>();
   const thumbnail = new URL(request.url).searchParams.get("thumbnail") === "1";
   const key = thumbnail ? row?.thumbnail_r2_key : row?.r2_key;
   if (!row || !key) return new Response("Media not found", { status: 404 });

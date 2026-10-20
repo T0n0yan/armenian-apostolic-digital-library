@@ -29,7 +29,6 @@ import { SiteNav } from "../components/site-nav";
 import {
   countBadge,
   fieldControl,
-  fieldLabel,
   sectionHeader,
   sectionTitle,
 } from "../components/ui-styles";
@@ -52,6 +51,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
 import { SearchSuggestions } from "../components/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
+import { psalmNumber } from "../utils/psalm-number";
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
@@ -70,7 +70,10 @@ const searchRank = {
 
 function stableSearchOrder(left: SearchMaterial, right: SearchMaterial) {
   const scoreDifference = (searchRank[right.scoreCategory ?? "content"] ?? 0) - (searchRank[left.scoreCategory ?? "content"] ?? 0);
-  return scoreDifference || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || left.id.localeCompare(right.id);
+  // Psalms that match equally well keep their own order (1, 2, 3…).
+  const psalms = left.categoryName === right.categoryName && cardVariantFor(left) === "psalm" ? [psalmNumber(left), psalmNumber(right)] : [null, null];
+  const psalmDifference = psalms[0] !== null && psalms[1] !== null ? psalms[0] - psalms[1] : 0;
+  return scoreDifference || psalmDifference || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || left.id.localeCompare(right.id);
 }
 
 function noteReasons(material: Awaited<ReturnType<typeof searchSavedMaterialNotes>>[number]): SearchMaterial["matchReasons"] {
@@ -266,6 +269,14 @@ const SearchForm = memo(function SearchForm({
   const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
     useDebouncedFormSubmit(320, 2);
   const inputRef = useSyncedQueryInput(filters.query);
+  // Arriving from the home search box: keep typing where you left off.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("focus") !== "1") return;
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [inputRef]);
   const navigation = useNavigation();
   const isSearching = navigation.state !== "idle" && navigation.location?.pathname === "/search";
 
@@ -328,9 +339,9 @@ const SearchForm = memo(function SearchForm({
             size={18}
           />
         </summary>
-        <div className="grid gap-2.5 px-3 pt-1 pb-3 min-[560px]:grid-cols-2 min-[960px]:grid-cols-[1.4fr_1fr_1fr]">
-          <label className={fieldLabel}>
-            <span>Բաժին</span>
+        <div className="grid gap-3 px-3 pt-1 pb-3">
+          <label className="grid gap-1.5">
+            <span className="px-1 text-[13px] font-bold text-ink">Բաժին</span>
             <select
               className={`${fieldControl} pr-[42px]`}
               name="category"
@@ -345,26 +356,15 @@ const SearchForm = memo(function SearchForm({
               ))}
             </select>
           </label>
-          <label className={fieldLabel}>
-            <span>Սկսած</span>
-            <input
-              className={fieldControl}
-              type="date"
-              name="from"
-              defaultValue={filters.dateFrom}
-              onChange={submitImmediately}
-            />
-          </label>
-          <label className={fieldLabel}>
-            <span>Մինչև</span>
-            <input
-              className={fieldControl}
-              type="date"
-              name="to"
-              defaultValue={filters.dateTo}
-              onChange={submitImmediately}
-            />
-          </label>
+          <div className="grid gap-1.5">
+            <span className="px-1 text-[13px] font-bold text-ink">Ամսաթիվ</span>
+            {/* Side by side; a tap anywhere on a field opens its calendar. */}
+            <div className="grid grid-cols-2 gap-2">
+              {([["from", "Սկսած", filters.dateFrom], ["to", "Մինչև", filters.dateTo]] as const).map(([name, label, value]) => (
+                <DateField key={name} name={name} label={label} value={value} onChange={submitImmediately} />
+              ))}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3.5 px-3 pb-3">
           <Link className="inline-flex items-center gap-1.5 text-[12px] font-[720] text-gold-bright no-underline" to="/search">
@@ -375,6 +375,28 @@ const SearchForm = memo(function SearchForm({
     </Form>
   );
 });
+
+const DATE_MONTHS = ["հունվարի", "փետրվարի", "մարտի", "ապրիլի", "մայիսի", "հունիսի", "հուլիսի", "օգոստոսի", "սեպտեմբերի", "հոկտեմբերի", "նոյեմբերի", "դեկտեմբերի"];
+
+/** A date filter field: shows the chosen day (or "Ընտրել"), and a tap anywhere opens the calendar. */
+function DateField({ name, label, value, onChange }: { name: string; label: string; value: string; onChange: () => void }) {
+  const [current, setCurrent] = useState(value);
+  const shown = current ? `${Number(current.slice(8))} ${DATE_MONTHS[Number(current.slice(5, 7)) - 1]} ${current.slice(0, 4)}` : "Ընտրել";
+  return (
+    <label className="relative grid cursor-pointer gap-0.5 rounded-[14px] border border-glass-border bg-control px-3 py-1.5">
+      <span className="text-[11px] font-semibold text-muted">{label}</span>
+      <span className={`text-[14px] ${current ? "text-ink" : "text-faint"}`}>{shown}</span>
+      <input
+        className="absolute inset-0 cursor-pointer opacity-0"
+        type="date"
+        name={name}
+        value={current}
+        onChange={(event) => { setCurrent(event.target.value); window.setTimeout(onChange, 0); }}
+        onClick={(event) => { try { event.currentTarget.showPicker(); } catch { /* Older browsers open it themselves. */ } }}
+      />
+    </label>
+  );
+}
 
 const SearchResults = memo(function SearchResults({
   canSave,
@@ -533,7 +555,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         backLabel="Գրադարան"
         eyebrow="Ամբողջ գրադարանը"
         title="Որոնում"
-        description="Փնտրիր Telegram հրապարակումների վերնագրերի և ամբողջ տեքստի մեջ։"
+        description="Աղոթքներ, սաղմոսներ, սրբերի վարքեր, ընթերցումներ և հարցեր՝ մեկ տեղում։"
       />
 
       <SearchForm
@@ -582,6 +604,12 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           <div className="grid gap-3">
             {telegramResults.length ? (
               <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
+                {/* Say so when nothing has the exact word, and that these are the closest matches. */}
+                {filters.query && !telegramResults.some((item) => item.scoreCategory === "exact-token" || item.scoreCategory === "exact-primary" || item.scoreCategory === "message-id") ? (
+                  <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
+                    «<strong>{filters.query}</strong>» բառով ճշգրիտ համընկնում չգտնվեց։ Ահա ամենամոտ արդյունքները։
+                  </p>
+                ) : null}
                 <SearchResults
                   canSave={loaderData.canSave}
                   allowNoteEditing={false}

@@ -33,15 +33,19 @@ export function DailyVerseCard() {
   }, []);
   if (hidden) return null;
   return (
-    <section className="frosted-panel relative mx-auto grid w-full max-w-[640px] justify-items-center gap-3 overflow-hidden px-6 pt-6 pb-5 text-center" aria-label="Աստվածաշունչն ասում է">
-      <span className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(ellipse_at_top,rgb(240_211_151/22%),transparent_70%)]" aria-hidden="true" />
-      <span className="relative text-[11px] font-bold tracking-[2.4px] text-gold uppercase">Աստվածաշունչն ասում է…</span>
-      <blockquote className="relative m-0 font-book text-[19px] leading-[1.6] text-ink [text-wrap:balance] min-[560px]:text-[21px]">
+    <section className="daily-verse relative mx-auto grid w-full max-w-[600px] justify-items-center min-[860px]:max-w-[1040px] gap-2.5 px-5 pt-5 pb-4 text-center" aria-label="Աստվածաշունչն ասում է">
+      <span className="flex w-full items-center gap-3 text-gold" aria-hidden="true">
+        <span className="h-px flex-1 bg-[linear-gradient(90deg,transparent,rgb(217_181_111/60%))]" />
+        <svg width="14" height="14" viewBox="0 0 12 12" fill="currentColor"><path d="M5.2 0h1.6v4.4H11V6H6.8v6H5.2V6H1V4.4h4.2Z" /></svg>
+        <span className="h-px flex-1 bg-[linear-gradient(90deg,rgb(217_181_111/60%),transparent)]" />
+      </span>
+      <span className="text-[10.5px] font-bold tracking-[2.6px] text-gold uppercase">Աստվածաշունչն ասում է</span>
+      <blockquote className="m-0 max-w-[34ch] font-book text-[18px] leading-[1.65] text-ink [text-wrap:balance] min-[560px]:text-[20px] min-[860px]:max-w-[78ch] min-[860px]:leading-[1.55] min-[1200px]:max-w-[88ch]">
         {/* Verses that already quote a speaker keep their own quotation marks. */}
         {verse.text.includes("«") ? verse.text : `«${verse.text}»`}
       </blockquote>
-      <a className="relative inline-flex items-center gap-1.5 text-[13px] font-semibold text-gold-bright no-underline hover:underline" href={verse.url} target="_blank" rel="noreferrer">
-        {verse.reference} <ExternalLink aria-hidden="true" size={13} />
+      <a className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(217_181_111/30%)] px-3 py-1 text-[12px] font-semibold tracking-[0.3px] text-gold-bright no-underline hover:bg-[rgb(217_181_111/10%)]" href={verse.url} target="_blank" rel="noreferrer">
+        {verse.reference} <ExternalLink aria-hidden="true" size={12} />
       </a>
     </section>
   );

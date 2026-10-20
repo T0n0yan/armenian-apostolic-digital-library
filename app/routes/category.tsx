@@ -7,7 +7,9 @@ import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
+import { quizResults, type QuizResult } from "../data/poll-votes.server";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
+import { preloadArt } from "../components/art-image";
 import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { MaterialListSkeleton } from "../components/material-skeleton";
 import {
@@ -19,6 +21,7 @@ import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles
 import { getActiveCategoryBySlug } from "../data/categories.server";
 import { DailyReadingCard, PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
+import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
 import { getTopicIntro, listPublicMaterialPageByCategory } from "../data/materials.server";
@@ -97,11 +100,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     dateFrom: "",
     dateTo: "",
   };
-  const [materialResult, savedMaterialIds] = await Promise.all([
+  const isQuestions = resolveContentCategoryId(category.id, category.name) === "category_bible_questions";
+  const [materialResult, savedMaterialIds, quizAnswers] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
       : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
+    // Which questions the reader already answered, and how.
+    user && isQuestions ? quizResults(env.DB, user.id, category.id).catch(() => ({})) : Promise.resolve({}),
   ]);
   // Grid and question topics show their introduction post as a header (it is their oldest post,
   // so on paged feeds it would otherwise only appear at the very end).
@@ -121,6 +127,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     nextCursor: materialResult.nextCursor,
     highlightQuery: resolvedQuery?.highlightQuery ?? "",
     savedMaterialIds,
+    quizAnswers: quizAnswers as Record<string, QuizResult>,
     canSave: Boolean(user),
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: await getTelegramUserCacheScope(user),
@@ -129,8 +136,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 type CategoryLoaderData = Awaited<ReturnType<typeof loader>>;
 
+let hydrated = false;
+
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
-  return loadNavigationData("topic-feed", request.url, async () => await serverLoader() as CategoryLoaderData);
+  const data = await loadNavigationData("topic-feed", request.url, async () => await serverLoader() as CategoryLoaderData);
+  // On navigation, wait (briefly) for the section's picture so the page shows all at once.
+  if (hydrated) await preloadArt(getCategoryImage(data.category.id, data.category.name));
+  hydrated = true;
+  return data;
 }
 clientLoader.hydrate = true as const;
 
@@ -140,12 +153,17 @@ const MaterialsList = memo(function MaterialsList({
   materials,
   savedMaterialIds,
   highlightQuery,
+  quizAnswers = {},
+  category,
 }: {
   canSave: boolean;
+  /** The section, for the materials' short addresses (/pray_364). */
+  category?: string;
   layout: CategoryLayout;
   materials: CategoryMaterial[];
   savedMaterialIds: string[];
   highlightQuery?: string;
+  quizAnswers?: Record<string, QuizResult>;
 }) {
   const { isSaving, pendingMaterialId, savedIds, setSaved } =
     useSavedMaterials(savedMaterialIds);
@@ -176,6 +194,8 @@ const MaterialsList = memo(function MaterialsList({
             material={material}
             variant={layout === "default" && "categoryName" in material ? cardVariantFor(material) : listVariant}
             typicalType={layout === "default" ? "poll" : typicalType}
+            quizResult={quizAnswers[material.id]}
+            category={category}
             highlightQuery={highlightQuery}
             canSave={canSave}
             isSaved={savedIds.has(material.id)}
@@ -201,6 +221,73 @@ const MaterialsList = memo(function MaterialsList({
     </div>
   );
 });
+
+const chip = "inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[12.5px] font-semibold transition-colors";
+
+/** A row of filter chips with counts; scrolls sideways on narrow screens. */
+function FilterChips<T extends string>({ options, value, onChange, label }: { options: Array<{ id: T; label: string; count: number }>; value: T; onChange: (value: T) => void; label: string }) {
+  return (
+    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label={label}>
+      {options.map((option) => (
+        <button key={option.id} type="button" role="radio" aria-checked={value === option.id} onClick={() => onChange(option.id)}
+          className={`${chip} ${value === option.id ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`}>
+          {option.label}<span className="text-[11px] opacity-70 tabular-nums">{option.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type ListProps = Parameters<typeof MaterialsList>[0];
+
+/**
+ * Prayers in groups (morning, evening, hours, for loved ones…) with chips to pick one, and Bible
+ * questions with an answered / not answered filter. Other sections list as they are.
+ */
+function GroupedMaterials({ kind, ...props }: ListProps & { kind: string | null }) {
+  const [prayerGroup, setPrayerGroup] = useState<PrayerGroupId | "all">("all");
+  const [quizFilter, setQuizFilter] = useState<"all" | "open" | "answered">("all");
+
+  if (kind === "category_prayers") {
+    const groups = [...PRAYER_GROUPS, MORE_GROUP].map((group) => ({ ...group, items: props.materials.filter((material) => prayerGroupOf(material) === group.id) })).filter((group) => group.items.length > 0);
+    if (groups.length < 2) return <div className="prayer-cards"><MaterialsList {...props} /></div>;
+    const shown = prayerGroup === "all" ? groups : groups.filter((group) => group.id === prayerGroup);
+    return (
+      <div className="prayer-cards grid gap-4">
+        <FilterChips label="Աղոթքների խմբեր" value={prayerGroup} onChange={setPrayerGroup}
+          options={[{ id: "all" as const, label: "Բոլորը", count: props.materials.length }, ...groups.map((group) => ({ id: group.id, label: group.label, count: group.items.length }))]} />
+        {shown.map((group) => (
+          <section key={group.id} className="grid gap-2.5" aria-label={group.label}>
+            {prayerGroup === "all" ? (
+              <h3 className="m-0 flex items-baseline gap-2 px-1 text-[15px] font-semibold text-ink">
+                {group.label}<span className="text-[11.5px] font-medium text-faint">{group.items.length}</span>
+              </h3>
+            ) : group.hint ? <p className="m-0 px-1 text-[12.5px] text-muted">{group.hint}</p> : null}
+            <MaterialsList {...props} materials={group.items} />
+          </section>
+        ))}
+      </div>
+    );
+  }
+
+  if (kind === "category_bible_questions" && props.canSave) {
+    const answers = props.quizAnswers ?? {};
+    const answered = props.materials.filter((material) => answers[material.id]);
+    const open = props.materials.filter((material) => !answers[material.id]);
+    const shown = quizFilter === "answered" ? answered : quizFilter === "open" ? open : props.materials;
+    return (
+      <div className="grid gap-3">
+        <FilterChips label="Հարցերի զտիչ" value={quizFilter} onChange={setQuizFilter}
+          options={[{ id: "all" as const, label: "Բոլորը", count: props.materials.length }, { id: "open" as const, label: "Չպատասխանած", count: open.length }, { id: "answered" as const, label: "Պատասխանած", count: answered.length }]} />
+        {shown.length ? <MaterialsList {...props} materials={shown} /> : (
+          <p className="m-0 rounded-[14px] bg-subtle px-4 py-5 text-center text-[13px] text-muted">{quizFilter === "answered" ? "Դեռ ոչ մի հարցի չեք պատասխանել։" : "Բոլոր հարցերին պատասխանել եք։ 🎉"}</p>
+        )}
+      </div>
+    );
+  }
+
+  return <MaterialsList {...props} />;
+}
 
 export default function Category({ loaderData }: Route.ComponentProps) {
   const { category } = loaderData;
@@ -328,15 +415,16 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>
           )
         ) : (
-          <div className={resolveContentCategoryId(category.id, category.name) === "category_prayers" ? "prayer-cards" : undefined}>
-          <MaterialsList
+          <GroupedMaterials
+            kind={loaderData.query ? null : resolveContentCategoryId(category.id, category.name)}
             canSave={loaderData.canSave}
             layout={loaderData.query ? "default" : categoryLayout(category)}
             materials={materials}
             savedMaterialIds={loaderData.savedMaterialIds}
             highlightQuery={loaderData.highlightQuery}
+            quizAnswers={loaderData.quizAnswers}
+            category={category.name}
           />
-          </div>
         )}
         {!isRefreshing && materials.length > 0 ? (
           <InfiniteLoadControls

@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import type { Route } from "./+types/reminders";
 import { getOptionalTelegramUser, requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
 import {
-  completeReminder, deleteReminder, getReminder, isReminderRepeat, listUpcomingReminders,
+  completeReminder, deleteReminder, getReminder, isReminderRepeat, listMissedReminders, listUpcomingReminders, markReminderRead,
   sendBellSoundOnce, setReminder, snoozeReminder, validReminderTime,
 } from "../data/reminders.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
@@ -16,7 +16,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (url.searchParams.has("upcoming")) {
     // The in-app alarm asks on every page; guests simply have none.
     const user = await getOptionalTelegramUser(request);
-    return Response.json({ reminders: user ? await listUpcomingReminders(env.DB, user.id, 366 * 24) : [] }, { headers: noStore });
+    if (!user) return Response.json({ reminders: [], missed: [] }, { headers: noStore });
+    const [reminders, missed] = await Promise.all([listUpcomingReminders(env.DB, user.id, 366 * 24), listMissedReminders(env.DB, user.id)]);
+    return Response.json({ reminders, missed }, { headers: noStore });
   }
   const user = await requireTelegramUser(request);
   const reference = parseMaterialId(url.searchParams.get("materialId") ?? "");
@@ -31,7 +33,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
   const user = await requireTelegramUser(request);
-  const body = (await request.json().catch(() => null)) as { materialId?: unknown; remindAt?: unknown; repeat?: unknown; remove?: unknown; rang?: unknown; snooze?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { materialId?: unknown; remindAt?: unknown; repeat?: unknown; remove?: unknown; rang?: unknown; snooze?: unknown; read?: unknown } | null;
   const reference = typeof body?.materialId === "string" ? parseMaterialId(body.materialId) : null;
   if (!reference || user.source === "local-development") return Response.json({ ok: false }, { status: 400, headers: noStore });
   const key = { userId: user.id, chatId: reference.chatId, messageId: reference.messageId };
@@ -39,6 +41,10 @@ export async function action({ request }: Route.ActionArgs) {
   if (body?.remove === true) {
     await deleteReminder(env.DB, key.userId, key.chatId, key.messageId);
     return Response.json({ ok: true, reminder: null }, { headers: noStore });
+  }
+  if (body?.read === true) {
+    await markReminderRead(env.DB, key);
+    return Response.json({ ok: true }, { headers: noStore });
   }
   if (body?.rang === true) {
     await completeReminder(env.DB, key);

@@ -319,11 +319,11 @@
 .ti-gospel { animation-name: ti-gospel; transform-origin: 50% 90%; }
 @keyframes ti-gospel { 0%, 70%, 100% { transform: none; } 78% { transform: scaleX(.94) translateY(-4%); } 86% { transform: scaleX(1.03); } 92% { transform: none; } }
 .ti-pray { animation-name: ti-pray; transform-origin: 50% 90%; }
-@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: translateY(-5%) scale(1.04); filter: drop-shadow(0 0 3px rgb(240 211 151 / 75%)); } }
-.ti-harp { animation-name: ti-harp; animation-duration: 3.2s; transform-origin: 30% 95%; }
+@keyframes ti-pray { 0%, 100% { transform: none; filter: none; } 50% { transform: scale(1.03); filter: drop-shadow(0 0 3px rgb(240 211 151 / 80%)); } }
+.ti-harp { animation-name: ti-harp; animation-duration: 3.2s; transform-origin: 50% 95%; }
 @keyframes ti-harp { 0%, 55%, 100% { transform: none; } 62% { transform: rotate(-4deg); } 70% { transform: rotate(3deg); } 78% { transform: rotate(-1.5deg); } 86% { transform: none; } }
 .ti-halo { animation-name: ti-halo; animation-duration: 3.6s; }
-@keyframes ti-halo { 0%, 100% { transform: translateY(0); filter: none; } 50% { transform: translateY(-6%); filter: drop-shadow(0 -2px 3px rgb(240 211 151 / 80%)); } }
+@keyframes ti-halo { 0%, 100% { filter: none; } 50% { filter: drop-shadow(0 0 3px rgb(240 211 151 / 85%)); } }
 .ti-calendar { animation-name: ti-calendar; transform-origin: 50% 15%; }
 @keyframes ti-calendar { 0%, 70%, 100% { transform: none; } 78% { transform: perspective(60px) rotateX(-28deg); } 86% { transform: perspective(60px) rotateX(10deg); } 92% { transform: none; } }
 .ti-question { animation-name: ti-question; animation-duration: 3.4s; transform-origin: 30% 90%; }
@@ -446,27 +446,76 @@ html[data-tg-fullscreen="true"] body::before {
 @media (prefers-reduced-motion: reduce) { .reminder-ring { animation: none; } }
 
 /* The prayers list reads in the same prayer-book face as the prayers themselves. */
-.prayer-cards li strong, .prayer-cards li .line-clamp-3 {
+.prayer-cards li strong, .prayer-cards li .line-clamp-2 {
   font-family: var(--font-book);
   font-weight: 400;
   font-synthesis: weight style;
   letter-spacing: .01em;
 }
 .prayer-cards li strong { font-size: 17px; line-height: 1.35; }
-.prayer-cards li .line-clamp-3 { font-size: 13.5px; line-height: 1.6; }
+.prayer-cards li .line-clamp-2 { font-size: 13.5px; line-height: 1.6; }
 
 /* The floating reminder bell swings left and right when a reminder rings, then settles. */
 .bell-swing { animation: bell-swing 1.6s cubic-bezier(.36,.07,.19,.97); transform-origin: 50% 12%; }
 @keyframes bell-swing { 0%, 100% { rotate: 0deg; } 12% { rotate: -20deg; } 28% { rotate: 17deg; } 44% { rotate: -11deg; } 60% { rotate: 7deg; } 76% { rotate: -3deg; } 90% { rotate: 1deg; } }
 @media (prefers-reduced-motion: reduce) { .bell-swing { animation: none; } }
 
-/* Reader preferences from the settings page (app/utils/preferences.ts). */
-html[data-reading-font="book"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
-html[data-reading-font="serif"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-noto) !important; font-style: normal; }
-html[data-reading-font="sans"] article :is(p, li, blockquote, figcaption, #telegram-formatted-text) { font-family: var(--font-sans) !important; font-style: normal; }
+/* Reader preferences from the settings page (app/utils/preferences.ts). The reading font changes
+   only the text of a material (.reading-body), never titles or cards. */
+html[data-reading-font="book"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
+html[data-reading-font="serif"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-noto) !important; font-style: normal; }
+html[data-reading-font="sans"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-sans) !important; font-style: normal; }
 html[data-title-size="small"] main h1 { zoom: .85; }
 html[data-title-size="large"] main h1 { zoom: 1.18; }
-html[data-leading="wide"] article :is(p, li, #telegram-formatted-text) { line-height: 2.15 !important; }
-html[data-motion="reduced"] *, html[data-motion="reduced"] ::before, html[data-motion="reduced"] ::after {
+/* With animations off everything is still, except the candle intro. */
+html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-motion="reduced"] :not(.candle-loader, .candle-loader *)::before, html[data-motion="reduced"] :not(.candle-loader, .candle-loader *)::after {
   animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
 }
+
+/* Switching between the menu's links and its settings slides the view in. */
+.menu-view { animation: menu-view-in 320ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes menu-view-in { from { opacity: 0; transform: translate3d(14px, 0, 0); } to { opacity: 1; transform: none; } }
+
+/* The search filter's date fields: the calendar icon is decorative, the whole field opens it. */
+.date-field::-webkit-calendar-picker-indicator { opacity: .55; cursor: pointer; }
+.date-field::-webkit-date-and-time-value { text-align: left; }
+
+/* Bottom sheets: the dimmed page fades in and out with the sheet. */
+.sheet-scrim[data-phase="in"] { animation: sheet-scrim-in 240ms ease-out both; }
+.sheet-scrim[data-phase="out"] { animation: sheet-scrim-out 380ms ease-in both; }
+@keyframes sheet-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-scrim-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* Time wheels in the reminder sheet. */
+.time-wheel { scroll-snap-type: y mandatory; scrollbar-width: none; mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent); }
+.time-wheel::-webkit-scrollbar { display: none; }
+.time-wheel > * { scroll-snap-align: center; }
+
+/* Action tiles (material page, action sheet): clearly buttons in both themes. */
+.action-tile {
+  border: 1px solid rgb(176 125 46 / 55%);
+  background: linear-gradient(180deg, #f8ecd0, #ecd6a4);
+  color: #6b4512;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 70%), 0 3px 10px rgb(120 80 20 / 18%);
+}
+.action-tile:hover { background: linear-gradient(180deg, #fbf1da, #efd9a9); }
+:root[data-theme="dark"] .action-tile {
+  border-color: rgb(217 181 111 / 38%);
+  background: linear-gradient(180deg, rgb(217 181 111 / 16%), rgb(217 181 111 / 8%));
+  color: var(--gold-bright, #f0d397);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 4px 14px rgb(0 0 0 / 30%);
+}
+
+/* Cards open their actions on a long press: no system callout or text selection on hold. */
+.hold-card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+/* Pictures can't be dragged out or long-pressed to save. */
+img, video { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: none; }
+
+/* The library's texts can't be selected or copied, and holding anything never selects the page
+   or opens the system link menu (holding a card opens its own actions). Fields stay editable. */
+html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+a, img, video, button { -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* Developer mode (admins only): texts can be selected and copied again. */
+html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"] main * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }

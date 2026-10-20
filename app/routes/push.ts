@@ -28,6 +28,9 @@ export async function action({ request }: Route.ActionArgs) {
   if (typeof endpoint !== "string" || !endpoint.startsWith("https://") || endpoint.length > 1000 || typeof p256dh !== "string" || typeof auth !== "string" || p256dh.length > 200 || auth.length > 100) {
     return Response.json({ ok: false }, { status: 400, headers: noStore });
   }
+  // A reader can have notifications in a handful of browsers, not an unlimited number.
+  const existing = await env.DB.prepare("SELECT COUNT(*) AS count FROM push_subscriptions WHERE user_id = ? AND endpoint != ?").bind(user.id, endpoint).first<{ count: number }>();
+  if ((existing?.count ?? 0) >= 10) await env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint IN (SELECT endpoint FROM push_subscriptions WHERE user_id = ? ORDER BY created_at LIMIT 1)").bind(user.id).run();
   await env.DB.prepare(
     `INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth) VALUES (?, ?, ?, ?)
      ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth`,

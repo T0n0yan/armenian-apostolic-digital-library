@@ -7,39 +7,64 @@ import { isPendingNavigation } from "../../shared/navigation-state";
 import { psalmNumber } from "../utils/psalm-number";
 import { calendarParts } from "../utils/daily-reading";
 import { stripZeroWidth } from "../utils/text";
+import { materialPath } from "../utils/material-path";
 
 type CardMaterial = Pick<PublicMaterial, "id" | "title" | "excerpt" | "preview">;
 
-/** Psalms as a grid of numbered tiles: the number is what readers look for. */
+const PSALM_COUNT = 150;
+
+/**
+ * Psalms as a grid of all 150 numbered tiles: the psalms already in the library open, the rest
+ * wait greyed out and light up by themselves when their post is added in Telegram.
+ */
 export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: CardMaterial[] }) {
   const navigation = useNavigation();
-  const tiles = useMemo(() => materials
-    .map((material) => ({ material, number: psalmNumber(material) }))
-    .sort((left, right) => (left.number ?? Number.MAX_SAFE_INTEGER) - (right.number ?? Number.MAX_SAFE_INTEGER)),
-  [materials]);
+  const byNumber = useMemo(() => {
+    const map = new Map<number, CardMaterial>();
+    for (const material of materials) {
+      const number = psalmNumber(material);
+      if (number !== null && !map.has(number)) map.set(number, material);
+    }
+    return map;
+  }, [materials]);
+  const count = Math.max(PSALM_COUNT, ...byNumber.keys());
 
   return (
-    <ol className="m-0 grid list-none grid-cols-5 gap-2 p-0 min-[420px]:grid-cols-6 min-[640px]:grid-cols-8 min-[960px]:grid-cols-10">
-      {tiles.map(({ material, number }) => {
-        const targetPath = `/materials/${material.id}`;
-        const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
-        return (
-          <li key={material.id}>
-            <Link
-              className={`frosted-card grid aspect-square place-items-center rounded-[16px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
-              to={targetPath}
-              prefetch="intent"
-              aria-label={number ? `Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}` : material.title}
-              title={material.title}
-            >
-              {isOpening
-                ? <LoaderCircle className="animate-search-spin text-gold" aria-hidden="true" size={20} />
-                : <span className="font-noto text-[20px] font-semibold tabular-nums text-gold-bright min-[640px]:text-[22px]">{number ?? "•"}</span>}
-            </Link>
-          </li>
-        );
-      })}
-    </ol>
+    <div className="grid gap-2">
+      <p className="m-0 px-1 text-[12px] text-muted">{byNumber.size} սաղմոս {count}-ից</p>
+      <ol className="m-0 grid list-none grid-cols-5 gap-2 p-0 min-[420px]:grid-cols-6 min-[640px]:grid-cols-8 min-[960px]:grid-cols-10">
+        {Array.from({ length: count }, (_, index) => {
+          const number = index + 1;
+          const material = byNumber.get(number);
+          if (!material) {
+            return (
+              <li key={number}>
+                <span className="grid aspect-square place-items-center rounded-[16px] border border-dashed border-[rgb(160_130_90/28%)] text-[18px] font-semibold text-faint/60 tabular-nums select-none min-[640px]:text-[20px]" aria-disabled="true" title={`Սաղմոս ${number}՝ շուտով`}>
+                  {number}
+                </span>
+              </li>
+            );
+          }
+          const targetPath = materialPath(material.id, "category_psalms");
+          const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
+          return (
+            <li key={number}>
+              <Link
+                className={`frosted-card grid aspect-square place-items-center rounded-[16px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
+                to={targetPath}
+                prefetch="intent"
+                aria-label={`Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}`}
+                title={material.title}
+              >
+                {isOpening
+                  ? <LoaderCircle className="animate-search-spin text-gold" aria-hidden="true" size={20} />
+                  : <span className="font-noto text-[20px] font-semibold tabular-nums text-gold-bright min-[640px]:text-[22px]">{number}</span>}
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 });
 
@@ -49,7 +74,7 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
   return (
     <ol className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 min-[720px]:grid-cols-3">
       {materials.map((material, index) => {
-        const targetPath = `/materials/${material.id}`;
+        const targetPath = materialPath(material.id, "category_saints_lives");
         const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
         const image = material.preview.imageUrl ?? material.preview.thumbnailUrl;
         return (
@@ -153,7 +178,7 @@ type DailyMaterial = CardMaterial & Pick<PublicMaterial, "dateValue" | "publishe
  */
 export const DailyReadingCard = memo(function DailyReadingCard({ material }: { material: DailyMaterial }) {
   const navigation = useNavigation();
-  const targetPath = `/materials/${material.id}`;
+  const targetPath = materialPath(material.id, "category_daily_readings");
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const parts = calendarParts(material.dateValue ?? material.publishedAt);
   const daily = material.preview.daily;

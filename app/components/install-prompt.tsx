@@ -13,7 +13,7 @@ type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{
 type TelegramHomeScreen = {
   initData?: string;
   platform?: string;
-  openLink?: (url: string) => void;
+  openLink?: (url: string, options?: { try_browser?: string; try_instant_view?: boolean }) => void;
   addToHomeScreen?: () => void;
   checkHomeScreenStatus?: (callback: (status: "unsupported" | "unknown" | "added" | "missed") => void) => void;
 };
@@ -50,10 +50,14 @@ if (typeof window !== "undefined") {
   });
 }
 
+function isAppleDevice() {
+  return typeof navigator !== "undefined" && /iphone|ipad|ipod/iu.test(navigator.userAgent);
+}
+
 /** Which way of adding to the home screen this device supports right now. */
 function currentMode(): Mode {
   const telegram = telegramWebApp();
-  if (telegram?.initData && telegram.addToHomeScreen && telegram.platform !== "ios") return "telegram";
+  // Inside Telegram the site is installed from the phone's browser, not from Telegram itself.
   if (telegram?.initData) return "open-browser";
   if (deferredInstall) return "browser";
   if (/iphone|ipad|ipod/iu.test(navigator.userAgent)) return "ios";
@@ -124,7 +128,7 @@ export function InstallPrompt() {
       const url = new URL(window.location.href);
       url.hash = "";
       const telegram = telegramWebApp();
-      if (telegram?.openLink) telegram.openLink(url.toString());
+      if (telegram?.openLink) telegram.openLink(url.toString(), { try_browser: telegram.platform === "ios" ? "safari" : "chrome", try_instant_view: false });
       else window.open(url.toString(), "_blank", "noopener,noreferrer");
       dismiss();
     } else if (mode === "telegram") {
@@ -143,36 +147,37 @@ export function InstallPrompt() {
   const canInstall = mode === "telegram" || mode === "browser" || mode === "open-browser";
   return (
     <aside
-      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] grid-cols-[44px_1fr_auto] items-center gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] px-3.5 py-3 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
+      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
       data-phase={phase}
       role="dialog"
       aria-label="Ավելացնել գլխավոր էկրանին"
     >
-      <img className="size-11 object-contain" src={DoveMark} width={44} height={44} alt="" aria-hidden="true" />
-      <div className="grid gap-0.5">
-        <strong className="text-[13px] leading-tight text-ink">Ավելացրու գլխավոր էկրանին</strong>
-        {mode === "ios" ? (
-          <span className="text-[11.5px] leading-snug text-muted">
-            Սեղմիր <Share aria-label="Share" className="inline size-[13px] align-[-2px] text-gold-bright" />, թերթիր ներքև և ընտրիր «Add to Home Screen» («На экран «Домой»»)
-          </span>
-        ) : mode === "open-browser" ? (
-          <span className="text-[11.5px] leading-snug text-muted">Բացիր բրաուզերում, ապա Share → «Add to Home Screen»</span>
-        ) : mode === "manual" ? (
-          <span className="text-[11.5px] leading-snug text-muted">Բրաուզերի մենյուում (⋮) ընտրիր «Add to Home screen» կամ «Install»</span>
-        ) : (
-          <span className="text-[11.5px] leading-snug text-muted">Գրադարանը մեկ սեղմումով՝ ինչպես հավելված</span>
-        )}
-      </div>
-      <div className="flex items-center gap-1.5">
-        {canInstall ? (
-          <button className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-[11px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/16%)] px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={install}>
-            {mode === "open-browser" ? <><ExternalLink aria-hidden="true" size={14} /> Բացել</> : <><Plus aria-hidden="true" size={14} /> Ավելացնել</>}
-          </button>
-        ) : null}
-        <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:text-ink" type="button" onClick={dismiss} aria-label="Հետո">
-          <X aria-hidden="true" size={16} />
+      <div className="grid grid-cols-[44px_1fr_auto] items-center gap-3">
+        <img className="size-11 object-contain" src={DoveMark} width={44} height={44} alt="" aria-hidden="true" />
+        <div className="grid min-w-0 gap-0.5">
+          <strong className="text-[14px] leading-tight text-ink">Ավելացրեք գլխավոր էկրանին</strong>
+          <span className="text-[12px] leading-snug text-muted">Գրադարանը մեկ սեղմումով՝ ինչպես հավելված</span>
+        </div>
+        <button className="grid size-9 cursor-pointer place-items-center self-start rounded-full border-0 bg-transparent text-muted hover:text-ink" type="button" onClick={dismiss} aria-label="Հետո">
+          <X aria-hidden="true" size={17} />
         </button>
       </div>
+      {mode === "ios" ? (
+        <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-[12.5px] leading-snug text-ink">
+          Սեղմեք <Share aria-label="Share" className="inline size-[14px] align-[-2px] text-gold-bright" />, ապա ընտրեք «Add to Home Screen»։
+        </p>
+      ) : mode === "open-browser" ? (
+        <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-[12.5px] leading-snug text-ink">
+          Սա հնարավոր է <strong>միայն բրաուզերից</strong> (Chrome կամ Safari)։ Բացեք կայքը բրաուզերում, ապա {isAppleDevice() ? "Share → «Add to Home Screen»" : "⋮ → «Add to Home screen»"}։
+        </p>
+      ) : mode === "manual" ? (
+        <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-[12.5px] leading-snug text-ink">Բրաուզերի մենյուում (⋮) ընտրեք «Add to Home screen» կամ «Install»։</p>
+      ) : null}
+      {canInstall ? (
+        <button className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[13px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[13.5px] font-bold text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/22%)]" type="button" onClick={install}>
+          {mode === "open-browser" ? <><ExternalLink aria-hidden="true" size={16} /> Բացել բրաուզերում</> : <><Plus aria-hidden="true" size={16} /> Ավելացնել</>}
+        </button>
+      ) : null}
     </aside>
   );
 }
