@@ -31,9 +31,16 @@ export function PsalmIcon(props: IconProps) {
   return <Icon {...props} motion="ti-harp" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M9 19.5C6.2 18 4.8 14.6 5.5 11.4c.5-2.3 2-3.2 1.5-5.8c-.2-1-1-1.6-2-1.3M15 19.5c2.8-1.5 4.2-4.9 3.5-8.1c-.5-2.3-2-3.2-1.5-5.8c.2-1 1-1.6 2-1.3\"/><path d=\"M6.6 7.4h10.8M8.5 19.5h7\"/><path d=\"M10 7.4v12.1M12 7.4v12.1M14 7.4v12.1\"/></g>"} />;
 }
 
-/** Lives of the saints: a saint's head inside a golden halo, as on the icons. */
+/**
+ * Lives of the saints: a head inside a round golden halo, as on the icons.
+ * To adjust it: HALO_Y moves the head and halo up or down together (bigger = lower), HALO_R is the
+ * halo's size and HEAD_R the head's; the halo stays an even ring around the head.
+ */
+const HALO_Y = 9.6;
+const HALO_R = 5.8;
+const HEAD_R = 2.9;
 export function SaintIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"8\" r=\"6.6\" fill=\"currentColor\" fill-opacity=\".14\"/><path d=\"M9.1 9.2a2.9 3.2 0 1 1 5.8 0v.5a2.9 3.2 0 0 1-5.8 0Z\"/><path d=\"M9.2 8.4c.6-1.3 1.7-1.9 2.8-1.9s2.2.6 2.8 1.9\"/><path d=\"M4.5 22.5c0-4.3 3.4-7.1 7.5-7.1s7.5 2.8 7.5 7.1\"/></g>"} />;
+  return <Icon {...props} motion="ti-halo" body={`<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><circle cx="12" cy="${HALO_Y}" r="${HALO_R}" fill="currentColor" fill-opacity=".14"/><circle cx="12" cy="${HALO_Y}" r="${HEAD_R}"/><path d="M4.5 22.6c0-4 3.4-6.6 7.5-6.6s7.5 2.6 7.5 6.6"/></g>`} />;
 }
 
 /** Daily readings: a calendar leaf showing today's date; the page turns over. */

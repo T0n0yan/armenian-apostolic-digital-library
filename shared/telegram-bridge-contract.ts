@@ -296,8 +296,21 @@ export function resolveContentCategoryId(id: string | null | undefined, name?: s
   if (byId) return byId.id;
   if (!name) return null;
   const normalized = normalizeCategoryName(name);
-  return CONTENT_CATEGORIES.find((category) => normalizeCategoryName(category.name) === normalized)?.id ?? null;
+  const exact = CONTENT_CATEGORIES.find((category) => normalizeCategoryName(category.name) === normalized);
+  if (exact) return exact.id;
+  // A topic renamed in Telegram («Սրբերի վարքը», «Սուրբերի կյանքը», «Աղոթագիրք»…) keeps its section
+  // by its key word.
+  return CATEGORY_KEYWORDS.find(([, pattern]) => pattern.test(normalized))?.[0] ?? null;
 }
+
+const CATEGORY_KEYWORDS: Array<[ContentCategoryId, RegExp]> = [
+  ["category_psalms", /սաղմոս/u],
+  ["category_prayers", /աղոթ|աղօթ/u],
+  ["category_saints_lives", /սրբ|սուրբ|վարք/u],
+  ["category_gospel_teachings", /ավետարան|աւետարան/u],
+  ["category_bible_questions", /հարց|վիկտորին/u],
+  ["category_daily_readings", /ընթերց|օրվա|օրուայ|տոնացույց/u],
+];
 
 export function categoryBySlug(slug: string | null | undefined) {
   return CONTENT_CATEGORIES.find((category) => category.slug === slug) ?? null;

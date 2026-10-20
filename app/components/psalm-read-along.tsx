@@ -1,5 +1,5 @@
 import { Check, PencilLine, RotateCcw, SkipForward, X } from "lucide-react";
-import { splitVerses, verseNumber } from "../utils/psalm-verses";
+import { psalmLines, verseNumber } from "../utils/psalm-verses";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
@@ -21,23 +21,26 @@ function currentAudio() {
  * otherwise the place is estimated from how far the recording has played, weighting each verse
  * by its length.
  */
-export function PsalmReadAlong({ text, superscription, materialId, timings: savedTimings, canMark = false }: {
-  text: string; superscription: boolean; materialId: string; timings?: Timings | null; canMark?: boolean;
+export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMark = false }: {
+  text: string; materialId: string; timings?: Timings | null; canMark?: boolean;
 }) {
-  const lines = useMemo(() => splitVerses(text), [text]);
+  // The psalm by the library's standard: superscription, numbered verses, headings (psalm-verses.ts).
+  const parsed = useMemo(() => psalmLines(text).filter((line) => line.kind !== "label"), [text]);
+  const lines = useMemo(() => parsed.map((line) => line.text), [parsed]);
   // Only numbered verses are marked and followed ("1 Երանելի է…"); the title, the psalm number and
   // the superscription are not. Numbering may start at 2; an unnumbered line after a verse belongs to it.
   const { verseOf, verseCount, verseNumbers } = useMemo(() => {
     const map: number[] = [];
     const numbers: number[] = [];
     let current = -1;
-    for (const line of lines) {
-      const number = verseNumber(line);
+    for (const line of parsed) {
+      const number = line.kind === "verse" ? verseNumber(line.text) : null;
       if (number) { current += 1; numbers.push(Number(number)); }
-      map.push(current);
+      // Superscription and headings belong to no verse; a continuation to the verse before it.
+      map.push(line.kind === "verse" || line.kind === "continuation" ? current : -1);
     }
     return { verseOf: map, verseCount: current + 1, verseNumbers: numbers };
-  }, [lines]);
+  }, [parsed]);
   const [timings, setTimings] = useState<Timings | null>(savedTimings && savedTimings.length === verseCount ? savedTimings : null);
   const estimated = useMemo(() => {
     const lengths = Array.from({ length: verseCount }, () => 0);
@@ -176,7 +179,7 @@ export function PsalmReadAlong({ text, superscription, materialId, timings: save
           <p
             key={index}
             ref={(element) => { lineRefs.current[index] = element; }}
-            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity] duration-500 ${superscription && index === 0 ? "psalm-superscription mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "bg-[rgb(217_181_111/16%)] opacity-100" : "opacity-45" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
+            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "bg-[rgb(217_181_111/16%)] opacity-100" : "opacity-45" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
             onClick={() => onLineClick(index)}
           >
             {marking && verseOf[index] >= 0 && verseOf[index - 1] !== verseOf[index] ? <span className="mr-2 inline-block min-w-[38px] font-sans text-[11px] font-bold text-gold tabular-nums">{typeof draft[verseOf[index]] === "number" ? formatSeconds(draft[verseOf[index]] as number) : "—"}</span> : null}

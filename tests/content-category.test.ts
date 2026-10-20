@@ -19,3 +19,11 @@ test("material pages skip a leading line that repeats the title", async () => {
   assert.equal(richContentStartsWithTitle({ partial: false, blocks: [{ type: "heading", level: 1, content: [{ type: "bold", children: [{ type: "text", text: "Սաղմոս 41" }] }] }] }, "Սաղմոս 41"), true);
   assert.equal(richContentStartsWithTitle({ partial: false, blocks: [{ type: "paragraph", content: [{ type: "text", text: "Ուրիշ" }] }] }, "Սաղմոս 41"), false);
 });
+
+test("topics renamed in Telegram keep their section by key word", () => {
+  assert.equal(resolveContentCategoryId("telegram_topic:-100:136", "Սրբերի վարքը"), "category_saints_lives");
+  assert.equal(resolveContentCategoryId("telegram_topic:-100:136", "Սուրբերի վարքը"), "category_saints_lives");
+  assert.equal(resolveContentCategoryId("telegram_topic:-100:38", "Աղոթագիրք"), "category_prayers");
+  assert.equal(resolveContentCategoryId("telegram_topic:-100:83", "Դավթի սաղմոսները"), "category_psalms");
+  assert.equal(resolveContentCategoryId("telegram_topic:-100:9", "Նորություններ"), null);
+});
