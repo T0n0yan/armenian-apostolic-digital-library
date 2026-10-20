@@ -270,7 +270,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     };
   }, []);
 
-  // Tells the site this device has a page open (every 3 minutes while visible), for the admin's
+  // Tells the site this device has a page open (every 5 minutes while visible), for the admin's
   // "online now" and device numbers. A random id stays in the browser; nothing else is sent.
   useEffect(() => {
     let visitorId = "";
@@ -287,7 +287,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
       void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true }).catch(() => null);
     };
     send();
-    const timer = window.setInterval(send, 180_000);
+    const timer = window.setInterval(send, 300_000);
     document.addEventListener("visibilitychange", send);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", send); };
   }, []);

@@ -9,6 +9,7 @@ import {
   type SearchableTelegramFieldKind,
 } from "../../shared/telegram-search";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { remember } from "./memory-cache.server";
 import type {
   BridgeCategory,
   BridgeContentType,
@@ -279,7 +280,14 @@ function ftsCandidateExpression(values: string[]) {
 // Topics whose oldest post is an introduction shown above their materials (category.tsx).
 export const INTRO_TOPICS = new Set(["category_psalms", "category_saints_lives", "category_prayers", "category_bible_questions"]);
 
-export async function listCloudLibraryCategories(database: D1Database): Promise<BridgeCategory[]> {
+const MINUTE = 60_000;
+
+/** The sections with their counts; read on almost every page, so kept in memory for a minute. */
+export function listCloudLibraryCategories(database: D1Database): Promise<BridgeCategory[]> {
+  return remember(database, "categories", MINUTE, () => loadCloudLibraryCategories(database));
+}
+
+async function loadCloudLibraryCategories(database: D1Database): Promise<BridgeCategory[]> {
   const rows = await database.prepare(
     `SELECT topics.id, topics.slug, topics.title, topics.default_sort,
        topics.chat_id, topics.topic_id, topics.status, topics.icon_color,
@@ -316,12 +324,22 @@ export async function listCloudLibraryCategories(database: D1Database): Promise<
   }));
 }
 
-export async function listCloudLibraryCategoryPosts(
+export function listCloudLibraryCategoryPosts(
   database: D1Database,
   slug: string,
   cursor: string | null,
   limit = 12,
   order: "asc" | "desc" = "desc",
+): Promise<BridgePostPage> {
+  return remember(database, `feed:${slug}:${cursor ?? ""}:${limit}:${order}`, MINUTE, () => loadCloudLibraryCategoryPosts(database, slug, cursor, limit, order));
+}
+
+async function loadCloudLibraryCategoryPosts(
+  database: D1Database,
+  slug: string,
+  cursor: string | null,
+  limit: number,
+  order: "asc" | "desc",
 ): Promise<BridgePostPage> {
   // Up to 200 so a numbered topic like Psalms (151) can load in one page for its grid.
   const safeLimit = Math.min(200, Math.max(1, limit));
@@ -361,7 +379,11 @@ export async function listCloudLibraryCategoryPosts(
   };
 }
 
-export async function getCloudLibraryPost(database: D1Database, chatId: string, messageId: number) {
+export function getCloudLibraryPost(database: D1Database, chatId: string, messageId: number) {
+  return remember(database, `post:${chatId}:${messageId}`, MINUTE, () => loadCloudLibraryPost(database, chatId, messageId));
+}
+
+async function loadCloudLibraryPost(database: D1Database, chatId: string, messageId: number) {
   const row = await database.prepare(
     `${materialSelect()}
      WHERE materials.chat_id = ? AND materials.message_id = ?
@@ -371,12 +393,23 @@ export async function getCloudLibraryPost(database: D1Database, chatId: string, 
   return row ? (await hydrateRows(database, [row]))[0] ?? null : null;
 }
 
-export async function searchCloudLibraryPosts(
+export function searchCloudLibraryPosts(
   database: D1Database,
   query: string,
   categoryId: string,
   cursor: string | null,
   limit = 20,
+): Promise<BridgePostPage> {
+  // The same search (popular words, typing the same prefix) is answered from memory for a minute.
+  return remember(database, `search:${query.trim().toLocaleLowerCase("hy")}:${categoryId}:${cursor ?? ""}:${limit}`, MINUTE, () => loadSearchCloudLibraryPosts(database, query, categoryId, cursor, limit));
+}
+
+async function loadSearchCloudLibraryPosts(
+  database: D1Database,
+  query: string,
+  categoryId: string,
+  cursor: string | null,
+  limit: number,
 ): Promise<BridgePostPage> {
   const parsed = parseTelegramSearchQuery(query);
   if (!parsed.normalized && !parsed.messageIdIntent) {
