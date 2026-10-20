@@ -1,10 +1,8 @@
-import { env } from "cloudflare:workers";
 import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { isRouteErrorResponse, Link, useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
-import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { MaterialMediaGallery, PsalmNavContext } from "../components/material-media";
 import {
   FormattedTelegramText,
@@ -18,42 +16,16 @@ import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
-import { getPollVotes } from "../data/poll-votes.server";
-import { getOptionalTelegramAdmin } from "../auth/admin.server";
+import { ReadMark, readKindFor } from "../components/read-mark";
 import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
-import { getPublicMaterialDetail } from "../data/material-detail.server";
-import { listSavedMaterialIds } from "../data/saved-materials.server";
-import { findPsalmNeighbors } from "../data/psalm-neighbors.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
+import { materialPath } from "../utils/material-path";
+import { loadMaterialPage } from "../data/material-page.server";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  if (!/^material_[a-zA-Z0-9_-]{1,220}$/.test(params.materialId)) {
-    throw new Response("Not Found", { status: 404 });
-  }
-  const [material, user] = await Promise.all([
-    getPublicMaterialDetail(env.DB, params.materialId, request.signal),
-    getOptionalTelegramUser(request),
-  ]);
-  if (!material) throw new Response("Not Found", { status: 404 });
-  const isPsalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms";
-  const [savedIds, psalm] = await Promise.all([
-    user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
-    isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
-  ]);
-  const reference = material.poll ? parseMaterialId(material.id) : null;
-  const pollVotes = reference && material.poll
-    ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
-    : null;
-  // A psalm's marked verse timings, and whether this reader may mark them.
-  const psalmReference = isPsalm ? parseMaterialId(material.id) : null;
-  const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
-    env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
-      .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
-    getOptionalTelegramAdmin(request, env.DB).then(Boolean).catch(() => false),
-  ]) : [null, false];
-  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm };
+  return loadMaterialPage(params.materialId, request);
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -63,7 +35,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   ];
 }
 
-const actionTile = "flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/12%)] px-1 text-[11.5px] font-bold text-gold-bright no-underline shadow-card transition-[transform,background] duration-150 hover:bg-[rgb(217_181_111/20%)] active:scale-[.96] disabled:opacity-60";
+const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline transition-[transform,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";
 
 export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { material } = loaderData;
@@ -123,6 +95,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
+        {material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
         {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} materialId={material.id} votes={loaderData.pollVotes} canVote={loaderData.canSave} /> : null}
@@ -141,11 +114,11 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
 
         {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
           // Psalms follow their recording verse by verse.
-          <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
-            <PsalmReadAlong text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
+          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+            <PsalmReadAlong key={material.id} text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
-          <div className="frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
+          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
             {superscriptionEnd > 0 ? (
               <p className="psalm-superscription m-0 mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center">
                 <FormattedTelegramText value={material.formattedText} from={textTitleLength} to={superscriptionEnd} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
@@ -154,8 +127,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? versesStart : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
-          <p className="m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
+          <p className="reading-body m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
+
+        {loaderData.canSave && !material.poll ? <ReadMark materialId={material.id} kind={readKindFor(material.media)} marks={loaderData.readMarks} /> : null}
 
         {/* One row of equal tiles: an icon with a short name under it. */}
         <div className={`grid gap-2 ${loaderData.canSave ? "grid-cols-4" : "grid-cols-2"}`}>
@@ -178,7 +153,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             text={material.title}
             url={material.telegramUrl}
             materialId={material.id}
-            pageUrl={typeof window === "undefined" ? `/materials/${material.id}` : window.location.href}
+            pageUrl={typeof window === "undefined" ? materialPath(material.id, material.categoryName) : window.location.href}
             label
           />
         </div>

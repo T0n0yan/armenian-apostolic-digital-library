@@ -1,6 +1,6 @@
-import { Check, Copy, Share2, X } from "lucide-react";
+import { Check, Copy, Send, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { BottomSheet } from "./bottom-sheet";
 
 type TelegramShareWindow = Window & {
   Telegram?: {
@@ -18,7 +18,7 @@ type ShareButtonProps = {
   text: string;
   /** Link that recipients open (the Telegram post). */
   url: string;
-  /** This page in the library (kept for callers; sharing sends the Telegram post). */
+  /** This page in the library: what browser readers share and copy. */
   pageUrl: string;
   /** Lets the Mini App share the material through Telegram's share sheet. */
   materialId?: string;
@@ -73,40 +73,51 @@ function useCopied() {
 
 const sheetItem = "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[14px] border-0 bg-subtle px-4 text-left text-[14px] font-semibold text-ink hover:bg-glass-strong";
 
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-  return createPortal(
-    <div className="fixed inset-0 z-[60] grid items-end justify-items-center p-3 pb-[calc(var(--tg-inset-bottom,0px)+12px)]" role="dialog" aria-label="Կիսվել">
-      <button className="absolute inset-0 cursor-default border-0 bg-[rgb(20_10_24/40%)] p-0 motion-safe:animate-[glass-enter_200ms_ease-out]" type="button" aria-label="Փակել" onClick={onClose} />
-      <div className="install-toast relative grid w-full max-w-[420px] gap-2 rounded-[22px] border border-glass-border bg-[var(--page-bg)] p-3 shadow-[0_24px_60px_rgb(20_8_24/40%)]" data-phase="in">
-        <div className="flex items-center justify-between px-1 pb-1">
-          <strong className="line-clamp-1 text-[13px] text-muted">{title}</strong>
-          <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
-        </div>
-        {children}
+function Sheet({ title, open, onClose, children }: { title: string; open: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <BottomSheet open={open} onClose={onClose} label="Կիսվել" className="gap-2 p-3">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <strong className="line-clamp-1 text-[13px] text-muted">{title}</strong>
+        <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
       </div>
-    </div>,
-    document.body,
+      {children}
+    </BottomSheet>
   );
 }
 
+/** The page's address without search/marking parameters, absolute. */
+function siteUrl(pageUrl: string) {
+  const address = new URL(pageUrl, window.location.origin);
+  address.search = "";
+  address.hash = "";
+  return address.toString();
+}
+
 /**
- * Inside the Mini App, opens Telegram's share sheet over the app (shareMessage), or failing that
- * Telegram's "send to a chat" picker (Telegram's Android Mini App WebView has no system share
- * sheet). In a browser, opens the phone's share
- * sheet (Android Quick Share, iOS share sheet); without one, the link is copied.
+ * Shares the same way in a browser and in the Mini App: the phone's share sheet when there is one
+ * (Android Quick Share, iOS share sheet), otherwise our own sheet with "copy link" and "send in
+ * Telegram". Only the link differs: in a browser the site's page, in the Mini App the Telegram link.
  */
-export function ShareButton({ title, text, url, className, materialId, label = false }: ShareButtonProps) {
+export function ShareButton({ title, text, url, pageUrl, className, materialId, label = false }: ShareButtonProps) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [copied, markCopied] = useCopied();
+  const link = () => telegramWebApp()?.initData ? url : siteUrl(pageUrl);
 
   const share = useCallback(async () => {
+    if (await systemShare({ title, text, url: telegramWebApp()?.initData ? url : siteUrl(pageUrl) })) return;
+    setSheetOpen(true);
+  }, [pageUrl, text, title, url]);
+
+  const close = useCallback(() => setSheetOpen(false), []);
+  const copyLink = async () => {
+    await copyText(link());
+    markCopied();
+    setSheetOpen(false);
+  };
+  const sendInTelegram = async () => {
+    setSheetOpen(false);
     const webApp = telegramWebApp();
-    // Telegram's share sheet over the Mini App, so the reader stays in the library.
+    // In the Mini App, Telegram's own "send to a chat" sheet over the app.
     if (webApp?.initData && webApp.shareMessage && materialId) {
       const prepared = await fetch("/api/share-prepare", {
         method: "POST",
@@ -118,22 +129,11 @@ export function ShareButton({ title, text, url, className, materialId, label = f
         return;
       }
     }
-    if (webApp?.initData && webApp.openTelegramLink) {
-      const picker = new URL("https://t.me/share/url");
-      picker.searchParams.set("url", url);
-      if (text) picker.searchParams.set("text", text);
-      webApp.openTelegramLink(picker.toString());
-      return;
-    }
-    if (await systemShare({ title, text, url })) return;
-    setSheetOpen(true);
-  }, [materialId, text, title, url]);
-
-  const close = useCallback(() => setSheetOpen(false), []);
-  const copyLink = async () => {
-    await copyText(url);
-    markCopied();
-    setSheetOpen(false);
+    const picker = new URL("https://t.me/share/url");
+    picker.searchParams.set("url", link());
+    if (text) picker.searchParams.set("text", text);
+    if (webApp?.initData && webApp.openTelegramLink) webApp.openTelegramLink(picker.toString());
+    else window.open(picker.toString(), "_blank", "noopener");
   };
 
   return (
@@ -142,11 +142,10 @@ export function ShareButton({ title, text, url, className, materialId, label = f
         {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
         {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
       </button>
-      {sheetOpen ? (
-        <Sheet title={title} onClose={close}>
+      <Sheet title={title} open={sheetOpen} onClose={close}>
           <button className={sheetItem} type="button" onClick={copyLink}><Copy aria-hidden="true" size={18} className="text-gold" /> Պատճենել հղումը</button>
-        </Sheet>
-      ) : null}
+          <button className={sheetItem} type="button" onClick={sendInTelegram}><Send aria-hidden="true" size={18} className="text-gold" /> Ուղարկել Telegram-ով</button>
+      </Sheet>
     </>
   );
 }

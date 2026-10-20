@@ -1,7 +1,8 @@
-import type { SVGProps } from "react";
+import { useEffect, useState, type SVGProps } from "react";
 
 /**
- * Topic icons from IconOven (MIT, https://iconoven.com), one stroke style for every topic. Each
+ * Topic icons in one 1.5px stroke style: IconOven (MIT) for the Gospel and questions, and our own drawings
+ * for the candle, the lyre, the saint and the calendar (the Gospel's lines are ours too). Each
  * draws itself in when it appears, then moves slowly in a way that says what the topic is. The
  * motions live in app.css (.ti-*) and stop when animations are turned off.
  */
@@ -11,33 +12,43 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={`ti ${motion} ${className}`} {...props}
       // Every stroke gets pathLength=1 so the draw-in animation works the same for all shapes.
-      dangerouslySetInnerHTML={{ __html: body.replaceAll("<path ", '<path pathLength="1" class="ti-stroke" ') }} />
+      dangerouslySetInnerHTML={{ __html: body.replace(/<(path|circle) /gu, '<$1 pathLength="1" class="ti-stroke" ') }} />
   );
 }
 
-/** Gospel teaching: the open Gospel with a cross; its pages stir. */
+/** Gospel teaching: the open Gospel, its lines following the curve of the pages, with a cross. */
 export function GospelIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-gospel" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13M5.25 9.5H9m-3.75 3H9m-3.75 3h2.5m8.75-7V16m-2-5.25h4\"/>"} />;
+  return <Icon {...props} motion="ti-gospel" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13\"/><path d=\"M5.2 8.7c1.4 0 2.8.35 4.1 1M5.2 11.7c1.4 0 2.8.35 4.1 1M5.2 14.7c.9 0 1.8.15 2.7.45\"/><path d=\"M16.75 8.5v7.2M14.75 10.9c1.3-.35 2.7-.45 4-.3\"/></g>"} />;
 }
 
-/** Prayers: hands joined in prayer, softly glowing. */
+/** Prayers: a church candle whose light shines out. */
 export function PrayerIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-pray" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M10.5 18V4.75a1.75 1.75 0 0 0-3.5 0v5.5c-1.5 1-2.25 2.5-2.25 4.25c0 1.5.5 2.75 1.5 3.5Zm3 0V4.75a1.75 1.75 0 0 1 3.5 0v5.5c1.5 1 2.25 2.5 2.25 4.25c0 1.5-.5 2.75-1.5 3.5Zm-7.25 3h11.5\"/>"} />;
+  return <Icon {...props} motion="ti-pray" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 2.8c1.7 2.1 2.3 3.5 2.3 4.6a2.3 2.3 0 0 1-4.6 0c0-1.1.6-2.5 2.3-4.6Z\"/><path d=\"M12 9.7v1.3M9.8 11h4.4v8.5H9.8ZM6.5 19.5h11l-1.2 2H7.7Z\"/><path d=\"M5.5 6.5l1.4.6M18.5 6.5l-1.4.6M6.2 3.6l1.2 1.1M17.8 3.6l-1.2 1.1\"/></g>"} />;
 }
 
-/** Psalms: David's harp, its strings trembling. */
+/** Psalms: David's lyre, its strings trembling. */
 export function PsalmIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-harp" body={"<path fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M5.75 3.75v17h3m-3-17c2.5 0 4 3 7.5 3c2.5 0 4-1.5 5.75-1.5m-9.75.65v12.5M12.5 7.35V14m3.25-6.9v2.5M19 5.25L7.5 20.75\"/>"} />;
+  return <Icon {...props} motion="ti-harp" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M9 19.5C6.2 18 4.8 14.6 5.5 11.4c.5-2.3 2-3.2 1.5-5.8c-.2-1-1-1.6-2-1.3M15 19.5c2.8-1.5 4.2-4.9 3.5-8.1c-.5-2.3-2-3.2-1.5-5.8c.2-1 1-1.6 2-1.3\"/><path d=\"M6.6 7.4h10.8M8.5 19.5h7\"/><path d=\"M10 7.4v12.1M12 7.4v12.1M14 7.4v12.1\"/></g>"} />;
 }
 
-/** Lives of the saints: a face beneath a halo that floats and shines. */
+/** Lives of the saints: a saint's head inside a golden halo, as on the icons. */
 export function SaintIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"14.75\" r=\"6.5\"/><path d=\"M8.5 13c.6-.6 1.65-.6 2.25 0m2.5 0c.6-.6 1.65-.6 2.25 0m-6 3.5c1.4 1 3.6 1 5 0M12 2.75c3 0 5.5.6 5.5 1.38S15 5.5 12 5.5s-5.5-.6-5.5-1.37S9 2.75 12 2.75\"/></g>"} />;
+  return <Icon {...props} motion="ti-halo" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><circle cx=\"12\" cy=\"8\" r=\"6.6\" fill=\"currentColor\" fill-opacity=\".14\"/><path d=\"M9.1 9.2a2.9 3.2 0 1 1 5.8 0v.5a2.9 3.2 0 0 1-5.8 0Z\"/><path d=\"M9.2 8.4c.6-1.3 1.7-1.9 2.8-1.9s2.2.6 2.8 1.9\"/><path d=\"M4.5 22.5c0-4.3 3.4-7.1 7.5-7.1s7.5 2.8 7.5 7.1\"/></g>"} />;
 }
 
-/** Daily readings: the calendar page turns over. */
-export function CalendarIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-calendar" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><rect width=\"16.5\" height=\"15\" x=\"3.75\" y=\"5.25\" rx=\"2.5\"/><path d=\"M3.75 10h16.5M8 2.75v4.5m8-4.5v4.5\"/><rect width=\"5.5\" height=\"5\" x=\"9.25\" y=\"12.75\" rx=\"1.25\"/></g>"} />;
+/** Daily readings: a calendar leaf showing today's date; the page turns over. */
+export function CalendarIcon({ size = 24, strokeWidth: _strokeWidth, className = "", ...props }: IconProps) {
+  const [day, setDay] = useState(() => new Date().getDate());
+  useEffect(() => setDay(new Date().getDate()), []);
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={`ti ti-calendar ${className}`} {...props}>
+      <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
+        <rect className="ti-stroke" pathLength={1} x="3.5" y="5" width="17" height="15.5" rx="2.5" />
+        <path className="ti-stroke" pathLength={1} d="M3.5 9.5h17M8 3v4M16 3v4" />
+      </g>
+      <text x="12" y="18.2" textAnchor="middle" fontSize="7.6" fontWeight="700" fill="currentColor" fontFamily="system-ui, sans-serif" suppressHydrationWarning>{day}</text>
+    </svg>
+  );
 }
 
 /** Questions from the Bible: a question that tilts as if wondering. */

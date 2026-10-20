@@ -12,13 +12,14 @@ function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous"
   if (!link) return <span className="size-11" aria-hidden="true" />;
   const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
   return (
-    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={`/materials/${link.id}`} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
+    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms")} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
       <Icon aria-hidden="true" size={20} />
     </Link>
   );
 }
 import { useVideoPoster } from "../utils/video-frame";
 import { isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
+import { materialPath } from "../utils/material-path";
 
 function durationLabel(seconds: number | null) {
   if (!seconds || seconds < 0) return null;
@@ -211,7 +212,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   return (
     <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
       {kind === "video" ? (
-        <video
+        <video controlsList="nodownload"
           {...common}
           ref={ref}
           className="block max-h-[74svh] w-full bg-transparent object-contain"
@@ -224,7 +225,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
         </video>
       ) : (
         <>
-          <audio
+          <audio controlsList="nodownload"
             {...common}
             controls={false}
             ref={ref}

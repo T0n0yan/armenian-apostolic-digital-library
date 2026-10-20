@@ -12,6 +12,9 @@ import {
 } from "../auth/telegram-user.server";
 import { CategoryIcon } from "../components/category-icon";
 import { googleConfig } from "../auth/google.server";
+import { readingDays } from "../data/reading-log.server";
+import { telegramAppLink } from "../data/telegram-bot.server";
+import { ReadingCalendar } from "../components/reading-calendar";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
 import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
@@ -45,8 +48,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const auth = await getTelegramUserState(request);
   const user = auth.user;
   const googleAvailable = Boolean(googleConfig());
+  const telegramLogin = await telegramAppLink().catch(() => null);
   const signInFailed = new URL(request.url).searchParams.get("signin") === "failed";
-  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0, googleAvailable, signInFailed };
+  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0, googleAvailable, signInFailed, telegramLogin };
   try {
     await upsertAppUser(env.DB, user);
   } catch {
@@ -54,6 +58,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
+  const [readingLog, joinedAt] = await Promise.all([
+    readingDays(env.DB, user.id).catch(() => ({} as Record<string, number>)),
+    env.DB.prepare("SELECT created_at FROM app_users WHERE id = ?").bind(user.id).first<{ created_at: string }>().then((row) => row?.created_at ?? null).catch(() => null),
+  ]);
   try {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
   } catch (error) {
@@ -71,6 +79,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     total: materials.length,
     googleAvailable,
     signInFailed,
+    readingLog,
+    joinedAt,
   };
 }
 
@@ -191,16 +201,14 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                   Մուտք Google-ով
                 </a>
               ) : null}
-              <button
-                className="flex min-h-11 w-full cursor-not-allowed items-center gap-3 rounded-[13px] border border-glass-border bg-subtle px-3 text-left text-[13px] font-semibold text-muted opacity-80"
-                type="button"
-                disabled
-                aria-disabled="true"
-              >
-                <span className="grid size-7 place-items-center rounded-full bg-glass-strong font-bold text-ink" aria-hidden="true">f</span>
-                Մուտք Facebook-ով
-                <span className="ml-auto rounded-full border border-[rgb(217_181_111/35%)] px-2 py-0.5 text-[10.5px] text-gold-bright">Շուտով</span>
-              </button>
+              {"telegramLogin" in loaderData && loaderData.telegramLogin ? (
+                // In Telegram the Mini App signs the reader in by itself.
+                <a className="flex min-h-12 w-full items-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-left text-[14px] font-semibold text-ink no-underline shadow-card" href={loaderData.telegramLogin} target="_blank" rel="noreferrer">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE" /><path fill="#fff" d="M5.4 11.8l11.6-4.5c.54-.2 1 .13.83.94l-1.98 9.3c-.15.66-.54.82-1.1.51l-3-2.22-1.45 1.4c-.16.16-.3.3-.6.3l.21-3.05 5.56-5.02c.24-.21-.05-.33-.38-.12l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.14-.95z" /></svg>
+                  Մուտք Telegram-ով
+                  <span className="ml-auto text-[11px] font-medium text-faint">ավտոմատ</span>
+                </a>
+              ) : null}
               {!loaderData.googleAvailable ? <span className="text-[11.5px] text-faint">Google-ով մուտքը շուտով կմիանա։</span> : null}
               <Link className="text-center text-[11.5px] text-faint underline" to="/privacy">Գաղտնիության քաղաքականություն</Link>
             </div>
@@ -208,12 +216,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         </EmptyState>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
-          {loaderData.user?.source === "google" ? (
-            <Form className="flex items-center justify-between gap-3 rounded-[14px] border border-glass-border bg-subtle px-3.5 py-2 text-[12.5px] text-muted" method="post" action="/auth/logout">
-              <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>
-              <button className="shrink-0 cursor-pointer rounded-full border border-glass-border bg-transparent px-3 py-1 text-[12px] font-semibold text-gold-bright" type="submit">Ելք</button>
-            </Form>
-          ) : null}
+          {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
+
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">
               {loaderData.query ? "Գտնված նյութեր" : "Պահված նյութեր"}
@@ -250,6 +254,12 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
               ))}
             </div>
           )}
+          {loaderData.user?.source === "google" ? (
+            <Form className="mt-4 flex items-center justify-between gap-3 border-t border-glass-border px-1 pt-4 text-[12.5px] text-muted" method="post" action="/auth/logout">
+              <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>
+              <button className="shrink-0 cursor-pointer rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-4 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit">Ելք</button>
+            </Form>
+          ) : null}
         </section>
       )}
     </PageShell>

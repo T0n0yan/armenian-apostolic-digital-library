@@ -1,5 +1,6 @@
 import { createMaterialId } from "../../shared/telegram-bridge-contract";
 import { sendWebPush, type PushKeys, type PushSubscriptionRow } from "./web-push.server";
+import { materialPath } from "../utils/material-path";
 
 export type ReminderRepeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 export type Reminder = { materialId: string; remindAt: string; repeat: ReminderRepeat };
@@ -91,6 +92,24 @@ export async function listUpcomingReminders(database: D1Database, userId: string
 
 type ReminderKey = { userId: string; chatId: string; messageId: number };
 
+export type MissedReminder = { materialId: string; rangAt: string; title: string; categoryName: string | null };
+
+/** Reminders that rang and wait for the reader's "Կարդացել եմ". */
+export async function listMissedReminders(database: D1Database, userId: string): Promise<MissedReminder[]> {
+  const { results } = await database.prepare(
+    `SELECT inbox.chat_id, inbox.message_id, inbox.rang_at, materials.title, topics.title AS category_name
+     FROM reminder_inbox AS inbox
+     LEFT JOIN library_materials AS materials ON materials.chat_id = inbox.chat_id AND materials.message_id = inbox.message_id
+     LEFT JOIN library_topics AS topics ON topics.id = materials.topic_key
+     WHERE inbox.user_id = ? ORDER BY inbox.rang_at DESC LIMIT 30`,
+  ).bind(userId).all<{ chat_id: string; message_id: number; rang_at: string; title: string | null; category_name: string | null }>();
+  return results.map((row) => ({ materialId: createMaterialId(row.chat_id, row.message_id), rangAt: row.rang_at, title: row.title?.trim() || "Հոգևոր ժառանգություն", categoryName: row.category_name }));
+}
+
+export async function markReminderRead(database: D1Database, key: ReminderKey) {
+  await database.prepare("DELETE FROM reminder_inbox WHERE user_id = ? AND chat_id = ? AND message_id = ?").bind(key.userId, key.chatId, key.messageId).run();
+}
+
 /**
  * Marks a reminder as rung (by the in-app alarm or the bot): a snooze is cleared, a one-off
  * reminder is removed and a repeating one moves to its next time.
@@ -101,6 +120,9 @@ export async function completeReminder(database: D1Database, key: ReminderKey, n
   ).bind(key.userId, key.chatId, key.messageId).first<{ remind_at: string; repeat: ReminderRepeat; snoozed_until: string | null }>();
   if (!row) return;
   const nowIso = new Date(now).toISOString();
+  // It stays in the bell's list until the reader marks it read.
+  await database.prepare("INSERT OR REPLACE INTO reminder_inbox (user_id, chat_id, message_id, rang_at) VALUES (?, ?, ?, ?)")
+    .bind(key.userId, key.chatId, key.messageId, nowIso).run();
   const regularDue = row.remind_at <= nowIso;
   if (!regularDue) {
     // Only the snooze rang; the regular time stays.
@@ -165,7 +187,7 @@ async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow,
     const outcome = await sendWebPush(subscription, {
       title: "🔔 Ժամանակն է կարդալու",
       body: row.title?.trim() || "Հոգևոր ժառանգություն",
-      url: `${publicUrl}/materials/${materialId}?reminder=1`,
+      url: `${publicUrl}${materialPath(materialId, row.category_name)}?reminder=1`,
       tag: `reminder-${materialId}`,
       category: row.category_name,
     }, keys);
@@ -208,7 +230,7 @@ export async function sendDueReminders(database: D1Database, options: { token: s
       const result = await callBot(options.token, "sendMessage", {
         chat_id: Number(row.telegram_id),
         text: `🔔 Ժամանակն է կարդալու\n\n${title}`,
-        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}/materials/${materialId}` } }]] },
+        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}${materialPath(materialId, row.category_name)}` } }]] },
       });
       // A blocked bot or a missing chat can never deliver; anything else is retried next minute.
       if (result.ok) delivered = true;

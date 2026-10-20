@@ -21,6 +21,7 @@ import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { ReminderAlarm } from "./components/reminder-alarm";
+import { NavigationProgress } from "./components/navigation-progress";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -46,8 +47,11 @@ const initialThemeScript = `(() => {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark" || value === "sun") preference = value;
       // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
-      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["small", "large"]], leading: ["library-leading", ["wide"]], motion: ["library-motion", ["reduced"]] };
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]], devMode: ["library-dev-mode", ["on"]] };
       for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
+      if (!root.dataset.titleSize) root.dataset.titleSize = "small";
+      // Unless chosen, animations follow the phone: off in power-saving / reduced-motion / data-saver.
+      if (!root.dataset.motion) root.dataset.motion = matchMedia("(prefers-reduced-motion: reduce)").matches || (navigator.connection && navigator.connection.saveData) ? "reduced" : "full";
       const size = localStorage.getItem("library-text-size-v1");
       const legacy = size === "large" ? 18 : size === "xlarge" ? 20 : Number(size);
       if (size && legacy >= 12 && legacy <= 20) textSize = Math.round(legacy);
@@ -78,6 +82,7 @@ export async function loader({request}: Route.LoaderArgs) {
 
   const value = {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
+    isAdmin: Boolean(telegramAdmin),
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };
@@ -235,6 +240,84 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
 
+  // Protects the library's artwork and texts: holding a link, card or picture opens no system
+  // menu (Android's link menu, Telegram's "Open in…" popup, "save image"), and copied text
+  // carries its source. Admins can lift this with developer mode. (Screenshots can't be blocked.)
+  useEffect(() => {
+    const devMode = () => document.documentElement.dataset.devMode === "on";
+    const isField = (target: EventTarget | null) => Boolean((target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']"));
+    const onContextMenu = (event: MouseEvent) => {
+      if (!devMode() && !isField(event.target)) event.preventDefault();
+    };
+    const onCopy = (event: ClipboardEvent) => {
+      if (devMode()) return;
+      const text = window.getSelection()?.toString() ?? "";
+      if (text.trim().length < 40 || !event.clipboardData) return;
+      event.clipboardData.setData("text/plain", `${text}\n\nԱղբյուր՝ «Հոգևոր ժառանգություն» — ${window.location.href}`);
+      event.preventDefault();
+    };
+    // No selection starts outside form fields (iOS can still try on a long press).
+    const onSelectStart = (event: Event) => {
+      if (!devMode() && !isField(event.target)) event.preventDefault();
+    };
+    document.addEventListener("contextmenu", onContextMenu);
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("selectstart", onSelectStart);
+    return () => {
+      document.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("selectstart", onSelectStart);
+    };
+  }, []);
+
+  // Tells the site this device has a page open (every 3 minutes while visible), for the admin's
+  // "online now" and device numbers. A random id stays in the browser; nothing else is sent.
+  useEffect(() => {
+    let visitorId = "";
+    try {
+      visitorId = localStorage.getItem("library-visitor") ?? "";
+      if (!visitorId) { visitorId = crypto.randomUUID(); localStorage.setItem("library-visitor", visitorId); }
+    } catch { visitorId = crypto.randomUUID(); }
+    const agent = navigator.userAgent;
+    const platform = /iPhone|iPad|iPod/u.test(agent) || (/Macintosh/u.test(agent) && navigator.maxTouchPoints > 1) ? "ios"
+      : /Android/u.test(agent) ? "android" : /Windows/u.test(agent) ? "windows" : /Macintosh|Mac OS X/u.test(agent) ? "macos" : /Linux|CrOS/u.test(agent) ? "linux" : "other";
+    const inTelegram = Boolean((window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData);
+    const send = () => {
+      if (document.visibilityState !== "visible") return;
+      void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true }).catch(() => null);
+    };
+    send();
+    const timer = window.setInterval(send, 180_000);
+    document.addEventListener("visibilitychange", send);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", send); };
+  }, []);
+
+  // After a new deploy, an open page may ask for scripts that no longer exist; reload it once
+  // instead of leaving it broken.
+  useEffect(() => {
+    const KEY = "library-reloaded-for-update";
+    const reload = () => {
+      try { if (sessionStorage.getItem(KEY) === "1") return; sessionStorage.setItem(KEY, "1"); } catch { /* reload anyway */ }
+      window.location.reload();
+    };
+    const onRejection = (event: PromiseRejectionEvent) => {
+      const message = String((event.reason as { message?: string } | null)?.message ?? event.reason ?? "");
+      if (/dynamically imported module|Importing a module script failed|error loading dynamically imported module|Failed to fetch/iu.test(message) && /module|import/iu.test(message)) reload();
+    };
+    window.addEventListener("vite:preloadError", reload);
+    window.addEventListener("unhandledrejection", onRejection);
+    const clear = window.setTimeout(() => { try { sessionStorage.removeItem(KEY); } catch { /* ignore */ } }, 10_000);
+    return () => { window.removeEventListener("vite:preloadError", reload); window.removeEventListener("unhandledrejection", onRejection); window.clearTimeout(clear); };
+  }, []);
+
+  // The service worker keeps visited pages and pictures for slow or missing connections.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || window.location.protocol !== "https:") return;
+    const register = () => void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register, { once: true });
+  }, []);
+
   // The "sun" theme turns at the real sunrise and sunset; check again every few minutes.
   useEffect(() => {
     const refresh = () => { if (readStoredThemePreference() === "sun") applyThemePreference("sun"); };
@@ -293,6 +376,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <CandleLoader />
     <InstallPrompt />
     <ReminderAlarm />
+    <NavigationProgress />
   </>;
 }
 

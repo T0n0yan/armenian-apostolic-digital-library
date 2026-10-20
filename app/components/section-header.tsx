@@ -21,6 +21,7 @@ import { HeaderSearchLink, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
 import divider2 from "../assets/divider2.webp";
+import { ArtImage } from "./art-image";
 
 const CATEGORY_IMAGES: Record<string, string> = {
   category_saints_lives: saintsLivesImage,
@@ -106,7 +107,7 @@ export const SectionHeader = memo(function SectionHeader({
       <div className="grid items-center gap-[10px] ">
         {/*[190px] min-[960px]:h-full*/}
         <div className="flex min-h-[160px] w-full items-center justify-center min-[390px]:min-h-[180px] min-[768px]:h-full">
-          <img
+          <ArtImage
             className="block h-full w-full object-cover"
             src={imageSrc}
             width={1774}

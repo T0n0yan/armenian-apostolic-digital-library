@@ -54,6 +54,15 @@
 		},
 		"production": {
 			"name": "armenian-apostolic-digital-library",
+			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
+			// cloud sync on GitHub when GITHUB_SYNC_TOKEN is set (workers/app.ts).
+			"triggers": { "crons": ["* * * * *"] },
+			"vars": {
+				"PUBLIC_URL": "https://armenian-apostolic-digital-library.armenian-apostolic-digital-library.workers.dev",
+				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
+				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
+				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"
+			},
 			"d1_databases": [
 				{
 					"binding": "DB",

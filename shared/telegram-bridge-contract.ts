@@ -42,6 +42,8 @@ export type BridgeMedia = {
   waveform: string | null;
   hasThumbnail: boolean;
   altText: string;
+  /** Changes whenever the stored file changes (e.g. a recording replaced in Telegram); used in URLs. */
+  version?: string | null;
 };
 
 export type BridgeTextEntity = {

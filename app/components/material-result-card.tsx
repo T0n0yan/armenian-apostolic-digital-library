@@ -36,13 +36,16 @@ import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
 import { useVideoPoster } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
-import { ShareButton } from "./share-button";
-import { ReminderButton } from "./reminder-button";
+import { MaterialActionSheet } from "./material-action-sheet";
+import { useLongPress } from "../hooks/use-long-press";
 import { psalmNumber } from "../utils/psalm-number";
 import { calendarParts } from "../utils/daily-reading";
 import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant";
+import { materialPath } from "../utils/material-path";
 
 type MaterialResultCardProps = {
+  /** The section when the material doesn't carry its name (a section's own list). */
+  category?: string;
   material: {
     id: string;
     title: string;
@@ -68,6 +71,8 @@ type MaterialResultCardProps = {
   variant?: MaterialCardVariant;
   /** The topic's usual content type (e.g. polls in Bible questions); its badge is redundant there. */
   typicalType?: BridgeContentType;
+  /** For questions the reader answered: whether the answer was right. */
+  quizResult?: "right" | "wrong" | "answered";
   isSaved: boolean;
   isSaving?: boolean;
   allowNoteEditing?: boolean;
@@ -172,7 +177,8 @@ function highlightText(value: string, pattern: HighlightPattern | null) {
   );
 }
 
-const HIT_LEAD_CHARACTERS = 48;
+const HIT_LEAD_CHARACTERS = 40;
+const HIT_TAIL_CHARACTERS = 90;
 
 function highlightHit(hit: BridgeSearchHit) {
   let snippet = hit.snippet;
@@ -185,6 +191,11 @@ function highlightHit(hit: BridgeSearchHit) {
     start = start - cut + 1;
   }
   const end = Math.max(start, Math.min(snippet.length, start + hit.snippetMatchLength));
+  // Cards show a fixed amount of text: about two lines around the found words.
+  if (snippet.length > end + HIT_TAIL_CHARACTERS) {
+    const space = snippet.lastIndexOf(" ", end + HIT_TAIL_CHARACTERS);
+    snippet = `${snippet.slice(0, space > end ? space : end + HIT_TAIL_CHARACTERS).trimEnd()}…`;
+  }
   hit = { ...hit, snippet };
   return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
 }
@@ -211,10 +222,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   highlightQuery = "",
   variant = "default",
   typicalType,
+  quizResult,
   isSaved,
   isSaving = false,
   allowNoteEditing = false,
   onSavedChange,
+  category,
 }: MaterialResultCardProps) {
   const date = formatArmenianDate(material.dateValue ?? material.publishedAt ?? null);
   const [isNoteExpanded, setIsNoteExpanded] = useState(false);
@@ -222,13 +235,13 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const navigation = useNavigation();
-  const targetPath = `/materials/${material.id}`;
+  const targetPath = materialPath(material.id, material.categoryName ?? category);
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
   const isVideo = variant === "video" || material.contentType === "video";
   const videoPoster = useVideoPoster(
-    isVideo ? material.preview.thumbnailUrl?.replace(/\?thumbnail=1$/u, "") ?? null : null,
+    isVideo ? material.preview.thumbnailUrl?.replace("?thumbnail=1&", "?").replace(/\?thumbnail=1$/u, "") ?? null : null,
     isVideo ? material.preview.thumbnailUrl : null,
   );
   const psalm = variant === "psalm" ? psalmNumber(material) : null;
@@ -286,6 +299,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     }, 420);
   }, []);
 
+  // Holding a card (or right-clicking it) opens its actions: save, remind, Telegram, share.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const closeActions = useCallback(() => setActionsOpen(false), []);
+  const longPress = useLongPress(useCallback(() => setActionsOpen(true), []));
+
   const handleBookmark = useCallback(() => {
     if (isSaved) {
       onSavedChange(material.id, false);
@@ -308,14 +326,15 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     <li className="animate-glass-enter" data-material-id={material.id}>
       <div className="relative">
         <Link
-          className={`${interactiveGlassCard} grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] pt-[14px] pb-[52px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[52px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] pt-[12px] pb-[52px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} hold-card grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] py-[14px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
           aria-busy={isOpening || undefined}
-          onClick={(event) => { if (isOpening) event.preventDefault(); }}
+          onClick={(event) => { if (isOpening || longPress.consumeClick()) event.preventDefault(); }}
+          {...longPress.handlers}
         >
         {variant === "video" ? (
           <span ref={videoPoster.ref} className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
@@ -394,7 +413,11 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <span className="mt-0.5 grid size-[30px] place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] font-noto text-[16px] font-bold text-gold-bright" aria-hidden="true">?</span>
               <span className="grid gap-1">
                 <strong className="line-clamp-3 font-noto text-[15px] leading-[22px] font-semibold [overflow-wrap:anywhere]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
-                {material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան</span> : null}
+                {quizResult ? (
+                  <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${quizResult === "right" ? "bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]" : quizResult === "wrong" ? "bg-[rgb(205_70_55/12%)] text-[rgb(180_60_45)]" : "bg-[rgb(217_181_111/14%)] text-gold-bright"}`}>
+                    {quizResult === "right" ? "✓ Ճիշտ եք պատասխանել" : quizResult === "wrong" ? "✕ Սխալ եք պատասխանել" : "Պատասխանել եք"}
+                  </span>
+                ) : material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան{canSave ? " · չեք պատասխանել" : ""}</span> : null}
               </span>
             </span>
           ) : variant === "portrait" ? null : (
@@ -402,9 +425,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           )}
           {material.searchHit && !(variant === "portrait" && material.searchHit.source === "title") ? (
             // The line where the words were found, with them highlighted.
-            <span className="line-clamp-3 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
+            <span className="line-clamp-2 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
           ) : excerpt || material.preview.performer || material.preview.locationSummary ? (
-            <span className="line-clamp-3 overflow-hidden text-[12px] leading-[1.5] text-muted">
+            <span className="line-clamp-2 overflow-hidden text-[12px] leading-[1.5] text-muted">
               {highlightText(excerpt || material.preview.performer || material.preview.locationSummary || "", highlightPattern)}
             </span>
           ) : null}
@@ -417,59 +440,19 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {isOpening ? <span className="inline-flex items-center gap-2 text-[11px] font-bold text-gold-bright" role="status"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={14} /> Բացվում է…</span> : null}
         </span>
         </Link>
-      {/* The buttons fade out (not vanish) while the note opens, so the card doesn't jump. */}
-        <span className={`absolute right-[11px] bottom-[11px] z-3 flex gap-1.5 transition-opacity duration-300 ${isNoteMounted ? "pointer-events-none opacity-0" : "opacity-100"}`} aria-hidden={isNoteMounted || undefined}>
-          {canSave ? (
-            <button
-              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)] disabled:cursor-wait disabled:opacity-60`}
-              type="button"
-              disabled={isSaving}
-              onClick={handleBookmark}
-              aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-              title={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}
-            >
-              <Bookmark
-                aria-hidden="true"
-                size={17}
-                strokeWidth={1.9}
-                fill={isSaved ? "currentColor" : "none"}
-              />
-            </button>
-          ) : null}
-          {canSave ? (
-            <ReminderButton className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`} materialId={material.id} title={material.title} />
-          ) : null}
-          {allowNoteEditing && isSaved ? (
-            <button
-              className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
-              type="button"
-              onClick={openNoteComposer}
-              aria-label="Խմբագրել անձնական նշումը"
-              title="Խմբագրել անձնական նշումը"
-            >
-              <Pencil aria-hidden="true" size={16} strokeWidth={1.9} />
-            </button>
-          ) : null}
-          <a
-            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
-            href={material.telegramUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={openTelegramPost}
-            aria-label="Բացել Telegram-ում"
-            title="Telegram"
-          >
-            <ExternalLink aria-hidden="true" size={16} strokeWidth={1.9} />
-          </a>
-          <ShareButton
-            className={`${iconButton} size-[36px] rounded-[12px] border-[rgb(217_181_111/36%)] bg-[rgb(217_181_111/10%)] text-gold-bright hover:bg-[rgb(217_181_111/18%)]`}
-            title={material.title}
-            text={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
-            url={material.telegramUrl}
-            materialId={material.id}
-            pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
-          />
-        </span>
+      <MaterialActionSheet
+        open={actionsOpen}
+        onClose={closeActions}
+        material={material}
+        canSave={canSave}
+        isSaved={isSaved}
+        isSaving={isSaving}
+        allowNoteEditing={allowNoteEditing}
+        onBookmark={() => { closeActions(); window.setTimeout(handleBookmark, 250); }}
+        onEditNote={() => { closeActions(); window.setTimeout(openNoteComposer, 250); }}
+        shareText={excerpt ? `${material.title}\n\n${excerpt}` : material.title}
+        pageUrl={typeof window === "undefined" ? targetPath : new URL(targetPath, window.location.origin).toString()}
+      />
       </div>
       {isNoteMounted ? (
         <div

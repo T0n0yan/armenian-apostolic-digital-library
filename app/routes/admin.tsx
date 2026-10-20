@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Ban, Check, Crown, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Activity, Ban, Check, Crown, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { data, Form, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin";
@@ -19,6 +19,8 @@ import {
   setSiteAdminRole,
 } from "../data/publishers.server";
 import { formatArmenianDate } from "../utils/armenian-date";
+import { siteStats, type Platform } from "../data/presence.server";
+import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
 
 export function meta() {
   return [{ title: "Կառավարում — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
@@ -27,13 +29,16 @@ export function meta() {
 export async function loader({ request }: Route.LoaderArgs) {
   const admin = await requireAdmin(request, env.DB);
   const chatId = await getContentChatId(env.DB);
-  const [publishers, withheld, siteUsers, sync] = await Promise.all([
+  const [publishers, withheld, siteUsers, sync, stats] = await Promise.all([
     chatId ? listPublishers(env.DB, chatId) : Promise.resolve([]),
     chatId ? listWithheldAuthors(env.DB, chatId) : Promise.resolve([]),
     listSiteAdminCandidates(env.DB),
     chatId ? getSyncOverview(env.DB, chatId) : Promise.resolve(null),
+    siteStats(env.DB).catch(() => null),
   ]);
-  return data({ admin, chatId, publishers, withheld, siteUsers, sync }, {
+  const url = new URL(request.url);
+  const refreshed = url.searchParams.get("refreshed");
+  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
     headers: { "Set-Cookie": createAdminNavigationCookie(request) },
   });
 }
@@ -43,6 +48,13 @@ export async function action({ request }: Route.ActionArgs) {
   requireSameOrigin(request);
   const form = await request.formData();
   const intent = form.get("intent");
+
+  // "Թարմացնել կայքը": every cached page is rebuilt now, and Telegram is synced again.
+  if (intent === "refresh-site") {
+    await bumpCacheEpoch(env.DB);
+    const synced = await dispatchCloudSync(env as { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string }).catch(() => false);
+    return redirect(`/admin?refreshed=${synced ? "sync" : "cache"}`);
+  }
 
   if (intent === "site-admin" || intent === "site-member") {
     const userId = form.get("userId");
@@ -95,7 +107,9 @@ function ActionButton({ intent, telegramUserId, userId, displayName, children, d
 }
 
 export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
-  const { publishers, withheld, siteUsers, sync } = loaderData;
+  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync } = loaderData;
+  const navigation = useNavigation();
+  const refreshing = navigation.state !== "idle" && navigation.formData?.get("intent") === "refresh-site";
   const error = actionData && "error" in actionData ? actionData.error : null;
   return (
     <PageShell>
@@ -104,6 +118,28 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
       {error ? <p className="m-0 mb-3 rounded-[12px] border border-[rgb(239_145_136/35%)] bg-[rgb(239_145_136/10%)] px-3 py-2.5 text-[13px] text-danger" role="alert">{error}</p> : null}
 
       <div className="grid gap-4">
+        <section className={panelSection + " grid gap-3"}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="m-0 flex items-center gap-2 text-[17px]"><RefreshCw aria-hidden="true" size={19} className="text-gold" /> Թարմացնել կայքը</h2>
+            <Form method="post">
+              <input type="hidden" name="intent" value="refresh-site" />
+              <button className={primaryButton} type="submit" disabled={refreshing}>
+                <RefreshCw aria-hidden="true" size={16} className={refreshing ? "animate-search-spin" : ""} /> {refreshing ? "Թարմացվում է…" : "Թարմացնել հիմա"}
+              </button>
+            </Form>
+          </div>
+          <p className="m-0 text-[13px] leading-[1.6] text-muted">
+            Telegram-ում փոփոխություն անելուց հետո սեղմիր. կայքը կվերցնի նոր տվյալները Telegram-ից{canSync ? "" : " (ավտոմատ համաժամեցումը միացված չէ, կթարմանան միայն պահված էջերը)"}, և բոլոր էջերը կթարմանան։
+          </p>
+          {refreshed ? (
+            <p className="m-0 rounded-[12px] border border-[rgb(74_160_96/40%)] bg-[rgb(74_160_96/10%)] px-3 py-2.5 text-[13px] text-[rgb(52_130_74)]" role="status">
+              {refreshed === "sync" ? "✓ Էջերը թարմացված են։ Telegram-ի համաժամեցումը սկսվեց. նոր փոփոխությունները կհայտնվեն 2–5 րոպեում։" : "✓ Էջերը թարմացված են։"}
+            </p>
+          ) : null}
+        </section>
+
+        {stats ? <SiteStats stats={stats} /> : null}
+
         <section className={panelSection + " grid gap-3"}>
           <h2 className="m-0 flex items-center gap-2 text-[17px]"><ShieldCheck aria-hidden="true" size={19} className="text-gold" /> Հրապարակողներ</h2>
           <p className="m-0 text-[13px] leading-[1.6] text-muted">
@@ -187,6 +223,66 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         ) : null}
       </div>
     </PageShell>
+  );
+}
+
+const PLATFORM_NAMES: Record<Platform, string> = { ios: "iPhone / iPad", android: "Android", windows: "Windows", macos: "Mac", linux: "Linux", other: "Այլ" };
+
+function Stat({ label, value, note }: { label: string; value: number; note?: string }) {
+  return (
+    <div className="grid gap-0.5 rounded-[14px] border border-glass-border bg-subtle px-3 py-2.5">
+      <span className="text-[11.5px] text-muted">{label}</span>
+      <strong className="text-[22px] leading-tight text-ink tabular-nums">{value}</strong>
+      {note ? <span className="text-[11px] text-faint">{note}</span> : null}
+    </div>
+  );
+}
+
+/** Accounts (Telegram / Google), devices of the last 30 days, and who is on the site right now. */
+function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderData"]["stats"]> }) {
+  const deviceTotal = stats.devices.reduce((sum, row) => sum + row.count, 0);
+  return (
+    <section className={panelSection + " grid gap-4"}>
+      <h2 className="m-0 flex items-center gap-2 text-[17px]"><Users aria-hidden="true" size={19} className="text-gold" /> Օգտատերեր</h2>
+      <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-4">
+        <Stat label="Գրանցված" value={stats.accounts.total} note={`+${stats.accounts.week} այս շաբաթ`} />
+        <Stat label="Telegram-ով" value={stats.accounts.telegram} />
+        <Stat label="Google-ով" value={stats.accounts.google} />
+        <Stat label="Հիմա կայքում" value={stats.online.total} note={`${stats.online.signedIn} մուտք գործած`} />
+      </div>
+
+      <div className="grid gap-2">
+        <h3 className="m-0 flex items-center gap-2 text-[14px]"><MonitorSmartphone aria-hidden="true" size={16} className="text-gold" /> Սարքեր՝ վերջին 30 օրում</h3>
+        {deviceTotal === 0 ? <p className="m-0 text-[12.5px] text-faint">Դեռ տվյալ չկա։</p> : (
+          <ul className="m-0 grid list-none gap-1.5 p-0">
+            {stats.devices.map((row) => (
+              <li key={row.platform} className="grid grid-cols-[110px_1fr_auto] items-center gap-2.5 text-[12.5px]">
+                <span className="text-ink">{PLATFORM_NAMES[row.platform]}</span>
+                <span className="h-2.5 overflow-hidden rounded-full bg-subtle"><span className="block h-full rounded-full bg-[linear-gradient(90deg,#b07d2e,#e2c27e)]" style={{ width: `${Math.max(3, (row.count / deviceTotal) * 100)}%` }} /></span>
+                <span className="tabular-nums text-muted">{row.count} · {Math.round((row.count / deviceTotal) * 100)}%{row.telegram ? ` · ${row.telegram} Telegram-ում` : ""}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="grid gap-2">
+        <h3 className="m-0 flex items-center gap-2 text-[14px]"><span className="size-2 rounded-full bg-[rgb(74_160_96)]" aria-hidden="true" /> Հիմա կայքում՝ մուտք գործածներ</h3>
+        {stats.onlinePeople.length === 0 ? <p className="m-0 text-[12.5px] text-faint">Հիմա մուտք գործած ոչ ոք չկա{stats.online.total ? ` (${stats.online.total} հյուր)` : ""}։</p> : (
+          <ul className="m-0 grid list-none gap-1.5 p-0">
+            {stats.onlinePeople.map((person, index) => (
+              <li key={`${person.name}-${index}`} className={row}>
+                <span className="grid gap-0.5">
+                  <strong className="text-[13px]">{person.name}</strong>
+                  <span className="text-[11px] text-faint">{person.contact ? `${person.contact} · ` : ""}{person.provider} · {PLATFORM_NAMES[person.platform]}{person.inTelegram ? " · Mini App" : ""}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="m-0 text-[11px] text-faint">«Հիմա» նշանակում է վերջին 5 րոպեում բաց էջ ունեցողներ։</p>
+      </div>
+    </section>
   );
 }
 
