@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { Bookmark, ChevronDown, Search } from "lucide-react";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Form, Link } from "react-router";
 
 import type { Route } from "./+types/saved";
@@ -13,7 +13,6 @@ import {
 import { CategoryIcon } from "../components/category-icon";
 import { googleConfig } from "../auth/google.server";
 import { readingDays } from "../data/reading-log.server";
-import { telegramAppLink } from "../data/telegram-bot.server";
 import { ReadingCalendar } from "../components/reading-calendar";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
@@ -48,9 +47,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const auth = await getTelegramUserState(request);
   const user = auth.user;
   const googleAvailable = Boolean(googleConfig());
-  const telegramLogin = await telegramAppLink().catch(() => null);
   const signInFailed = new URL(request.url).searchParams.get("signin") === "failed";
-  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0, googleAvailable, signInFailed, telegramLogin };
+  if (!user) return { user: null, authStatus: auth.status, errorKind: null, groups: [], query, total: 0, googleAvailable, signInFailed };
   try {
     await upsertAppUser(env.DB, user);
   } catch {
@@ -165,6 +163,14 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
 });
 
 export default function Saved({ loaderData }: Route.ComponentProps) {
+  // Guests get a "Մուտք Telegram-ով" link to the Mini App (the bot's name is looked up once).
+  const [telegramLogin, setTelegramLogin] = useState<string | null>(null);
+  const guest = !loaderData.user && loaderData.authStatus === "guest";
+  useEffect(() => {
+    if (!guest) return;
+    void fetch("/api/telegram-link").then((response) => response.ok ? response.json() as Promise<{ url: string | null }> : { url: null })
+      .then((data) => setTelegramLogin(data.url)).catch(() => null);
+  }, [guest]);
   return (
     <PageShell>
       <SiteNav />
@@ -201,9 +207,9 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                   Մուտք Google-ով
                 </a>
               ) : null}
-              {"telegramLogin" in loaderData && loaderData.telegramLogin ? (
+              {telegramLogin ? (
                 // In Telegram the Mini App signs the reader in by itself.
-                <a className="flex min-h-12 w-full items-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-left text-[14px] font-semibold text-ink no-underline shadow-card" href={loaderData.telegramLogin} target="_blank" rel="noreferrer">
+                <a className="flex min-h-12 w-full items-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-left text-[14px] font-semibold text-ink no-underline shadow-card" href={telegramLogin} target="_blank" rel="noreferrer">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE" /><path fill="#fff" d="M5.4 11.8l11.6-4.5c.54-.2 1 .13.83.94l-1.98 9.3c-.15.66-.54.82-1.1.51l-3-2.22-1.45 1.4c-.16.16-.3.3-.6.3l.21-3.05 5.56-5.02c.24-.21-.05-.33-.38-.12l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.14-.95z" /></svg>
                   Մուտք Telegram-ով
                   <span className="ml-auto text-[11px] font-medium text-faint">ավտոմատ</span>

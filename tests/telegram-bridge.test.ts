@@ -1272,20 +1272,14 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   }
   assert.doesNotMatch(categoryHtml, />Տեքստ</u);
   assert.doesNotMatch(categoryHtml, /aspect-\[4\/3\]/u);
-  assert.match(categoryHtml, /Բեռնել ավելին/u);
+  // Prayers load whole (they are shown in groups), so there is no "load more".
+  assert.doesNotMatch(categoryHtml, /Բեռնել ավելին/u);
   const firstCategoryPage = await mf.dispatchFetch(`https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts`);
   const firstCategoryData = await firstCategoryPage.json() as { materials: Array<{ id: string }>; nextCursor: string | null };
   assert.equal(firstCategoryPage.status, 200);
-  assert.equal(firstCategoryData.materials.length, 12);
-  assert.ok(firstCategoryData.nextCursor);
-  const secondCategoryPage = await mf.dispatchFetch(
-    `https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts?cursor=${encodeURIComponent(firstCategoryData.nextCursor!)}`,
-  );
-  const secondCategoryData = await secondCategoryPage.json() as { materials: Array<{ id: string }>; nextCursor: string | null };
-  assert.equal(secondCategoryPage.status, 200);
-  assert.equal(secondCategoryData.nextCursor, null);
+  assert.equal(firstCategoryData.nextCursor, null);
   assert.equal(
-    new Set([...firstCategoryData.materials, ...secondCategoryData.materials].map((material) => material.id)).size,
+    new Set(firstCategoryData.materials.map((material) => material.id)).size,
     MOCK_TELEGRAM_POSTS.filter((post) => !post.deleted).length,
   );
   assert.equal((await mf.dispatchFetch(`https://app.fixture/api/categories/${MOCK_TOPIC_SLUG}/posts?cursor=invalid`)).status, 400);
@@ -1563,7 +1557,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   assert.equal(largeSearch.status, 200, "global search hydration must stay below D1 expression-depth limits");
   const largeSearchData = await largeSearch.json() as { materials: Array<{ id: string }> };
   assert.ok(largeSearchData.materials.some((material) => material.id === "bulk-material-10119"));
-  assert.equal(bridgeRequestPaths.length, 0, "normal public reads must not call Telegram Bridge");
+  assert.equal(bridgeRequestPaths.length, 0, `normal public reads must not call Telegram Bridge: ${bridgeRequestPaths.join(", ")}`);
 });
 
 test("production-like SSR bursts isolate client aborts without hanging healthy requests", async (context) => {
