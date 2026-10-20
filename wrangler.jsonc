@@ -25,9 +25,12 @@
 		"enabled": true
 	},
 	"upload_source_maps": true,
+	// No per-version preview addresses (…-<version>-….workers.dev): old versions stay unreachable.
+	"preview_urls": false,
 	"env": {
 		"staging": {
 			"name": "armenian-apostolic-digital-library-staging",
+			"preview_urls": false,
 			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
 			// cloud sync on GitHub (workers/app.ts).
 			"triggers": { "crons": ["* * * * *"] },
@@ -54,6 +57,7 @@
 		},
 		"production": {
 			"name": "armenian-apostolic-digital-library",
+			"preview_urls": false,
 			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
 			// cloud sync on GitHub when GITHUB_SYNC_TOKEN is set (workers/app.ts).
 			"triggers": { "crons": ["* * * * *"] },

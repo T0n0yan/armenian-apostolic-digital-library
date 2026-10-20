@@ -280,7 +280,7 @@ function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderD
             ))}
           </ul>
         )}
-        <p className="m-0 text-[11px] text-faint">«Հիմա» նշանակում է վերջին 5 րոպեում բաց էջ ունեցողներ։</p>
+        <p className="m-0 text-[11px] text-faint">«Հիմա» նշանակում է վերջին 7 րոպեում բաց էջ ունեցողներ։</p>
       </div>
     </section>
   );
