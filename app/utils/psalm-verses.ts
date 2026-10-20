@@ -31,3 +31,30 @@ export function verseNumber(line: string) {
   const match = /^(\d{1,3})(?=[\s.)։,])/u.exec(line);
   return match ? Number(match[1]) : null;
 }
+
+export type PsalmLineKind = "label" | "superscription" | "heading" | "verse" | "continuation";
+
+/** A line written in capitals only ("ՏԻՐՈՋ ՕՐԷՆՔԸ"): a heading inside the psalm. */
+function isCapitalHeading(line: string) {
+  const letters = line.replace(/[^\p{L}]/gu, "");
+  return letters.length >= 3 && line.length <= 90 && letters === letters.toLocaleUpperCase("hy") && letters !== letters.toLocaleLowerCase("hy");
+}
+
+/**
+ * A psalm laid out by the library's standard, whatever Telegram formatting it came with:
+ *  - "(Սաղմոս 18)" — the number label, not shown (the page shows it);
+ *  - lines before the first numbered verse — the superscription («Այսուհետեւ՝ սաղմոս Դաւթի»), in italics;
+ *  - numbered lines — verses (followed and marked in the recording); unnumbered lines after a verse belong to it;
+ *  - capital-letter lines between verses — headings («ՏԻՐՈՋ ՕՐԷՆՔԸ»), not verses.
+ */
+export function psalmLines(text: string) {
+  const lines: Array<{ text: string; kind: PsalmLineKind }> = [];
+  let seenVerse = false;
+  for (const line of splitVerses(text)) {
+    if (!seenVerse && /^\(?\s*սաղմոս\s+\d{1,3}\s*\)?$/iu.test(line)) { lines.push({ text: line, kind: "label" }); continue; }
+    if (verseNumber(line) !== null) { seenVerse = true; lines.push({ text: line, kind: "verse" }); continue; }
+    if (!seenVerse) { lines.push({ text: line, kind: isCapitalHeading(line) && lines.length === 0 ? "heading" : "superscription" }); continue; }
+    lines.push({ text: line, kind: isCapitalHeading(line) ? "heading" : "continuation" });
+  }
+  return lines;
+}

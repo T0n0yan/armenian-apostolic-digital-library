@@ -88,3 +88,9 @@ test("a whole word beats a word that only starts with it, across classical spell
   assert.ok(exact.rank > prefix.rank, `${exact.rank} > ${prefix.rank}`);
   assert.equal(exact.scoreCategory, "exact-token");
 });
+
+test("a psalm lays out by the standard: label, italic superscription, verses and capital headings", async () => {
+  const { psalmLines } = await import("../app/utils/psalm-verses");
+  const text = "(Սաղմոս 18)\n\nԱյսուհետեւ՝ սաղմոս Դաւթի։\n\n2. Երկինքը պատմում է Աստծու փառքը։\n\n3. Օրը օրուան միտք է հաղորդում։\n4. Չկան բառեր, ոչ էլ խօսքեր։\n\n7. Երկնքի ծայրերից է նրա ծագումը։\n\nՏԻՐՈՋ ՕՐԷՆՔԸ\n\n8. Տիրոջ օրէնքն անբիծ է։\nեւ իմաստուն է դարձնում տհասներին։";
+  assert.deepEqual(psalmLines(text).map((line) => line.kind), ["label", "superscription", "verse", "verse", "verse", "verse", "heading", "verse", "continuation"]);
+});

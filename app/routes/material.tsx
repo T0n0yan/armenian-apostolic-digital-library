@@ -70,6 +70,11 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   let versesStart = superscriptionEnd + 1;
   while (superscriptionEnd > 0 && versesStart < material.formattedText.text.length && /\s/u.test(material.formattedText.text[versesStart])) versesStart += 1;
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
+  // Psalms always read verse by verse, whatever formatting Telegram gave the post (plain text, a
+  // caption under the recording, or rich text): the text is laid out by the psalm standard.
+  const psalmSource = [material.formattedText.text, material.contentText, material.formattedCaption.text, material.captionText].find((value) => value?.trim()) ?? "";
+  const psalmText = psalmSource.slice(skipPsalmLabel(psalmSource, leadingTitleLength(psalmSource, material.title)));
+  const psalmView = isPsalm && psalmText.trim().length > 0 && !activeHit;
 
   useEffect(() => {
     setActiveHit(stateHit);
@@ -95,8 +100,8 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`}>
-        {material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
-        {material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
+        {psalmView ? <MaterialMediaGallery media={material.media} /> : material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
+        {psalmView ? null : material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} materialId={material.id} votes={loaderData.pollVotes} canVote={loaderData.canSave} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
@@ -112,10 +117,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {!material.richContent && material.formattedText.text.length > textTitleLength && isPsalm && !activeHit ? (
+        {psalmView ? (
           // Psalms follow their recording verse by verse.
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
-            <PsalmReadAlong key={material.id} text={material.formattedText.text.slice(textTitleLength)} superscription={superscriptionEnd > 0} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
+            <PsalmReadAlong key={material.id} text={psalmText} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
