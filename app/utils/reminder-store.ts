@@ -19,8 +19,23 @@ function emit(next: ActiveReminder[], nextMissed: MissedReminder[] = missed) {
   for (const listener of listeners) listener();
 }
 
+let enabled = false;
+
+/**
+ * Only signed-in readers have reminders, so guests never ask the server for them. Set from the
+ * root route on every render; signing in turns it on and reloads the reminders.
+ */
+export function setRemindersEnabled(next: boolean) {
+  if (next === enabled) return;
+  enabled = next;
+  if (typeof window === "undefined") return;
+  if (next) window.setTimeout(() => window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT)), 0);
+  else emit([], []);
+}
+
 /** Loads the reader's active reminders (guests get none); shared by the alarm and the bell. */
 export function loadReminders() {
+  if (!enabled) return Promise.resolve(reminders);
   loading ??= fetch("/api/reminders?upcoming=1")
     .then((response) => response.ok ? response.json() as Promise<{ reminders?: ActiveReminder[]; missed?: MissedReminder[] }> : { reminders: [], missed: [] })
     .then((data) => { emit(data.reminders ?? [], data.missed ?? []); return reminders; })

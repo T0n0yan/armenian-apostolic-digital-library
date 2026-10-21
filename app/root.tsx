@@ -8,6 +8,7 @@ import {
   Scripts,
   ScrollRestoration,
   useRevalidator,
+  type ShouldRevalidateFunctionArgs,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -17,6 +18,7 @@ import { CandleLoader } from "./components/candle-loader";
 import { PageShell, RouteErrorState } from "./components/page-layout";
 import { SiteNav } from "./components/site-nav";
 import {listActiveCategories} from "./data/categories.server";
+import { setRemindersEnabled } from "./utils/reminder-store";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
@@ -83,10 +85,21 @@ export async function loader({request}: Route.LoaderArgs) {
   const value = {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
     isAdmin: Boolean(telegramAdmin),
+    signedIn: Boolean(telegramUser),
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };
   return value;
+}
+
+/**
+ * The root data (sections, sign-in state) is the same on every page, so moving between pages
+ * doesn't reload it. It reloads after a form is sent (sign in/out, saving) or when a page asks
+ * for it explicitly (revalidate after the Telegram sign-in), which keeps the URL the same.
+ */
+export function shouldRevalidate({ currentUrl, nextUrl, formMethod, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs) {
+  if (formMethod || currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
+  return false;
 }
 
 type TelegramWebApp = {
@@ -233,6 +246,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
+  // Guests have no reminders: don't ask the server for them (set before children's effects run).
+  setRemindersEnabled(Boolean(loaderData.signedIn));
   const revalidator = useRevalidator();
   const sessionAttempted = useRef(false);
 
@@ -284,6 +299,12 @@ export default function App({ loaderData }: Route.ComponentProps) {
     const inTelegram = Boolean((window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData);
     const send = () => {
       if (document.visibilityState !== "visible") return;
+      // At most once in 5 minutes, also across page reloads and new tabs.
+      try {
+        const last = Number(localStorage.getItem("library-presence-at") ?? 0);
+        if (Date.now() - last < 290_000) return;
+        localStorage.setItem("library-presence-at", String(Date.now()));
+      } catch { /* storage blocked: send anyway */ }
       void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true }).catch(() => null);
     };
     send();
