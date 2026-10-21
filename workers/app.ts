@@ -54,7 +54,9 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const home = (env as unknown as { PUBLIC_URL?: string }).PUBLIC_URL;
     if (home) {
       const target = new URL(home);
-      if (url.hostname !== target.hostname && (url.hostname.endsWith(".workers.dev") || url.hostname === `www.${target.hostname}`)) {
+      // Plain http:// on the site's own address also moves to https://.
+      const insecure = url.protocol === "http:" && target.protocol === "https:" && url.hostname === target.hostname;
+      if (insecure || url.hostname !== target.hostname && (url.hostname.endsWith(".workers.dev") || url.hostname === `www.${target.hostname}`)) {
         url.protocol = target.protocol;
         url.host = target.host;
         return Response.redirect(url.toString(), request.method === "GET" || request.method === "HEAD" ? 301 : 308);
