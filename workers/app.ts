@@ -3,7 +3,7 @@ import { createRequestHandler } from "react-router";
 import { sendDueReminders } from "../app/data/reminders.server";
 import { pushKeysFrom } from "../app/data/web-push.server";
 import { cacheEpoch, dispatchCloudSync } from "../app/data/site-refresh.server";
-import { isShortMaterialPath } from "../app/utils/material-path";
+import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
@@ -126,7 +126,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
         || url.pathname === "/search"
         || url.pathname.startsWith("/categories/")
         || url.pathname.startsWith("/materials/")
-        || isShortMaterialPath(url.pathname)
+        || isLibraryPath(url.pathname)
         || url.pathname.startsWith("/api/categories/")
         || url.pathname === "/api/search-page"
         || url.pathname === "/api/search-suggestions");
