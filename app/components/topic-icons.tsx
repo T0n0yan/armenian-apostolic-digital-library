@@ -12,7 +12,7 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className={`ti ${motion} ${className}`} {...props}
       // Every stroke gets pathLength=1 so the draw-in animation works the same for all shapes.
-      dangerouslySetInnerHTML={{ __html: body.replace(/<(path|circle) /gu, '<$1 pathLength="1" class="ti-stroke" ') }} />
+      dangerouslySetInnerHTML={{ __html: body.replace(/<(path|circle|ellipse) /gu, '<$1 pathLength="1" class="ti-stroke" ') }} />
   );
 }
 
@@ -32,15 +32,15 @@ export function PsalmIcon(props: IconProps) {
 }
 
 /**
- * Lives of the saints: a head inside a round golden halo, as on the icons.
- * To adjust it: HALO_Y moves the head and halo up or down together (bigger = lower), HALO_R is the
- * halo's size and HEAD_R the head's; the halo stays an even ring around the head.
+ * Lives of the saints: a saint with a halo ring floating above the head.
+ * To adjust it: HALO_Y moves the ring up or down (bigger = lower), HALO_WIDTH is its half-width,
+ * HEAD_R the head's size.
  */
-const HALO_Y = 9.6;
-const HALO_R = 5.8;
-const HEAD_R = 2.9;
+const HALO_Y = 3.6;
+const HALO_WIDTH = 4.2;
+const HEAD_R = 3.2;
 export function SaintIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-halo" body={`<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><circle cx="12" cy="${HALO_Y}" r="${HALO_R}" fill="currentColor" fill-opacity=".14"/><circle cx="12" cy="${HALO_Y}" r="${HEAD_R}"/><path d="M4.5 22.6c0-4 3.4-6.6 7.5-6.6s7.5 2.6 7.5 6.6"/></g>`} />;
+  return <Icon {...props} motion="ti-halo" body={`<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><ellipse cx="12" cy="${HALO_Y}" rx="${HALO_WIDTH}" ry="1.5"/><circle cx="12" cy="9.6" r="${HEAD_R}"/><path d="M5 21.5c0-4.2 3.1-7 7-7s7 2.8 7 7"/></g>`} />;
 }
 
 /** Daily readings: a calendar leaf showing today's date; the page turns over. */
