@@ -7,7 +7,7 @@
 //   when offline, so pages already visited open without internet;
 // - pictures from /media: cache first, so thumbnails and saints' icons stay available.
 // Personal and sign-in requests, writes, and audio/video streams are never cached.
-const VERSION = "v3";
+const VERSION = "v4";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const MEDIA = `media-${VERSION}`;
@@ -73,6 +73,11 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET" || request.headers.has("range")) return;
   const url = new URL(request.url);
+  // Pictures from the media address (media.apostolic.am, served from R2) are kept like /media ones.
+  if (/^media(-staging)?\.apostolic\.am$/u.test(url.hostname)) {
+    if (request.destination === "image") event.respondWith(cacheFirst(request, MEDIA));
+    return;
+  }
   if (url.origin !== self.location.origin || PRIVATE.test(url.pathname) || url.searchParams.has("refresh")) return;
   if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/sounds/") || /\.(woff2|png|ico|svg)$/u.test(url.pathname)) {
     event.respondWith(cacheFirst(request, STATIC));
@@ -88,7 +93,8 @@ self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
   // If the library is open on screen, let it ring the bell itself.
-  const materialId = /\/materials\/([^/?]+)/u.exec(data.url || "")?.[1];
+  // The material comes in the tag ("reminder-<id>"); links use short addresses (/psalm_169).
+  const materialId = data.materialId || /^reminder-(.+)$/u.exec(data.tag || "")?.[1] || /\/materials\/([^/?]+)/u.exec(data.url || "")?.[1];
   event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
     for (const client of windows) client.postMessage({ type: "reminder", materialId, title: data.body, category: data.category });
   }));

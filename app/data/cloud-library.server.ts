@@ -200,6 +200,8 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
       hasThumbnail: Boolean(item.thumbnail_r2_key),
       altText: item.alt_text,
       version: mediaVersion(item),
+      objectKey: item.r2_key,
+      thumbnailObjectKey: item.thumbnail_r2_key,
     });
     byMaterial.set(key, values);
   }

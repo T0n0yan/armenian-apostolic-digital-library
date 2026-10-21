@@ -36,6 +36,8 @@
 			"triggers": { "crons": ["* * * * *"] },
 			"vars": {
 				"PUBLIC_URL": "https://staging.apostolic.am",
+				// Pictures and recordings straight from R2 behind the CDN (app/data/media-url.server.ts).
+				"MEDIA_BASE_URL": "https://media-staging.apostolic.am",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
 				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"
@@ -63,6 +65,10 @@
 			"triggers": { "crons": ["* * * * *"] },
 			"vars": {
 				"PUBLIC_URL": "https://apostolic.am",
+				// Pictures and recordings straight from R2 behind the CDN, once new DNS has reached Armenian
+				// resolvers (app/data/media-url.server.ts).
+				"MEDIA_BASE_URL": "https://media.apostolic.am",
+				"MEDIA_DIRECT_FROM": "2026-10-22T04:00:00Z",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
 				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"

@@ -23,16 +23,44 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { materialPath } from "../utils/material-path";
 import { loadMaterialPage } from "../data/material-page.server";
+import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, seoMeta } from "../utils/seo";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return loadMaterialPage(params.materialId, request);
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  return [
-    { title: `${loaderData?.material.title ?? "Նյութ"} — Հոգևոր ժառանգություն` },
-    { name: "robots", content: "noindex, nofollow" },
-  ];
+  if (!loaderData) return [{ title: "Նյութ — Հոգևոր ժառանգություն" }, ...NOINDEX];
+  const { material } = loaderData;
+  const path = materialPath(material.id, material.categoryName);
+  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl ?? null;
+  const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`);
+  const categoryPath = `/categories/${material.categorySlug}`;
+  return seoMeta({
+    title: `${material.title} — ${material.categoryName} | Հոգևոր ժառանգություն`,
+    description,
+    path,
+    image: picture,
+    type: "article",
+    jsonLd: [
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: material.title.slice(0, 110),
+        description,
+        inLanguage: "hy",
+        url: absoluteUrl(path),
+        mainEntityOfPage: absoluteUrl(path),
+        image: picture ? absoluteUrl(picture) : SITE_IMAGE,
+        datePublished: material.publishedAt ?? undefined,
+        dateModified: material.editedAt ?? material.publishedAt ?? undefined,
+        articleSection: material.categoryName,
+        isPartOf: { "@type": "WebSite", name: SITE_NAME, url: `${SITE_URL}/` },
+        publisher: { "@type": "Organization", name: SITE_NAME, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon-512.png` } },
+      },
+      breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: material.categoryName, path: categoryPath }, { name: material.title, path }]),
+    ],
+  });
 }
 
 const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline transition-[transform,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";

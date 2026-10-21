@@ -44,6 +44,9 @@ export type BridgeMedia = {
   altText: string;
   /** Changes whenever the stored file changes (e.g. a recording replaced in Telegram); used in URLs. */
   version?: string | null;
+  /** The file's R2 key (and its thumbnail's), for serving straight from the bucket's address. */
+  objectKey?: string | null;
+  thumbnailObjectKey?: string | null;
 };
 
 export type BridgeTextEntity = {

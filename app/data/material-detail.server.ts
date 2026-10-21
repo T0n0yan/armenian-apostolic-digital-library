@@ -7,6 +7,7 @@ import {
   type BridgeRichContent,
 } from "../../shared/telegram-bridge-contract";
 import { getCloudLibraryPost } from "./cloud-library.server";
+import { mediaUrl } from "./media-url.server";
 
 export type MaterialMedia = {
   id: string;
@@ -81,9 +82,9 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
       ...asset,
       status: "ready",
       attached: asset.index >= 100,
-      url: `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}${asset.version ? `?v=${asset.version}` : ""}`,
+      url: mediaUrl(post, asset),
       thumbnailUrl: asset.hasThumbnail
-        ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1${asset.version ? `&v=${asset.version}` : ""}`
+        ? mediaUrl(post, asset, true)
         : null,
     })),
   };
