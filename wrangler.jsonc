@@ -35,7 +35,7 @@
 			// cloud sync on GitHub (workers/app.ts).
 			"triggers": { "crons": ["* * * * *"] },
 			"vars": {
-				"PUBLIC_URL": "https://armenian-apostolic-digital-library-staging.armenian-apostolic-digital-library.workers.dev",
+				"PUBLIC_URL": "https://staging.apostolic.am",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
 				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"
@@ -62,7 +62,7 @@
 			// cloud sync on GitHub when GITHUB_SYNC_TOKEN is set (workers/app.ts).
 			"triggers": { "crons": ["* * * * *"] },
 			"vars": {
-				"PUBLIC_URL": "https://armenian-apostolic-digital-library.armenian-apostolic-digital-library.workers.dev",
+				"PUBLIC_URL": "https://apostolic.am",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
 				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"

@@ -47,6 +47,20 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 async function handle(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
+  // The site lives at its own address (PUBLIC_URL: apostolic.am, staging.apostolic.am). The old
+  // workers.dev address and www. move there, keeping the path, so shared links keep working.
+  {
+    const url = new URL(request.url);
+    const home = (env as unknown as { PUBLIC_URL?: string }).PUBLIC_URL;
+    if (home) {
+      const target = new URL(home);
+      if (url.hostname !== target.hostname && (url.hostname.endsWith(".workers.dev") || url.hostname === `www.${target.hostname}`)) {
+        url.protocol = target.protocol;
+        url.host = target.host;
+        return Response.redirect(url.toString(), request.method === "GET" || request.method === "HEAD" ? 301 : 308);
+      }
+    }
+  }
   {
     const url = new URL(request.url);
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
