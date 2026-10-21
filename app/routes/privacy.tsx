@@ -16,6 +16,10 @@ export function meta({}: Route.MetaArgs) {
   });
 }
 
+// The same panels and gold headings as «Մեր մասին».
+const panel = "frosted-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
+const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
+
 const mail = <a className="text-gold-bright" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 
 const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; outro?: ReactNode[]; after?: ReactNode[] }> = [
@@ -133,14 +137,17 @@ export default function Privacy() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Գաղտնիության քաղաքականություն" description={`Թարմացվել է՝ ${UPDATED}`} />
+      <PageHeader backTo="/" backLabel="Գրադարան" title="Գաղտնիության քաղաքականություն" />
       <article className="mt-4 grid gap-4">
-        <p className="m-0 frosted-panel px-5 py-4 text-[14.5px] leading-[1.75] text-ink">
+        <section className={panel}>
+          <h2 className={heading}>Ձեր գաղտնիությունը</h2>
+          <p className="m-0">
           «Հոգևոր ժառանգություն» թվային գրադարանը (Telegram Mini App և կայք) հարգում է Ձեր գաղտնիությունը։ Այս էջում բացատրում ենք, թե ինչ տվյալներ ենք ստանում, ինչ նպատակով ենք դրանք օգտագործում և ինչպես կարող եք դրանք կառավարել։
-        </p>
+          </p>
+        </section>
         {sections.map((section) => (
-          <section key={section.title} className="frosted-panel grid gap-2.5 px-5 py-4 text-[14px] leading-[1.7] text-ink">
-            <h2 className="m-0 font-noto text-[17px] font-semibold text-gold-bright">{section.title}</h2>
+          <section key={section.title} className={panel}>
+            <h2 className={heading}>{section.title}</h2>
             {section.intro ? <p className="m-0">{section.intro}</p> : null}
             {!section.intro && section.items ? section.outro?.map((paragraph, index) => <p key={`o${index}`} className="m-0">{paragraph}</p>) : null}
             {section.items ? (
@@ -152,10 +159,11 @@ export default function Privacy() {
             {section.after?.map((paragraph, index) => <p key={`a${index}`} className="m-0">{paragraph}</p>)}
           </section>
         ))}
-        <section className="frosted-panel grid gap-1.5 px-5 py-4 text-center text-[14px] text-ink">
-          <h2 className="m-0 font-noto text-[17px] font-semibold text-gold-bright">Կապ</h2>
+        <section className={panel}>
+          <h2 className={heading}>Կապ</h2>
           <p className="m-0">Գաղտնիության կամ անձնական տվյալների վերաբերյալ հարցերի համար՝ {mail}</p>
         </section>
+        <p className="m-0 text-center text-[12px] text-faint">Թարմացվել է՝ {UPDATED}</p>
       </article>
     </PageShell>
   );
