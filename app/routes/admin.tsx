@@ -22,13 +22,18 @@ import { formatArmenianDate } from "../utils/armenian-date";
 import { siteStats, type Platform } from "../data/presence.server";
 import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
 import { botStatus, connectBot } from "../data/telegram-bot-replies.server";
+import { RouteErrorPage } from "../components/error-page";
 
 export function meta() {
   return [{ title: "Կառավարում — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const admin = await requireAdmin(request, env.DB);
+  // Someone who typed /admin without access is taken to the library instead of an error.
+  const admin = await requireAdmin(request, env.DB).catch((error: unknown) => {
+    if (error instanceof Response && (error.status === 401 || error.status === 403)) throw redirect("/");
+    throw error;
+  });
   const chatId = await getContentChatId(env.DB);
   const [publishers, withheld, siteUsers, sync, stats] = await Promise.all([
     chatId ? listPublishers(env.DB, chatId) : Promise.resolve([]),
@@ -313,6 +318,6 @@ function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderD
   );
 }
 
-export function ErrorBoundary() {
-  return <PageShell><SiteNav /><PageHeader eyebrow="Միայն ադմինների համար" title="Կառավարման էջը հասանելի չէ" /></PageShell>;
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return <RouteErrorPage error={error} />;
 }

@@ -32,6 +32,7 @@ import {
 import { getCloudLibraryPost } from "../data/cloud-library.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
+import { RouteErrorPage } from "../components/error-page";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -272,6 +273,6 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
   );
 }
 
-export function ErrorBoundary({}: Route.ErrorBoundaryProps) {
-  return <PageShell><SiteNav /><RouteErrorState title="Իմ անկյունը չբացվեց" /></PageShell>;
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return <RouteErrorPage error={error} />;
 }

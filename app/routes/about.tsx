@@ -1,5 +1,3 @@
-import { Link } from "react-router";
-
 import type { Route } from "./+types/about";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
@@ -38,22 +36,16 @@ export default function About() {
           </p>
         </section>
         <section className={panel}>
-          <h2 className={heading}>Որտեղից են նյութերը</h2>
+          <h2 className={heading}>Ինչու այս գրադարանը</h2>
           <p className="m-0">
-            Նյութերը հրապարակվում են մեր Telegram խմբում՝{" "}
-            <a className="text-gold-bright" href="https://t.me/armenian_apostolic_church" target="_blank" rel="noreferrer">Հայ Առաքելական Սուրբ Եկեղեցի</a>, և ավտոմատ հայտնվում են այստեղ։
-            Աստվածաշնչյան տեքստերը վերցված են Հայաստանյայց Առաքելական Եկեղեցու կողմից ընդունված թարգմանություններից, իսկ սաղմոսների համարակալումը՝ ըստ Յոթանասնից թարգմանության։
-            Ամեն նյութի էջում կա հղում դեպի սկզբնական գրառումը։
-          </p>
-        </section>
-        <section className={panel}>
-          <h2 className={heading}>Ինչպես օգտվել</h2>
-          <p className="m-0">
-            Գրադարանը բաց է բոլորի համար, անվճար և առանց գովազդի։ Մուտք գործելով (Telegram-ով կամ Google-ով) կարող եք պահել նյութեր, դնել հիշեցումներ և նշել կարդացածը։
-            Օգտագործելիս խնդրում ենք նշել աղբյուրը։
+            Մեր հոգևորականների քարոզները, աղոթքներն ու ձայնագրությունները համացանցում շատ են, բայց ցրված են տարբեր կայքերում ու ալիքներում։
+            Այստեղ դրանք հավաքվում են մեկ տեղում՝ խնամքով դասավորված, որ հեշտ լինի գտնել, կարդալ և լսել։
           </p>
           <p className="m-0">
-            Հարցերի, առաջարկների կամ սխալի մասին հաղորդելու համար՝ <Link className="text-gold-bright" to="/kap">Կապ</Link>։
+            Նոր նյութերը նախ տեղադրվում են մեր{" "}
+            <a className="text-gold-bright" href="https://t.me/armenian_apostolic_church" target="_blank" rel="noreferrer">Telegram խմբում</a>
+            {" "}և նույն պահին հասանելի են դառնում նաև այստեղ։
+            Սաղմոսների համարակալումը ըստ Յոթանասնից թարգմանության է, ինչպես ընդունված է մեր Եկեղեցում։
           </p>
         </section>
       </article>

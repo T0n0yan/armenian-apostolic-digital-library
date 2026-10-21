@@ -1,7 +1,6 @@
 import {env} from "cloudflare:workers";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import {
-  isRouteErrorResponse,
   Links,
   Meta,
   Outlet,
@@ -15,8 +14,8 @@ import type { Route } from "./+types/root";
 import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
 import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
 import { CandleLoader } from "./components/candle-loader";
-import { PageShell, RouteErrorState } from "./components/page-layout";
-import { SiteNav } from "./components/site-nav";
+import { PageShell } from "./components/page-layout";
+import { RouteErrorPage } from "./components/error-page";
 import {listActiveCategories} from "./data/categories.server";
 import { setRemindersEnabled } from "./utils/reminder-store";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
@@ -418,23 +417,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Էջը չհաջողվեց բացել";
-  let details = "Տեղի է ունեցել ժամանակավոր սխալ։ Փորձիր կրկին։";
-
-  if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "Էջը չի գտնվել" : message;
-    details =
-      error.status === 404
-        ? "Պահանջված էջը չի գտնվել։"
-        : error.statusText || details;
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
-    details = error.message;
-  }
-
-  return (
-    <PageShell>
-      <SiteNav />
-      <RouteErrorState title={message} description={details} />
-    </PageShell>
-  );
+  if (import.meta.env.DEV && error instanceof Error) console.error(error);
+  return <RouteErrorPage error={error} />;
 }

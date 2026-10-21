@@ -1,11 +1,11 @@
 import {env} from "cloudflare:workers";
-import {ArrowRight, LoaderCircle, RotateCw, Search} from "lucide-react";
+import { ArrowRight, LoaderCircle, Search } from "lucide-react";
 import {memo, useRef, useState} from "react";
 import {Form, Link, useNavigate, useNavigation} from "react-router";
 
 import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
-import {PageHeader, PageShell} from "../components/page-layout";
+import { PageShell } from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
 import {DailyVerseCard} from "../components/daily-verse";
 import {SearchSuggestions} from "../components/search-suggestions";
@@ -20,6 +20,7 @@ import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
 import { sectionPath } from "../utils/material-path";
+import { RouteErrorPage } from "../components/error-page";
 
 export function meta({}: Route.MetaArgs) {
     return seoMeta({
@@ -166,6 +167,6 @@ export default function Home({loaderData}: Route.ComponentProps) {
     </PageShell>);
 }
 
-export function ErrorBoundary() {
-    return (<PageShell><SiteNav/><PageHeader eyebrow="Telegram Bridge" title="Թեմաները չհաջողվեց բեռնել" description="Ստուգիր local Bridge կապը և կրկին փորձիր։"/><button className="mt-4 inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright" type="button" onClick={() => window.location.reload()}><RotateCw aria-hidden="true" size={16}/> Կրկին փորձել</button></PageShell>);
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return <RouteErrorPage error={error} />;
 }
