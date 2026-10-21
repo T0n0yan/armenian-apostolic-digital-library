@@ -5,7 +5,7 @@ Two separate sites, each with its own database (D1), media bucket (R2) and setti
 | | Production | Staging |
 | --- | --- | --- |
 | Purpose | What readers use | Trying new things first |
-| Address | https://armenian-apostolic-digital-library.armenian-apostolic-digital-library.workers.dev | https://armenian-apostolic-digital-library-staging.armenian-apostolic-digital-library.workers.dev |
+| Address | https://apostolic.am | https://staging.apostolic.am |
 | Worker | `armenian-apostolic-digital-library` | `armenian-apostolic-digital-library-staging` |
 | D1 | `armenian-apostolic-digital-library-production` | `armenian-apostolic-digital-library-staging` |
 | R2 | `armenian-apostolic-library-media-production` | `armenian-apostolic-library-media-staging` |
@@ -13,6 +13,9 @@ Two separate sites, each with its own database (D1), media bucket (R2) and setti
 
 Both read the same Telegram group, so they show the same materials. Readers' own data (saved
 materials, notes, reminders, quiz answers, push subscriptions) is separate in each.
+
+The old `…workers.dev` addresses and `www.apostolic.am` redirect to these (workers/app.ts).
+The domain is registered at name.am; its DNS is on Cloudflare.
 
 ## How a change travels
 
