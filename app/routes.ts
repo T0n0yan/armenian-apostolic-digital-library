@@ -9,6 +9,7 @@ export default [
   route("privacy", "routes/privacy.tsx"),
   route("settings", "routes/settings.tsx"),
   route("telegram/session", "routes/telegram-session.ts"),
+  route("telegram/webhook", "routes/telegram-webhook.ts"),
   route("auth/google", "routes/auth-google.ts"),
   route("auth/google/callback", "routes/auth-google-callback.ts"),
   route("auth/logout", "routes/auth-logout.ts"),

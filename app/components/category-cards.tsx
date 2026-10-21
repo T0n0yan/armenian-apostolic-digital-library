@@ -37,8 +37,9 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
           const number = index + 1;
           const material = byNumber.get(number);
           if (!material) {
+            // Placeholders for psalms not posted yet: seen in the grid, skipped by screen readers.
             return (
-              <li key={number}>
+              <li key={number} aria-hidden="true">
                 <span className="grid aspect-square place-items-center rounded-[16px] border border-dashed border-[rgb(160_130_90/28%)] text-[18px] font-semibold text-faint/60 tabular-nums select-none min-[640px]:text-[20px]" aria-disabled="true" title={`Սաղմոս ${number}՝ շուտով`}>
                   {number}
                 </span>

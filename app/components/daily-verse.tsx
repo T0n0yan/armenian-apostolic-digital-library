@@ -22,6 +22,13 @@ export function verseForDay(day: number): DailyVerse {
   return DAILY_VERSES[((day % count) * step + 7) % count];
 }
 
+/** Adds any missing closing » (a verse that opens a quotation the source never closes). */
+function closeQuotes(text: string) {
+  const open = (text.match(/«/gu) ?? []).length;
+  const closed = (text.match(/»/gu) ?? []).length;
+  return open > closed ? `${text}${"»".repeat(open - closed)}` : text;
+}
+
 /** «Աստվածաշունչն ասում է…» — a short verse that changes every day, on the home page. */
 export function DailyVerseCard() {
   // Server render picks by UTC; the reader's own day replaces it after hydration.
@@ -42,7 +49,7 @@ export function DailyVerseCard() {
       <span className="text-[10.5px] font-bold tracking-[2.6px] text-gold uppercase">Աստվածաշունչն ասում է</span>
       <blockquote className="m-0 max-w-[34ch] font-book text-[18px] leading-[1.65] text-ink [text-wrap:balance] min-[560px]:text-[20px] min-[860px]:max-w-[78ch] min-[860px]:leading-[1.55] min-[1200px]:max-w-[88ch]">
         {/* Verses that already quote a speaker keep their own quotation marks. */}
-        {verse.text.includes("«") ? verse.text : `«${verse.text}»`}
+        {closeQuotes(verse.text.includes("«") ? verse.text : `«${verse.text}»`)}
       </blockquote>
       <a className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(217_181_111/30%)] px-3 py-1 text-[12px] font-semibold tracking-[0.3px] text-gold-bright no-underline hover:bg-[rgb(217_181_111/10%)]" href={verse.url} target="_blank" rel="noreferrer">
         {verse.reference} <ExternalLink aria-hidden="true" size={12} />

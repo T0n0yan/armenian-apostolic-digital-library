@@ -94,3 +94,42 @@ test("a psalm lays out by the standard: label, italic superscription, verses and
   const text = "(Սաղմոս 18)\n\nԱյսուհետեւ՝ սաղմոս Դաւթի։\n\n2. Երկինքը պատմում է Աստծու փառքը։\n\n3. Օրը օրուան միտք է հաղորդում։\n4. Չկան բառեր, ոչ էլ խօսքեր։\n\n7. Երկնքի ծայրերից է նրա ծագումը։\n\nՏԻՐՈՋ ՕՐԷՆՔԸ\n\n8. Տիրոջ օրէնքն անբիծ է։\nեւ իմաստուն է դարձնում տհասներին։";
   assert.deepEqual(psalmLines(text).map((line) => line.kind), ["label", "superscription", "verse", "verse", "verse", "verse", "heading", "verse", "continuation"]);
 });
+
+test("classical and reformed spellings search as one", async () => {
+  const { normalizeTelegramSearchText: n, parseTelegramSearchQuery, matchSearchableText } = await import("../shared/telegram-search");
+  const same: Array<[string, string]> = [
+    ["ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է", "Տերն իմ հովիվն է"],
+    ["Աստուած", "Աստված"],
+    ["աղօթք", "աղոթք"],
+    ["ճշմարտութիւն", "ճշմարտություն"],
+    ["կորստեան", "կորստյան"],
+    ["մեղաւոր", "մեղավոր"],
+    ["եւ", "և"],
+    ["վրայ", "վրա"],
+    ["Յիսուս", "Հիսուս"],
+    ["Հակո՛բ", "Հակոբ"],
+  ];
+  for (const [classical, reformed] of same) assert.equal(n(classical), n(reformed), `${classical} = ${reformed}`);
+  // "հովիվ" finds Psalm 22's "ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է" as a word start.
+  assert.ok(matchSearchableText("ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է", parseTelegramSearchQuery("հովիվ")));
+  assert.ok(matchSearchableText("Ողորմեա՛ ինձ, Աստուած", parseTelegramSearchQuery("Աստված")));
+});
+
+test("descriptions drop the repeated title, the psalm label and verse numbers", async () => {
+  const { describe } = await import("../app/utils/seo");
+  const text = "ԻՐԱԿԱՆ ՃՇՄԱՐՏՈՒԹԻՒՆԸ\n\n(Սաղմոս 1)\n\n1 Երանելի է այն մարդը, որն ամբարիշտների խորհրդով չի շարժւում։ 2 Այլ Տիրոջ օրէնքի մէջ է նրա կամքը։ [3] Եւ նա կը լինի";
+  const result = describe(text, "", "ԻՐԱԿԱՆ ՃՇՄԱՐՏՈՒԹԻՒՆԸ");
+  assert.ok(result.startsWith("Երանելի է այն մարդը"), result);
+  assert.ok(!/\b\d\b|\[\d/u.test(result), result);
+  assert.ok(result.length <= 160);
+});
+
+test("a title word with an article ending ranks with exact matches", async () => {
+  const { parseTelegramSearchQuery, matchSearchableTelegramDocument } = await import("../shared/telegram-search");
+  const query = parseTelegramSearchQuery("հովիվ");
+  const psalm = matchSearchableTelegramDocument({ chatId: "", messageId: 1, topicId: null, mediaGroupId: null, constituentMessageIds: [], fields: [{ kind: "title", value: "ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է", primary: true, blockId: null }] }, query);
+  const reading = matchSearchableTelegramDocument({ chatId: "", messageId: 2, topicId: null, mediaGroupId: null, constituentMessageIds: [], fields: [{ kind: "body", value: "Ես եմ բարի հովիվը, բարի հովիվ", primary: false, blockId: null }] }, query);
+  assert.ok(psalm && reading);
+  assert.equal(psalm.rank, reading.rank);
+  assert.ok((psalm.strength ?? 0) > (reading.strength ?? 0), "the title outranks the body at the same rank");
+});

@@ -12,9 +12,20 @@ export function absoluteUrl(path: string) {
   return /^https?:\/\//u.test(path) ? path : `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
-/** A description of at most ~160 characters, cut at a word. */
-export function describe(text: string | null | undefined, fallback: string) {
-  const clean = (text ?? "").replace(/\s+/gu, " ").trim();
+/**
+ * A description of at most ~160 characters, cut at a word: without the title repeated at the
+ * start, the "(Սաղմոս 1)" label and verse numbers ("1 ", "4. ", "[19] ").
+ */
+export function describe(text: string | null | undefined, fallback: string, title = "") {
+  let clean = (text ?? "").replace(/[\u200B-\u200D\uFEFF]/gu, "").replace(/\s+/gu, " ").trim();
+  const head = title.replace(/[\u200B-\u200D\uFEFF]/gu, "").replace(/\s+/gu, " ").trim();
+  if (head && clean.toLocaleLowerCase("hy").startsWith(head.toLocaleLowerCase("hy"))) clean = clean.slice(head.length).trim();
+  clean = clean
+    .replace(/\(\s*սաղմոս\s+\d{1,3}\s*\)/giu, " ")
+    .replace(/\[\d{1,3}\]\s*/gu, "")
+    .replace(/(^|[\s։.!?»])\d{1,3}\.?\s+(?=\p{L})/gu, "$1")
+    .replace(/\s+/gu, " ")
+    .trim();
   if (!clean) return fallback;
   if (clean.length <= 160) return clean;
   return `${clean.slice(0, 157).replace(/\s+\S*$/u, "")}…`;
@@ -53,11 +64,6 @@ export const websiteJsonLd = {
   url: `${SITE_URL}/`,
   inLanguage: "hy",
   description: "Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան՝ աղոթքներ, սաղմոսներ, սրբերի վարքեր, Ավետարանի ուսուցում և օրվա ընթերցումներ։",
-  potentialAction: {
-    "@type": "SearchAction",
-    target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/search?q={search_term_string}` },
-    "query-input": "required name=search_term_string",
-  },
 };
 
 export const organizationJsonLd = {
@@ -67,7 +73,7 @@ export const organizationJsonLd = {
   alternateName: ALTERNATE_NAMES,
   url: `${SITE_URL}/`,
   logo: `${SITE_URL}/icon-512.png`,
-  sameAs: ["https://t.me/armenian_apostolic_church_bot"],
+  sameAs: ["https://t.me/armenian_apostolic_church", "https://t.me/armenian_apostolic_church_bot"],
 };
 
 export function breadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
@@ -80,3 +86,23 @@ export function breadcrumbJsonLd(items: Array<{ name: string; path: string }>) {
 
 /** Never index these (personal or utility pages). */
 export const NOINDEX = [{ name: "robots", content: "noindex, follow" }];
+
+function isoDuration(seconds: number | null | undefined) {
+  if (!seconds || seconds <= 0) return undefined;
+  const minutes = Math.floor(seconds / 60);
+  return `PT${minutes ? `${minutes}M` : ""}${Math.round(seconds % 60)}S`;
+}
+
+/** AudioObject / VideoObject for a material's recordings and videos. */
+export function mediaJsonLd(material: { title: string; publishedAt: string | null }, media: Array<{ kind: string; url: string | null; thumbnailUrl: string | null; mimeType: string | null; duration: number | null; title: string | null }>, description: string) {
+  return media.flatMap((asset) => {
+    if (!asset.url) return [];
+    if (asset.kind === "audio" || asset.kind === "voice") {
+      return [{ "@context": "https://schema.org", "@type": "AudioObject", name: asset.title || material.title, description, contentUrl: absoluteUrl(asset.url), encodingFormat: asset.mimeType ?? "audio/mpeg", duration: isoDuration(asset.duration), inLanguage: "hy", uploadDate: material.publishedAt ?? undefined }];
+    }
+    if (asset.kind === "video" && asset.thumbnailUrl) {
+      return [{ "@context": "https://schema.org", "@type": "VideoObject", name: asset.title || material.title, description, contentUrl: absoluteUrl(asset.url), thumbnailUrl: absoluteUrl(asset.thumbnailUrl), encodingFormat: asset.mimeType ?? "video/mp4", duration: isoDuration(asset.duration), inLanguage: "hy", uploadDate: material.publishedAt ?? undefined }];
+    }
+    return [];
+  });
+}

@@ -43,6 +43,14 @@ const initialThemeScript = `(() => {
         root.dataset.telegramTheme = telegramTheme;
       }
     } catch {}
+    // Inside Telegram (launch hash, the apps' WebView bridge, Telegram Web's frame, or earlier in
+    // this tab): only then is Telegram's script loaded (root.tsx).
+    try {
+      const inTelegram = location.hash.indexOf("tgWebAppData") >= 0 || !!window.TelegramWebviewProxy
+        || (window.external && "notify" in window.external) || (window.parent !== window && /telegram\.org/.test(document.referrer))
+        || sessionStorage.getItem("library-in-telegram") === "1";
+      if (inTelegram) { root.dataset.inTelegram = "true"; sessionStorage.setItem("library-in-telegram", "1"); }
+    } catch {}
     let preference = "system";
     let textSize = 16;
     try {
@@ -255,25 +263,31 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
 
-  // Protects the library's artwork and texts: holding a link, card or picture opens no system
-  // menu (Android's link menu, Telegram's "Open in…" popup, "save image"), and copied text
-  // carries its source. Admins can lift this with developer mode. (Screenshots can't be blocked.)
+  // Protects the library's artwork: holding a link, card or picture opens no system menu
+  // (Android's link menu, Telegram's "Open in…" popup, "save image"). The reading text itself
+  // (.reading-body) can be selected and copied, and copied text carries its source. Admins can
+  // lift the rest with developer mode. (Screenshots can't be blocked.)
   useEffect(() => {
     const devMode = () => document.documentElement.dataset.devMode === "on";
     const isField = (target: EventTarget | null) => Boolean((target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']"));
+    // Plain reading text (not its links, pictures or the player inside it).
+    const isReadingText = (target: EventTarget | null) => {
+      const element = target instanceof Element ? target : (target as Node | null)?.parentElement ?? null;
+      return Boolean(element?.closest?.(".reading-body") && !element.closest("a, img, video, audio, button"));
+    };
     const onContextMenu = (event: MouseEvent) => {
-      if (!devMode() && !isField(event.target)) event.preventDefault();
+      if (!devMode() && !isField(event.target) && !isReadingText(event.target)) event.preventDefault();
     };
     const onCopy = (event: ClipboardEvent) => {
       if (devMode()) return;
       const text = window.getSelection()?.toString() ?? "";
-      if (text.trim().length < 40 || !event.clipboardData) return;
+      if (text.trim().length < 15 || !event.clipboardData) return;
       event.clipboardData.setData("text/plain", `${text}\n\nԱղբյուր՝ «Հոգևոր ժառանգություն» — ${window.location.href}`);
       event.preventDefault();
     };
-    // No selection starts outside form fields (iOS can still try on a long press).
+    // No selection starts outside form fields and the reading text (iOS can still try on a long press).
     const onSelectStart = (event: Event) => {
-      if (!devMode() && !isField(event.target)) event.preventDefault();
+      if (!devMode() && !isField(event.target) && !isReadingText(event.target)) event.preventDefault();
     };
     document.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("copy", onCopy);
@@ -358,6 +372,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
     const handleTheme = () => {
       if (webAppForCleanup) syncTelegramTheme(webAppForCleanup);
     };
+    // Ordinary browsers never load Telegram's script (it logs on every page and costs a request).
+    if (document.documentElement.dataset.inTelegram !== "true") return;
     void loadTelegramSdk().then(async (webApp) => {
       if (!active || !webApp) return;
       webAppForCleanup = webApp;

@@ -36,7 +36,7 @@ export function PsalmIcon(props: IconProps) {
  * To adjust it: HALO_Y moves the ring up or down (bigger = lower), HALO_WIDTH is its half-width,
  * HEAD_R the head's size.
  */
-const HALO_Y = 3.6;
+const HALO_Y = 2.7;
 const HALO_WIDTH = 4.2;
 const HEAD_R = 3.2;
 export function SaintIcon(props: IconProps) {

@@ -73,7 +73,8 @@ function stableSearchOrder(left: SearchMaterial, right: SearchMaterial) {
   // Psalms that match equally well keep their own order (1, 2, 3…).
   const psalms = left.categoryName === right.categoryName && cardVariantFor(left) === "psalm" ? [psalmNumber(left), psalmNumber(right)] : [null, null];
   const psalmDifference = psalms[0] !== null && psalms[1] !== null ? psalms[0] - psalms[1] : 0;
-  return scoreDifference || psalmDifference || (right.publishedAt ?? "").localeCompare(left.publishedAt ?? "") || left.id.localeCompare(right.id);
+  // Otherwise keep the server's order (titles before bodies at the same rank); sort is stable.
+  return scoreDifference || psalmDifference;
 }
 
 function noteReasons(material: Awaited<ReturnType<typeof searchSavedMaterialNotes>>[number]): SearchMaterial["matchReasons"] {
