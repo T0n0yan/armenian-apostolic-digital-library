@@ -18,11 +18,15 @@ import {getCategoryImage} from "../components/section-header";
 import AngelLeft from "../assets/angel-left.webp"
 import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
+import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
 
 export function meta({}: Route.MetaArgs) {
-    return [{title: "Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան"}, {
-        name: "description", content: "Հայ Առաքելական Սուրբ Եկեղեցուն նվիրված թվային գրադարան։",
-    }, {name: "robots", content: "noindex, nofollow"},];
+    return seoMeta({
+        title: "Հոգևոր ժառանգություն — Հայ Առաքելական Եկեղեցու գրադարան | Apostolic",
+        description: "Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան. աղոթքներ, սաղմոսներ՝ ձայնագրությամբ, սրբերի վարքեր, Ավետարանի ուսուցում, օրվա ընթերցումներ և հարցեր Աստվածաշնչից։",
+        path: "/",
+        jsonLd: [websiteJsonLd, organizationJsonLd],
+    });
 }
 export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";

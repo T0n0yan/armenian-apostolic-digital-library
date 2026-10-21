@@ -25,6 +25,7 @@ export default [
   route("categories/:slug", "routes/category.tsx"),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
+  route("sitemap.xml", "routes/sitemap.ts"),
   // Short material addresses (/pray_364); static routes above always win.
   route(":shortPath", "routes/material-short.tsx"),
 ] satisfies RouteConfig;

@@ -31,6 +31,7 @@ import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
+import { NOINDEX, SITE_NAME, breadcrumbJsonLd, seoMeta } from "../utils/seo";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
 type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video" | "calendar";
@@ -67,11 +68,18 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 };
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  const title = loaderData?.category.name ?? "Բաժին";
-  return [
-    { title: `${title} — Հոգևոր ժառանգություն` },
-    { name: "robots", content: "noindex, nofollow" },
-  ];
+  if (!loaderData) return [{ title: "Բաժին — Հոգևոր ժառանգություն" }, ...NOINDEX];
+  const { category, query } = loaderData;
+  const kind = resolveContentCategoryId(category.id, category.name) ?? "";
+  const path = `/categories/${category.slug}`;
+  // A section's search results are not pages of their own.
+  if (query) return [{ title: `${category.name} · «${query}» — Հոգևոր ժառանգություն` }, ...NOINDEX];
+  return seoMeta({
+    title: `${category.name} — Հայ Առաքելական Եկեղեցի | Հոգևոր ժառանգություն`,
+    description: `${CATEGORY_DESCRIPTIONS[kind] ?? `${category.name}՝ Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարանում։`} Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`,
+    path,
+    jsonLd: [breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: category.name, path }])],
+  });
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {

@@ -3,15 +3,17 @@ import type { ReactNode } from "react";
 import type { Route } from "./+types/privacy";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
+import { seoMeta } from "../utils/seo";
 
 const CONTACT_EMAIL = "t0n0yan.contact@gmail.com";
 const UPDATED = "19 հոկտեմբերի, 2026 թ.";
 
 export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "Գաղտնիության քաղաքականություն — Հոգևոր ժառանգություն" },
-    { name: "description", content: "Ինչ տվյալներ է ստանում և պահում «Հոգևոր ժառանգություն» գրադարանը, ինչ նպատակով և ինչպես կարող եք դրանք կառավարել։" },
-  ];
+  return seoMeta({
+    title: "Գաղտնիության քաղաքականություն — Հոգևոր ժառանգություն",
+    description: "Ինչ տվյալներ է ստանում և պահում «Հոգևոր ժառանգություն» գրադարանը, ինչ նպատակով և ինչպես կարող եք դրանք կառավարել։",
+    path: "/privacy",
+  });
 }
 
 const mail = <a className="text-gold-bright" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;

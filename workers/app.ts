@@ -86,7 +86,10 @@ export default {
     if (new Date(controller.scheduledTime).getUTCMinutes() % 30 === 0) context.waitUntil(dispatchCloudSync(env as SyncEnv));
   },
   async fetch(request, env, context) {
-    return secure(await handle(request, env, context));
+    const response = secure(await handle(request, env, context));
+    // Only the real address is indexed; staging and old addresses stay out of search results.
+    if (new URL(request.url).hostname !== "apostolic.am") response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
   },
 } satisfies ExportedHandler<Env>;
 

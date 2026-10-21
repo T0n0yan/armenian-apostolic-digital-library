@@ -2,6 +2,7 @@ import type { BridgeContentType, BridgePost } from "../../shared/telegram-bridge
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { summarizeDailyReading, type DailyReadingSummary } from "../utils/daily-reading";
 import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
+import { mediaUrl } from "./media-url.server";
 
 /**
  * How a topic's feed loads: Psalms all at once (their grid sorts by number, at most 151), Saints
@@ -83,10 +84,10 @@ export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
   const canPreview = Boolean(asset && (asset.kind === "photo" || asset.hasThumbnail));
   return {
     thumbnailUrl: asset && canPreview
-      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?thumbnail=1${asset.version ? `&v=${asset.version}` : ""}`
+      ? mediaUrl(post, asset, true)
       : null,
     imageUrl: asset?.kind === "photo"
-      ? `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}${asset.version ? `?v=${asset.version}` : ""}`
+      ? mediaUrl(post, asset)
       : null,
     width: asset?.width ?? null,
     height: asset?.height ?? null,
