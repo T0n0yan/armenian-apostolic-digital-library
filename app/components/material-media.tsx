@@ -19,7 +19,7 @@ function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous"
   if (!link) return <span className="size-11" aria-hidden="true" />;
   const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
   return (
-    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms")} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
+    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms", { psalm: link.number })} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
       <Icon aria-hidden="true" size={20} />
     </Link>
   );

@@ -26,7 +26,7 @@ const cardAction = "grid size-8 cursor-pointer place-items-center rounded-full b
 function MissedCard({ item, opening, onOpen }: { item: { materialId: string; rangAt: string; title: string; categoryName: string | null }; opening: boolean; onOpen: () => void }) {
   return (
     <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
-      <Link className="relative z-[3] grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-[10px] px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName)} onClick={onOpen} aria-busy={opening}>
+      <Link className="relative z-[3] grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-[10px] px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName, { title: item.title })} onClick={onOpen} aria-busy={opening}>
         <ItemIcon categoryName={item.categoryName} busy={opening} />
         <span className="grid min-w-0">
           <strong className="truncate text-[13px] text-ink">{item.title}</strong>
@@ -137,7 +137,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
           ) : null}
           {reminders.length ? <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span> : null}
           {reminders.slice(0, 8).map((reminder) => (
-            <Link key={reminder.materialId} className={`grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle active:scale-[.98] ${opening === reminder.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`} to={materialPath(reminder.materialId, reminder.categoryName)} onClick={() => setOpening(reminder.materialId)} aria-busy={opening === reminder.materialId}>
+            <Link key={reminder.materialId} className={`grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle active:scale-[.98] ${opening === reminder.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`} to={materialPath(reminder.materialId, reminder.categoryName, { title: reminder.title })} onClick={() => setOpening(reminder.materialId)} aria-busy={opening === reminder.materialId}>
               <ItemIcon categoryName={reminder.categoryName} busy={opening === reminder.materialId} />
               <span className="grid min-w-0">
                 <strong className="truncate text-[13px] text-ink">{reminder.title}</strong>

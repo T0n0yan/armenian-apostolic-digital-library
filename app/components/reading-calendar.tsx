@@ -106,7 +106,7 @@ function DayEntries({ day, today, count }: { day: string; today: string | null; 
             const { verb, icon: Icon } = ENTRY_TEXT[entry.kind];
             return (
               <li key={entry.materialId}>
-                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-1.5 py-1.5 text-inherit no-underline hover:bg-glass-strong" to={materialPath(entry.materialId, entry.categoryName)}>
+                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-1.5 py-1.5 text-inherit no-underline hover:bg-glass-strong" to={materialPath(entry.materialId, entry.categoryName, { title: entry.title })}>
                   <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/14%)] text-gold-bright"><Icon aria-hidden="true" size={15} /></span>
                   <span className="grid min-w-0">
                     <span className="text-[11px] font-semibold text-muted">{verb}{entry.categoryName ? ` · ${entry.categoryName}` : ""}</span>

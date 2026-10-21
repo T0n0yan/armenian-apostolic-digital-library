@@ -7,6 +7,8 @@ export default [
   route("api/search-suggestions", "routes/search-suggestions.ts"),
   route("saved", "routes/saved.tsx"),
   route("privacy", "routes/privacy.tsx"),
+  route("mer-masin", "routes/about.tsx"),
+  route("kap", "routes/contact.tsx"),
   route("settings", "routes/settings.tsx"),
   route("telegram/session", "routes/telegram-session.ts"),
   route("telegram/webhook", "routes/telegram-webhook.ts"),
@@ -24,9 +26,11 @@ export default [
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),
+  // Readable addresses: /saghmosner, /saghmosner/22, /aghotkner/364-aghotk-yntaniki (material-path.ts).
+  route(":section/:item", "routes/material.tsx", { id: "section-item" }),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
-  // Short material addresses (/pray_364); static routes above always win.
-  route(":shortPath", "routes/material-short.tsx"),
+  // A section (/saghmosner) or an old short address (/pray_364, redirected); static routes win.
+  route(":section", "routes/category.tsx", { id: "section" }),
 ] satisfies RouteConfig;

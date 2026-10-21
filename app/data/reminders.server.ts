@@ -187,7 +187,7 @@ async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow,
     const outcome = await sendWebPush(subscription, {
       title: "🔔 Ժամանակն է կարդալու",
       body: row.title?.trim() || "Հոգևոր ժառանգություն",
-      url: `${publicUrl}${materialPath(materialId, row.category_name)}?reminder=1`,
+      url: `${publicUrl}${materialPath(materialId, row.category_name, { title: row.title })}?reminder=1`,
       tag: `reminder-${materialId}`,
       category: row.category_name,
     }, keys);
@@ -230,7 +230,7 @@ export async function sendDueReminders(database: D1Database, options: { token: s
       const result = await callBot(options.token, "sendMessage", {
         chat_id: Number(row.telegram_id),
         text: `🔔 Ժամանակն է կարդալու\n\n${title}`,
-        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}${materialPath(materialId, row.category_name)}` } }]] },
+        reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}${materialPath(materialId, row.category_name, { title: row.title })}` } }]] },
       });
       // A blocked bot or a missing chat can never deliver; anything else is retried next minute.
       if (result.ok) delivered = true;

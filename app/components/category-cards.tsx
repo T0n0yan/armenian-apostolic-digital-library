@@ -46,7 +46,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
               </li>
             );
           }
-          const targetPath = materialPath(material.id, "category_psalms");
+          const targetPath = materialPath(material.id, "category_psalms", { psalm: number, title: material.title });
           const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
           return (
             <li key={number}>
@@ -75,7 +75,7 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
   return (
     <ol className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 min-[720px]:grid-cols-3">
       {materials.map((material, index) => {
-        const targetPath = materialPath(material.id, "category_saints_lives");
+        const targetPath = materialPath(material.id, "category_saints_lives", { title: material.title });
         const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
         const image = material.preview.imageUrl ?? material.preview.thumbnailUrl;
         return (
@@ -179,7 +179,7 @@ type DailyMaterial = CardMaterial & Pick<PublicMaterial, "dateValue" | "publishe
  */
 export const DailyReadingCard = memo(function DailyReadingCard({ material }: { material: DailyMaterial }) {
   const navigation = useNavigation();
-  const targetPath = materialPath(material.id, "category_daily_readings");
+  const targetPath = materialPath(material.id, "category_daily_readings", { title: material.title });
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const parts = calendarParts(material.dateValue ?? material.publishedAt);
   const daily = material.preview.daily;

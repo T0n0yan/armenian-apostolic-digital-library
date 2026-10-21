@@ -19,6 +19,7 @@ import AngelLeft from "../assets/angel-left.webp"
 import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
+import { sectionPath } from "../utils/material-path";
 
 export function meta({}: Route.MetaArgs) {
     return seoMeta({
@@ -34,7 +35,7 @@ export async function loader({request}: Route.LoaderArgs) {
 }
 const CategoryCard = memo(function CategoryCard({category, index}: { category: CategorySummary; index: number }) {
     const navigation = useNavigation();
-    const targetPath = `/categories/${category.slug}`;
+    const targetPath = sectionPath(category);
     const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
         <Link

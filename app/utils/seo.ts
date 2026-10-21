@@ -73,6 +73,7 @@ export const organizationJsonLd = {
   alternateName: ALTERNATE_NAMES,
   url: `${SITE_URL}/`,
   logo: `${SITE_URL}/icon-512.png`,
+  description: "Անկախ թվային գրադարան՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը (Եկեղեցու պաշտոնական կայքը չէ)։",
   sameAs: ["https://t.me/armenian_apostolic_church", "https://t.me/armenian_apostolic_church_bot"],
 };
 

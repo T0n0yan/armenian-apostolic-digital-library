@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { RotateCw, Search } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { isRouteErrorResponse, Link, useNavigation } from "react-router";
+import { isRouteErrorResponse, Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
@@ -18,7 +18,10 @@ import {
 } from "../components/section-header";
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
-import { getActiveCategoryBySlug } from "../data/categories.server";
+import { getActiveCategoryBySlug, listActiveCategories } from "../data/categories.server";
+import { getPublicMaterialDetail } from "../data/material-detail.server";
+import { canonicalMaterialPath } from "../data/material-page.server";
+import { categoryForSection, materialIdFromShortPath, sectionPath } from "../utils/material-path";
 import { DailyReadingCard, PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
@@ -71,7 +74,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [{ title: "Բաժին — Հոգևոր ժառանգություն" }, ...NOINDEX];
   const { category, query } = loaderData;
   const kind = resolveContentCategoryId(category.id, category.name) ?? "";
-  const path = `/categories/${category.slug}`;
+  const path = sectionPath(category);
   // A section's search results are not pages of their own.
   if (query) return [{ title: `${category.name} · «${query}» — Հոգևոր ժառանգություն` }, ...NOINDEX];
   return seoMeta({
@@ -88,8 +91,26 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     .trim()
     .slice(0, 120);
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
+  const search = (() => { const kept = new URLSearchParams(url.search); kept.delete("_routes"); const value = kept.toString(); return value ? `?${value}` : ""; })();
+  let slug = params.slug;
+  if (!slug) {
+    const segment = params.section ?? "";
+    // An old short address (/pray_364) moves permanently to the material's readable one.
+    const oldMaterial = materialIdFromShortPath(segment);
+    if (oldMaterial) {
+      const material = await getPublicMaterialDetail(env.DB, oldMaterial, request.signal);
+      if (!material) throw new Response("Not Found", { status: 404 });
+      throw redirect(`${canonicalMaterialPath(material)}${search}`, 301);
+    }
+    const contentCategory = categoryForSection(segment);
+    const topic = contentCategory
+      ? (await listActiveCategories(env.DB, false, request.signal)).find((item) => resolveContentCategoryId(item.id, item.name) === contentCategory)
+      : null;
+    if (!topic) throw new Response("Not Found", { status: 404, statusText: "Not Found" });
+    slug = topic.slug;
+  }
   const [category, user] = await Promise.all([
-    getActiveCategoryBySlug(env.DB, params.slug, request.signal),
+    getActiveCategoryBySlug(env.DB, slug, request.signal),
     getOptionalTelegramUser(request),
   ]);
 
@@ -99,6 +120,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       statusText: "Not Found",
     });
   }
+  // /categories/<topic> of a known section moves permanently to its readable address (/saghmosner).
+  const canonical = sectionPath(category);
+  if (url.pathname.replace(/\.data$/u, "") !== canonical) throw redirect(`${canonical}${search}`, 301);
 
   const resolvedQuery = query ? await resolveSearchQuery(env.DB, query) : null;
   const filters: SearchFilters = {
@@ -320,7 +344,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         : "Այս բաժնի բոլոր նյութերը։");
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
-    navigation.location?.pathname === `/categories/${category.slug}`;
+    navigation.location?.pathname === sectionPath(category);
   useEffect(() => {
     abortRef.current?.abort();
     setMaterials(loaderData.materials);
@@ -388,7 +412,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         title={category.name}
         description={categoryDescription}
         query={loaderData.query}
-        searchAction={`/categories/${category.slug}`}
+        searchAction={sectionPath(category)}
         searchLabel={`${category.name} բաժնում որոնում`}
         searchPlaceholder={searchPlaceholder}
       />
@@ -414,7 +438,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
               <p>Փորձիր մեկ այլ բառ կամ մաքրիր որոնումը։</p>
               <Link
                 className="mt-[7px] inline-flex text-[12px] font-bold text-gold-bright no-underline"
-                to={`/categories/${category.slug}`}
+                to={sectionPath(category)}
               >
                 Ցույց տալ բոլոր նյութերը
               </Link>
