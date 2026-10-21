@@ -270,7 +270,7 @@ function Stat({ label, value, note }: { label: string; value: number; note?: str
   );
 }
 
-/** Accounts (Telegram / Google), devices of the last 30 days, and who is on the site right now. */
+/** Accounts (Telegram / Google), devices of the last 30 days, and how many are on the site right now. */
 function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderData"]["stats"]> }) {
   const deviceTotal = stats.devices.reduce((sum, row) => sum + row.count, 0);
   return (
@@ -280,7 +280,7 @@ function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderD
         <Stat label="Գրանցված" value={stats.accounts.total} note={`+${stats.accounts.week} այս շաբաթ`} />
         <Stat label="Telegram-ով" value={stats.accounts.telegram} />
         <Stat label="Google-ով" value={stats.accounts.google} />
-        <Stat label="Հիմա կայքում" value={stats.online.total} note={`${stats.online.signedIn} մուտք գործած`} />
+        <Stat label="Հիմա կայքում" value={stats.online.total} note="վերջին 7 րոպեում" />
       </div>
 
       <div className="grid gap-2">
@@ -298,22 +298,6 @@ function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderD
         )}
       </div>
 
-      <div className="grid gap-2">
-        <h3 className="m-0 flex items-center gap-2 text-[14px]"><span className="size-2 rounded-full bg-[rgb(74_160_96)]" aria-hidden="true" /> Հիմա կայքում՝ մուտք գործածներ</h3>
-        {stats.onlinePeople.length === 0 ? <p className="m-0 text-[12.5px] text-faint">Հիմա մուտք գործած ոչ ոք չկա{stats.online.total ? ` (${stats.online.total} հյուր)` : ""}։</p> : (
-          <ul className="m-0 grid list-none gap-1.5 p-0">
-            {stats.onlinePeople.map((person, index) => (
-              <li key={`${person.name}-${index}`} className={row}>
-                <span className="grid gap-0.5">
-                  <strong className="text-[13px]">{person.name}</strong>
-                  <span className="text-[11px] text-faint">{person.contact ? `${person.contact} · ` : ""}{person.provider} · {PLATFORM_NAMES[person.platform]}{person.inTelegram ? " · Mini App" : ""}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="m-0 text-[11px] text-faint">«Հիմա» նշանակում է վերջին 7 րոպեում բաց էջ ունեցողներ։</p>
-      </div>
     </section>
   );
 }
