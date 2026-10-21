@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Ban, Check, Crown, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Activity, Ban, Bot, Check, Crown, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { data, Form, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin";
@@ -21,6 +21,7 @@ import {
 import { formatArmenianDate } from "../utils/armenian-date";
 import { siteStats, type Platform } from "../data/presence.server";
 import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
+import { botStatus, connectBot } from "../data/telegram-bot-replies.server";
 
 export function meta() {
   return [{ title: "Կառավարում — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
@@ -36,9 +37,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     chatId ? getSyncOverview(env.DB, chatId) : Promise.resolve(null),
     siteStats(env.DB).catch(() => null),
   ]);
+  const bot = await botStatus().catch(() => null);
   const url = new URL(request.url);
   const refreshed = url.searchParams.get("refreshed");
-  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
+  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
     headers: { "Set-Cookie": createAdminNavigationCookie(request) },
   });
 }
@@ -48,6 +50,12 @@ export async function action({ request }: Route.ActionArgs) {
   requireSameOrigin(request);
   const form = await request.formData();
   const intent = form.get("intent");
+
+  // "Կապել բոտը": the bot's messages come to this site (/start, /help replies).
+  if (intent === "connect-bot") {
+    const result = await connectBot().catch(() => ({ ok: false }));
+    return redirect(`/admin?bot=${result.ok ? "connected" : "failed"}`);
+  }
 
   // "Թարմացնել կայքը": every cached page is rebuilt now, and Telegram is synced again.
   if (intent === "refresh-site") {
@@ -107,7 +115,7 @@ function ActionButton({ intent, telegramUserId, userId, displayName, children, d
 }
 
 export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
-  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync } = loaderData;
+  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync, bot, botMessage } = loaderData;
   const navigation = useNavigation();
   const refreshing = navigation.state !== "idle" && navigation.formData?.get("intent") === "refresh-site";
   const error = actionData && "error" in actionData ? actionData.error : null;
@@ -139,6 +147,25 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         </section>
 
         {stats ? <SiteStats stats={stats} /> : null}
+
+        {bot ? (
+          <section className={panelSection + " grid gap-3"}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="m-0 flex items-center gap-2 text-[17px]"><Bot aria-hidden="true" size={19} className="text-gold" /> Telegram բոտ</h2>
+              <Form method="post">
+                <input type="hidden" name="intent" value="connect-bot" />
+                <button className={primaryButton} type="submit">{bot.connected ? "Կրկին կապել" : "Կապել բոտը"}</button>
+              </Form>
+            </div>
+            <p className="m-0 text-[13px] leading-[1.6] text-muted">
+              {bot.connected
+                ? "✓ Բոտը կապված է այս կայքին. պատասխանում է /start և /help հրամաններին։"
+                : "Բոտը դեռ կապված չէ. սեղմիր «Կապել բոտը», որ այն պատասխանի /start և /help հրամաններին։"}
+              {bot.lastError ? ` Վերջին սխալը՝ ${bot.lastError}` : ""}
+            </p>
+            {botMessage ? <p className={`m-0 text-[13px] ${botMessage === "connected" ? "text-[rgb(52_130_74)]" : "text-danger"}`} role="status">{botMessage === "connected" ? "✓ Կապված է։ Գրիր բոտին /start։" : "Չհաջողվեց կապել. ստուգիր TELEGRAM_BOT_TOKEN-ը։"}</p> : null}
+          </section>
+        ) : null}
 
         <section className={panelSection + " grid gap-3"}>
           <h2 className="m-0 flex items-center gap-2 text-[17px]"><ShieldCheck aria-hidden="true" size={19} className="text-gold" /> Հրապարակողներ</h2>
