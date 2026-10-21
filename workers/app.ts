@@ -16,6 +16,50 @@ type ReminderEnv = { DB: D1Database; TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: s
 // GitHub skips many of its own scheduled runs (hours apart), so Cloudflare's cron starts the
 // Telegram → cloud sync workflow instead (dispatchCloudSync).
 
+const MEDIA_EDGE_SECONDS = 86_400;
+const MEDIA_WARM_MAX_BYTES = 40 * 1024 * 1024;
+
+/**
+ * Pictures and recordings from R2, kept in Cloudflare's edge cache: a repeat request (another
+ * reader, or the next part of a recording) is answered there without D1 or R2. Versioned URLs
+ * (?v=…) change when the file changes, so browsers may keep them for a year. A deleted post's
+ * file leaves the edge within a day.
+ */
+async function serveMedia(request: Request, context: ExecutionContext): Promise<Response> {
+  const cache = (caches as CacheStorage & { default: Cache }).default;
+  const url = new URL(request.url);
+  const key = new Request(url.toString(), { method: "GET" });
+  const range = request.headers.get("Range");
+  // The edge cache answers a Range request from a whole cached file with the right 206 part.
+  const cached = await cache.match(range ? new Request(key, { headers: { Range: range } }) : key);
+  if (cached) return withBrowserCache(cached, url);
+  const response = await requestHandler(request);
+  if (response.status === 200) {
+    context.waitUntil(cache.put(key, forEdge(response.clone())));
+  } else if (response.status === 206) {
+    // A recording played in parts: fetch it whole once in the background, so the following
+    // parts and other listeners come from the edge.
+    const total = Number(response.headers.get("Content-Range")?.split("/")[1] ?? 0);
+    if (total > 0 && total <= MEDIA_WARM_MAX_BYTES) {
+      context.waitUntil(requestHandler(new Request(key)).then((whole) => whole.status === 200 ? cache.put(key, forEdge(whole)) : undefined).catch(() => undefined));
+    }
+  }
+  return withBrowserCache(response, url);
+}
+
+function forEdge(response: Response) {
+  const copy = new Response(response.body, response);
+  copy.headers.set("Cache-Control", `public, max-age=${MEDIA_EDGE_SECONDS}`);
+  return copy;
+}
+
+function withBrowserCache(response: Response, url: URL) {
+  if (!url.searchParams.has("v") || (response.status !== 200 && response.status !== 206)) return response;
+  const copy = new Response(response.body, response);
+  copy.headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  return copy;
+}
+
 /** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
 function secure(response: Response) {
   const headers = new Headers(response.headers);
@@ -66,6 +110,8 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
       }
     }
   }
+  // Only versioned media (?v=…, which changes with the file) is cached at the edge.
+  if (request.method === "GET" && new URL(request.url).pathname.startsWith("/media/") && new URL(request.url).searchParams.has("v")) return serveMedia(request, context);
   {
     const url = new URL(request.url);
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.

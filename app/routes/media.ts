@@ -22,14 +22,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   try {
     const response = await readCloudMedia(env.DB, env.MEDIA, params.chatId, messageId, mediaIndex, request);
     response.headers.set("X-Media-Request-Id", requestId);
-    console.info(JSON.stringify({
-      event: "cloud-media-response",
-      requestId,
-      method: request.method,
-      rangeKind,
-      status: response.status,
-      durationMs: Math.round(performance.now() - startedAt),
-    }));
+    // Successful responses are not logged: every picture would be a log line (errors still are).
     return response;
   } catch (error) {
     console.error(JSON.stringify({
