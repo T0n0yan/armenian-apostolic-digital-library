@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/presence";
-import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { touchPresence, validPlatform } from "../data/presence.server";
 
 /** { visitorId, platform, inTelegram } — a page is open on this device. */
@@ -10,7 +9,6 @@ export async function action({ request }: Route.ActionArgs) {
   const body = (await request.json().catch(() => null)) as { visitorId?: unknown; platform?: unknown; inTelegram?: unknown } | null;
   const visitorId = typeof body?.visitorId === "string" && /^[a-zA-Z0-9-]{8,64}$/u.test(body.visitorId) ? body.visitorId : null;
   if (!visitorId) return new Response(null, { status: 400 });
-  const user = await getOptionalTelegramUser(request).catch(() => null);
-  await touchPresence(env.DB, { visitorId, userId: user?.id ?? null, platform: validPlatform(body?.platform), inTelegram: body?.inTelegram === true }).catch(() => null);
+  await touchPresence(env.DB, { visitorId, platform: validPlatform(body?.platform), inTelegram: body?.inTelegram === true }).catch(() => null);
   return new Response(null, { status: 204 });
 }
