@@ -56,7 +56,10 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
       const target = new URL(home);
       // Plain http:// on the site's own address also moves to https://.
       const insecure = url.protocol === "http:" && target.protocol === "https:" && url.hostname === target.hostname;
-      if (insecure || url.hostname !== target.hostname && (url.hostname.endsWith(".workers.dev") || url.hostname === `www.${target.hostname}`)) {
+      // Armenian resolvers kept the domain's first (registrar parking) DNS for up to 12 hours after
+      // the move to Cloudflare, so the old address keeps serving the site until that has passed.
+      const oldAddressMoves = Date.now() >= Date.parse("2026-10-22T04:00:00Z");
+      if (insecure || url.hostname !== target.hostname && (url.hostname.endsWith(".workers.dev") && oldAddressMoves || url.hostname === `www.${target.hostname}`)) {
         url.protocol = target.protocol;
         url.host = target.host;
         return Response.redirect(url.toString(), request.method === "GET" || request.method === "HEAD" ? 301 : 308);
