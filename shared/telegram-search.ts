@@ -279,6 +279,11 @@ function includesWhole(value: string, query: string) {
 }
 // Numbers never prefix-match ("1" must not find 10–19). In multi-word queries a number must
 // follow the word before it ("սաղմոս 1"), so verse numbers elsewhere in a text don't match.
+/** "հովիվն" / "հովիվը" / "հովիվս" / "հովիվդ" are "հովիվ" with an article. */
+function withArticle(token: string, word: string) {
+  return token.length === word.length + 1 && token.startsWith(word) && /[նըսդ]$/u.test(token);
+}
+
 function prefixMatches(normalized: string, tokens: string[], terms: string[]) {
   return terms.every((term, index) => {
     if (!numericToken.test(term)) return tokens.some((token) => token.startsWith(term));
@@ -308,6 +313,8 @@ export function matchSearchableTelegramDocument(document: SearchableTelegramDocu
     let fieldRank = 0;
     if (normalized === parsed.normalized && field.primary) fieldRank = 7;
     else if (tokenBoundaryIncludes(normalized, parsed.normalized)) fieldRank = 5;
+    // The word with an article ending ("հովիվն", "հովիվը", "Աստծուս") is the same word.
+    else if (parsed.tokens.length === 1 && tokens.some((token) => withArticle(token, parsed.tokens[0]))) fieldRank = 5;
     else if (parsed.tokens.length && prefixMatches(normalized, tokens, parsed.tokens)) fieldRank = 4;
     // Inside a word only for longer queries; a short one ("սաղ") would hit unrelated words.
     else if (Array.from(parsed.normalized).length >= 4 && includesWhole(normalized, parsed.normalized)) fieldRank = 3;

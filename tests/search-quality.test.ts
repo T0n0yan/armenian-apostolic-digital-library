@@ -123,3 +123,13 @@ test("descriptions drop the repeated title, the psalm label and verse numbers", 
   assert.ok(!/\b\d\b|\[\d/u.test(result), result);
   assert.ok(result.length <= 160);
 });
+
+test("a title word with an article ending ranks with exact matches", async () => {
+  const { parseTelegramSearchQuery, matchSearchableTelegramDocument } = await import("../shared/telegram-search");
+  const query = parseTelegramSearchQuery("հովիվ");
+  const psalm = matchSearchableTelegramDocument({ chatId: "", messageId: 1, topicId: null, mediaGroupId: null, constituentMessageIds: [], fields: [{ kind: "title", value: "ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է", primary: true, blockId: null }] }, query);
+  const reading = matchSearchableTelegramDocument({ chatId: "", messageId: 2, topicId: null, mediaGroupId: null, constituentMessageIds: [], fields: [{ kind: "body", value: "Ես եմ բարի հովիվը, բարի հովիվ", primary: false, blockId: null }] }, query);
+  assert.ok(psalm && reading);
+  assert.equal(psalm.rank, reading.rank);
+  assert.ok((psalm.strength ?? 0) > (reading.strength ?? 0), "the title outranks the body at the same rank");
+});
