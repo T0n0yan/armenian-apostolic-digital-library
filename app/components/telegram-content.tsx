@@ -182,7 +182,8 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
       const captionId = `${blockId}-caption`;
       const captionHit = hit?.blockId === captionId ? hit : undefined;
       const body = <><div className="grid gap-2"><RichBlocks blocks={block.blocks} media={media} hit={hit} prefix={blockId} /></div>{block.caption.length ? <footer className="mt-2 text-[12px] text-faint" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></footer> : null}</>;
-      return block.expandable ? <details className="rounded-r-[14px] border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}><summary className="cursor-pointer font-semibold text-ink">Բացել մեջբերումը</summary><div className="mt-3">{body}</div></details> : <blockquote className="m-0 rounded-r-[14px] border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}>{body}</blockquote>;
+      // Telegram's collapsed ("expandable") quotes hold the day's readings: shown open, like any quote.
+      return <blockquote className="m-0 rounded-r-[14px] border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}>{body}</blockquote>;
     }
     return <p className="m-0 rounded-[12px] border border-dashed border-glass-border p-3 text-[11px] text-muted" key={key}>Այս հատվածի ձևաչափը դեռ ամբողջությամբ չի աջակցվում։</p>;
   });

@@ -266,7 +266,8 @@ function telegramInitData(user: object, authDate = Math.floor(Date.now() / 1_000
 }
 
 test("deterministic query normalization and bounded memory index stay explainable", async () => {
-  assert.equal(normalizeTelegramSearchText("  ԵՒ\u0301  աղօթք—TEST  "), "և աղօթք test");
+  // Classical and reformed spellings fold together: եւ/և → եվ, օ → ո.
+  assert.equal(normalizeTelegramSearchText("  ԵՒ\u0301  աղօթք—TEST  "), "եվ աղոթք test");
   assert.ok(searchAliases("Սաղմոս").includes("saxmos"));
   assert.ok(searchAliases("Bacat").includes("բացատ"));
   for (const value of ["#67", "67", "id:67", "tg:67"]) {

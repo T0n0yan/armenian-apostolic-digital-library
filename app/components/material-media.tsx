@@ -6,6 +6,13 @@ import type { MaterialMedia } from "../data/material-detail.server";
 
 type PsalmLink = { id: string; number: number } | null;
 /** The previous and next psalm, shown on a psalm's player (set by the material page). */
+/** A picture's description: at most 125 characters, cut at a word (Telegram gives the whole post text). */
+function shortAlt(text: string | null | undefined) {
+  const clean = (text ?? "").replace(/\s+/gu, " ").trim();
+  if (!clean) return "Նկար";
+  return clean.length <= 125 ? clean : `${clean.slice(0, 122).replace(/\s+\S*$/u, "")}…`;
+}
+
 export const PsalmNavContext = createContext<{ previous: PsalmLink; next: PsalmLink } | null>(null);
 
 function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous" | "next" }) {
@@ -293,7 +300,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
       width={asset.width ?? 1280}
       height={asset.height ?? 800}
       style={{ aspectRatio: ratio }}
-      alt={asset.altText || "Telegram հրապարակման նկար"}
+      alt={shortAlt(asset.altText)}
       onError={() => setFailed(true)}
     />
   );

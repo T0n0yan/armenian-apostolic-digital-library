@@ -3,7 +3,6 @@ import {
   matchSearchableTelegramDocument,
   messageIdSearchMatch,
   parseTelegramSearchQuery,
-  classicalVariants,
   searchScoreRank,
   type SearchableTelegramDocument,
   type SearchableTelegramFieldKind,
@@ -445,8 +444,8 @@ async function loadSearchCloudLibraryPosts(
     return { posts: page, total: page.length, nextCursor: null };
   }
 
-  // Classical spellings too: the psalms and prayers are written "սէր", "օրհնեալ"…
-  const candidateValues = [parsed.normalized, ...parsed.tokens, ...parsed.tokens.flatMap(classicalVariants), ...parsed.aliases];
+  // The index and the query are both folded across classical and reformed spelling.
+  const candidateValues = [parsed.normalized, ...parsed.tokens, ...parsed.aliases];
   const ftsExpression = ftsCandidateExpression(candidateValues);
   if (!ftsExpression) return { posts: [], total: 0, nextCursor: null };
   const ftsBindings: unknown[] = [ftsExpression];

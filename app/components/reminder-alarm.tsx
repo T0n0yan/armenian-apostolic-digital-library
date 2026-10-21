@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, type ActiveReminder } from "../utils/reminder-store";
-import { materialPath } from "../utils/material-path";
+import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, useActiveReminders, type ActiveReminder } from "../utils/reminder-store";
+import { materialIdFromShortPath, materialPath } from "../utils/material-path";
 
 type Upcoming = ActiveReminder;
 type Ducked = { media: HTMLMediaElement; volume: number; paused: boolean };
@@ -78,11 +78,16 @@ export function ReminderAlarm() {
     }
   }, [ring]);
 
-  // Phones only let a page play sound after a tap; the first tap anywhere unlocks the bell.
+  // Phones only let a page play sound after a tap; the first tap anywhere unlocks the bell, but
+  // only for a reader who has reminders (everyone else never downloads it).
+  const activeReminders = useActiveReminders();
+  const hasReminders = useRef(false);
+  hasReminders.current = activeReminders.length > 0;
   useEffect(() => {
     const unlock = () => {
       const audio = bell.current;
-      if (!audio) return;
+      if (!audio || !hasReminders.current) return;
+      if (!audio.src) audio.src = BELL_URL;
       audio.muted = true;
       void audio.play().then(() => { audio.pause(); audio.currentTime = 0; audio.muted = false; }).catch(() => { audio.muted = false; });
       window.removeEventListener("pointerdown", unlock);
@@ -107,13 +112,16 @@ export function ReminderAlarm() {
   // Opening a reminded material counts as reading it.
   const location = useLocation();
   useEffect(() => {
+    // Opening the material clears its rung reminder (long or short address: /psalm_169).
     const match = /^\/materials\/([^/]+)$/u.exec(location.pathname);
-    if (match) void markReminderRead(decodeURIComponent(match[1]), { quiet: true });
+    const materialId = match ? decodeURIComponent(match[1]) : materialIdFromShortPath(location.pathname.slice(1));
+    if (materialId) void markReminderRead(materialId, { quiet: true });
   }, [location.pathname]);
 
   useEffect(() => {
-    bell.current = new Audio(BELL_URL);
-    bell.current.preload = "auto";
+    // The bell is fetched only when it first rings (not on every page).
+    bell.current = new Audio();
+    bell.current.preload = "none";
     void load();
     const refresh = window.setInterval(load, REFRESH_MS);
     const onVisible = () => { if (document.visibilityState === "visible") void load(); };
@@ -143,7 +151,7 @@ export function ReminderAlarm() {
         window.clearInterval(interval);
         const audio = bell.current;
         const soundOn = (() => { try { return localStorage.getItem("library-alarm-sound") !== "off"; } catch { return true; } })();
-        if (audio && soundOn) { audio.currentTime = 0; void audio.play().catch(() => undefined); }
+        if (audio && soundOn) { if (!audio.src) audio.src = BELL_URL; audio.currentTime = 0; void audio.play().catch(() => undefined); }
         navigator.vibrate?.([120, 80, 120]);
         window.dispatchEvent(new Event(REMINDER_RINGING_EVENT));
         // Bring the psalm or video back once the bell has faded.

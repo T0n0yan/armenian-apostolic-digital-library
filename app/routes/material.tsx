@@ -23,7 +23,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { materialPath } from "../utils/material-path";
 import { loadMaterialPage } from "../data/material-page.server";
-import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, seoMeta } from "../utils/seo";
+import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return loadMaterialPage(params.materialId, request);
@@ -34,7 +34,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const { material } = loaderData;
   const path = materialPath(material.id, material.categoryName);
   const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl ?? null;
-  const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`);
+  const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = `/categories/${material.categorySlug}`;
   return seoMeta({
     title: `${material.title} — ${material.categoryName} | Հոգևոր ժառանգություն`,
@@ -59,6 +59,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
         publisher: { "@type": "Organization", name: SITE_NAME, logo: { "@type": "ImageObject", url: `${SITE_URL}/icon-512.png` } },
       },
       breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: material.categoryName, path: categoryPath }, { name: material.title, path }]),
+      ...mediaJsonLd(material, material.media, description),
     ],
   });
 }

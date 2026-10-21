@@ -517,5 +517,8 @@ img, video { -webkit-user-drag: none; user-drag: none; -webkit-touch-callout: no
 html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 a, img, video, button { -webkit-touch-callout: none; }
 input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* The reading text can be selected and copied (a copy carries the source, root.tsx). */
+.reading-body, .reading-body * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+.reading-body a, .reading-body img, .reading-body button, .reading-body audio, .reading-body video { -webkit-touch-callout: none; }
 /* Developer mode (admins only): texts can be selected and copied again. */
 html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"] main * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }

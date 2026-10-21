@@ -66,7 +66,65 @@ function replacePairs(value: string, pairs: Array<[string, string]>) {
   return output;
 }
 
+type FoldItem = { value: string; start: number; end: number };
+const FOLD_VOWELS = new Set(["ա", "ե", "է", "ի", "օ", "ո"]);
+
+/**
+ * Classical (Mashtotsian) and reformed spellings folded to one search form, on lowercase text,
+ * keeping each output letter tied to the original letters it came from (for highlighting):
+ * և → եվ; ու before a vowel → վ (Աստուած → աստված); թիւն → թյուն; եա → յա; ւ not after ո → վ
+ * (մեղաւոր, հովիւ); է → ե; օ → ո; յ at a word's start → հ (Յիսուս), at its end dropped (վրայ).
+ */
+export function foldOrthographyItems(items: FoldItem[]): FoldItem[] {
+  const at = (index: number) => items[index]?.value ?? "";
+  const out: FoldItem[] = [];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const value = item.value;
+    if (value === "և") { out.push({ ...item, value: "ե" }, { ...item, value: "վ" }); continue; }
+    if (value === "ո" && at(index + 1) === "ւ" && FOLD_VOWELS.has(at(index + 2))) {
+      out.push({ value: "վ", start: item.start, end: items[index + 1].end }); index += 1; continue;
+    }
+    if (value === "թ" && at(index + 1) === "ի" && at(index + 2) === "ւ" && at(index + 3) === "ն") {
+      out.push(item, { ...items[index + 1], value: "յ" }, { ...items[index + 2], value: "ո" }, { ...items[index + 2], value: "ւ" }, items[index + 3]);
+      index += 3; continue;
+    }
+    if (value === "ե" && at(index + 1) === "ա") { out.push({ ...item, value: "յ" }); continue; }
+    if (value === "ւ" && at(index - 1) !== "ո") { out.push({ ...item, value: "վ" }); continue; }
+    if (value === "է") { out.push({ ...item, value: "ե" }); continue; }
+    if (value === "օ") { out.push({ ...item, value: "ո" }); continue; }
+    out.push(item);
+  }
+  // Word-initial յ → հ, word-final յ dropped.
+  const result: FoldItem[] = [];
+  for (let index = 0; index < out.length; index += 1) {
+    const item = out[index];
+    if (item.value === "յ") {
+      const before = out[index - 1]?.value ?? " ";
+      const after = out[index + 1]?.value ?? " ";
+      if (after === " ") continue;
+      if (before === " ") { result.push({ ...item, value: "հ" }); continue; }
+    }
+    result.push(item);
+  }
+  return result;
+}
+
+/** foldOrthographyItems for a plain lowercase string. */
+export function foldOrthography(value: string) {
+  return foldOrthographyItems(Array.from(value, (character, index) => ({ value: character, start: index, end: index + 1 }))).map((item) => item.value).join("");
+}
+
+/**
+ * The search form of a text: punctuation and invisible marks removed, lowercase, and classical
+ * and reformed spellings folded together ("ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է" = "Տերն իմ հովիվն է").
+ * Used for the index and for queries alike; the shown text never changes.
+ */
 export function normalizeTelegramSearchText(value: string) {
+  return foldOrthography(rawNormalize(value));
+}
+
+function rawNormalize(value: string) {
   return value.normalize("NFKC")
     .replace(/[\u200B-\u200D\uFEFF]/gu, "")
     .replace(/[\u0300-\u036f]/gu, "")
@@ -114,7 +172,8 @@ export function searchAliases(value: string) {
   const aliases = new Set<string>();
   if (/\p{Script=Armenian}/u.test(normalized)) aliases.add(armenianToLatin(normalized));
   if (/\p{Script=Latin}/u.test(normalized)) {
-    aliases.add(latinToArmenian(normalized));
+    // A Latin query's Armenian reading, folded like the index ("astvats" → "աստված").
+    aliases.add(foldOrthography(latinToArmenian(normalized)));
     aliases.add(replacePairs(normalized, latinSpellingPairs));
   }
   aliases.delete(""); aliases.delete(normalized);
@@ -320,7 +379,8 @@ function normalizedWithOriginalMap(value: string): NormalizedMap {
       index += 1;
     } else equivalent.push(collapsed[index]);
   }
-  return { text: foldSpelling(equivalent.map((item) => item.value).join("")), starts: equivalent.map((item) => item.start), ends: equivalent.map((item) => item.end) };
+  const folded = foldOrthographyItems(equivalent);
+  return { text: folded.map((item) => item.value).join(""), starts: folded.map((item) => item.start), ends: folded.map((item) => item.end) };
 }
 
 function sourceFor(kind: SearchableTelegramFieldKind): BridgeSearchHitSource {
