@@ -24,7 +24,7 @@ import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { MaterialListSkeleton } from "../components/material-skeleton";
-import { EmptyState, PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
+import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import {
   countBadge,
@@ -52,6 +52,7 @@ import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-deboun
 import { SearchSuggestions } from "../components/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 import { psalmNumber } from "../utils/psalm-number";
+import { RouteErrorPage } from "../components/error-page";
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
@@ -658,6 +659,6 @@ export default function Search({ loaderData }: Route.ComponentProps) {
   );
 }
 
-export function ErrorBoundary({}: Route.ErrorBoundaryProps) {
-  return <PageShell><SiteNav /><PageHeader backTo="/" backLabel="Գրադարան" eyebrow="Ամբողջ գրադարանը" title="Որոնում" showSearch={false} /><RouteErrorState title="Որոնումը չհաջողվեց" /></PageShell>;
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return <RouteErrorPage error={error} />;
 }

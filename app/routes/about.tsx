@@ -1,5 +1,3 @@
-import { Link } from "react-router";
-
 import type { Route } from "./+types/about";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
@@ -21,12 +19,23 @@ export default function About() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Մեր մասին" description="Անկախ թվային գրադարան" />
+      <PageHeader backTo="/" backLabel="Գրադարան" title="Մեր մասին" />
       <article className="mt-4 grid gap-4">
         <section className={panel}>
+          <h2 className={heading}>Ինչ է «Հոգևոր ժառանգություն»-ը</h2>
           <p className="m-0">
-            «Հոգևոր ժառանգություն»-ը թվային գրադարան է՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը։
-            Այստեղ մեկ տեղում են աղոթքներ, սաղմոսներ՝ ձայնագրությամբ, սրբերի վարքեր, Ավետարանի ուսուցում, օրվա ընթերցումներ և հարցեր Աստվածաշնչից։
+            Թվային գրադարան՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը։
+            Մեր հոգևորականների քարոզներն ու ձայնագրությունները, աղոթքներն ու գրությունները համացանցում շատ են, բայց ցրված են տարբեր կայքերում ու ալիքներում։
+            Այստեղ դրանք հավաքվում են մեկ տեղում՝ խնամքով դասավորված, որ հեշտ լինի գտնել, կարդալ և լսել։
+          </p>
+        </section>
+        <section className={panel}>
+          <h2 className={heading}>Որտեղից են նյութերը</h2>
+          <p className="m-0">
+            Նոր նյութերը նախ տեղադրվում են մեր{" "}
+            <a className="text-gold-bright" href="https://t.me/armenian_apostolic_church" target="_blank" rel="noreferrer">Telegram խմբում</a>
+            {" "}և նույն պահին հասանելի են դառնում նաև այստեղ։
+            Սաղմոսների համարակալումը ըստ Յոթանասնից թարգմանության է, ինչպես ընդունված է Հայաստանյայց Առաքելական Եկեղեցում։
           </p>
         </section>
         <section className={panel}>
@@ -35,25 +44,6 @@ export default function About() {
             Սա <strong>անկախ, մասնավոր նախաձեռնություն է</strong> և Հայաստանյայց Առաքելական Սուրբ Եկեղեցու պաշտոնական կայքը չէ։
             Եկեղեցու պաշտոնական տեղեկությունների համար այցելեք Մայր Աթոռ Սուրբ Էջմիածնի կայքը՝{" "}
             <a className="text-gold-bright" href="https://www.armenianchurch.am" target="_blank" rel="noreferrer">armenianchurch.am</a>։
-          </p>
-        </section>
-        <section className={panel}>
-          <h2 className={heading}>Որտեղից են նյութերը</h2>
-          <p className="m-0">
-            Նյութերը հրապարակվում են մեր Telegram խմբում՝{" "}
-            <a className="text-gold-bright" href="https://t.me/armenian_apostolic_church" target="_blank" rel="noreferrer">Հայ Առաքելական Սուրբ Եկեղեցի</a>, և ավտոմատ հայտնվում են այստեղ։
-            Աստվածաշնչյան տեքստերը վերցված են Հայաստանյայց Առաքելական Եկեղեցու կողմից ընդունված թարգմանություններից, իսկ սաղմոսների համարակալումը՝ ըստ Յոթանասնից թարգմանության։
-            Ամեն նյութի էջում կա հղում դեպի սկզբնական գրառումը։
-          </p>
-        </section>
-        <section className={panel}>
-          <h2 className={heading}>Ինչպես օգտվել</h2>
-          <p className="m-0">
-            Գրադարանը բաց է բոլորի համար, անվճար և առանց գովազդի։ Մուտք գործելով (Telegram-ով կամ Google-ով) կարող եք պահել նյութեր, դնել հիշեցումներ և նշել կարդացածը։
-            Օգտագործելիս խնդրում ենք նշել աղբյուրը։
-          </p>
-          <p className="m-0">
-            Հարցերի, առաջարկների կամ սխալի մասին հաղորդելու համար՝ <Link className="text-gold-bright" to="/kap">Կապ</Link>։
           </p>
         </section>
       </article>

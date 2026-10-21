@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { RotateCw, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { isRouteErrorResponse, Link, redirect, useNavigation } from "react-router";
+import { Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
@@ -10,7 +10,7 @@ import { cardVariantFor } from "../utils/card-variant";
 import { quizResults, type QuizResult } from "../data/poll-votes.server";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { preloadArt } from "../components/art-image";
-import { EmptyState, PageHeader, PageShell } from "../components/page-layout";
+import { EmptyState, PageShell } from "../components/page-layout";
 import { MaterialListSkeleton } from "../components/material-skeleton";
 import {
   getCategoryImage,
@@ -35,6 +35,7 @@ import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 import { NOINDEX, SITE_NAME, breadcrumbJsonLd, seoMeta } from "../utils/seo";
+import { RouteErrorPage } from "../components/error-page";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
 type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video" | "calendar";
@@ -472,24 +473,5 @@ export default function Category({ loaderData }: Route.ComponentProps) {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  const isNotFound = isRouteErrorResponse(error) && error.status === 404;
-  return (
-    <PageShell>
-      <SiteNav />
-      <PageHeader
-        backTo="/"
-        backLabel="Բաժիններ"
-        eyebrow="Հոգևոր ժառանգություն"
-        title={isNotFound ? "Բաժինը չի գտնվել" : "Սխալ"}
-        description={isNotFound
-          ? "Այս բաժինը գոյություն չունի կամ հասանելի չէ։"
-          : "Էջը բացելիս անսպասելի սխալ է տեղի ունեցել։"}
-      />
-      {!isNotFound ? (
-        <button className="mt-4 inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright" type="button" onClick={() => window.location.reload()}>
-          <RotateCw aria-hidden="true" size={16} /> Կրկին փորձել
-        </button>
-      ) : null}
-    </PageShell>
-  );
+  return <RouteErrorPage error={error} notFoundTitle="Բաժինը չի գտնվել" />;
 }

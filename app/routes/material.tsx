@@ -1,6 +1,6 @@
 import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { isRouteErrorResponse, Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
 import { MaterialMediaGallery, PsalmNavContext } from "../components/material-media";
@@ -17,13 +17,14 @@ import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
 import { ReadMark, readKindFor } from "../components/read-mark";
-import { PageHeader, PageShell, RouteErrorState } from "../components/page-layout";
+import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
 import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
+import { RouteErrorPage } from "../components/error-page";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return loadMaterialPage(await resolveMaterialId(params), request);
@@ -199,12 +200,5 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  const notFound = isRouteErrorResponse(error) && error.status === 404;
-  return (
-    <PageShell>
-      <SiteNav />
-      <PageHeader eyebrow="Հոգևոր ժառանգություն" title={notFound ? "Նյութը չի գտնվել" : "Չհաջողվեց բացել նյութը"} description="Փորձիր վերադառնալ բաժինների ցանկին։" />
-      {notFound ? <Link className="mt-4 inline-flex text-[13px] font-bold text-gold-bright" to="/">Վերադառնալ գլխավոր էջ</Link> : <RouteErrorState title="Նյութը ժամանակավորապես չբացվեց" description="Կապը վերականգնելուց հետո կարող ես փորձել նույն էջը կրկին։" />}
-    </PageShell>
-  );
+  return <RouteErrorPage error={error} notFoundTitle="Նյութը չի գտնվել" />;
 }

@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { CONTACT_EMAIL } from "../utils/contact";
 
 import { isLibraryPath } from "../utils/material-path";
 
@@ -11,7 +12,6 @@ type Update = {
   };
 };
 
-const CONTACT_EMAIL = "info@apostolic.am";
 
 function settings() {
   const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support } = env as BotEnv;
