@@ -7,7 +7,7 @@ import {
   type BridgeRichContent,
 } from "../../shared/telegram-bridge-contract";
 import { getCloudLibraryPost } from "./cloud-library.server";
-import { mediaUrl } from "./media-url.server";
+import { mediaFallbackUrl, mediaUrl } from "./media-url.server";
 
 export type MaterialMedia = {
   id: string;
@@ -25,6 +25,9 @@ export type MaterialMedia = {
   thumbnailUrl: string | null;
   altText: string;
   url: string | null;
+  /** The same file through the site's own /media route, tried when `url` fails to load. */
+  fallbackUrl?: string | null;
+  thumbnailFallbackUrl?: string | null;
   /** Added on the site (material_attachments), not part of the Telegram post. */
   attached?: boolean;
 };
@@ -83,9 +86,11 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
       status: "ready",
       attached: asset.index >= 100,
       url: mediaUrl(post, asset),
+      fallbackUrl: mediaFallbackUrl(post, asset),
       thumbnailUrl: asset.hasThumbnail
         ? mediaUrl(post, asset, true)
         : null,
+      thumbnailFallbackUrl: asset.hasThumbnail ? mediaFallbackUrl(post, asset, true) : null,
     })),
   };
 }
