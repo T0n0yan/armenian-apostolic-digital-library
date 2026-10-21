@@ -39,6 +39,7 @@ import { stripZeroWidth } from "../utils/text";
 import { MaterialActionSheet } from "./material-action-sheet";
 import { useLongPress } from "../hooks/use-long-press";
 import { psalmNumber } from "../utils/psalm-number";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { calendarParts } from "../utils/daily-reading";
 import { cardVariantFor, type MaterialCardVariant } from "../utils/card-variant";
 import { materialPath } from "../utils/material-path";
@@ -235,7 +236,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const [noteDraft, setNoteDraft] = useState(material.personalNote ?? "");
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const navigation = useNavigation();
-  const targetPath = materialPath(material.id, material.categoryName ?? category);
+  const targetPath = materialPath(material.id, material.categoryName ?? category, {
+    title: material.title,
+    psalm: resolveContentCategoryId(material.categoryName ?? category, material.categoryName ?? category) === "category_psalms" ? psalmNumber(material) : null,
+  });
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.

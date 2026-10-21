@@ -1,4 +1,5 @@
-import { listCloudLibraryCategoryPosts } from "./cloud-library.server";
+import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { bridgePostToPublic } from "./materials.server";
 import { psalmNumber } from "../utils/psalm-number";
 
@@ -15,4 +16,16 @@ export async function findPsalmNeighbors(database: D1Database, topicSlug: string
   const index = psalms.findIndex((item) => item.id === materialId);
   if (index < 0) return null;
   return { number: psalms[index].number, previous: psalms[index - 1] ?? null, next: psalms[index + 1] ?? null };
+}
+
+/** The psalm with this number (/saghmosner/22), or null. */
+export async function findPsalmByNumber(database: D1Database, number: number) {
+  const topic = (await listCloudLibraryCategories(database)).find((category) => resolveContentCategoryId(category.id, category.name) === "category_psalms");
+  if (!topic) return null;
+  const page = await listCloudLibraryCategoryPosts(database, topic.slug, null, 200);
+  for (const post of page.posts) {
+    const material = bridgePostToPublic(post);
+    if (psalmNumber(material) === number) return material.id;
+  }
+  return null;
 }

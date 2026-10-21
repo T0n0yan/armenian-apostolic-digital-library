@@ -9,6 +9,7 @@ import { CategoryIcon } from "./category-icon";
 import { ReminderIndicator } from "./reminder-indicator";
 import { INSTALL_REQUEST_EVENT, isInstalledApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
+import { sectionPath } from "../utils/material-path";
 
 type SiteNavProps = { showAdminLink?: boolean };
 
@@ -123,7 +124,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   {topicItems.map((topic) => {
                     return (
                       <li key={topic.id}>
-                        <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={`/categories/${topic.slug}`} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                        <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={sectionPath(topic)} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                           <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="min-w-0 flex-1 truncate">{topic.name}</span>
                           {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}

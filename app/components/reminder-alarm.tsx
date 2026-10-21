@@ -203,7 +203,7 @@ export function ReminderAlarm() {
         <button
           className={`${action} inline-flex items-center justify-center gap-1.5 border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`}
           type="button"
-          onClick={() => { const id = current.materialId; void markReminderRead(id); dismiss(); navigate(materialPath(id, current.categoryName)); }}
+          onClick={() => { const id = current.materialId; void markReminderRead(id); dismiss(); navigate(materialPath(id, current.categoryName, { title: current.title })); }}
         >
           <BookOpen aria-hidden="true" size={16} /> Կարդալ
         </button>

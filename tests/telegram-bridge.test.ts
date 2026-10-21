@@ -9,7 +9,7 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { getMediaClient } from "../app/auth/media-client.server";
-import { isRetryableMediaError, mediaPlaybackStateForEvent } from "../app/utils/media-playback";
+import { isRetryableMediaError, mediaPlaybackStateForEvent, mediaSources } from "../app/utils/media-playback";
 import { normalizeThemePreference, resolveTheme } from "../shared/theme";
 import { isPendingNavigation } from "../shared/navigation-state";
 import { loadResolvedValue, ResolvedTtlCache, SharedOperationRegistry } from "../shared/async-lifecycle";
@@ -941,9 +941,16 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 1 }), "buffering");
   assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 2 }), "error-network");
   assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 3 }), "error-decode");
-  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 4 }), "error-unsupported");
+  // A file that never arrived is reported as code 4 by Android's WebView: that is a load failure.
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 4 }), "error-network");
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 4, canPlayType: true }), "error-network");
+  assert.equal(mediaPlaybackStateForEvent("playing", "error", { errorCode: 4, canPlayType: false }), "error-unsupported");
+  assert.deepEqual(mediaSources("https://media.apostolic.am/a.mp3?v=1", "/media/c/1/0?v=1"), ["https://media.apostolic.am/a.mp3?v=1", "/media/c/1/0?v=1", "/media/c/1/0?v=1&retry=1"]);
+  assert.deepEqual(mediaSources("/media/c/1/0", null), ["/media/c/1/0", "/media/c/1/0?retry=1"]);
+  assert.deepEqual(mediaSources("/media/c/1/0", null, 2), ["/media/c/1/0?retry=3"]);
   assert.equal(isRetryableMediaError("error-network"), true);
-  assert.equal(isRetryableMediaError("error-decode"), false);
+  // A cut-off transfer also fails to decode, so it is worth another try.
+  assert.equal(isRetryableMediaError("error-decode"), true);
   assert.equal(isRetryableMediaError("error-unsupported"), false);
   assert.equal(mediaPlaybackStateForEvent("error-network", "retry"), "initial");
 
@@ -953,19 +960,21 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   const richRendererSource = readFileSync(resolve(ROOT, "app/components/telegram-content.tsx"), "utf8");
   const bridgeAppSource = readFileSync(resolve(ROOT, "services/telegram-bridge/src/app.ts"), "utf8");
   const bridgeServerSource = readFileSync(resolve(ROOT, "services/telegram-bridge/src/server.ts"), "utf8");
-  assert.match(mediaSource, /onError=\{\(\) => setFailed\(true\)\}/u);
+  assert.match(mediaSource, /onError=\{\(\) => \(sourceIndex < sources.length - 1 \? setSourceIndex\(sourceIndex \+ 1\) : setFailed\(true\)\)\}/u);
   assert.match(mediaSource, /data-media-state=\{state\}/u);
   assert.match(mediaSource, /onWaiting/u);
   assert.match(mediaSource, /onSeeking/u);
   assert.match(mediaSource, /onSeeked/u);
-  assert.match(mediaSource, /element\.load\(\)/u);
-  assert.match(mediaSource, /src: asset\.url/u);
+  // Retrying asks for a fresh address, which makes the element load again.
+  assert.match(mediaSource, /setAttempt\(\(current\) => current \+ 1\)/u);
+  assert.match(mediaSource, /src: sources\[/u);
   assert.doesNotMatch(mediaSource, /key=\{(?:state|retry|retryKey)/u, "playback state must not remount the media element");
   // Only an explicit timestamp click (the "library:seek" handler) may move the playhead.
   // Explicit user actions (timestamp links, the audio scrubber and skip buttons) may move it.
   const mediaSourceOutsideSeek = mediaSource
     .replace(/const onSeek = [\s\S]*?window\.addEventListener\("library:seek", onSeek\);/u, "")
-    .replace(/const seekTo = [\s\S]*?\n  \};/u, "");
+    .replace(/const seekTo = [\s\S]*?\n  \};/u, "")
+    .replace(/const resumeAfterSwitch = [\s\S]*?\n  \};/u, "");
   assert.doesNotMatch(mediaSourceOutsideSeek, /currentTime\s*=/u, "rerenders must not reset playback position");
   assert.match(resultCardSource, /onError=\{\(\) => setThumbnailFailed\(true\)\}/u);
   assert.match(resultCardSource, /state=\{material\.searchHit/u);

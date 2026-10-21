@@ -5,13 +5,33 @@ import { getOptionalTelegramAdmin } from "../auth/admin.server";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { getPublicMaterialDetail } from "./material-detail.server";
 import { getPollVotes } from "./poll-votes.server";
-import { findPsalmNeighbors } from "./psalm-neighbors.server";
+import { findPsalmByNumber, findPsalmNeighbors } from "./psalm-neighbors.server";
 import { listSavedMaterialIds } from "./saved-materials.server";
 import { materialMarks } from "./reading-log.server";
-import { materialPath } from "../utils/material-path";
+import { isMaterialSection, materialPath, parseItemSegment } from "../utils/material-path";
+import { psalmNumber } from "../utils/psalm-number";
+import type { MaterialDetail } from "./material-detail.server";
 import { parseMaterialId, resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
-/** A material page's data, for its long (/materials/…) and short (/pray_364) addresses. */
+/** A material's one canonical address (/saghmosner/22, /aghotkner/364-aghotk-yntaniki). */
+export function canonicalMaterialPath(material: Pick<MaterialDetail, "id" | "title" | "categoryName" | "contentText" | "media">) {
+  const mediaTitle = material.media.find((asset) => asset.kind === "audio" || asset.kind === "voice")?.title ?? null;
+  const psalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms"
+    ? psalmNumber({ title: material.title, excerpt: material.contentText, preview: { mediaTitle } })
+    : null;
+  return materialPath(material.id, material.categoryName, { title: material.title, psalm });
+}
+
+/** The material an address names: /materials/<id> or /<section>/<item>. */
+export async function resolveMaterialId(params: { materialId?: string; section?: string; item?: string }) {
+  if (params.materialId) return params.materialId;
+  if (!params.section || !params.item || !isMaterialSection(params.section)) return null;
+  const parsed = parseItemSegment(params.section, params.item);
+  if (!parsed) return null;
+  return "psalm" in parsed ? await findPsalmByNumber(env.DB, parsed.psalm) : parsed.materialId;
+}
+
+/** A material page's data, for its readable (/saghmosner/22) and old (/materials/…) addresses. */
 export async function loadMaterialPage(materialId: string | null, request: Request) {
   if (!materialId || !/^material_[a-zA-Z0-9_-]{1,220}$/.test(materialId)) {
     throw new Response("Not Found", { status: 404 });
@@ -21,16 +41,16 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
     getOptionalTelegramUser(request),
   ]);
   if (!material) throw new Response("Not Found", { status: 404 });
-  // Old long links and wrong prefixes move to the material's one short address.
+  // Old and inexact addresses move permanently to the material's one readable address.
   const address = new URL(request.url);
-  const canonical = materialPath(material.id, material.categoryName);
+  const canonical = canonicalMaterialPath(material);
   // Data requests for client navigation end in ".data"; compare the page's own path.
   const pathname = address.pathname.replace(/\.data$/u, "");
   if (decodeURIComponent(pathname) !== canonical) {
     const search = new URLSearchParams(address.search);
     search.delete("_routes");
     const query = search.toString();
-    throw redirect(`${canonical}${query ? `?${query}` : ""}`);
+    throw redirect(`${canonical}${query ? `?${query}` : ""}`, 301);
   }
   const isPsalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms";
   const [savedIds, psalm] = await Promise.all([
@@ -51,5 +71,5 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   // When this reader marked the material as read (the page compares with their local date).
   const own = user ? parseMaterialId(material.id) : null;
   const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
-  return { material, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks };
+  return { material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks };
 }

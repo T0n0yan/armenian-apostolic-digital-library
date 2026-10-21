@@ -1,17 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isShortMaterialPath, materialIdFromShortPath, materialPath } from "../app/utils/material-path";
+import { isLibraryPath, materialIdFromShortPath, materialPath, parseItemSegment, sectionPath, titleSlug } from "../app/utils/material-path";
 
-test("library posts get short addresses by section and resolve back to their id", () => {
+test("materials get readable addresses by section, psalms by their number", () => {
   const id = "material_tg_n1002993860753_364";
-  assert.equal(materialPath(id, "Աղոթքներ"), "/pray_364");
-  assert.equal(materialPath(id, "category_psalms"), "/psalm_364");
-  assert.equal(materialPath(id, null), "/post_364");
-  assert.equal(materialIdFromShortPath("pray_364"), id);
-  assert.equal(materialIdFromShortPath("pray_364.data"), null);
-  assert.equal(materialIdFromShortPath("saved"), null);
-  assert.ok(isShortMaterialPath("/day_12"));
+  assert.equal(materialPath(id, "Աղոթքներ", { title: "Աղոթք ընտանիքի" }), "/aghotkner/364-aghotk-yntaniki");
+  assert.equal(materialPath(id, "Աղոթքներ"), "/aghotkner/364");
+  assert.equal(materialPath(id, "category_psalms", { psalm: 22, title: "ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է" }), "/saghmosner/22");
+  assert.equal(materialPath(id, "category_psalms"), "/saghmosner/364-saghmos");
+  assert.equal(materialPath(id, "Սրբերի վարքը", { title: "ՍՈՒՐԲ ՍԵԹ ՆԱԽԱՀԱՅՐ" }), "/srberi-varq/364-surb-set-nakhahayr");
+  assert.equal(materialPath(id, null, { title: "Նոր" }), "/nyut/364-nor");
   // Posts from another chat keep the long address.
   assert.equal(materialPath("material_tg_n100_5", "Աղոթքներ"), "/materials/material_tg_n100_5");
+});
+
+test("addresses resolve back: psalm numbers, ids with titles, old short addresses", () => {
+  assert.deepEqual(parseItemSegment("saghmosner", "22"), { psalm: 22 });
+  assert.deepEqual(parseItemSegment("aghotkner", "364-aghotk-yntaniki"), { materialId: "material_tg_n1002993860753_364" });
+  assert.deepEqual(parseItemSegment("saghmosner", "364-saghmos"), { materialId: "material_tg_n1002993860753_364" });
+  assert.equal(parseItemSegment("aghotkner", "hayr-mer"), null);
+  assert.equal(materialIdFromShortPath("pray_364"), "material_tg_n1002993860753_364");
+  assert.equal(materialIdFromShortPath("saved"), null);
+  assert.ok(isLibraryPath("/saghmosner") && isLibraryPath("/saghmosner/22") && isLibraryPath("/day_12"));
+  assert.ok(!isLibraryPath("/saved") && !isLibraryPath("/admin"));
+  assert.equal(sectionPath({ id: "telegram_topic:-100:83", name: "Սաղմոսներ", slug: "topic-n100-83" }), "/saghmosner");
+  assert.equal(sectionPath({ id: "telegram_topic:-100:9", name: "Նորություններ", slug: "topic-n100-9" }), "/categories/topic-n100-9");
+  assert.equal(titleSlug("  "), "");
 });

@@ -59,7 +59,12 @@ export function PageShell({children, width = "content"}: PageShellProps) {
         {children}
         <footer className="mt-12 grid justify-items-center gap-1 text-center text-[11px] leading-snug text-faint">
             <span>© {new Date().getFullYear()} Հոգևոր ժառանգություն։ Բոլոր իրավունքները պաշտպանված են։</span>
-            <span>Նյութերը օգտագործելիս նշեք աղբյուրը · <Link className="text-faint underline" to="/privacy">Գաղտնիություն</Link></span>
+            <span>Անկախ նախագիծ, Եկեղեցու պաշտոնական կայքը չէ։ Նյութերը օգտագործելիս նշեք աղբյուրը։</span>
+            <nav className="flex flex-wrap justify-center gap-x-2" aria-label="Կայքի մասին">
+              <Link className="text-faint underline" to="/mer-masin">Մեր մասին</Link>·
+              <Link className="text-faint underline" to="/kap">Կապ</Link>·
+              <Link className="text-faint underline" to="/privacy">Գաղտնիություն</Link>
+            </nav>
         </footer>
     </main>);
 }

@@ -19,11 +19,27 @@ export function mediaUrl(
   post: { chatId: string; messageId: number },
   asset: { index: number; version?: string | null; objectKey?: string | null; thumbnailObjectKey?: string | null },
   thumbnail = false,
+  direct = true,
 ) {
   const version = asset.version ? `v=${asset.version}` : "";
   const key = thumbnail ? asset.thumbnailObjectKey : asset.objectKey;
-  const base = directBase();
+  const base = direct ? directBase() : null;
   if (base && key) return `${base}/${key.split("/").map(encodeURIComponent).join("/")}${version ? `?${version}` : ""}`;
   const query = [thumbnail ? "thumbnail=1" : "", version].filter(Boolean).join("&");
   return `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}${query ? `?${query}` : ""}`;
+}
+
+/**
+ * A second address for the same file when the first is media.apostolic.am: the Worker's /media
+ * route, on the site's own address, which the page has just loaded from. A phone whose resolver
+ * has not yet learnt the media address (or a network that blocks it) still gets the file.
+ */
+export function mediaFallbackUrl(
+  post: { chatId: string; messageId: number },
+  asset: { index: number; version?: string | null; objectKey?: string | null; thumbnailObjectKey?: string | null },
+  thumbnail = false,
+) {
+  const primary = mediaUrl(post, asset, thumbnail);
+  const viaWorker = mediaUrl(post, asset, thumbnail, false);
+  return primary === viaWorker ? null : viaWorker;
 }

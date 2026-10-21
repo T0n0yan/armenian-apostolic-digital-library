@@ -21,21 +21,21 @@ import { PageHeader, PageShell, RouteErrorState } from "../components/page-layou
 import { SiteNav } from "../components/site-nav";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
-import { materialPath } from "../utils/material-path";
-import { loadMaterialPage } from "../data/material-page.server";
+import { sectionPath } from "../utils/material-path";
+import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
 import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  return loadMaterialPage(params.materialId, request);
+  return loadMaterialPage(await resolveMaterialId(params), request);
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [{ title: "Նյութ — Հոգևոր ժառանգություն" }, ...NOINDEX];
   const { material } = loaderData;
-  const path = materialPath(material.id, material.categoryName);
+  const path = loaderData.canonicalPath;
   const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl ?? null;
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
-  const categoryPath = `/categories/${material.categorySlug}`;
+  const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
   return seoMeta({
     title: `${material.title} — ${material.categoryName} | Հոգևոր ժառանգություն`,
     description,
@@ -122,7 +122,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       <PageHeader
-        backTo={`/categories/${material.categorySlug}`}
+        backTo={sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug })}
         backLabel={material.categoryName}
         title={material.title}
       />
@@ -187,7 +187,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             text={material.title}
             url={material.telegramUrl}
             materialId={material.id}
-            pageUrl={typeof window === "undefined" ? materialPath(material.id, material.categoryName) : window.location.href}
+            pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
             label
           />
         </div>

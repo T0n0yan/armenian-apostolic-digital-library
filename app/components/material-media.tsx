@@ -1,5 +1,5 @@
 import { AlertCircle, ChevronLeft, ChevronRight, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video } from "lucide-react";
-import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { Link } from "react-router";
 
 import type { MaterialMedia } from "../data/material-detail.server";
@@ -19,13 +19,13 @@ function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous"
   if (!link) return <span className="size-11" aria-hidden="true" />;
   const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
   return (
-    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms")} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
+    <Link className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms", { psalm: link.number })} prefetch="intent" aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
       <Icon aria-hidden="true" size={20} />
     </Link>
   );
 }
 import { useVideoPoster } from "../utils/video-frame";
-import { isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, type MediaPlaybackState } from "../utils/media-playback";
+import { browserCanPlay, isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, mediaSources, type MediaPlaybackState } from "../utils/media-playback";
 import { materialPath } from "../utils/material-path";
 
 function durationLabel(seconds: number | null) {
@@ -161,6 +161,13 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   const { poster: capturedPoster, ref: posterRef } = useVideoPoster(kind === "video" ? asset.url : null, kind === "video" ? asset.thumbnailUrl : null);
   const poster = capturedPoster ?? undefined;
   const ref = useCallback((element: HTMLMediaElement | null) => { elementRef.current = element; }, []);
+  // A file that fails to load is tried again from the next address (the site's own /media copy,
+  // then a fresh request); the reader only sees an error once every address has failed.
+  const [attempt, setAttempt] = useState(0);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const sources = useMemo(() => (asset.url ? mediaSources(asset.url, asset.fallbackUrl, attempt) : []), [asset.url, asset.fallbackUrl, attempt]);
+  const resume = useRef<{ time: number; play: boolean } | null>(null);
+  const failed = state.startsWith("error");
   const updateFromCanPlay = (event: SyntheticEvent<HTMLMediaElement>) => {
     const paused = event.currentTarget.paused;
     setState((current) => mediaPlaybackStateForEvent(current, "can-play", { paused }));
@@ -178,19 +185,36 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     window.addEventListener("library:seek", onSeek);
     return () => window.removeEventListener("library:seek", onSeek);
   }, []);
-  const retry = () => {
+  const retry = useCallback(() => {
     const element = elementRef.current;
-    if (!element) return;
+    if (element && element.currentTime > 0) resume.current = { time: element.currentTime, play: false };
     setState((current) => mediaPlaybackStateForEvent(current, "retry"));
-    element.load();
+    setAttempt((current) => current + 1);
+    setSourceIndex(0);
+  }, []);
+  // Coming back online retries by itself.
+  useEffect(() => {
+    if (!failed) return;
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [failed, retry]);
+  // After a switch to another address, carry on from where the failed one stopped.
+  const resumeAfterSwitch = (element: HTMLMediaElement) => {
+    const position = resume.current;
+    resume.current = null;
+    if (!position) return;
+    element.currentTime = position.time;
+    if (position.play) void element.play().catch(() => {});
   };
   const common = {
-    src: asset.url ?? undefined,
+    src: sources[Math.min(sourceIndex, sources.length - 1)],
     controls: true,
     preload: "metadata" as const,
     onLoadStart: () => setState((current) => mediaPlaybackStateForEvent(current, "load-start")),
     onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => {
-      const paused = event.currentTarget.paused;
+      const element = event.currentTarget;
+      resumeAfterSwitch(element);
+      const paused = element.paused;
       setState((current) => mediaPlaybackStateForEvent(current, "metadata-ready", { paused }));
     },
     onCanPlay: updateFromCanPlay,
@@ -211,8 +235,16 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
       }));
     },
     onError: (event: SyntheticEvent<HTMLMediaElement>) => {
-      const errorCode = event.currentTarget.error?.code ?? null;
-      setState((current) => mediaPlaybackStateForEvent(current, "error", { errorCode }));
+      const element = event.currentTarget;
+      const errorCode = element.error?.code ?? null;
+      if (errorCode !== 1 && sourceIndex < sources.length - 1) {
+        if (element.currentTime > 0) resume.current = { time: element.currentTime, play: state === "playing" || state === "buffering" };
+        setSourceIndex(sourceIndex + 1);
+        setState("metadata");
+        return;
+      }
+      const canPlayType = browserCanPlay(element, asset.mimeType);
+      setState((current) => mediaPlaybackStateForEvent(current, "error", { errorCode, canPlayType }));
     },
   };
 
@@ -271,7 +303,12 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
 function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boolean }) {
   const [showOriginal, setShowOriginal] = useState(false);
   const [failed, setFailed] = useState(false);
-  const source = showOriginal || !asset.thumbnailUrl ? asset.url : asset.thumbnailUrl;
+  const [attempt, setAttempt] = useState(0);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const original = showOriginal || !asset.thumbnailUrl;
+  const first = original ? asset.url : asset.thumbnailUrl;
+  const sources = first ? mediaSources(first, original ? asset.fallbackUrl : asset.thumbnailFallbackUrl, attempt) : [];
+  const source = sources[Math.min(sourceIndex, sources.length - 1)];
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
   if (!source) return <PendingMedia asset={asset} />;
@@ -281,7 +318,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
         <span className="grid justify-items-center gap-3">
           <AlertCircle aria-hidden="true" className="text-gold" size={28} strokeWidth={1.6} />
           <span className="text-[12px]">Նկարը չբեռնվեց, սակայն մյուս մեդիան շարունակում է աշխատել։</span>
-          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-glass-border bg-glass px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setFailed(false)}>
+          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-glass-border bg-glass px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => { setFailed(false); setAttempt((current) => current + 1); setSourceIndex(0); }}>
             <RotateCw aria-hidden="true" size={15} /> Կրկին փորձել
           </button>
         </span>
@@ -301,14 +338,14 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
       height={asset.height ?? 800}
       style={{ aspectRatio: ratio }}
       alt={shortAlt(asset.altText)}
-      onError={() => setFailed(true)}
+      onError={() => (sourceIndex < sources.length - 1 ? setSourceIndex(sourceIndex + 1) : setFailed(true))}
     />
   );
 
   return (
     <figure className="relative m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
       {!showOriginal && asset.thumbnailUrl && asset.url ? (
-        <button className="group relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => setShowOriginal(true)} aria-label="Բեռնել նկարի ամբողջական տարբերակը">
+        <button className="group relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => { setShowOriginal(true); setSourceIndex(0); }} aria-label="Բեռնել նկարի ամբողջական տարբերակը">
           {image}
           <span className="absolute right-3 bottom-3 inline-flex min-h-9 items-center gap-2 rounded-[11px] border border-white/20 bg-[rgb(17_8_22/72%)] px-3 text-[11px] font-bold text-white backdrop-blur-md transition-transform group-hover:-translate-y-0.5">
             <Expand aria-hidden="true" size={14} /> Ամբողջ չափով

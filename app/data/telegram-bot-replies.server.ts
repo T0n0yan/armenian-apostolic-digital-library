@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { isShortMaterialPath } from "../utils/material-path";
+import { isLibraryPath } from "../utils/material-path";
 
 type BotEnv = { TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; SUPPORT_URL?: string };
 type Update = {
@@ -11,7 +11,7 @@ type Update = {
   };
 };
 
-const CONTACT_EMAIL = "t0n0yan.contact@gmail.com";
+const CONTACT_EMAIL = "info@apostolic.am";
 
 function settings() {
   const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support } = env as BotEnv;
@@ -48,7 +48,9 @@ export async function answerUpdate(update: Update) {
 
   if (command === "/start") {
     // A deep link (t.me/bot?start=psalm_169) opens that material.
-    const path = /^[a-z]+_\d{1,12}$/u.test(payload) && isShortMaterialPath(`/${payload}`) ? `/${payload}` : "/";
+    // Start parameters can't hold "/": "saghmosner_22" stands for /saghmosner/22; old "psalm_169" works too.
+    const candidate = `/${payload.replace(/^([a-z-]+)_(?=[0-9])/u, "$1/")}`;
+    const path = /^[a-z0-9_-]{1,64}$/u.test(payload) && isLibraryPath(candidate) ? candidate : /^[a-z]+_\d{1,12}$/u.test(payload) && isLibraryPath(`/${payload}`) ? `/${payload}` : "/";
     await callTelegram(token, "sendMessage", {
       chat_id: message.chat.id,
       text: [
