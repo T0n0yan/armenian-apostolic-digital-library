@@ -5,7 +5,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 
-export const CONTACT_EMAIL = "t0n0yan.contact@gmail.com";
+export const CONTACT_EMAIL = "info@apostolic.am";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({

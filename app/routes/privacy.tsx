@@ -5,7 +5,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 
-const CONTACT_EMAIL = "t0n0yan.contact@gmail.com";
+const CONTACT_EMAIL = "info@apostolic.am";
 const UPDATED = "19 հոկտեմբերի, 2026 թ.";
 
 export function meta({}: Route.MetaArgs) {

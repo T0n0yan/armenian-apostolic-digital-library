@@ -40,7 +40,7 @@
 				"MEDIA_BASE_URL": "https://media-staging.apostolic.am",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
-				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"
+				"VAPID_SUBJECT": "mailto:info@apostolic.am"
 			},
 			"d1_databases": [
 				{
@@ -71,7 +71,7 @@
 				"MEDIA_DIRECT_FROM": "2026-10-22T04:00:00Z",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
-				"VAPID_SUBJECT": "mailto:t0n0yan.contact@gmail.com"
+				"VAPID_SUBJECT": "mailto:info@apostolic.am"
 			},
 			"d1_databases": [
 				{

@@ -11,7 +11,7 @@ type Update = {
   };
 };
 
-const CONTACT_EMAIL = "t0n0yan.contact@gmail.com";
+const CONTACT_EMAIL = "info@apostolic.am";
 
 function settings() {
   const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support } = env as BotEnv;
