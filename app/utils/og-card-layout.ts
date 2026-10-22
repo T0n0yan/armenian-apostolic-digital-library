@@ -1,6 +1,8 @@
 /** The link-preview card's size (Open Graph's usual 1.91:1). */
 export const OG_CARD_WIDTH = 1200;
 export const OG_CARD_HEIGHT = 630;
+/** Raise when the design changes, so scripts/og-cards.ts draws every card again. */
+export const OG_CARD_LAYOUT = "1";
 
 /** At most `limit` characters, cut at a word, with "…" when shortened. */
 export function excerpt(text: string, limit: number) {
@@ -20,7 +22,7 @@ const h = (type: string, style: Record<string, unknown>, children?: unknown): No
  * with the name does not repeat it.
  */
 export function ogCardElement({ label, text, section }: { label: string; text: string; section: string }) {
-  const title = excerpt(label, 64);
+  const title = excerpt(label, 56);
   let body = text.replace(/\s+/gu, " ").trim();
   const head = comparable(label);
   if (head && comparable(body).startsWith(head)) {

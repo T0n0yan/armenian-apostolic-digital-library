@@ -33,7 +33,8 @@ export function sectionImage(categoryId: string | null | undefined, categoryName
  * routes/og-card.ts), on `origin`; `version` changes when the text does, so previews refresh.
  */
 export function cardImage(origin: string, path: string, version?: string | null) {
-  if (!/^\/[a-z-]+\/[a-z0-9-]+(?:\/\d{1,3})?$/u.test(path) || path.startsWith("/materials/")) return null;
+  // Sections whose materials have no picture of their own (scripts/og-cards.ts draws their cards).
+  if (!/^\/(?:saghmosner|aghotkner|hartser)\/[a-z0-9-]+(?:\/\d{1,3})?$/u.test(path)) return null;
   return `${origin}/og/card${path}${version ? `?v=${encodeURIComponent(version.replace(/\D/gu, "").slice(0, 14))}` : ""}`;
 }
 
@@ -60,10 +61,12 @@ export function describe(text: string | null | undefined, fallback: string, titl
   return `${clean.slice(0, 157).replace(/\s+\S*$/u, "")}…`;
 }
 
-export function seoMeta({ title, description, path, image, type = "website", jsonLd = [] }: {
+export function seoMeta({ title, description, path, image, type = "website", jsonLd = [], origin }: {
   title: string; description: string; path: string; image?: string | null; type?: "website" | "article"; jsonLd?: object[];
+  /** The address the page was opened on: previews (Telegram) follow og:url, so staging links stay on staging. */
+  origin?: string;
 }) {
-  const url = absoluteUrl(path);
+  const url = origin && origin !== SITE_URL ? `${origin}${path}` : absoluteUrl(path);
   const picture = image ? absoluteUrl(image) : SITE_IMAGE;
   return [
     { title },

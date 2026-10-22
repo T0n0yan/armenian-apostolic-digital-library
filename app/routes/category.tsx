@@ -98,6 +98,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${category.name} — Հայ Առաքելական Եկեղեցի | Հոգևոր ժառանգություն`,
     description: `${CATEGORY_DESCRIPTIONS[kind] ?? `${category.name}՝ Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարանում։`} Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`,
     path,
+    origin: loaderData.origin,
     image: `${loaderData.origin}${sectionImage(category.id, category.name) ?? "/og-image.png"}`,
     jsonLd: [breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: category.name, path }])],
   });

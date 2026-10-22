@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@resvg/resvg-wasm':
-        specifier: ^2.6.2
-        version: 2.6.2
       big-integer:
         specifier: ^1.6.52
         version: 1.6.52
@@ -32,15 +29,9 @@ importers:
       react-router:
         specifier: ^8.4.0
         version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      satori:
-        specifier: ^0.15.2
-        version: 0.15.2
       teleproto:
         specifier: 1.230.1
         version: 1.230.1
-      yoga-wasm-web:
-        specifier: 0.3.3
-        version: 0.3.3
     devDependencies:
       '@cloudflare/vite-plugin':
         specifier: ^1.63.1
@@ -48,6 +39,9 @@ importers:
       '@react-router/dev':
         specifier: ^8.4.0
         version: 8.4.0(@react-router/serve@8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(typescript@5.9.3))(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(typescript@5.9.3)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))(wrangler@4.149.0(@types/node@22.20.5)(bufferutil@4.1.0)(utf-8-validate@5.0.10))
+      '@resvg/resvg-wasm':
+        specifier: 2.6.2
+        version: 2.6.2
       '@tailwindcss/vite':
         specifier: ^4.2.2
         version: 4.3.3(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
@@ -60,12 +54,18 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.7
         version: 19.3.0(@types/react@19.3.0)
+      jpeg-js:
+        specifier: ^0.4.4
+        version: 0.4.4
       miniflare:
         specifier: 5.20261006.1-alpha
         version: 5.20261006.1-alpha(@types/node@22.20.5)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       playwright:
         specifier: 1.56.1
         version: 1.56.1
+      satori:
+        specifier: 0.15.2
+        version: 0.15.2
       tailwindcss:
         specifier: ^4.2.2
         version: 4.3.3
@@ -1091,8 +1091,8 @@ packages:
       picomatch:
         optional: true
 
-  fflate@0.7.3:
-    resolution: {integrity: sha512-0Zz1jOzJWERhyhsimS54VTqOteCNwRtIlh8isdL0AXLo0g7xNTfTL7oWrkmCnPhZGocKIkWHBistBrrpoNH3aw==}
+  fflate@0.7.5:
+    resolution: {integrity: sha512-QieYf//cis6ywHNi5qW1+PXPQ4bC+XVJAtS4AXIML8P76GroEiOxm/oQtn1f02UkJY1+KsXMJcC+R2v/Eg4G3g==}
 
   finalhandler@2.1.1:
     resolution: {integrity: sha512-S8KoZgRZN+a5rNwqTxlZZePjT/4cnm0ROV70LedRHZ0p8u9fRID0hJUZQpkKLzro8LfmC8sx23bY6tVNxv8pQA==}
@@ -1186,6 +1186,9 @@ packages:
 
   jose@6.2.12:
     resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
+
+  jpeg-js@0.4.4:
+    resolution: {integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -2324,7 +2327,7 @@ snapshots:
 
   '@shuding/opentype.js@1.4.0-beta.0':
     dependencies:
-      fflate: 0.7.3
+      fflate: 0.7.5
       string.prototype.codepointat: 0.2.1
 
   '@sindresorhus/is@7.2.0': {}
@@ -2695,7 +2698,7 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
-  fflate@0.7.3: {}
+  fflate@0.7.5: {}
 
   finalhandler@2.1.1:
     dependencies:
@@ -2793,6 +2796,8 @@ snapshots:
   jiti@2.7.0: {}
 
   jose@6.2.12: {}
+
+  jpeg-js@0.4.4: {}
 
   js-tokens@4.0.0: {}
 

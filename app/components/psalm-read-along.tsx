@@ -2,7 +2,7 @@ import { Bookmark, Check, Copy, PencilLine, Play, RotateCcw, Share2, SkipForward
 import { Link } from "react-router";
 import { createPortal } from "react-dom";
 import { psalmLines, verseBody, verseLabel, verseNumber } from "../utils/psalm-verses";
-import { copyText, systemShare } from "./share-button";
+import { copyText, shareCard } from "./share-button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
@@ -324,10 +324,9 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
     setCopied(true);
     copiedTimer.current = setTimeout(onClose, 900);
   };
+  // The verse's card as a picture, with its name, text and link (share-button.tsx).
   const share = async () => {
-    if (await systemShare({ title: label, text: `${label}\n«${text}»`, url: url() })) return;
-    await copyText(url());
-    onNotice("Հղումը պատճենվեց");
+    if (await shareCard({ title: label, text: `«${text}»`, url: url(), cardPath: path }) === "copied") onNotice("Պատճենվեց");
   };
   if (typeof document === "undefined") return null;
   // On the page's body: the reading panel's blur would otherwise hold a fixed popup inside it.
