@@ -54,7 +54,7 @@ export function PageShell({children, width = "content"}: PageShellProps) {
     const maxWidth = width === "library" ? "max-w-[1180px]" : width === "admin" ? "max-w-[1160px]" : "max-w-[940px]";
 
     return (<main
-        className={`relative mx-auto flex min-h-svh w-full flex-col ${maxWidth} pt-[calc(var(--tg-inset-top,0px)+12px)] pr-[calc(var(--tg-inset-right,0px)+14px)] pb-[calc(var(--tg-inset-bottom,0px)+150px)] pl-[calc(var(--tg-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-inset-bottom,0px)+100px)] min-[560px]:pl-[calc(var(--tg-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-inset-bottom,0px)+112px)] min-[960px]:pl-[calc(var(--tg-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-inset-top,0px)+26px)]`}
+        className={`relative mx-auto flex min-h-svh w-full flex-col ${maxWidth} pt-[calc(var(--tg-inset-top,0px)+12px)] pr-[calc(var(--tg-inset-right,0px)+14px)] pb-[calc(var(--tg-inset-bottom,0px)+88px)] pl-[calc(var(--tg-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-inset-bottom,0px)+28px)] min-[560px]:pl-[calc(var(--tg-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-inset-bottom,0px)+28px)] min-[960px]:pl-[calc(var(--tg-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-inset-top,0px)+26px)]`}
     >
         {children}
         {/* A quiet line at the very bottom of the page, however short the content: it should not draw the eye. */}
