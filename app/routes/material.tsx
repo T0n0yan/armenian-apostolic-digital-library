@@ -23,7 +23,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
-import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
+import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -31,7 +31,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "Նյութ — Հոգևոր ժառանգություն" }, ...NOINDEX];
+  // Without data the error boundary renders its own title and noindex.
+  if (!loaderData) return [];
   const { material } = loaderData;
   const path = loaderData.canonicalPath;
   const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl ?? null;

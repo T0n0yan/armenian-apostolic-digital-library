@@ -72,7 +72,8 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 };
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "Բաժին — Հոգևոր ժառանգություն" }, ...NOINDEX];
+  // Without data the error boundary renders its own title and noindex.
+  if (!loaderData) return [];
   const { category, query } = loaderData;
   const kind = resolveContentCategoryId(category.id, category.name) ?? "";
   const path = sectionPath(category);
