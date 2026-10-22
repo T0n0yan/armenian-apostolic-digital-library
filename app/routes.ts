@@ -15,6 +15,8 @@ export default [
   route("auth/google", "routes/auth-google.ts"),
   route("auth/google/callback", "routes/auth-google-callback.ts"),
   route("auth/logout", "routes/auth-logout.ts"),
+  route("auth/telegram/start", "routes/auth-telegram-start.ts"),
+  route("auth/telegram", "routes/auth-telegram.tsx"),
   route("api/share-prepare", "routes/share-prepare.ts"),
   route("api/reminders", "routes/reminders.ts"),
   route("api/push", "routes/push.ts"),
