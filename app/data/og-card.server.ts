@@ -1,3 +1,4 @@
+import { locationPlaceholder } from "./og-card-location.server";
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import resvgWasm from "@resvg/resvg-wasm/index_bg.wasm";
 import satori, { init as initSatori } from "satori/standalone";
@@ -18,20 +19,8 @@ function start() {
   return ready;
 }
 
-/**
- * Satori's layout engine reads `self.location.href` as it starts (on the first render, not at
- * init), which Workers lack; a placeholder stands in while a card is drawn.
- */
-async function withLocation<T>(work: () => Promise<T>) {
-  const scope = globalThis as { location?: unknown };
-  const placeholder = scope.location === undefined;
-  if (placeholder) Object.defineProperty(globalThis, "location", { value: { href: "https://worker.invalid/" }, configurable: true, writable: true });
-  try {
-    return await work();
-  } finally {
-    if (placeholder) delete scope.location;
-  }
-}
+// Satori has loaded by now; Workers go on without a `location` (og-card-location.server.ts).
+if (locationPlaceholder) delete (globalThis as { location?: unknown }).location;
 
 function fontData(dataUrl: string) {
   const binary = atob(dataUrl.slice(dataUrl.indexOf(",") + 1));
@@ -52,11 +41,7 @@ export function excerpt(text: string, limit = 210) {
  * A link-preview picture (1200×630 PNG) on the site's parchment background: the material's name in
  * gold above, a short passage of its text, and the library's name below.
  */
-export async function renderOgCard(card: { label: string; text: string; section: string }) {
-  return withLocation(() => drawCard(card));
-}
-
-async function drawCard({ label, text, section }: { label: string; text: string; section: string }) {
+export async function renderOgCard({ label, text, section }: { label: string; text: string; section: string }) {
   await start();
   const passage = excerpt(text);
   const size = passage.length <= 90 ? 54 : passage.length <= 150 ? 46 : 40;
