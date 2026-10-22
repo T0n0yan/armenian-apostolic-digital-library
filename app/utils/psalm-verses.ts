@@ -58,3 +58,25 @@ export function psalmLines(text: string) {
   }
   return lines;
 }
+
+/** A verse line without its leading number: "3 Նա…" → "Նա…". */
+export function verseBody(line: string) {
+  return line.replace(/^\d{1,3}[\s.)։,]*/u, "").trim();
+}
+
+/** The psalm's numbered verses with their text (continuation lines joined to their verse). */
+export function psalmVerseList(text: string) {
+  const verses: Array<{ number: number; text: string }> = [];
+  for (const line of psalmLines(text)) {
+    const number = line.kind === "verse" ? verseNumber(line.text) : null;
+    if (number) verses.push({ number, text: verseBody(line.text) });
+    else if (line.kind === "continuation" && verses.length > 0) verses[verses.length - 1].text += ` ${line.text}`;
+  }
+  return verses;
+}
+
+/** How a verse is named: "Սաղմոս 22:3" for a psalm at a numbered address, else "<title>, 3". */
+export function verseLabel(psalmPath: string, title: string, verse: number) {
+  const psalm = /\/psalms\/(\d{1,3})$/u.exec(psalmPath)?.[1];
+  return psalm ? `Սաղմոս ${psalm}:${verse}` : `${title}, ${verse}`;
+}

@@ -64,7 +64,8 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
                         : category.materialCount === 0
                             ? "Դեռ նյութ չկա"
                             : `${category.materialCount} նյութ`}
-                    {category.status !== "open" ? ` · ${category.status === "closed" ? "փակված" : "թաքցված"}` : ""}
+                    {/* A closed Telegram topic only means that just admins post there; readers aren't told. */}
+                    {category.status === "hidden" ? " · թաքցված" : ""}
                 </span>
             </span>
             <span className="relative z-1 mr-2 text-gold" aria-hidden="true">

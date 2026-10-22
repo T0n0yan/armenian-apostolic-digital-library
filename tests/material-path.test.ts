@@ -1,30 +1,67 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isLibraryPath, materialIdFromShortPath, materialPath, parseItemSegment, sectionPath, titleSlug } from "../app/utils/material-path";
+import { categoryForSection, currentSection, isLibraryPath, materialIdFromShortPath, materialPath, parseItemSegment, sectionPath } from "../app/utils/material-path";
 
-test("materials get readable addresses by section, psalms by their number", () => {
+test("materials get short English addresses by section, psalms by their number", () => {
   const id = "material_tg_n1002993860753_364";
-  assert.equal(materialPath(id, "Աղոթքներ", { title: "Աղոթք ընտանիքի" }), "/aghotkner/364-aghotk-yntaniki");
-  assert.equal(materialPath(id, "Աղոթքներ"), "/aghotkner/364");
-  assert.equal(materialPath(id, "category_psalms", { psalm: 22, title: "ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է" }), "/saghmosner/22");
-  assert.equal(materialPath(id, "category_psalms"), "/saghmosner/364-saghmos");
-  assert.equal(materialPath(id, "Սրբերի վարքը", { title: "ՍՈՒՐԲ ՍԵԹ ՆԱԽԱՀԱՅՐ" }), "/srberi-varq/364-surb-set-nakhahayr");
-  assert.equal(materialPath(id, null, { title: "Նոր" }), "/nyut/364-nor");
+  assert.equal(materialPath(id, "Աղոթքներ", { title: "Աղոթք ընտանիքի" }), "/pray/364");
+  assert.equal(materialPath(id, "category_psalms", { psalm: 22, title: "ՏԷՐՆ ԻՄ ՀՈՎԻՒՆ Է" }), "/psalms/22");
+  assert.equal(materialPath(id, "category_psalms"), "/post/364");
+  assert.equal(materialPath(id, "Սրբերի վարքը", { title: "ՍՈՒՐԲ ՍԵԹ ՆԱԽԱՀԱՅՐ" }), "/saints/364");
+  assert.equal(materialPath(id, "Ավետարանի ուսուցում"), "/gospel/364");
+  assert.equal(materialPath(id, null, { title: "Նոր" }), "/post/364");
   // Posts from another chat keep the long address.
   assert.equal(materialPath("material_tg_n100_5", "Աղոթքներ"), "/materials/material_tg_n100_5");
 });
 
-test("addresses resolve back: psalm numbers, ids with titles, old short addresses", () => {
+test("new and old addresses resolve: psalm numbers, post numbers, Armenian slugs, short addresses", () => {
+  assert.deepEqual(parseItemSegment("psalms", "22"), { psalm: 22 });
   assert.deepEqual(parseItemSegment("saghmosner", "22"), { psalm: 22 });
+  assert.deepEqual(parseItemSegment("pray", "71"), { materialId: "material_tg_n1002993860753_71" });
   assert.deepEqual(parseItemSegment("aghotkner", "364-aghotk-yntaniki"), { materialId: "material_tg_n1002993860753_364" });
   assert.deepEqual(parseItemSegment("saghmosner", "364-saghmos"), { materialId: "material_tg_n1002993860753_364" });
-  assert.equal(parseItemSegment("aghotkner", "hayr-mer"), null);
+  assert.equal(parseItemSegment("pray", "hayr-mer"), null);
+  assert.equal(currentSection("srberi-varq"), "saints");
+  assert.equal(categoryForSection("hartser"), "category_bible_questions");
   assert.equal(materialIdFromShortPath("pray_364"), "material_tg_n1002993860753_364");
   assert.equal(materialIdFromShortPath("saved"), null);
-  assert.ok(isLibraryPath("/saghmosner") && isLibraryPath("/saghmosner/22") && isLibraryPath("/day_12"));
-  assert.ok(!isLibraryPath("/saved") && !isLibraryPath("/admin"));
-  assert.equal(sectionPath({ id: "telegram_topic:-100:83", name: "Սաղմոսներ", slug: "topic-n100-83" }), "/saghmosner");
+  assert.ok(isLibraryPath("/psalms") && isLibraryPath("/psalms/22") && isLibraryPath("/psalms/22/6") && isLibraryPath("/pray/71"));
+  assert.ok(isLibraryPath("/saghmosner/22") && isLibraryPath("/aghotkner/71-pahpanutyan-aghotk") && isLibraryPath("/day_12"));
+  assert.ok(!isLibraryPath("/saved") && !isLibraryPath("/admin") && !isLibraryPath("/psalms/22/6/7"));
+  assert.equal(sectionPath({ id: "telegram_topic:-100:83", name: "Սաղմոսներ", slug: "topic-n100-83" }), "/psalms");
   assert.equal(sectionPath({ id: "telegram_topic:-100:9", name: "Նորություններ", slug: "topic-n100-9" }), "/categories/topic-n100-9");
-  assert.equal(titleSlug("  "), "");
+});
+
+test("psalm verses: their text, names and pages", async () => {
+  const { psalmVerseList, verseLabel } = await import("../app/utils/psalm-verses");
+  const verses = psalmVerseList("Սաղմոս Դաւթի\n1 Տէրն է իմ հովիւը,\nոչինչ չի պակասի ինձ։ 2 Դալար արօտներում\nՏԻՐՈՋ ԳՈՎՔԸ\n3 Նա իմ անձը");
+  assert.deepEqual(verses, [
+    { number: 1, text: "Տէրն է իմ հովիւը, ոչինչ չի պակասի ինձ։" },
+    { number: 2, text: "Դալար արօտներում" },
+    { number: 3, text: "Նա իմ անձը" },
+  ]);
+  assert.equal(verseLabel("/psalms/22", "Սաղմոս 22", 3), "Սաղմոս 22:3");
+  assert.equal(verseLabel("/post/364", "Սաղմոս", 3), "Սաղմոս, 3");
+  assert.ok(isLibraryPath("/psalms/22/3"));
+});
+
+test("gospel teachings name their clergy on an italic last line in parentheses", async () => {
+  const { clergyByline } = await import("../app/utils/material-title");
+  const text = "ՓՈՐՁՈՒԹՅՈՒՆ\nՔննարկվում են հետևյալ հարցերը․ 01:21 Հիսուսի փորձությունը\n(Սահակ Բ արքեպիսկոպոս Մաշալյան)";
+  const offset = text.lastIndexOf("(");
+  assert.equal(clergyByline({ text, entities: [{ type: "italic", offset, length: text.length - offset }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+  assert.equal(clergyByline({ text, entities: [] }), null);
+  assert.equal(clergyByline({ text: "ՓՈՐՁՈՒԹՅՈՒՆ\nՆկարագրություն", entities: [{ type: "italic", offset: 0, length: 5 }] }), null);
+  assert.equal(clergyByline({ text: "", entities: [] }, { text, entities: [{ type: "italic", offset: offset + 1, length: text.length - offset - 2 }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+  const plain = "ՓՈՐՁՈՒԹՅՈՒՆ\nՆկարագրություն\n\nՍահակ Բ արքեպիսկոպոս Մաշալյան";
+  const at = plain.lastIndexOf("Սահակ");
+  assert.equal(clergyByline({ text: plain, entities: [{ type: "italic", offset: at, length: plain.length - at }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+});
+
+test("a gospel teaching's shortest timed question, without its time", async () => {
+  const { shortestTimedQuestion } = await import("../app/utils/material-title");
+  const text = "ՓՈՐՁՈՒԹՅՈՒՆ\n\nՔննարկվում են հետևյալ հարցերը․ 📜\n\n01:21 Հիսուսի փորձությունն ինչո՞վ էր պայմանավորված։ Ինչո՞ւ պետք է Հիսուս փորձվեր։\n\n05:57 Ինչո՞ւ անապատում փորձվեց Հիսուս։\n\n33:46 Ինչպե՞ս կմեկնեք այս նկարագրությունը։\n\nՍահակ Բ արքեպիսկոպոս Մաշալյան";
+  assert.equal(shortestTimedQuestion(text), "Ինչո՞ւ անապատում փորձվեց Հիսուս։");
+  assert.equal(shortestTimedQuestion("ՎԵՐՆԱԳԻՐ\nՆկարագրություն"), null);
 });

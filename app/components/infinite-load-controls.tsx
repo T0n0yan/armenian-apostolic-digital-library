@@ -61,9 +61,7 @@ export function InfiniteLoadControls({
         >
           <LoaderCircle aria-hidden="true" size={15} /> Բեռնել ավելին
         </button>
-      ) : (
-        <p className="m-0 text-[12px] text-faint" role="status">Այլ նյութ չկա</p>
-      )}
+      ) : null}
     </div>
   );
 }

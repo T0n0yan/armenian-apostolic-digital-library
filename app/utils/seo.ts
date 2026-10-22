@@ -3,10 +3,40 @@
  * and Twitter cards, and structured data (JSON-LD) Google uses for rich results. Staging and old
  * addresses are kept out of search by an X-Robots-Tag header (workers/app.ts).
  */
+import { resolveContentCategoryId, type ContentCategoryId } from "../../shared/telegram-bridge-contract";
+
 export const SITE_URL = "https://apostolic.am";
 export const SITE_NAME = "Հոգևոր ժառանգություն";
 export const SITE_IMAGE = `${SITE_URL}/og-image.png`;
 const ALTERNATE_NAMES = ["Apostolic", "apostolic.am", "Հայ Առաքելական Եկեղեցու գրադարան", "Armenian Apostolic Church Library"];
+
+const SECTION_IMAGES: Record<ContentCategoryId, string> = {
+  category_psalms: "psalms",
+  category_prayers: "prayers",
+  category_bible_questions: "bible-questions",
+  category_gospel_teachings: "gospel-teachings",
+  category_saints_lives: "saints-lives",
+  category_daily_readings: "daily-readings",
+};
+
+/**
+ * A section's link-preview picture (public/og, made by scripts/make-og-images.py): used for its
+ * page and for materials without a picture of their own (psalms, prayers, questions).
+ */
+export function sectionImage(categoryId: string | null | undefined, categoryName?: string | null) {
+  const id = resolveContentCategoryId(categoryId, categoryName);
+  return id ? `/og/${SECTION_IMAGES[id]}.jpg` : null;
+}
+
+/**
+ * The generated link-preview picture of a material at a readable address (/og/card/psalms/25/8,
+ * routes/og-card.ts), on `origin`; `version` changes when the text does, so previews refresh.
+ */
+export function cardImage(origin: string, path: string, version?: string | null) {
+  // Every material of the library's sections (scripts/og-cards.ts draws them).
+  if (!/^\/(?:psalms|pray|saints|gospel|daily|questions)\/\d{1,12}(?:\/\d{1,3})?$/u.test(path)) return null;
+  return `${origin}/og/card${path}${version ? `?v=${encodeURIComponent(version.replace(/\D/gu, "").slice(0, 14))}` : ""}`;
+}
 
 export function absoluteUrl(path: string) {
   return /^https?:\/\//u.test(path) ? path : `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
@@ -31,10 +61,12 @@ export function describe(text: string | null | undefined, fallback: string, titl
   return `${clean.slice(0, 157).replace(/\s+\S*$/u, "")}…`;
 }
 
-export function seoMeta({ title, description, path, image, type = "website", jsonLd = [] }: {
+export function seoMeta({ title, description, path, image, type = "website", jsonLd = [], origin }: {
   title: string; description: string; path: string; image?: string | null; type?: "website" | "article"; jsonLd?: object[];
+  /** The address the page was opened on: previews (Telegram) follow og:url, so staging links stay on staging. */
+  origin?: string;
 }) {
-  const url = absoluteUrl(path);
+  const url = origin && origin !== SITE_URL ? `${origin}${path}` : absoluteUrl(path);
   const picture = image ? absoluteUrl(image) : SITE_IMAGE;
   return [
     { title },
@@ -48,6 +80,12 @@ export function seoMeta({ title, description, path, image, type = "website", jso
     { property: "og:description", content: description },
     { property: "og:url", content: url },
     { property: "og:image", content: picture },
+    // The drawn cards (/og/card/…) are 1200×630 JPEGs; saying so lets WhatsApp show them large.
+    ...(picture.includes("/og/card/") ? [
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:type", content: "image/jpeg" },
+    ] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },

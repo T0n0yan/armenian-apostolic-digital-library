@@ -106,7 +106,7 @@ function failurePage(request: Request) {
 body{margin:0;min-height:100svh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,sans-serif;padding:16px;box-sizing:border-box}
 main{max-width:460px;text-align:center}b{display:block;font-size:44px;color:var(--gold);line-height:1}h1{font-size:22px;margin:12px 0 6px}p{color:var(--muted);margin:0 0 18px}
 a,button{display:inline-block;min-height:44px;padding:10px 18px;border-radius:12px;border:1px solid var(--gold);color:var(--gold);background:none;font:600 14px system-ui,sans-serif;text-decoration:none;cursor:pointer;margin:4px}</style>
-<main><b aria-hidden="true">✠</b><h1>Կայքը կարճ ժամանակով անհասանելի է</h1><p>Խնդրում ենք փորձել մի քանի րոպեից։ Եթե խնդիրը կրկնվում է, գրեք մեզ՝ info@apostolic.am</p>
+<main><b aria-hidden="true">✠</b><h1>Կայքը կարճ ժամանակով անհասանելի է</h1><p>Խնդրում ենք փորձել մի քանի րոպեից։ Եթե խնդիրը կրկնվում է, գրեք մեզ՝ support@apostolic.am</p>
 <button type="button" onclick="location.reload()">Կրկին փորձել</button><a href="/">Գլխավոր էջ</a></main></html>`;
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
 }

@@ -15,22 +15,30 @@ export default [
   route("auth/google", "routes/auth-google.ts"),
   route("auth/google/callback", "routes/auth-google-callback.ts"),
   route("auth/logout", "routes/auth-logout.ts"),
+  route("auth/telegram/start", "routes/auth-telegram-start.ts"),
+  route("auth/telegram", "routes/auth-telegram.tsx"),
   route("api/share-prepare", "routes/share-prepare.ts"),
   route("api/reminders", "routes/reminders.ts"),
   route("api/push", "routes/push.ts"),
   route("api/poll-vote", "routes/poll-vote.ts"),
   route("api/psalm-timings", "routes/psalm-timings.ts"),
+  route("api/saved-verses", "routes/saved-verses.ts"),
   route("api/reading-log", "routes/reading-log.ts"),
   route("api/presence", "routes/presence.ts"),
   route("api/telegram-link", "routes/telegram-link.ts"),
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),
-  // Readable addresses: /saghmosner, /saghmosner/22, /aghotkner/364-aghotk-yntaniki (material-path.ts).
+  // Readable addresses: /psalms, /psalms/22, /pray/71 (material-path.ts).
   route(":section/:item", "routes/material.tsx", { id: "section-item" }),
+  // One psalm verse: /psalms/22/3 (shared from the verse popup).
+  route(":section/:item/:verse", "routes/verse.tsx"),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
-  // A section (/saghmosner) or an old short address (/pray_364, redirected); static routes win.
+  // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
+  route("og/card/:section/:item/:verse?", "routes/og-card.ts"),
+  route("api/og-cards", "routes/og-cards-list.ts"),
+  // A section (/psalms) or an old short address (/pray_364, redirected); static routes win.
   route(":section", "routes/category.tsx", { id: "section" }),
 ] satisfies RouteConfig;

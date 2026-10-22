@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, ChevronDown, Search } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Form, Link } from "react-router";
+import { Bookmark, ChevronDown, Search, X } from "lucide-react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -30,6 +30,7 @@ import {
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
 import { getCloudLibraryPost } from "../data/cloud-library.server";
+import { listSavedVerses, type SavedVerse } from "../data/saved-verses.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { RouteErrorPage } from "../components/error-page";
@@ -57,9 +58,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
-  const [readingLog, joinedAt] = await Promise.all([
+  const [readingLog, joinedAt, verses] = await Promise.all([
     readingDays(env.DB, user.id).catch(() => ({} as Record<string, number>)),
     env.DB.prepare("SELECT created_at FROM app_users WHERE id = ?").bind(user.id).first<{ created_at: string }>().then((row) => row?.created_at ?? null).catch(() => null),
+    query ? Promise.resolve([] as SavedVerse[]) : listSavedVerses(env.DB, user.id).catch(() => [] as SavedVerse[]),
   ]);
   try {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
@@ -80,6 +82,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     signInFailed,
     readingLog,
     joinedAt,
+    verses,
   };
 }
 
@@ -163,15 +166,38 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   );
 });
 
+/** Verses saved from a psalm's verse popup; each opens its own page. */
+function SavedVerses({ verses }: { verses: SavedVerse[] }) {
+  const [removed, setRemoved] = useState<Set<string>>(() => new Set());
+  const shown = verses.filter((verse) => !removed.has(verse.path));
+  if (shown.length === 0) return null;
+  const remove = async (verse: SavedVerse) => {
+    setRemoved((current) => new Set(current).add(verse.path));
+    const response = await fetch("/api/saved-verses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId: verse.materialId, verse: verse.verse, saved: false }) }).catch(() => null);
+    if (!response?.ok) setRemoved((current) => { const next = new Set(current); next.delete(verse.path); return next; });
+  };
+  return (
+    <>
+      <div className={sectionHeader}>
+        <h2 className={sectionTitle}>Պահված համարներ</h2>
+        <span className={countBadge}>{shown.length}</span>
+      </div>
+      <ol className="m-0 grid list-none gap-2 p-0">
+        {shown.map((verse) => (
+          <li className="relative frosted-panel animate-glass-enter" key={verse.path}>
+            <Link className="grid gap-1 px-4 py-3 pr-11 text-ink no-underline" to={verse.path}>
+              <strong className="text-[12px] text-gold-bright">{verse.label}</strong>
+              <span className="prayer-text line-clamp-3 text-[14.5px] leading-[1.6]">«{verse.text}»</span>
+            </Link>
+            <button className="absolute top-2 right-2 grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={() => remove(verse)} aria-label={`Հանել ${verse.label}-ը`} title="Հանել"><X aria-hidden="true" size={16} /></button>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
 export default function Saved({ loaderData }: Route.ComponentProps) {
-  // Guests get a "Մուտք Telegram-ով" link to the Mini App (the bot's name is looked up once).
-  const [telegramLogin, setTelegramLogin] = useState<string | null>(null);
-  const guest = !loaderData.user && loaderData.authStatus === "guest";
-  useEffect(() => {
-    if (!guest) return;
-    void fetch("/api/telegram-link").then((response) => response.ok ? response.json() as Promise<{ url: string | null }> : { url: null })
-      .then((data) => setTelegramLogin(data.url)).catch(() => null);
-  }, [guest]);
   return (
     <PageShell>
       <SiteNav />
@@ -193,37 +219,39 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           description="Տվյալների պահոցի հետ կապը չհաջողվեց։ Փորձիր կրկին։"
         />
       ) : !loaderData.user ? (
-        <EmptyState icon={<Bookmark aria-hidden="true" size={28} strokeWidth={1.6} />} title={loaderData.authStatus === "invalid" ? "Telegram նույնականացման ժամկետն ավարտվել է" : "Իմ անկյունը հասանելի է Telegram-ում"}>
-          <p>{loaderData.authStatus === "invalid"
+        // Sign-in: a centred card whose buttons keep a phone's width on wide screens too.
+        <section className="frosted-panel grid justify-items-center gap-3 px-5 py-7 text-center min-[560px]:px-10 min-[560px]:py-9">
+          <span className="grid size-12 place-items-center rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright"><Bookmark aria-hidden="true" size={24} strokeWidth={1.7} /></span>
+          <h2 className="m-0 max-w-[420px] font-noto text-[17px] leading-snug text-ink">{loaderData.authStatus === "invalid" ? "Telegram նույնականացման ժամկետն ավարտվել է" : "Մուտք «Իմ անկյունը»"}</h2>
+          <p className="m-0 max-w-[420px] text-[13px] leading-[1.6] text-muted">{loaderData.authStatus === "invalid"
             ? "Փակիր և նորից բացիր Mini App-ը Telegram-ից։"
             : loaderData.authStatus === "unavailable"
               ? "Telegram նույնականացումը այս միջավայրում կազմաձևված չէ։"
-              : "Մտիր, որ պահես նյութեր, գրես նշումներ և դնես հիշեցումներ։ Telegram Mini App-ում մուտքն ավտոմատ է։"}</p>
+              : "Մտիր, որ պահես նյութեր և համարներ, գրես նշումներ և դնես հիշեցումներ։ Telegram Mini App-ում մուտքն ավտոմատ է։"}</p>
           {loaderData.signInFailed ? <p className="m-0 text-[12.5px] text-[#b4472f]" role="alert">Google-ով մուտքը չհաջողվեց։ Փորձիր նորից։</p> : null}
           {loaderData.authStatus === "guest" ? (
-            <div className="mt-3 grid w-full gap-2">
+            <div className="mt-1 grid w-full max-w-[320px] gap-2">
               {loaderData.googleAvailable ? (
-                <a className="flex min-h-12 w-full items-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-left text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
+                <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                   Մուտք Google-ով
                 </a>
               ) : null}
-              {telegramLogin ? (
-                // In Telegram the Mini App signs the reader in by itself.
-                <a className="flex min-h-12 w-full items-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-left text-[14px] font-semibold text-ink no-underline shadow-card" href={telegramLogin} target="_blank" rel="noreferrer">
+              {/* Telegram's own sign-in page; the same account as in the Mini App. */}
+              <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/telegram/start?return=/saved">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE" /><path fill="#fff" d="M5.4 11.8l11.6-4.5c.54-.2 1 .13.83.94l-1.98 9.3c-.15.66-.54.82-1.1.51l-3-2.22-1.45 1.4c-.16.16-.3.3-.6.3l.21-3.05 5.56-5.02c.24-.21-.05-.33-.38-.12l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.14-.95z" /></svg>
                   Մուտք Telegram-ով
-                  <span className="ml-auto text-[11px] font-medium text-faint">ավտոմատ</span>
-                </a>
-              ) : null}
+              </a>
               {!loaderData.googleAvailable ? <span className="text-[11.5px] text-faint">Google-ով մուտքը շուտով կմիանա։</span> : null}
-              <Link className="text-center text-[11.5px] text-faint underline" to="/privacy">Գաղտնիության քաղաքականություն</Link>
+              <Link className="mt-1 justify-self-center text-[11.5px] text-faint underline" to="/privacy">Գաղտնիության քաղաքականություն</Link>
             </div>
           ) : null}
-        </EmptyState>
+        </section>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
           {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
+
+          {"verses" in loaderData && loaderData.verses ? <SavedVerses verses={loaderData.verses} /> : null}
 
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">
@@ -262,10 +290,13 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
             </div>
           )}
           {loaderData.user?.source === "google" ? (
-            <Form className="mt-4 flex items-center justify-between gap-3 border-t border-glass-border px-1 pt-4 text-[12.5px] text-muted" method="post" action="/auth/logout">
-              <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> (Google)</span>
-              <button className="shrink-0 cursor-pointer rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-4 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit">Ելք</button>
-            </Form>
+            // Joining moves this account's saved items to the Telegram account, so the Mini App shows them too.
+            <div className="mt-4 grid gap-2 border-t border-glass-border px-1 pt-4">
+              <a className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline" href="/auth/telegram/start?return=/saved">
+                Կապել Telegram հաշիվս
+              </a>
+              <p className="m-0 text-[11.5px] leading-snug text-faint">Կապելուց հետո պահածներդ, նշումներդ և հիշեցումներդ նույնը կլինեն թե՛ կայքում, թե՛ Telegram-ի Mini App-ում։</p>
+            </div>
           ) : null}
         </section>
       )}

@@ -12,7 +12,7 @@ import {
   TimestampSeekContext,
   TelegramUnsupportedCard,
 } from "../components/telegram-content";
-import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
+import { leadingTitleLength, psalmBodyText, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
@@ -23,7 +23,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
-import { NOINDEX, SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
+import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -31,16 +31,22 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "Նյութ — Հոգևոր ժառանգություն" }, ...NOINDEX];
+  // Without data the error boundary renders its own title and noindex.
+  if (!loaderData) return [];
   const { material } = loaderData;
   const path = loaderData.canonicalPath;
-  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl ?? null;
+  // One look everywhere a link is shared: the material's drawn card (scripts/og-cards.ts); else its
+  // own picture, else the section's.
+  const picture = cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt)
+    ?? material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
+    ?? `${loaderData.origin}${sectionImage(material.categoryId, material.categoryName) ?? "/og-image.png"}`;
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
   return seoMeta({
     title: `${material.title} — ${material.categoryName} | Հոգևոր ժառանգություն`,
     description,
     path,
+    origin: loaderData.origin,
     image: picture,
     type: "article",
     jsonLd: [
@@ -102,8 +108,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
   // Psalms always read verse by verse, whatever formatting Telegram gave the post (plain text, a
   // caption under the recording, or rich text): the text is laid out by the psalm standard.
-  const psalmSource = [material.formattedText.text, material.contentText, material.formattedCaption.text, material.captionText].find((value) => value?.trim()) ?? "";
-  const psalmText = psalmSource.slice(skipPsalmLabel(psalmSource, leadingTitleLength(psalmSource, material.title)));
+  const psalmText = psalmBodyText(material);
   const psalmView = isPsalm && psalmText.trim().length > 0 && !activeHit;
 
   useEffect(() => {
@@ -150,7 +155,18 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {psalmView ? (
           // Psalms follow their recording verse by verse.
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
-            <PsalmReadAlong key={material.id} text={psalmText} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
+            <PsalmReadAlong
+              key={material.id}
+              text={psalmText}
+              materialId={material.id}
+              timings={loaderData.psalmTimings}
+              canMark={loaderData.canMarkPsalm}
+              psalmPath={loaderData.canonicalPath}
+              title={material.title}
+              hasAudio={material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"))}
+              canSave={loaderData.canSave}
+              savedVerses={loaderData.savedVerses}
+            />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
@@ -184,10 +200,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </a>
           <ShareButton
             className={actionTile}
-            title={material.title}
-            text={material.title}
-            url={material.telegramUrl}
-            materialId={material.id}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
             label
           />

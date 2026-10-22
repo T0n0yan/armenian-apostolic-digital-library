@@ -5,7 +5,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 
-import { CONTACT_EMAIL } from "../utils/contact";
+import { INFO_EMAIL } from "../utils/contact";
 const UPDATED = "19 հոկտեմբերի, 2026 թ.";
 
 export function meta({}: Route.MetaArgs) {
@@ -20,7 +20,7 @@ export function meta({}: Route.MetaArgs) {
 const panel = "frosted-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
 
-const mail = <a className="text-gold-bright" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
+const mail = <a className="text-gold-bright" href={`mailto:${INFO_EMAIL}`}>{INFO_EMAIL}</a>;
 
 const sections: Array<{ title: string; intro?: ReactNode; items?: ReactNode[]; outro?: ReactNode[]; after?: ReactNode[] }> = [
   {

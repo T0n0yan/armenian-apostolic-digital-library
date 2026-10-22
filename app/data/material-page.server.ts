@@ -7,13 +7,14 @@ import { getPublicMaterialDetail } from "./material-detail.server";
 import { getPollVotes } from "./poll-votes.server";
 import { findPsalmByNumber, findPsalmNeighbors } from "./psalm-neighbors.server";
 import { listSavedMaterialIds } from "./saved-materials.server";
+import { listSavedVerseNumbers } from "./saved-verses.server";
 import { materialMarks } from "./reading-log.server";
 import { isMaterialSection, materialPath, parseItemSegment } from "../utils/material-path";
 import { psalmNumber } from "../utils/psalm-number";
 import type { MaterialDetail } from "./material-detail.server";
 import { parseMaterialId, resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
-/** A material's one canonical address (/saghmosner/22, /aghotkner/364-aghotk-yntaniki). */
+/** A material's one canonical address (/psalms/22, /pray/71). */
 export function canonicalMaterialPath(material: Pick<MaterialDetail, "id" | "title" | "categoryName" | "contentText" | "media">) {
   const mediaTitle = material.media.find((asset) => asset.kind === "audio" || asset.kind === "voice")?.title ?? null;
   const psalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms"
@@ -31,7 +32,7 @@ export async function resolveMaterialId(params: { materialId?: string; section?:
   return "psalm" in parsed ? await findPsalmByNumber(env.DB, parsed.psalm) : parsed.materialId;
 }
 
-/** A material page's data, for its readable (/saghmosner/22) and old (/materials/…) addresses. */
+/** A material page's data, for its readable (/psalms/22) and old (/materials/…) addresses. */
 export async function loadMaterialPage(materialId: string | null, request: Request) {
   if (!materialId || !/^material_[a-zA-Z0-9_-]{1,220}$/.test(materialId)) {
     throw new Response("Not Found", { status: 404 });
@@ -71,5 +72,8 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   // When this reader marked the material as read (the page compares with their local date).
   const own = user ? parseMaterialId(material.id) : null;
   const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
-  return { material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks };
+  // The verses of this psalm the reader saved (the verse popup's "Պահել").
+  const savedVerses = user && psalmReference ? await listSavedVerseNumbers(env.DB, user.id, psalmReference.chatId, psalmReference.messageId).catch(() => []) : [];
+  // Link previews point at this address's own pictures (staging's at staging).
+  return { origin: address.origin, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
 }

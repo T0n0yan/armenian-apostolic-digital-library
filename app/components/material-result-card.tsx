@@ -34,7 +34,7 @@ import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
-import { useVideoPoster } from "../utils/video-frame";
+import { useVideoPoster, videoFromThumbnail } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { MaterialActionSheet } from "./material-action-sheet";
 import { useLongPress } from "../hooks/use-long-press";
@@ -245,7 +245,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
   const isVideo = variant === "video" || material.contentType === "video";
   const videoPoster = useVideoPoster(
-    isVideo ? material.preview.thumbnailUrl?.replace("?thumbnail=1&", "?").replace(/\?thumbnail=1$/u, "") ?? null : null,
+    isVideo && material.preview.thumbnailUrl ? videoFromThumbnail(material.preview.thumbnailUrl) : null,
     isVideo ? material.preview.thumbnailUrl : null,
   );
   const psalm = variant === "psalm" ? psalmNumber(material) : null;
@@ -326,11 +326,13 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   );
 
 
+  // Bible questions share one even card shape in their list.
+  const quizCard = variant === "text" && material.contentType === "poll";
   return (
-    <li className="animate-glass-enter" data-material-id={material.id}>
-      <div className="relative">
+    <li className={`animate-glass-enter ${quizCard ? "h-full" : ""}`} data-material-id={material.id}>
+      <div className={`relative ${quizCard ? "h-full" : ""}`}>
         <Link
-          className={`${interactiveGlassCard} hold-card grid ${day ? "items-center" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? "grid-cols-1 px-[16px] py-[14px]" : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} hold-card grid ${day ? "items-center" : quizCard ? "items-stretch" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? `grid-cols-1 px-[16px] py-[14px] ${quizCard ? "h-full" : ""}` : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           prefetch="intent"
@@ -397,8 +399,8 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             {duration ? <span className="absolute right-1.5 bottom-1.5 rounded-full bg-[rgb(17_8_22/78%)] px-2 py-1 text-[10px] font-bold text-white tabular-nums">{duration}</span> : null}
           </span>
         )}
-        <span className="relative z-1 grid min-w-0 gap-[6px]">
-          <span className="flex flex-wrap items-center gap-2">
+        <span className={`relative z-1 min-w-0 gap-[6px] ${quizCard ? "flex flex-col" : "grid"}`}>
+          <span className={`flex flex-wrap items-center gap-2 ${quizCard ? "empty:hidden" : ""}`}>
             {variant === "default" || (variant === "text" && material.contentType !== "text" && material.contentType !== typicalType) ? <span className="inline-flex items-center gap-1 rounded-full border border-[rgb(217_181_111/20%)] bg-[rgb(217_181_111/8%)] px-2 py-1 text-[10px] font-bold text-gold-bright"><TypeIcon aria-hidden="true" size={12} />{typeMeta.label}</span> : null}
             {extraMatchReason ? (
               <span className="rounded-full border border-[rgb(123_74_142/22%)] bg-[rgb(123_74_142/9%)] px-2 py-1 text-[10px] font-bold text-plum">
@@ -411,17 +413,17 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {material.categoryName ? (
             <span className="text-[11px] font-[780] tracking-[0.56px] text-plum">{material.categoryName}</span>
           ) : null}
-          {variant === "text" && material.contentType === "poll" ? (
-            // Bible questions: the question with a gold "?" and how many answers it offers.
-            <span className="grid grid-cols-[30px_1fr] items-start gap-2.5">
-              <span className="mt-0.5 grid size-[30px] place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] font-noto text-[16px] font-bold text-gold-bright" aria-hidden="true">?</span>
-              <span className="grid gap-1">
+          {quizCard ? (
+            // Bible questions: the question, its mark (? / ✓ / ✕) and, at the card's foot, what to do.
+            <span className="grid flex-1 grid-cols-[30px_1fr] items-start gap-2.5">
+              <span className={`mt-0.5 grid size-[30px] place-items-center rounded-full border font-noto text-[15px] font-bold ${quizResult === "right" ? "border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]" : quizResult === "wrong" ? "border-[rgb(205_70_55/40%)] bg-[rgb(205_70_55/12%)] text-[rgb(180_60_45)]" : "border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] text-gold-bright"}`} aria-hidden="true">
+                {quizResult === "right" ? "✓" : quizResult === "wrong" ? "✕" : quizResult ? "✓" : "?"}
+              </span>
+              <span className="grid h-full grid-rows-[1fr_auto] gap-2">
                 <strong className="line-clamp-3 font-noto text-[15px] leading-[22px] font-semibold [overflow-wrap:anywhere]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
-                {quizResult ? (
-                  <span className={`inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${quizResult === "right" ? "bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]" : quizResult === "wrong" ? "bg-[rgb(205_70_55/12%)] text-[rgb(180_60_45)]" : "bg-[rgb(217_181_111/14%)] text-gold-bright"}`}>
-                    {quizResult === "right" ? "✓ Ճիշտ եք պատասխանել" : quizResult === "wrong" ? "✕ Սխալ եք պատասխանել" : "Պատասխանել եք"}
-                  </span>
-                ) : material.preview.pollOptionCount ? <span className="text-[11.5px] text-faint">{material.preview.pollOptionCount} պատասխան{canSave ? " · չեք պատասխանել" : ""}</span> : null}
+                <span className={`text-[11.5px] font-bold ${quizResult === "right" ? "text-[rgb(52_130_74)]" : quizResult === "wrong" ? "text-[rgb(180_60_45)]" : quizResult ? "text-gold" : "text-gold-bright"}`}>
+                  {quizResult === "right" ? "Ճիշտ եք պատասխանել" : quizResult === "wrong" ? "Սխալ եք պատասխանել · տեսնել ճիշտը" : quizResult ? "Պատասխանել եք" : "Պատասխանել →"}
+                </span>
               </span>
             </span>
           ) : variant === "portrait" ? null : (

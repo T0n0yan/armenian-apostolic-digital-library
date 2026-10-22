@@ -1,6 +1,6 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
-import { NavLink, useLocation, useRouteLoaderData } from "react-router";
+import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
 import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
@@ -32,6 +32,10 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   // Hidden once the library already runs as an installed app.
   const [canInstall, setCanInstall] = useState(false);
   useEffect(() => setCanInstall(!isInstalledApp()), []);
+  // The Mini App signs its reader in by itself, so signing out there would not last.
+  const [inMiniApp, setInMiniApp] = useState(true);
+  useEffect(() => setInMiniApp(Boolean((window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData)), []);
+  const account = rootData?.account ?? null;
   const location = useLocation();
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -127,7 +131,8 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                         <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={sectionPath(topic)} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                           <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="min-w-0 flex-1 truncate">{topic.name}</span>
-                          {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
+                          {/* A closed Telegram topic only means that just admins post there; readers aren't told. */}
+                          {topic.status === "hidden" ? <span className="text-[10px] text-faint">թաքցված</span> : null}
                         </NavLink>
                       </li>
                     );
@@ -153,6 +158,21 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 <NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink>
               ) : null}
             </section>
+
+            {/* Sign-in, last in the menu where people look for it; it leads to «Իմ անկյունը». */}
+            {rootData && !rootData.signedIn ? (
+              <NavLink className="flex min-h-12 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-bold text-gold-bright no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]" to="/saved" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                <LogIn aria-hidden="true" size={17} /> Մուտք գործել
+              </NavLink>
+            ) : null}
+            {account && (account.source === "google" || !inMiniApp) ? (
+              <Form className="flex items-center justify-between gap-3 border-t border-glass-border px-2 pt-3 text-[12.5px] text-muted" method="post" action="/auth/logout" onSubmit={() => setIsOpen(false)}>
+                <span className="min-w-0 truncate">{account.name} <span className="text-faint">· {account.source === "google" ? "Google" : "Telegram"}</span></span>
+                <button className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-3.5 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit" tabIndex={isOpen ? 0 : -1}>
+                  <LogOut aria-hidden="true" size={15} /> Ելք
+                </button>
+              </Form>
+            ) : null}
           </div>
           )}
         </div>

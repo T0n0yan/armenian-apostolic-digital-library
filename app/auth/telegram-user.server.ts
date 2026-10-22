@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import { cacheEpoch } from "../data/site-refresh.server";
+import { validateTelegramLoginData } from "./telegram-login";
 
 type TelegramEnvironment = Env & {
   TELEGRAM_BOT_TOKEN?: string;
@@ -176,6 +177,22 @@ async function validateTelegramInitData(initData: string, botToken: string) {
   } catch {
     return null;
   }
+}
+
+/** The bot's numeric id (the token's first part), which Telegram's sign-in page asks for. */
+export function telegramBotId() {
+  return getBotToken()?.split(":")[0] || null;
+}
+
+/** Signs a browser reader in with the Telegram Login result; the same account as in the Mini App. */
+export async function createTelegramLoginSession(request: Request, data: Record<string, unknown>) {
+  const botToken = getBotToken();
+  if (!botToken) return null;
+  const user = await validateTelegramLoginData(data, botToken);
+  if (!user) return null;
+  const cookie = await createSessionCookie(request, { ...user, provider: "telegram" });
+  if (!cookie) return null;
+  return { user: { ...user, source: "telegram" as const }, cookie };
 }
 
 function readCookie(request: Request, name: string) {

@@ -93,6 +93,8 @@ export async function loader({request}: Route.LoaderArgs) {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
     isAdmin: Boolean(telegramAdmin),
     signedIn: Boolean(telegramUser),
+    // Shown with "Ելք" at the bottom of the menu.
+    account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };
@@ -278,10 +280,13 @@ export default function App({ loaderData }: Route.ComponentProps) {
       if (!devMode() && !isField(event.target) && !isReadingText(event.target)) event.preventDefault();
     };
     const onCopy = (event: ClipboardEvent) => {
-      if (devMode()) return;
+      // Copies the site makes itself (a verse, a link) and form fields keep their own text.
+      if (devMode() || isField(event.target)) return;
       const text = window.getSelection()?.toString() ?? "";
       if (text.trim().length < 15 || !event.clipboardData) return;
-      event.clipboardData.setData("text/plain", `${text}\n\nԱղբյուր՝ «Հոգևոր ժառանգություն» — ${window.location.href}`);
+      // The page's title first, then the words, then the link: "Սաղմոս 25" / text / https://….
+      const title = document.querySelector("main h1")?.textContent?.trim();
+      event.clipboardData.setData("text/plain", `${title ? `${title}\n` : ""}${text.trim()}\n\n«Հոգևոր ժառանգություն» — ${window.location.href}`);
       event.preventDefault();
     };
     // No selection starts outside form fields and the reading text (iOS can still try on a long press).
