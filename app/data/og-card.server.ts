@@ -1,8 +1,8 @@
-import { locationPlaceholder } from "./og-card-location.server";
 import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import resvgWasm from "@resvg/resvg-wasm/index_bg.wasm";
-import satori, { init as initSatori } from "satori/standalone";
-import yogaWasm from "satori/layout.wasm";
+import satori, { init as initSatori } from "satori/wasm";
+import initYoga from "yoga-wasm-web";
+import yogaWasm from "yoga-wasm-web/dist/yoga.wasm";
 
 import regularFont from "../assets/og-fonts/NotoSerifArmenian-Regular.ttf?inline";
 import semiBoldFont from "../assets/og-fonts/NotoSerifArmenian-SemiBold.ttf?inline";
@@ -13,14 +13,11 @@ const HEIGHT = 630;
 // Workers may only run WebAssembly bundled with them, so both engines start from imported modules.
 let ready: Promise<void> | null = null;
 function start() {
-  ready ??= Promise.all([initSatori(yogaWasm as WebAssembly.Module), initWasm(resvgWasm as WebAssembly.Module)])
+  ready ??= Promise.all([initYoga(yogaWasm as WebAssembly.Module).then(initSatori), initWasm(resvgWasm as WebAssembly.Module)])
     .then(() => undefined)
     .catch((error) => { ready = null; throw error; });
   return ready;
 }
-
-// Satori has loaded by now; Workers go on without a `location` (og-card-location.server.ts).
-if (locationPlaceholder) delete (globalThis as { location?: unknown }).location;
 
 function fontData(dataUrl: string) {
   const binary = atob(dataUrl.slice(dataUrl.indexOf(",") + 1));

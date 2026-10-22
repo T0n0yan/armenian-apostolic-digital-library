@@ -45,8 +45,9 @@
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",
 		"react-router": "^8.4.0",
-		"satori": "^0.63.2",
-		"teleproto": "1.230.1"
+		"satori": "^0.15.2",
+		"teleproto": "1.230.1",
+		"yoga-wasm-web": "0.3.3"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.63.1",
