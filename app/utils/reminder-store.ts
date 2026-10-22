@@ -11,6 +11,12 @@ export const REMINDER_RINGING_EVENT = "library:reminder-ringing";
 let reminders: ActiveReminder[] = [];
 let missed: MissedReminder[] = [];
 let loading: Promise<ActiveReminder[]> | null = null;
+// Bumped on every local change, so a load that started before it can't bring back what the
+// reader just marked read or cancelled.
+let version = 0;
+// "Rung" posts still on their way: marking read waits for them, or the server would put the
+// reminder back in the bell's list after the read arrived.
+const rungPosts = new Map<string, Promise<unknown>>();
 const listeners = new Set<() => void>();
 
 function emit(next: ActiveReminder[], nextMissed: MissedReminder[] = missed) {
@@ -34,14 +40,40 @@ export function setRemindersEnabled(next: boolean) {
 }
 
 /** Loads the reader's active reminders (guests get none); shared by the alarm and the bell. */
-export function loadReminders() {
+export function loadReminders({ fresh = false } = {}) {
   if (!enabled) return Promise.resolve(reminders);
-  loading ??= fetch("/api/reminders?upcoming=1")
-    .then((response) => response.ok ? response.json() as Promise<{ reminders?: ActiveReminder[]; missed?: MissedReminder[] }> : { reminders: [], missed: [] })
-    .then((data) => { emit(data.reminders ?? [], data.missed ?? []); return reminders; })
+  if (loading && !fresh) return loading;
+  const started = version;
+  const request: Promise<ActiveReminder[]> = fetch("/api/reminders?upcoming=1")
+    .then((response) => response.ok ? response.json() as Promise<{ reminders?: ActiveReminder[]; missed?: MissedReminder[] }> : null)
+    .then((data) => { if (data && started === version) emit(data.reminders ?? [], data.missed ?? []); return reminders; })
     .catch(() => reminders)
-    .finally(() => { loading = null; });
-  return loading;
+    .finally(() => { if (loading === request) loading = null; });
+  loading = request;
+  return request;
+}
+
+function changeLocally(next: ActiveReminder[], nextMissed: MissedReminder[]) {
+  version += 1;
+  emit(next, nextMissed);
+}
+
+/** Closes the phone's notification for this reminder once it is handled in the app. */
+function closeSystemNotification(materialId: string) {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  void navigator.serviceWorker.getRegistration()
+    .then((registration) => registration?.getNotifications({ tag: `reminder-${materialId}` }))
+    .then((notifications) => { for (const notification of notifications ?? []) notification.close(); })
+    .catch(() => undefined);
+}
+
+/** Tells the server the in-app alarm rang, so the bot and the phone don't announce it again. */
+export function markReminderRung(materialId: string) {
+  const posted = fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, rang: true }) })
+    .catch(() => null)
+    .finally(() => { if (rungPosts.get(materialId) === posted) rungPosts.delete(materialId); });
+  rungPosts.set(materialId, posted);
+  return posted;
 }
 
 export function useActiveReminders() {
@@ -63,9 +95,12 @@ export function useMissedReminders() {
 /** "Կարդացել եմ": removes a rung reminder from the bell's list. */
 export async function markReminderRead(materialId: string, { quiet = false } = {}) {
   const listed = missed.some((item) => item.materialId === materialId);
-  if (quiet && !listed) return;
-  emit(reminders, missed.filter((item) => item.materialId !== materialId));
+  if (quiet && !listed && !rungPosts.has(materialId)) return;
+  changeLocally(reminders, missed.filter((item) => item.materialId !== materialId));
+  closeSystemNotification(materialId);
+  await rungPosts.get(materialId);
   await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, read: true }) }).catch(() => null);
+  void loadReminders({ fresh: true });
 }
 
 /** "Կարդացել եմ" in the bell's list: clears the reminder and marks the material read today. */
@@ -81,9 +116,21 @@ export async function markReminderDone(materialId: string) {
 /** Removes a rung reminder from the bell's list without marking anything read. */
 export const dismissReminder = (materialId: string) => markReminderRead(materialId);
 
+/** "1 / 5 րոպեից": rings again in a few minutes; until then it leaves the bell's list. */
+export async function snoozeReminder(materialId: string, minutes: 1 | 5) {
+  changeLocally(reminders, missed.filter((item) => item.materialId !== materialId));
+  closeSystemNotification(materialId);
+  await rungPosts.get(materialId);
+  await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, snooze: minutes }) }).catch(() => null);
+  void loadReminders({ fresh: true });
+}
+
 /** Cancels a reminder (and its repeats) right away, everywhere it is shown. */
 export async function cancelReminder(materialId: string) {
-  emit(reminders.filter((item) => item.materialId !== materialId), missed.filter((item) => item.materialId !== materialId));
+  changeLocally(reminders.filter((item) => item.materialId !== materialId), missed.filter((item) => item.materialId !== materialId));
+  closeSystemNotification(materialId);
+  await rungPosts.get(materialId);
   const post = (body: Record<string, unknown>) => fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, ...body }) }).catch(() => null);
   await Promise.all([post({ remove: true }), post({ read: true })]);
+  void loadReminders({ fresh: true });
 }
