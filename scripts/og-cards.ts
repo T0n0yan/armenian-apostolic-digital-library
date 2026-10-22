@@ -6,7 +6,7 @@
  * (.github/workflows/og-cards.yml).
  *
  *   OG_SITE=https://staging.apostolic.am OG_BUCKET=armenian-apostolic-library-media-staging \
- *   TELEGRAM_BRIDGE_SHARED_SECRET=… CLOUDFLARE_API_TOKEN=… npx tsx scripts/og-cards.ts
+ *   CLOUDFLARE_API_TOKEN=… npx tsx scripts/og-cards.ts
  */
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -23,9 +23,8 @@ type Card = { path: string; version: string; section: string; label: string; tex
 
 const site = (process.env.OG_SITE ?? "").replace(/\/+$/u, "");
 const bucket = process.env.OG_BUCKET ?? "";
-const secret = process.env.TELEGRAM_BRIDGE_SHARED_SECRET ?? "";
 const force = process.argv.includes("--force");
-if (!site || !bucket || !secret) throw new Error("OG_SITE, OG_BUCKET and TELEGRAM_BRIDGE_SHARED_SECRET are required.");
+if (!site || !bucket) throw new Error("OG_SITE and OG_BUCKET are required.");
 const work = mkdtempSync(join(tmpdir(), "og-cards-"));
 
 async function wrangler(args: string[]) {
@@ -70,7 +69,7 @@ async function listCards() {
       const url = new URL(`${site}/api/og-cards`);
       url.searchParams.set("section", section);
       if (cursor) url.searchParams.set("cursor", cursor);
-      const response = await fetch(url, { headers: { authorization: `Bearer ${secret}` } });
+      const response = await fetch(url);
       // The site has no card list before this change reaches it (production until release); after a
       // push (OG_WAIT) the deploy may still be running, so wait for it up to a quarter of an hour.
       if (response.status === 404) {
