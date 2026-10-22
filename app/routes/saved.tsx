@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, ChevronDown, Search } from "lucide-react";
+import { Bookmark, ChevronDown, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Form, Link } from "react-router";
 
@@ -30,6 +30,7 @@ import {
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
 import { getCloudLibraryPost } from "../data/cloud-library.server";
+import { listSavedVerses, type SavedVerse } from "../data/saved-verses.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { RouteErrorPage } from "../components/error-page";
@@ -57,9 +58,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
-  const [readingLog, joinedAt] = await Promise.all([
+  const [readingLog, joinedAt, verses] = await Promise.all([
     readingDays(env.DB, user.id).catch(() => ({} as Record<string, number>)),
     env.DB.prepare("SELECT created_at FROM app_users WHERE id = ?").bind(user.id).first<{ created_at: string }>().then((row) => row?.created_at ?? null).catch(() => null),
+    query ? Promise.resolve([] as SavedVerse[]) : listSavedVerses(env.DB, user.id).catch(() => [] as SavedVerse[]),
   ]);
   try {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
@@ -80,6 +82,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     signInFailed,
     readingLog,
     joinedAt,
+    verses,
   };
 }
 
@@ -163,6 +166,37 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   );
 });
 
+/** Verses saved from a psalm's verse popup; each opens its own page. */
+function SavedVerses({ verses }: { verses: SavedVerse[] }) {
+  const [removed, setRemoved] = useState<Set<string>>(() => new Set());
+  const shown = verses.filter((verse) => !removed.has(verse.path));
+  if (shown.length === 0) return null;
+  const remove = async (verse: SavedVerse) => {
+    setRemoved((current) => new Set(current).add(verse.path));
+    const response = await fetch("/api/saved-verses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId: verse.materialId, verse: verse.verse, saved: false }) }).catch(() => null);
+    if (!response?.ok) setRemoved((current) => { const next = new Set(current); next.delete(verse.path); return next; });
+  };
+  return (
+    <>
+      <div className={sectionHeader}>
+        <h2 className={sectionTitle}>Պահված համարներ</h2>
+        <span className={countBadge}>{shown.length}</span>
+      </div>
+      <ol className="m-0 grid list-none gap-2 p-0">
+        {shown.map((verse) => (
+          <li className="relative frosted-panel animate-glass-enter" key={verse.path}>
+            <Link className="grid gap-1 px-4 py-3 pr-11 text-ink no-underline" to={verse.path}>
+              <strong className="text-[12px] text-gold-bright">{verse.label}</strong>
+              <span className="prayer-text line-clamp-3 text-[14.5px] leading-[1.6]">«{verse.text}»</span>
+            </Link>
+            <button className="absolute top-2 right-2 grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={() => remove(verse)} aria-label={`Հանել ${verse.label}-ը`} title="Հանել"><X aria-hidden="true" size={16} /></button>
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
 export default function Saved({ loaderData }: Route.ComponentProps) {
   // Guests get a "Մուտք Telegram-ով" link to the Mini App (the bot's name is looked up once).
   const [telegramLogin, setTelegramLogin] = useState<string | null>(null);
@@ -224,6 +258,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
           {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
+
+          {"verses" in loaderData && loaderData.verses ? <SavedVerses verses={loaderData.verses} /> : null}
 
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">

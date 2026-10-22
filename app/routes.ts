@@ -20,6 +20,7 @@ export default [
   route("api/push", "routes/push.ts"),
   route("api/poll-vote", "routes/poll-vote.ts"),
   route("api/psalm-timings", "routes/psalm-timings.ts"),
+  route("api/saved-verses", "routes/saved-verses.ts"),
   route("api/reading-log", "routes/reading-log.ts"),
   route("api/presence", "routes/presence.ts"),
   route("api/telegram-link", "routes/telegram-link.ts"),
@@ -28,6 +29,8 @@ export default [
   route("categories/:slug", "routes/category.tsx"),
   // Readable addresses: /saghmosner, /saghmosner/22, /aghotkner/364-aghotk-yntaniki (material-path.ts).
   route(":section/:item", "routes/material.tsx", { id: "section-item" }),
+  // One psalm verse: /saghmosner/22/3 (shared from the verse popup).
+  route(":section/:item/:verse", "routes/verse.tsx"),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
