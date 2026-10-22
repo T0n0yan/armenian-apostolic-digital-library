@@ -12,11 +12,12 @@
 5. Սփորթ՝ բոտին գրված հաղորդագրությունները փոխանցվում են փակ «Support» խմբին, ադմինի պատասխանը վերադառնում է օգտատիրոջը (հիմնական բոտով, երկրորդ բոտ պետք չէ)։ Սպասում է՝ տերը ստեղծի խումբը և ավելացնի բոտը։
 6. Տիրոջ Telegram հաշիվը և dav.tonoyan.90@gmail.com-ը production-ում ադմին դարձնել (/admin → «Կայքի ադմիններ», t0n0yan.contact@gmail.com-ով մտած)։
 7. BotFather `/setdomain`՝ Telegram-ով մուտք բրաուզերում (Login Widget). production բոտ՝ `apostolic.am`, staging բոտ՝ `staging.apostolic.am`։ Staging բոտը՝ արված 2026-10-22 (տերը)։ Production-ը՝ `feat/telegram-login`-ի թողարկման ժամանակ, տիրոջը հարցնելուց հետո։
-8. Անդամների «բաց» թեմա (նկար/գրառում)՝ մյուս թեմաները Telegram-ում «Close topic» (գրում են միայն ադմինները)։ Կոդ՝ այդ թեման չպետք է հայտնվի կայքում որպես բաժին (bridge-ը բոլոր թեմաները բերում է, `isNavigableCategory`)։ Staging-ում ստուգել թեման ստեղծելուց առաջ։
+8. Անդամների «բաց» թեմա (նկար/գրառում)՝ մյուս թեմաները Telegram-ում «Close topic» (գրում են միայն ադմինները)։ Կոդ՝ այդ թեման չպետք է հայտնվի կայքում որպես բաժին (bridge-ը բոլոր թեմաները բերում է, `isNavigableCategory`)։ Staging-ում ստուգել թեման ստեղծելուց առաջ։ Նպատակը՝ սրբավայրերի քարտեզ կայքում (անդամների նկարներ → քարտեզ). քարտեզը «Նոր հնարավորություններ»-ի հերթում է, ավելի ուշ։
 
 ## Արված
 - 2026-10-21 — info@apostolic.am (Cloudflare Email Routing), դոմենը Cloudflare-ում, media.apostolic.am։
 
 ## Կարևոր մյուսների համար
+- 2026-10-22 տերը փակեց բոլոր թեմաները (գրում են միայն ադմինները)։ Կայքի «փակված» նշումը հանում է «Բագեր» չաթը։
 - Փոստը հիմա Zoho Mail-ում է (MX, SPF, DKIM, DMARC). info@, contact@, support@ մեկ փոստարկղի alias-ներ են։ Կոդում՝ `app/utils/contact.ts` (`INFO_EMAIL`, `CONTACT_EMAIL`, `SUPPORT_EMAIL`). տեխնիկական սխալների համար՝ support@, հարցեր/առաջարկներ՝ contact@, գաղտնիություն և պաշտոնական՝ info@։
 - Բոտի պատասխանները՝ `app/data/telegram-bot-replies.server.ts` (/start, /help, deep link-եր՝ `saghmosner_22`)։
