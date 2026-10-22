@@ -2,13 +2,28 @@
 export const OG_CARD_WIDTH = 1200;
 export const OG_CARD_HEIGHT = 630;
 /** Raise when the design changes, so scripts/og-cards.ts draws every card again. */
-export const OG_CARD_LAYOUT = "6";
+export const OG_CARD_LAYOUT = "7";
 
 /** At most `limit` characters, cut at a word, with "…" when shortened. */
 export function excerpt(text: string, limit: number) {
   const clean = text.replace(/[​-‍﻿]/gu, "").replace(/\s+/gu, " ").trim();
   if (clean.length <= limit) return clean;
   return `${clean.slice(0, limit).replace(/\s+\S*$/u, "").replace(/[,;:։՝.\s]+$/u, "")}…`;
+}
+
+/**
+ * What a daily reading's card shows under the date: the day's heading (a feast, «ՊԱՀՈՑ ՕՐ»), or,
+ * when the day has none, its list of readings.
+ */
+export function dailyCardText(text: string, title: string) {
+  const paragraphs = text.split(/\n\s*\n/u).map((part) => part.trim()).filter(Boolean);
+  const readingsAt = paragraphs.findIndex((part) => /^Օրվա ընթերց/u.test(part));
+  const heading = paragraphs.slice(0, readingsAt < 0 ? 3 : readingsAt)
+    .find((part) => part !== title.trim() && /\p{Lu}/u.test(part) && !/\p{Ll}/u.test(part));
+  if (heading) return heading.replace(/\s+/gu, " ");
+  // The list sits under its heading, or in the same paragraph.
+  const list = paragraphs.slice(readingsAt + 1, readingsAt + 3).concat(readingsAt < 0 ? [] : [paragraphs[readingsAt]]).join("\n");
+  return readingsAt < 0 ? "" : list.split("\n").map((line) => /^\s*[-•–]\s*(.+)$/u.exec(line)?.[1]?.trim()).filter(Boolean).join(" · ");
 }
 
 const comparable = (value: string) => value.replace(/[^\p{L}\p{N}]+/gu, " ").trim().toLocaleLowerCase("hy");

@@ -5,6 +5,7 @@ import { listActiveCategories } from "./categories.server";
 import { categoryForSection } from "../utils/material-path";
 import { clergyByline, psalmBodyText } from "../utils/material-title";
 import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
+import { dailyCardText } from "../utils/og-card-layout";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
 /**
@@ -45,6 +46,10 @@ export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
   if (kind === "category_bible_questions") {
     const question = (material.poll?.question.text || material.title).trim();
     return [{ path, version, section: "", label: material.categoryName, text: question, plain: true }];
+  }
+  // A daily reading: the date on top, the day's heading (or its readings) below, without quotes.
+  if (kind === "category_daily_readings") {
+    return [{ path, version, section, label: material.title, text: dailyCardText(material.contentText || material.captionText || "", material.title), plain: true }];
   }
   // Everything else: its name on top, its opening text below.
   if (kind !== "category_psalms") {

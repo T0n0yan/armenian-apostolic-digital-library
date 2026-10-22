@@ -6,7 +6,7 @@ import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 
 import { INFO_EMAIL } from "../utils/contact";
-const UPDATED = "19 հոկտեմբերի, 2026 թ.";
+const UPDATED = "22 հոկտեմբերի, 2026 թ.";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({
