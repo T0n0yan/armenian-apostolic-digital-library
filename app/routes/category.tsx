@@ -34,7 +34,7 @@ import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
-import { NOINDEX, SITE_NAME, breadcrumbJsonLd, seoMeta } from "../utils/seo";
+import { NOINDEX, SITE_NAME, breadcrumbJsonLd, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 
 type CategoryMaterial = PublicMaterial | SearchMaterial;
@@ -98,6 +98,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${category.name} — Հայ Առաքելական Եկեղեցի | Հոգևոր ժառանգություն`,
     description: `${CATEGORY_DESCRIPTIONS[kind] ?? `${category.name}՝ Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարանում։`} Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`,
     path,
+    image: sectionImage(category.id, category.name),
     jsonLd: [breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: category.name, path }])],
   });
 }
@@ -372,12 +373,6 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   const contentCategory = resolveContentCategoryId(category.id, category.name) ?? category.id;
   const searchPlaceholder = CATEGORY_SEARCH_PLACEHOLDERS[contentCategory] ??
     "Փնտրել այս թեմայում…";
-  const categoryDescription = CATEGORY_DESCRIPTIONS[contentCategory]
-    ?? (category.isGeneral
-      ? "Telegram ֆորումի հիմնական թեմայի հրապարակումները։"
-      : category.status === "closed"
-        ? "Այս Telegram թեման փակված է, սակայն հրապարակումները հասանելի են ընթերցման համար։"
-        : "Այս բաժնի բոլոր նյութերը։");
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
     navigation.location?.pathname === sectionPath(category);
@@ -446,7 +441,6 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         backLabel="Բաժիններ"
         imageSrc={getCategoryImage(category.id, category.name)}
         title={category.name}
-        description={categoryDescription}
         query={loaderData.query}
         searchAction={sectionPath(category)}
         searchLabel={`${category.name} բաժնում որոնում`}
