@@ -11,7 +11,8 @@
   - Համարի պատուհան. «Պատճենել»՝ ✓ անիմացիա և փակվել, պատուհանի բացվելու/փակվելու անիմացիա, «Կիսվել»-ի կրկնակի սեղմումը չպետք է պատճենի։
   - Երկրորդ փաթեթ՝ ստորագիրը էջի ամենաներքևում, «Այլ նյութ չկա»-ն հանել, բաժինների ենթավերնագրերը հանել, պատճենի/կիսվելու տեքստ՝ վերնագիր → տեքստ → հղում, ամեն նյութի հղման նախադիտման նկար (`public/og`, `scripts/make-og-images.py`)։
 
-- Telegram-ով մուտք բրաուզերում (oauth.telegram.org) և Google հաշիվը Telegram-ին կապելը — `feat/telegram-login` (`feat/verse-popup`-ի վրա)։ Պետք է BotFather /setdomain (Ինտեգրացիաներ)։
+- Telegram-ով մուտք բրաուզերում (oauth.telegram.org) և Google հաշիվը Telegram-ին կապելը — `feat/telegram-login` (`feat/verse-popup`-ի վրա)։ staging-ում աշխատում է (տերը մտավ Telegram-ով)։ Թողարկելիս՝ Ինտեգրացիաներին ասել, որ դնեն apostolic.am @armenian_apostolic_church_bot-ի վրա։
+- Կիսվելը քարտի նկարով և հղման նախադիտումը քարտով (`feat/telegram-login`)։
 - Տիրոջ 4 դիտողություն (`feat/telegram-login`)՝ տեսանյութերի սև նկարներ, ամեն նյութի հղման քարտ տեքստի կտորով (`/og/card/...`), համարի պատուհանը չփակի մենյուն, «Ելք»-ը մենյուի ներքևում։
 
 ## Հերթ
@@ -27,7 +28,7 @@
 - 2026-10-22 — «Մեր մասին», «Կապ», «Գաղտնիություն» էջերի միատեսակ դիզայն ([#21](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/21))։
 
 ## Կարևոր մյուսների համար
-- Հղման քարտը գեներացվում է Worker-ում (`app/data/og-card.server.ts`, satori + resvg wasm), պահվում է edge cache-ում։ Թեստերը `.wasm` ֆայլերը բեռնում են որպես CompiledWasm։
+- Հղման քարտերը (սաղմոս, համար, աղոթք, հարց) նկարվում են GitHub Actions-ում (`scripts/og-cards.ts`, `.github/workflows/og-cards.yml`) և պահվում R2-ում `og/v1/<հասցե>.jpg`. Worker-ը միայն տալիս է (`/og/card/...`), քանի որ մեկ քարտը ~1 վրկ CPU է։ «Կիսվել»-ը ուղարկում է քարտը որպես նկար (`shareCard()`, Mini App-ում՝ `share-prepare` photo)։ og:url-ը էջի սեփական հասցեով է (staging-ը՝ staging)։
 - media.apostolic.am-ը CORS չի տալիս. նկարի պիքսելներ կարդալու կամ տեսանյութից կադր վերցնելու համար՝ կայքի `/media/...` (`sameOriginMedia()`)։
 - Telegram մուտքը բրաուզերում՝ `/auth/telegram/start` → oauth.telegram.org → `/auth/telegram`. աշխատում է միայն երբ բոտի domain-ը դրված է BotFather-ում (production՝ apostolic.am, staging-ի բոտին՝ staging.apostolic.am)։ Google հաշիվը կապելիս նրա տվյալները տեղափոխվում են Telegram հաշվին (`account_links`, migration 0027)։
 - Հղման նախադիտման նկարներ՝ `public/og/<բաժին>.jpg` (`sectionImage()` `app/utils/seo.ts`-ում). նյութի սեփական նկարը (սուրբ, օր, տեսանյութ) առաջնային է։

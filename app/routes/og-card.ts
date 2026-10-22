@@ -1,39 +1,24 @@
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/og-card";
-import { getPublicMaterialDetail } from "../data/material-detail.server";
-import { canonicalMaterialPath, resolveMaterialId } from "../data/material-page.server";
-import { renderOgCard } from "../data/og-card.server";
-import { psalmBodyText } from "../utils/material-title";
-import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
-import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { ogCardKey } from "../data/og-cards.server";
+import { categoryForSection } from "../utils/material-path";
+import { sectionImage } from "../utils/seo";
 
 /**
- * The link-preview picture of a material without a picture of its own (a psalm, one psalm verse,
- * a prayer, a Bible question): /og/card/saghmosner/25, /og/card/saghmosner/25/8.
+ * A material's link-preview card (/og/card/saghmosner/25, /og/card/saghmosner/25/8), drawn ahead of
+ * time into R2 by scripts/og-cards.ts. A card not drawn yet sends the section's picture instead.
  */
-export async function loader({ params, request }: Route.LoaderArgs) {
-  const cache = (caches as CacheStorage & { default: Cache }).default;
-  const cached = await cache.match(request);
-  if (cached) return cached;
-  const materialId = await resolveMaterialId(params);
-  const material = materialId ? await getPublicMaterialDetail(env.DB, materialId, request.signal) : null;
-  if (!material) return new Response("Not Found", { status: 404 });
-  const kind = resolveContentCategoryId(null, material.categoryName);
-  const psalmPath = canonicalMaterialPath(material);
-  let label = material.title;
-  let text = material.poll?.question.text || material.contentText || material.captionText || material.title;
-  if (kind === "category_psalms") {
-    const verses = psalmVerseList(psalmBodyText(material));
-    const number = params.verse && /^\d{1,3}$/u.test(params.verse) ? Number(params.verse) : null;
-    const verse = number ? verses.find((item) => item.number === number) : null;
-    if (number && !verse) return new Response("Not Found", { status: 404 });
-    const psalm = /\/saghmosner\/(\d{1,3})$/u.exec(psalmPath)?.[1];
-    label = verse ? verseLabel(psalmPath, material.title, verse.number) : psalm ? `Սաղմոս ${psalm}` : material.title;
-    text = verse ? verse.text : verses.slice(0, 3).map((item) => item.text).join(" ") || text;
+export async function loader({ params }: Route.LoaderArgs) {
+  const path = `/${params.section}/${params.item}${params.verse ? `/${params.verse}` : ""}`;
+  const object = /^\/[a-z-]+\/[a-z0-9-]{1,80}(?:\/\d{1,3})?$/u.test(path)
+    ? await (env as unknown as { MEDIA: R2Bucket }).MEDIA.get(ogCardKey(path)).catch(() => null)
+    : null;
+  if (!object) {
+    const fallback = sectionImage(categoryForSection(params.section)) ?? "/og-image.png";
+    return new Response(null, { status: 302, headers: { location: fallback, "cache-control": "public, max-age=300" } });
   }
-  const png = await renderOgCard({ label, text, section: material.categoryName.toLocaleUpperCase("hy") });
-  const response = new Response(png.slice().buffer as ArrayBuffer, { headers: { "content-type": "image/png", "cache-control": "public, max-age=86400" } });
-  await cache.put(request, response.clone()).catch(() => undefined);
-  return response;
+  return new Response(object.body, {
+    headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=3600, s-maxage=86400", etag: object.httpEtag },
+  });
 }

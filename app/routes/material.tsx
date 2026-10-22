@@ -38,7 +38,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   // The post's own picture (a saint, the day, a video's frame), else the section's preview picture
   // (a recording's cover art is not a fitting preview for a psalm or prayer).
   const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
-    ?? (loaderData.ogCards ? cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt) : null)
+    ?? cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt)
     ?? `${loaderData.origin}${sectionImage(material.categoryId, material.categoryName) ?? "/og-image.png"}`;
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
@@ -46,6 +46,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${material.title} — ${material.categoryName} | Հոգևոր ժառանգություն`,
     description,
     path,
+    origin: loaderData.origin,
     image: picture,
     type: "article",
     jsonLd: [
@@ -202,6 +203,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             title={material.title}
             text={material.title}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
+            cardPath={/^\/(?:saghmosner|aghotkner|hartser)\//u.test(loaderData.canonicalPath) ? loaderData.canonicalPath : null}
             label
           />
         </div>

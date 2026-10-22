@@ -36,8 +36,9 @@ export default [
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
-  // Link-preview pictures: /og/card/saghmosner/25, /og/card/saghmosner/25/8.
+  // Link-preview cards, drawn ahead of time into R2: /og/card/saghmosner/25, /og/card/saghmosner/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),
+  route("api/og-cards", "routes/og-cards-list.ts"),
   // A section (/saghmosner) or an old short address (/pray_364, redirected); static routes win.
   route(":section", "routes/category.tsx", { id: "section" }),
 ] satisfies RouteConfig;
