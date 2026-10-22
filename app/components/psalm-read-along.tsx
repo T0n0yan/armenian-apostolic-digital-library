@@ -155,6 +155,20 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 
   // The verse whose popup is open (an index into the numbered verses).
   const [selected, setSelected] = useState<number | null>(null);
+  // The popup slides down before it goes ("out"), then the verse is let go.
+  const [popupPhase, setPopupPhase] = useState<"in" | "out">("in");
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closePopup = useCallback(() => {
+    setPopupPhase("out");
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => { setSelected(null); setPopupPhase("in"); }, 380);
+  }, []);
+  const openPopup = useCallback((index: number) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setPopupPhase("in");
+    setSelected(index);
+  }, []);
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
   const [saved, setSaved] = useState(() => new Set(savedVerses));
   const [notice, setNotice] = useState<string | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,22 +197,22 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     const number = Number(window.location.hash.slice(1));
     const index = Number.isInteger(number) && number > 0 ? verseNumbers.indexOf(number) : -1;
     if (index < 0) return;
-    setSelected(index);
+    openPopup(index);
     lineRefs.current[verseOf.indexOf(index)]?.scrollIntoView({ block: "center" });
-  }, [verseNumbers, verseOf]);
+  }, [openPopup, verseNumbers, verseOf]);
 
   // A tap outside the verses and the popup, or Escape, closes the popup.
   useEffect(() => {
     if (selected === null) return;
     const onDown = (event: PointerEvent) => {
       if (event.target instanceof Element && event.target.closest("[data-verse-popup], .psalm-lines [data-verse]")) return;
-      setSelected(null);
+      closePopup();
     };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setSelected(null); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") closePopup(); };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("pointerdown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [selected]);
+  }, [closePopup, selected]);
 
   const onLineClick = (lineIndex: number) => {
     const index = verseOf[lineIndex];
@@ -212,7 +226,8 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     }
     // Selecting words to copy them is not a tap on the verse.
     if (window.getSelection()?.toString().trim()) return;
-    setSelected((current) => current === index ? null : index);
+    if (selected === index && popupPhase === "in") closePopup();
+    else openPopup(index);
   };
 
   const following = active >= 0;
@@ -254,9 +269,10 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
           canSave={canSave}
           saved={saved.has(verseNumbers[selected])}
           notice={notice}
-          onClose={() => setSelected(null)}
+          phase={popupPhase}
+          onClose={closePopup}
           onNotice={flash}
-          onListen={() => { listenFrom(selected); setSelected(null); }}
+          onListen={() => { listenFrom(selected); closePopup(); }}
           onSave={async () => {
             const number = verseNumbers[selected];
             const next = !saved.has(number);
@@ -291,14 +307,23 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 const popupTile = "flex min-h-[62px] cursor-pointer flex-col items-center justify-center gap-1 rounded-[14px] border-0 bg-subtle px-1 font-sans text-[11.5px] font-bold text-ink no-underline active:scale-[.96]";
 
 /** The verse popup: copy, share the verse's page, save it, listen from it. */
-function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, onClose, onNotice, onListen, onSave }: {
-  label: string; text: string; path: string; hasAudio: boolean; canSave: boolean; saved: boolean; notice: string | null;
+function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase, onClose, onNotice, onListen, onSave }: {
+  label: string; text: string; path: string; hasAudio: boolean; canSave: boolean; saved: boolean; notice: string | null; phase: "in" | "out";
   onClose: () => void; onNotice: (value: string) => void; onListen: () => void; onSave: () => void;
 }) {
   const [needsSignIn, setNeedsSignIn] = useState(false);
-  useEffect(() => setNeedsSignIn(false), [path]);
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { setNeedsSignIn(false); setCopied(false); }, [path]);
+  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
   const url = () => `${window.location.origin}${path}`;
-  const copy = async () => { await copyText(`«${text}»\n${label}\n${url()}`); onNotice("Պատճենվեց"); };
+  const copy = async () => {
+    if (copied) return;
+    await copyText(`«${text}»\n${label}\n${url()}`);
+    // The button turns into a check mark, then the popup goes.
+    setCopied(true);
+    copiedTimer.current = setTimeout(onClose, 900);
+  };
   const share = async () => {
     if (await systemShare({ title: label, text: `«${text}» — ${label}`, url: url() })) return;
     await copyText(url());
@@ -308,13 +333,18 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, onClo
   // On the page's body: the reading panel's blur would otherwise hold a fixed popup inside it.
   return createPortal(
     <div className="fixed inset-x-0 bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-[80] flex justify-center px-3" data-verse-popup role="dialog" aria-label={label}>
-      <div className="install-toast grid w-full max-w-[440px] gap-2.5 rounded-[20px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]" data-phase="in">
+      <div className="install-toast grid w-full max-w-[440px] gap-2.5 rounded-[20px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]" data-phase={phase}>
         <div className="flex items-center justify-between gap-2 pl-1">
           <strong className="text-[13px] text-gold-bright">{label}</strong>
           <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
         </div>
         <div className={`grid gap-1.5 ${hasAudio ? "grid-cols-4" : "grid-cols-3"}`}>
-          <button className={popupTile} type="button" onClick={copy}><Copy aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> Պատճենել</button>
+          <button className={`${popupTile} transition-colors duration-300 ${copied ? "bg-[rgb(74_160_96/16%)] text-[rgb(52_130_74)]" : ""}`} type="button" onClick={copy} aria-live="polite">
+            {copied
+              ? <Check aria-hidden="true" size={21} strokeWidth={2.4} className="verse-check" />
+              : <Copy aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" />}
+            {copied ? "Պատճենվեց" : "Պատճենել"}
+          </button>
           <button className={popupTile} type="button" onClick={share}><Share2 aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> Կիսվել</button>
           <button className={popupTile} type="button" aria-pressed={saved} onClick={() => canSave ? onSave() : setNeedsSignIn(true)}>
             <Bookmark aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" fill={saved ? "currentColor" : "none"} /> {saved ? "Պահված է" : "Պահել"}

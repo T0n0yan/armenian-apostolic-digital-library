@@ -57,12 +57,13 @@ export function PageShell({children, width = "content"}: PageShellProps) {
         className={`relative mx-auto min-h-svh w-full ${maxWidth} pt-[calc(var(--tg-inset-top,0px)+12px)] pr-[calc(var(--tg-inset-right,0px)+14px)] pb-[calc(var(--tg-inset-bottom,0px)+150px)] pl-[calc(var(--tg-inset-left,0px)+14px)] min-[560px]:pt-[calc(var(--tg-inset-top,0px)+20px)] min-[560px]:pr-[calc(var(--tg-inset-right,0px)+24px)] min-[560px]:pb-[calc(var(--tg-inset-bottom,0px)+100px)] min-[560px]:pl-[calc(var(--tg-inset-left,0px)+24px)] min-[960px]:pr-[calc(var(--tg-inset-right,0px)+32px)] min-[960px]:pb-[calc(var(--tg-inset-bottom,0px)+112px)] min-[960px]:pl-[calc(var(--tg-inset-left,0px)+32px)] min-[1440px]:pt-[calc(var(--tg-inset-top,0px)+26px)]`}
     >
         {children}
-        <footer className="mt-12 grid justify-items-center gap-1 text-center text-[11px] leading-snug text-faint">
+        {/* A quiet line well below the content: it should not draw the eye. */}
+        <footer className="mt-24 grid justify-items-center gap-1 text-center text-[10.5px] leading-snug text-faint opacity-70">
             <span>© {new Date().getFullYear()} Հոգևոր ժառանգություն։ Բոլոր իրավունքները պաշտպանված են։</span>
             <nav className="flex flex-wrap justify-center gap-x-2" aria-label="Կայքի մասին">
-              <Link className="text-faint underline" to="/mer-masin">Մեր մասին</Link>·
-              <Link className="text-faint underline" to="/kap">Կապ</Link>·
-              <Link className="text-faint underline" to="/privacy">Գաղտնիություն</Link>
+              <Link className="text-faint no-underline hover:underline" to="/mer-masin">Մեր մասին</Link>·
+              <Link className="text-faint no-underline hover:underline" to="/kap">Կապ</Link>·
+              <Link className="text-faint no-underline hover:underline" to="/privacy">Գաղտնիություն</Link>
             </nav>
         </footer>
     </main>);

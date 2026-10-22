@@ -32,7 +32,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
   return (
     <div className="grid gap-2">
       <p className="m-0 px-1 text-[12px] text-muted">{byNumber.size} սաղմոս {count}-ից</p>
-      <ol className="m-0 grid list-none grid-cols-5 gap-2 p-0 min-[420px]:grid-cols-6 min-[640px]:grid-cols-8 min-[960px]:grid-cols-10">
+      <ol className="m-0 grid list-none grid-cols-6 gap-1.5 p-0 min-[420px]:grid-cols-7 min-[640px]:grid-cols-10 min-[960px]:grid-cols-12">
         {Array.from({ length: count }, (_, index) => {
           const number = index + 1;
           const material = byNumber.get(number);
@@ -40,7 +40,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
             // Placeholders for psalms not posted yet: seen in the grid, skipped by screen readers.
             return (
               <li key={number} aria-hidden="true">
-                <span className="grid aspect-square place-items-center rounded-[16px] border border-dashed border-[rgb(160_130_90/28%)] text-[18px] font-semibold text-faint/60 tabular-nums select-none min-[640px]:text-[20px]" aria-disabled="true" title={`Սաղմոս ${number}՝ շուտով`}>
+                <span className="grid aspect-square place-items-center rounded-[12px] border border-dashed border-[rgb(160_130_90/28%)] text-[14px] font-semibold text-faint/60 tabular-nums select-none min-[640px]:text-[16px]" aria-disabled="true" title={`Սաղմոս ${number}՝ շուտով`}>
                   {number}
                 </span>
               </li>
@@ -51,15 +51,15 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
           return (
             <li key={number}>
               <Link
-                className={`frosted-card grid aspect-square place-items-center rounded-[16px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
+                className={`frosted-card grid aspect-square place-items-center rounded-[12px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
                 to={targetPath}
                 prefetch="intent"
                 aria-label={`Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}`}
                 title={material.title}
               >
                 {isOpening
-                  ? <LoaderCircle className="animate-search-spin text-gold" aria-hidden="true" size={20} />
-                  : <span className="font-noto text-[20px] font-semibold tabular-nums text-gold-bright min-[640px]:text-[22px]">{number}</span>}
+                  ? <LoaderCircle className="animate-search-spin text-gold" aria-hidden="true" size={16} />
+                  : <span className="font-noto text-[16px] font-semibold tabular-nums text-gold-bright min-[640px]:text-[18px]">{number}</span>}
               </Link>
             </li>
           );
@@ -137,6 +137,20 @@ function introLines(value: string) {
  * rest line by line (intros are often a quote or a short poem), and a closing "(Author)" line as
  * the attribution. Long intros open with "Կարդալ ամբողջը".
  */
+/** A section's own introduction, written for the site (not taken from a Telegram post). */
+export function SectionIntro({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="grid gap-2.5">
+      <IntroOrnament />
+      <section className="frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center">
+        <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3>
+        <p className="m-0 max-w-[620px] font-noto text-[14px] leading-[1.7] text-muted [text-wrap:pretty]">{body}</p>
+      </section>
+      <IntroOrnament />
+    </div>
+  );
+}
+
 export const TopicIntro = memo(function TopicIntro({ material }: { material: CardMaterial & { introText?: string } }) {
   const [expanded, setExpanded] = useState(false);
   const lines = introLines(material.introText || material.excerpt || material.title);

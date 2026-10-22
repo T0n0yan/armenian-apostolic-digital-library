@@ -278,7 +278,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
       if (!devMode() && !isField(event.target) && !isReadingText(event.target)) event.preventDefault();
     };
     const onCopy = (event: ClipboardEvent) => {
-      if (devMode()) return;
+      // Copies the site makes itself (a verse, a link) and form fields keep their own text.
+      if (devMode() || isField(event.target)) return;
       const text = window.getSelection()?.toString() ?? "";
       if (text.trim().length < 15 || !event.clipboardData) return;
       event.clipboardData.setData("text/plain", `${text}\n\nԱղբյուր՝ «Հոգևոր ժառանգություն» — ${window.location.href}`);
