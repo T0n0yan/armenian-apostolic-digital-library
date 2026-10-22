@@ -1,5 +1,6 @@
-import { AlertCircle, ChevronLeft, ChevronRight, Expand, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video, X } from "lucide-react";
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
 import type { MaterialMedia } from "../data/material-detail.server";
@@ -300,15 +301,44 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
   );
 }
 
+/** A picture over the whole screen; a tap anywhere, the close button or Esc closes it. */
+function PhotoViewer({ source, alt, onClose }: { source: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
+  }, [onClose]);
+  return createPortal(
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-[rgb(8_4_10/94%)] p-[max(12px,env(safe-area-inset-top))_12px_max(12px,env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-label="Նկարը ամբողջ էկրանով" onClick={onClose}>
+      <img className="max-h-full max-w-full object-contain" src={source} alt={alt} />
+      <button className="absolute top-[max(12px,env(safe-area-inset-top))] right-3 grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white backdrop-blur-md" type="button" onClick={onClose} aria-label="Փակել" autoFocus>
+        <X aria-hidden="true" size={20} />
+      </button>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * A picture in a material is shown at full quality right away; the small preview fills its place
+ * until the full one has loaded. A tap opens it over the whole screen.
+ */
 function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boolean }) {
-  const [showOriginal, setShowOriginal] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [sourceIndex, setSourceIndex] = useState(0);
-  const original = showOriginal || !asset.thumbnailUrl;
-  const first = original ? asset.url : asset.thumbnailUrl;
-  const sources = first ? mediaSources(first, original ? asset.fallbackUrl : asset.thumbnailFallbackUrl, attempt) : [];
+  const [loaded, setLoaded] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const closeViewer = useCallback(() => setViewing(false), []);
+  // A picture that finished before the page came alive (server-rendered) fires no load event.
+  const imageRef = useRef<HTMLImageElement>(null);
+  useEffect(() => { if (imageRef.current?.complete && imageRef.current.naturalWidth > 0) setLoaded(true); }, []);
+  const first = asset.url ?? asset.thumbnailUrl;
+  const sources = first ? mediaSources(first, asset.url ? asset.fallbackUrl : asset.thumbnailFallbackUrl, attempt) : [];
   const source = sources[Math.min(sourceIndex, sources.length - 1)];
+  const preview = asset.url && asset.thumbnailUrl && !loaded ? asset.thumbnailUrl : null;
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
   if (!source) return <PendingMedia asset={asset} />;
@@ -326,32 +356,27 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
     );
   }
 
-  const image = (
-    <img
-      className="block h-auto max-h-[74svh] w-full object-contain"
-      src={source}
-      sizes="(min-width: 960px) 430px, 92vw"
-      loading={priority ? "eager" : "lazy"}
-      fetchPriority={priority ? "high" : "auto"}
-      decoding="async"
-      width={asset.width ?? 1280}
-      height={asset.height ?? 800}
-      style={{ aspectRatio: ratio }}
-      alt={shortAlt(asset.altText)}
-      onError={() => (sourceIndex < sources.length - 1 ? setSourceIndex(sourceIndex + 1) : setFailed(true))}
-    />
-  );
-
   return (
     <figure className="relative m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
-      {!showOriginal && asset.thumbnailUrl && asset.url ? (
-        <button className="group relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => { setShowOriginal(true); setSourceIndex(0); }} aria-label="Բեռնել նկարի ամբողջական տարբերակը">
-          {image}
-          <span className="absolute right-3 bottom-3 inline-flex min-h-9 items-center gap-2 rounded-[11px] border border-white/20 bg-[rgb(17_8_22/72%)] px-3 text-[11px] font-bold text-white backdrop-blur-md transition-transform group-hover:-translate-y-0.5">
-            <Expand aria-hidden="true" size={14} /> Ամբողջ չափով
-          </span>
-        </button>
-      ) : image}
+      <button className="relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => setViewing(true)} aria-label="Բացել նկարը ամբողջ էկրանով">
+        {preview ? <img className="absolute inset-0 size-full object-contain" src={preview} alt="" aria-hidden="true" decoding="async" /> : null}
+        <img
+          ref={imageRef}
+          className={`relative block h-auto max-h-[74svh] w-full object-contain transition-opacity duration-300 ${preview ? "opacity-0" : "opacity-100"}`}
+          src={source}
+          sizes="(min-width: 960px) 430px, 92vw"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          decoding="async"
+          width={asset.width ?? 1280}
+          height={asset.height ?? 800}
+          style={{ aspectRatio: ratio }}
+          alt={shortAlt(asset.altText)}
+          onLoad={() => setLoaded(true)}
+          onError={() => (sourceIndex < sources.length - 1 ? setSourceIndex(sourceIndex + 1) : setFailed(true))}
+        />
+      </button>
+      {viewing ? <PhotoViewer source={source} alt={shortAlt(asset.altText)} onClose={closeViewer} /> : null}
     </figure>
   );
 }
