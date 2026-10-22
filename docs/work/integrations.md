@@ -11,6 +11,7 @@
 4. Production բոտը միացնել կայքին՝ apostolic.am/admin → «Կապել բոտը» (սեղմում է տերը)։
 5. Սփորթ՝ բոտին գրված հաղորդագրությունները փոխանցվում են փակ «Support» խմբին, ադմինի պատասխանը վերադառնում է օգտատիրոջը (հիմնական բոտով, երկրորդ բոտ պետք չէ)։ Սպասում է՝ տերը ստեղծի խումբը և ավելացնի բոտը։
 6. Տիրոջ Telegram հաշիվը և dav.tonoyan.90@gmail.com-ը production-ում ադմին դարձնել (/admin → «Կայքի ադմիններ», t0n0yan.contact@gmail.com-ով մտած)։
+7. BotFather `/setdomain`՝ Telegram-ով մուտք բրաուզերում (Login Widget). production բոտ՝ `apostolic.am`, staging բոտ՝ `staging.apostolic.am`։ Անել, երբ «Նոր հնարավորություններ» չաթը պատրաստ լինի, տիրոջը հարցնելուց հետո։
 
 ## Արված
 - 2026-10-21 — info@apostolic.am (Cloudflare Email Routing), դոմենը Cloudflare-ում, media.apostolic.am։
