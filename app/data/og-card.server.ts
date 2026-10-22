@@ -12,19 +12,25 @@ const HEIGHT = 630;
 // Workers may only run WebAssembly bundled with them, so both engines start from imported modules.
 let ready: Promise<void> | null = null;
 function start() {
-  ready ??= (async () => {
-    // Satori's layout engine looks up `self.location.href` while it starts, which Workers lack;
-    // a placeholder is set for that moment only.
-    const scope = globalThis as { location?: unknown };
-    const placeholder = scope.location === undefined;
-    if (placeholder) Object.defineProperty(globalThis, "location", { value: { href: "https://worker.invalid/" }, configurable: true, writable: true });
-    try {
-      await Promise.all([initSatori(yogaWasm as WebAssembly.Module), initWasm(resvgWasm as WebAssembly.Module)]);
-    } finally {
-      if (placeholder) delete scope.location;
-    }
-  })().catch((error) => { ready = null; throw error; });
+  ready ??= Promise.all([initSatori(yogaWasm as WebAssembly.Module), initWasm(resvgWasm as WebAssembly.Module)])
+    .then(() => undefined)
+    .catch((error) => { ready = null; throw error; });
   return ready;
+}
+
+/**
+ * Satori's layout engine reads `self.location.href` as it starts (on the first render, not at
+ * init), which Workers lack; a placeholder stands in while a card is drawn.
+ */
+async function withLocation<T>(work: () => Promise<T>) {
+  const scope = globalThis as { location?: unknown };
+  const placeholder = scope.location === undefined;
+  if (placeholder) Object.defineProperty(globalThis, "location", { value: { href: "https://worker.invalid/" }, configurable: true, writable: true });
+  try {
+    return await work();
+  } finally {
+    if (placeholder) delete scope.location;
+  }
 }
 
 function fontData(dataUrl: string) {
@@ -46,7 +52,11 @@ export function excerpt(text: string, limit = 210) {
  * A link-preview picture (1200×630 PNG) on the site's parchment background: the material's name in
  * gold above, a short passage of its text, and the library's name below.
  */
-export async function renderOgCard({ label, text, section }: { label: string; text: string; section: string }) {
+export async function renderOgCard(card: { label: string; text: string; section: string }) {
+  return withLocation(() => drawCard(card));
+}
+
+async function drawCard({ label, text, section }: { label: string; text: string; section: string }) {
   await start();
   const passage = excerpt(text);
   const size = passage.length <= 90 ? 54 : passage.length <= 150 ? 46 : 40;
