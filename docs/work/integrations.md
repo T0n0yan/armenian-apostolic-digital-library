@@ -13,6 +13,7 @@
 7. Անդամների «բաց» թեմա (նկար/գրառում)՝ մնացած թեմաները փակ են։ Կոդ՝ այդ թեման չպետք է հայտնվի կայքում որպես բաժին (bridge-ը բոլոր թեմաները բերում է, `isNavigableCategory`)։ Անել թեման ստեղծելուց առաջ, staging-ում։ Նպատակը՝ սրբավայրերի քարտեզ (քարտեզը «Նոր հնարավորություններ»-ի հերթում է, ավելի ուշ)։
 
 ## Արված
+- 2026-10-23 — Տիրոջ ցուցակը՝ օրվա ընթերցման նկարում միայն ենթավերնագիրը (չկա՝ ընթերցումները), «Լսել», հավելվածի լրիվ անունը, թռչնագրի նախաբեռնում, կարգավորումները մեկ տողով, footer-ի տարածություն, Կապ էջի հասցեի պատճենում, նոր աղավնի ամենուր (`scripts/build-brand-assets.py`) ([#28](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/28))։ «Բագեր» և «Նոր հնարավորություններ» չաթերը փակված էին, արվեց այստեղ։
 - 2026-10-23 — Սփորթ բոտով՝ /support, /contact → փակ Support խումբ (թեմաներ՝ Տեխնիկական 2, Հարցեր և առաջարկներ 7), ադմինի Reply-ը → օգտատիրոջը. staging-ում ստուգեց տերը ([#26](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/26))։
 - 2026-10-23 — BotFather՝ «Գրադարան» menu button և Main Mini App → https://apostolic.am։
 - 2026-10-23 — Support խումբը ստեղծված է (տերը)՝ Topics միացված, երկու բոտն էլ ադմին են (Delete messages, Manage topics)։
@@ -26,4 +27,6 @@
 - Փոստը Zoho Mail-ում է. info@, contact@, support@ մեկ փոստարկղի alias-ներ են։ Կոդում՝ `app/utils/contact.ts` (`INFO_EMAIL`, `CONTACT_EMAIL`, `SUPPORT_EMAIL`)։
 - Բոտի պատասխանները՝ `app/data/telegram-bot-replies.server.ts` (/start, /help, deep link-եր՝ `saghmosner_22`)։ Deep link-երը փոխելիս՝ հին ձևը թողնել աշխատող։
 - Support խումբ՝ `SUPPORT_CHAT_ID` և թեմաները `wrangler.jsonc`-ում. երկու բոտն էլ այնտեղ ադմին են, ամեն մեկը փոխանցում է միայն իր հաղորդագրությունների reply-ները։ Բոտին գրված ցանկացած ոչ-հրաման նամակ գնում է Support խումբ։
+- Պատկերակները՝ `design/logo/dove/source.webp` → `python3 scripts/build-brand-assets.py`. փոխելիս բարձրացնել `?v=` համարը (`app/root.tsx`, `manifest.webmanifest`, `app/utils/seo.ts`)։
+- Կիսվելու նկարները նկարում է `og-cards.yml`-ը deploy-ից հետո. դիզայնը փոխելիս բարձրացնել `OG_CARD_LAYOUT`-ը։
 - Խմբում ծանուցում չուղարկել. ամրացնել առանց «Notify all members», գրել «Send without sound»-ով։
