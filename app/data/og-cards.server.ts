@@ -3,7 +3,7 @@ import { canonicalMaterialPath } from "./material-page.server";
 import { listPublicMaterialPageByCategory } from "./materials.server";
 import { listActiveCategories } from "./categories.server";
 import { categoryForSection } from "../utils/material-path";
-import { clergyByline, psalmBodyText } from "../utils/material-title";
+import { clergyByline, psalmBodyText, shortestTimedQuestion } from "../utils/material-title";
 import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
@@ -22,7 +22,7 @@ export function ogCardVersion(material: Pick<MaterialDetail, "editedAt" | "publi
   return (material.editedAt ?? material.publishedAt ?? "").replace(/\D/gu, "").slice(0, 14) || "0";
 }
 
-export type OgCard = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string };
+export type OgCard = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string; plain?: boolean };
 
 /** The cards of one material: the material itself and, for a psalm, each of its verses. */
 export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
@@ -30,10 +30,12 @@ export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
   const version = ogCardVersion(material);
   const section = material.categoryName.toLocaleUpperCase("hy");
   const kind = resolveContentCategoryId(null, material.categoryName);
-  // A gospel teaching: its name and, under it, the clergy member who gives it (no description).
+  // A gospel teaching: its name, the shortest question it answers (without its time in the video)
+  // and the clergy member who gives it.
   if (kind === "category_gospel_teachings") {
     const byline = clergyByline(material.formattedText, material.formattedCaption) ?? undefined;
-    return [{ path, version, section, label: material.title, text: "", byline }];
+    const question = shortestTimedQuestion(material.contentText || material.captionText || "") ?? "";
+    return [{ path, version, section, label: material.title, text: question, byline, plain: true }];
   }
   // A saint: the name alone, with the saint's icon when the post has one (no caption text).
   if (kind === "category_saints_lives") {
@@ -44,7 +46,7 @@ export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
   // A Bible question: the section's name as the heading, the whole question in the middle.
   if (kind === "category_bible_questions") {
     const question = (material.poll?.question.text || material.title).trim();
-    return [{ path, version, section: "", label: material.categoryName, text: question }];
+    return [{ path, version, section: "", label: material.categoryName, text: question, plain: true }];
   }
   // Everything else: its name on top, its opening text below.
   if (kind !== "category_psalms") {

@@ -78,3 +78,17 @@ export function clergyByline(...sources: Array<{ text: string; entities: Array<{
   }
   return null;
 }
+
+/**
+ * The shortest question a gospel-teaching post lists by its time in the video ("05:57 Ինչո՞ւ
+ * անապատում փորձվեց Հիսուս։" → "Ինչո՞ւ անապատում փորձվեց Հիսուս։"), without the time; null when
+ * the post lists none.
+ */
+export function shortestTimedQuestion(text: string) {
+  const parts = text.split(/(?:^|\n)\s*\d{1,2}:\d{2}(?::\d{2})?\s+/u).slice(1)
+    .map((part) => part.split(/\n\s*\n/u)[0].replace(/\s+/gu, " ").trim())
+    .filter((part) => part.length >= 8);
+  const questions = parts.filter((part) => part.includes("՞") || part.includes("?"));
+  const pool = questions.length ? questions : parts;
+  return pool.reduce<string | null>((shortest, part) => shortest === null || part.length < shortest.length ? part : shortest, null);
+}

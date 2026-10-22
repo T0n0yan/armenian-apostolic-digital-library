@@ -58,3 +58,10 @@ test("gospel teachings name their clergy on an italic last line in parentheses",
   const at = plain.lastIndexOf("Սահակ");
   assert.equal(clergyByline({ text: plain, entities: [{ type: "italic", offset: at, length: plain.length - at }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
 });
+
+test("a gospel teaching's shortest timed question, without its time", async () => {
+  const { shortestTimedQuestion } = await import("../app/utils/material-title");
+  const text = "ՓՈՐՁՈՒԹՅՈՒՆ\n\nՔննարկվում են հետևյալ հարցերը․ 📜\n\n01:21 Հիսուսի փորձությունն ինչո՞վ էր պայմանավորված։ Ինչո՞ւ պետք է Հիսուս փորձվեր։\n\n05:57 Ինչո՞ւ անապատում փորձվեց Հիսուս։\n\n33:46 Ինչպե՞ս կմեկնեք այս նկարագրությունը։\n\nՍահակ Բ արքեպիսկոպոս Մաշալյան";
+  assert.equal(shortestTimedQuestion(text), "Ինչո՞ւ անապատում փորձվեց Հիսուս։");
+  assert.equal(shortestTimedQuestion("ՎԵՐՆԱԳԻՐ\nՆկարագրություն"), null);
+});
