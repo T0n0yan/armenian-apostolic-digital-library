@@ -11,7 +11,7 @@ import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath, resolveMaterialId } from "../data/material-page.server";
 import { psalmBodyText } from "../utils/material-title";
 import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
-import { NOINDEX, SITE_NAME, absoluteUrl, breadcrumbJsonLd, describe, seoMeta } from "../utils/seo";
+import { NOINDEX, SITE_NAME, absoluteUrl, breadcrumbJsonLd, describe, sectionImage, seoMeta } from "../utils/seo";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
 /** One psalm verse on its own page (/saghmosner/22/3): what the verse popup's "Կիսվել" shares. */
@@ -47,6 +47,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${loaderData.label} — ${SITE_NAME}`,
     description,
     path: loaderData.path,
+    image: sectionImage("category_psalms"),
     type: "article",
     jsonLd: [
       {
@@ -81,7 +82,7 @@ export default function VersePage({ loaderData }: Route.ComponentProps) {
         </Link>
         <div className="flex items-center justify-between gap-2 font-sans">
           {previous ? <Link className={stepLink} to={`${psalmPath}/${previous}`} aria-label={`Նախորդ համարը՝ ${previous}`}><ChevronLeft aria-hidden="true" size={17} /> {previous}</Link> : <span />}
-          <ShareButton className={stepLink} title={label} text={`«${text}» — ${label}`} pageUrl={loaderData.path} label />
+          <ShareButton className={stepLink} title={label} text={`${label}\n«${text}»`} pageUrl={loaderData.path} label />
           {next ? <Link className={stepLink} to={`${psalmPath}/${next}`} aria-label={`Հաջորդ համարը՝ ${next}`}>{next} <ChevronRight aria-hidden="true" size={17} /></Link> : <span />}
         </div>
       </article>

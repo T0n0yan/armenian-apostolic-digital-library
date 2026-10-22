@@ -319,13 +319,13 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
   const url = () => `${window.location.origin}${path}`;
   const copy = async () => {
     if (copied) return;
-    await copyText(`«${text}»\n${label}\n${url()}`);
+    await copyText(`${label}\n«${text}»\n${url()}`);
     // The button turns into a check mark, then the popup goes.
     setCopied(true);
     copiedTimer.current = setTimeout(onClose, 900);
   };
   const share = async () => {
-    if (await systemShare({ title: label, text: `«${text}» — ${label}`, url: url() })) return;
+    if (await systemShare({ title: label, text: `${label}\n«${text}»`, url: url() })) return;
     await copyText(url());
     onNotice("Հղումը պատճենվեց");
   };

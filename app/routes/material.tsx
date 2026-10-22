@@ -23,7 +23,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
-import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, seoMeta } from "../utils/seo";
+import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
@@ -35,7 +35,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [];
   const { material } = loaderData;
   const path = loaderData.canonicalPath;
-  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl ?? null;
+  // The post's own picture (a saint, the day, a video's frame), else the section's preview picture.
+  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl
+    ?? sectionImage(material.categoryId, material.categoryName);
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
   return seoMeta({
