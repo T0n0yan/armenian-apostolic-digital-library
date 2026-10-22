@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { CONTACT_EMAIL } from "../utils/contact";
+import { CONTACT_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
 import { isLibraryPath } from "../utils/material-path";
 
@@ -79,6 +79,7 @@ export async function answerUpdate(update: Update) {
       "🌐 Կայքը՝ " + site.replace(/^https?:\/\//u, ""),
       "",
       support ? `Հարցերի և առաջարկների համար՝ ${support}` : `Հարցերի և առաջարկների համար՝ ${CONTACT_EMAIL}`,
+      `Տեխնիկական խնդիրների համար՝ ${SUPPORT_EMAIL}`,
     ].join("\n"),
     link_preview_options: { is_disabled: true },
     reply_markup: { inline_keyboard: [[{ text: "📖 Բացել գրադարանը", web_app: { url: `${site}/` } }]] },
