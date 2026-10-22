@@ -29,13 +29,22 @@ export async function copyText(value: string) {
   }
 }
 
-/** Opens the phone's share sheet; false when the browser has none or it failed. */
+let sheetOpen = false;
+
+/**
+ * Opens the phone's share sheet; false only when the browser has none. A tap while the sheet is
+ * open, or closing it without sending, counts as handled, so nothing is copied instead.
+ */
 export async function systemShare(data: ShareData) {
+  if (sheetOpen) return true;
   if (!navigator.share || (navigator.canShare && !navigator.canShare(data))) return false;
+  sheetOpen = true;
   try {
     await navigator.share(data);
-  } catch (error) {
-    if (!(error instanceof DOMException && error.name === "AbortError")) return false;
+  } catch {
+    // Cancelled, or the sheet refused: nothing more to do.
+  } finally {
+    sheetOpen = false;
   }
   return true;
 }
