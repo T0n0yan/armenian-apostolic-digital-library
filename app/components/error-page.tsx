@@ -4,7 +4,7 @@ import { isRouteErrorResponse, Link } from "react-router";
 import { PageShell } from "./page-layout";
 import { SiteNav } from "./site-nav";
 import { glassPanel } from "./ui-styles";
-import { CONTACT_EMAIL } from "../utils/contact";
+import { SUPPORT_EMAIL } from "../utils/contact";
 
 type ErrorCopy = { title: string; text: string; retry: boolean };
 
@@ -42,7 +42,7 @@ export function ErrorPage({ status, notFoundTitle }: { status: number; notFoundT
         )}
       </div>
       <p className="m-0 mt-3 text-[12px] text-faint">
-        Եթե խնդիրը կրկնվում է, գրեք մեզ՝ <a className="text-gold-bright" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+        Եթե խնդիրը կրկնվում է, գրեք մեզ՝ <a className="text-gold-bright" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
       </p>
     </section>
   );

@@ -1,11 +1,11 @@
-import { Bot, Mail, MessagesSquare } from "lucide-react";
+import { Bot, Landmark, LifeBuoy, Mail, MessagesSquare } from "lucide-react";
 
 import type { Route } from "./+types/contact";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 
-import { CONTACT_EMAIL } from "../utils/contact";
+import { CONTACT_EMAIL, INFO_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({
@@ -18,6 +18,12 @@ export function meta({}: Route.MetaArgs) {
 const row = "flex items-center gap-3.5 frosted-panel px-4 py-3.5 text-inherit no-underline transition-transform active:scale-[.99]";
 const icon = "grid size-10 shrink-0 place-items-center rounded-full bg-[rgb(217_181_111/14%)] text-gold-bright";
 
+const emails = [
+  { address: CONTACT_EMAIL, title: "Հարցեր և առաջարկներ", note: "համագործակցություն", Icon: Mail },
+  { address: SUPPORT_EMAIL, title: "Տեխնիկական աջակցություն", note: "խնդիրներ և սխալներ", Icon: LifeBuoy },
+  { address: INFO_EMAIL, title: "Պաշտոնական նամակներ", note: "ընդհանուր նամակագրություն", Icon: Landmark },
+];
+
 /** How to reach the library: e-mail, the bot, the Telegram group. */
 export default function Contact() {
   return (
@@ -25,10 +31,12 @@ export default function Contact() {
       <SiteNav />
       <PageHeader backTo="/" backLabel="Գրադարան" title="Կապ" />
       <div className="mt-4 grid gap-2.5">
-        <a className={row} href={`mailto:${CONTACT_EMAIL}`}>
-          <span className={icon}><Mail aria-hidden="true" size={19} /></span>
-          <span className="grid"><strong className="text-[14.5px] text-ink">Էլ. փոստ</strong><span className="text-[12.5px] text-muted">{CONTACT_EMAIL}</span></span>
-        </a>
+        {emails.map(({ address, title, note, Icon }) => (
+          <a key={address} className={row} href={`mailto:${address}`}>
+            <span className={icon}><Icon aria-hidden="true" size={19} /></span>
+            <span className="grid"><strong className="text-[14.5px] text-ink">{title}</strong><span className="text-[12.5px] text-muted">{address} · {note}</span></span>
+          </a>
+        ))}
         <a className={row} href="https://t.me/armenian_apostolic_church_bot" target="_blank" rel="noreferrer">
           <span className={icon}><Bot aria-hidden="true" size={19} /></span>
           <span className="grid"><strong className="text-[14.5px] text-ink">Telegram բոտ</strong><span className="text-[12.5px] text-muted">@armenian_apostolic_church_bot · գրեք /help</span></span>
@@ -38,7 +46,7 @@ export default function Contact() {
           <span className="grid"><strong className="text-[14.5px] text-ink">Telegram խումբ</strong><span className="text-[12.5px] text-muted">Հայ Առաքելական Սուրբ Եկեղեցի</span></span>
         </a>
         <p className="m-0 mt-2 px-1 text-[12.5px] leading-snug text-muted">
-          Նյութում սխալ նկատելիս գրեք նյութի հղումը և ինչն է սխալ. կուղղենք որքան հնարավոր է շուտ։
+          Նյութում սխալ նկատելիս գրեք {SUPPORT_EMAIL} հասցեին՝ նյութի հղումով և նշելով, թե ինչն է սխալ. կուղղենք որքան հնարավոր է շուտ։
         </p>
       </div>
     </PageShell>
