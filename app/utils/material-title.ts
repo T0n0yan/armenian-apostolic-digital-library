@@ -57,3 +57,21 @@ export function psalmBodyText(material: { title: string; contentText?: string | 
   const source = [material.formattedText.text, material.contentText, material.formattedCaption.text, material.captionText].find((value) => value?.trim()) ?? "";
   return source.slice(skipPsalmLabel(source, leadingTitleLength(source, material.title)));
 }
+
+/**
+ * The clergy member a gospel-teaching post names on its last line, in italics and in parentheses:
+ * «(Սահակ Բ արքեպիսկոպոս Մաշալյան)» → "Սահակ Բ արքեպիսկոպոս Մաշալյան". Null when the post has no
+ * such line (nothing is guessed).
+ */
+export function clergyByline(...sources: Array<{ text: string; entities: Array<{ type: string; offset: number; length: number }> } | null | undefined>) {
+  for (const source of sources) {
+    const text = source?.text.trimEnd() ?? "";
+    if (!text) continue;
+    const start = text.lastIndexOf("\n") + 1;
+    const match = /^\s*\(([^()\n]{3,160})\)\s*$/u.exec(text.slice(start));
+    if (!match) return null;
+    const italic = source!.entities.some((entity) => entity.type === "italic" && entity.offset < text.length && entity.offset + entity.length > start);
+    return italic ? match[1].replace(/\s+/gu, " ").trim() : null;
+  }
+  return null;
+}

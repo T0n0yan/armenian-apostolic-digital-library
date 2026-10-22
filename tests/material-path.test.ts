@@ -45,3 +45,13 @@ test("psalm verses: their text, names and pages", async () => {
   assert.equal(verseLabel("/post/364", "Սաղմոս", 3), "Սաղմոս, 3");
   assert.ok(isLibraryPath("/psalms/22/3"));
 });
+
+test("gospel teachings name their clergy on an italic last line in parentheses", async () => {
+  const { clergyByline } = await import("../app/utils/material-title");
+  const text = "ՓՈՐՁՈՒԹՅՈՒՆ\nՔննարկվում են հետևյալ հարցերը․ 01:21 Հիսուսի փորձությունը\n(Սահակ Բ արքեպիսկոպոս Մաշալյան)";
+  const offset = text.lastIndexOf("(");
+  assert.equal(clergyByline({ text, entities: [{ type: "italic", offset, length: text.length - offset }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+  assert.equal(clergyByline({ text, entities: [] }), null);
+  assert.equal(clergyByline({ text: "ՓՈՐՁՈՒԹՅՈՒՆ\nՆկարագրություն", entities: [{ type: "italic", offset: 0, length: 5 }] }), null);
+  assert.equal(clergyByline({ text: "", entities: [] }, { text, entities: [{ type: "italic", offset: offset + 1, length: 10 }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+});

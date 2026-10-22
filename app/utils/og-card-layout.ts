@@ -2,7 +2,7 @@
 export const OG_CARD_WIDTH = 1200;
 export const OG_CARD_HEIGHT = 630;
 /** Raise when the design changes, so scripts/og-cards.ts draws every card again. */
-export const OG_CARD_LAYOUT = "2";
+export const OG_CARD_LAYOUT = "3";
 
 /** At most `limit` characters, cut at a word, with "…" when shortened. */
 export function excerpt(text: string, limit: number) {
@@ -19,10 +19,11 @@ const h = (type: string, style: Record<string, unknown>, children?: unknown): No
 /**
  * The card as Satori's element tree, on the site's parchment: the section small on top, the
  * material's name in gold (a psalm's own title under «Սաղմոս 22»), a short passage of its text,
- * and the library's name below. Long names and passages are cut at a word with "…"; a passage
+ * and the library's name below; a gospel teaching shows, instead of a passage, the clergy member
+ * who gives it, and a card with neither has its name in the middle. Long names and passages are cut at a word with "…"; a passage
  * that starts with the name does not repeat it.
  */
-export function ogCardElement({ label, subtitle, text, section }: { label: string; subtitle?: string; text: string; section: string }) {
+export function ogCardElement({ label, subtitle, text, section, byline }: { label: string; subtitle?: string; text: string; section: string; byline?: string }) {
   const title = excerpt(label, 48);
   const under = subtitle && comparable(subtitle) !== comparable(label) ? excerpt(subtitle, 60) : "";
   let body = text.replace(/\s+/gu, " ").trim();
@@ -41,15 +42,17 @@ export function ogCardElement({ label, subtitle, text, section }: { label: strin
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", width: "100%", height: "100%",
     border: "2px solid rgba(176,125,46,0.55)", borderRadius: 26, padding: "34px 64px 28px",
   }, [
-    h("div", { display: "flex", flexDirection: "column", alignItems: "center" }, [
+    h("div", { display: "flex", flexDirection: "column", alignItems: "center", marginTop: passage || byline ? 0 : 150 }, [
       h("div", { fontSize: 22, letterSpacing: 3, color: "#8a5a1c", fontWeight: 400 }, section),
       h("div", { fontSize: under ? 52 : title.length > 40 ? 34 : 42, color: "#a06d22", fontWeight: 600, marginTop: 6, textAlign: "center", maxWidth: 1000, lineHeight: 1.25 }, title),
       under ? h("div", { fontSize: 28, color: "#8a5a1c", fontWeight: 400, marginTop: 6, textAlign: "center", maxWidth: 1000 }, under) : null,
       h("div", { width: 220, height: 2, marginTop: 14, backgroundImage: "linear-gradient(90deg, rgba(176,125,46,0), #b07d2e, rgba(176,125,46,0))" }),
     ].filter(Boolean)),
-    passage
-      ? h("div", { display: "flex", fontSize: size, lineHeight: 1.45, color: "#3a2412", textAlign: "center", fontWeight: 400, maxWidth: 1000 }, `«${passage}»`)
-      : h("div", { display: "flex" }),
+    byline
+      ? h("div", { display: "flex", fontSize: 36, lineHeight: 1.4, color: "#7a5a3a", textAlign: "center", fontWeight: 400, maxWidth: 1000 }, excerpt(byline, 70))
+      : passage
+        ? h("div", { display: "flex", fontSize: size, lineHeight: 1.45, color: "#3a2412", textAlign: "center", fontWeight: 400, maxWidth: 1000 }, `«${passage}»`)
+        : h("div", { display: "flex" }),
     h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Հոգևոր ժառանգություն · apostolic.am"),
   ]));
 }
