@@ -19,7 +19,7 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
         return (
           <button
             key={option.value}
-            className={`grid h-[60px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-[11px] border-0 px-1 py-2 text-[11.5px] font-semibold transition-colors ${active ? "bg-glass-strong text-gold-bright shadow-[0_2px_10px_rgb(12_4_17/18%)]" : "bg-transparent text-muted hover:text-ink"}`}
+            className={`grid h-[60px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-[11px] border-0 px-0.5 py-2 text-[11px] font-semibold transition-colors ${active ? "bg-glass-strong text-gold-bright shadow-[0_2px_10px_rgb(12_4_17/18%)]" : "bg-transparent text-muted hover:text-ink"}`}
             type="button" role="radio" aria-checked={active} onClick={() => onChange(option.value)}
           >
             {option.sample ?? option.icon}
