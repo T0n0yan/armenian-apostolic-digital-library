@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/auth-telegram";
-import { safeReturnPath } from "../auth/google.server";
 import { createTelegramLoginSession, getOptionalTelegramUser, requireSameOriginUserRequest, upsertAppUser } from "../auth/telegram-user.server";
 import { joinAccounts } from "../data/account-links.server";
 import { CandleLoader } from "../components/candle-loader";
@@ -45,7 +44,9 @@ function decodeResult(hash: string) {
 export default function TelegramSignIn() {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
-    const returnTo = safeReturnPath(new URLSearchParams(window.location.search).get("return"));
+    // Only a path on this site (as google.server's safeReturnPath, which the page can't import).
+    const requested = new URLSearchParams(window.location.search).get("return");
+    const returnTo = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/saved";
     const result = decodeResult(window.location.hash);
     // The signed result should not stay in the address or the history.
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
