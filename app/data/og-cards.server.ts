@@ -3,7 +3,7 @@ import { canonicalMaterialPath } from "./material-page.server";
 import { listPublicMaterialPageByCategory } from "./materials.server";
 import { listActiveCategories } from "./categories.server";
 import { categoryForSection } from "../utils/material-path";
-import { psalmBodyText } from "../utils/material-title";
+import { clergyByline, psalmBodyText } from "../utils/material-title";
 import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
@@ -22,15 +22,21 @@ export function ogCardVersion(material: Pick<MaterialDetail, "editedAt" | "publi
   return (material.editedAt ?? material.publishedAt ?? "").replace(/\D/gu, "").slice(0, 14) || "0";
 }
 
-export type OgCard = { path: string; version: string; section: string; label: string; subtitle?: string; text: string };
+export type OgCard = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string };
 
 /** The cards of one material: the material itself and, for a psalm, each of its verses. */
 export function cardsFor(material: MaterialDetail): OgCard[] {
   const path = canonicalMaterialPath(material);
   const version = ogCardVersion(material);
   const section = material.categoryName.toLocaleUpperCase("hy");
+  const kind = resolveContentCategoryId(null, material.categoryName);
+  // A gospel teaching: its name and, under it, the clergy member who gives it (no description).
+  if (kind === "category_gospel_teachings") {
+    const byline = clergyByline(material.formattedText, material.formattedCaption) ?? undefined;
+    return [{ path, version, section, label: material.title, text: "", byline }];
+  }
   // Everything else: its name on top, its opening text below.
-  if (resolveContentCategoryId(null, material.categoryName) !== "category_psalms") {
+  if (kind !== "category_psalms") {
     const text = material.poll?.question.text || material.contentText || material.captionText || "";
     return [{ path, version, section, label: material.title, text }];
   }
