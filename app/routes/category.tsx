@@ -340,9 +340,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   const categoryDescription = CATEGORY_DESCRIPTIONS[contentCategory]
     ?? (category.isGeneral
       ? "Telegram ֆորումի հիմնական թեմայի հրապարակումները։"
-      : category.status === "closed"
-        ? "Այս Telegram թեման փակված է, սակայն հրապարակումները հասանելի են ընթերցման համար։"
-        : "Այս բաժնի բոլոր նյութերը։");
+      : "Այս բաժնի բոլոր նյութերը։");
   const navigation = useNavigation();
   const isRefreshing = navigation.state === "loading" &&
     navigation.location?.pathname === sectionPath(category);
