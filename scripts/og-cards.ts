@@ -19,7 +19,7 @@ import satori from "satori";
 
 import { OG_CARD_HEIGHT, OG_CARD_LAYOUT, OG_CARD_WIDTH, ogCardElement } from "../app/utils/og-card-layout";
 
-type Card = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string };
+type Card = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string; plain?: boolean };
 
 const site = (process.env.OG_SITE ?? "").replace(/\/+$/u, "");
 const bucket = process.env.OG_BUCKET ?? "";
