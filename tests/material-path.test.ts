@@ -53,5 +53,8 @@ test("gospel teachings name their clergy on an italic last line in parentheses",
   assert.equal(clergyByline({ text, entities: [{ type: "italic", offset, length: text.length - offset }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
   assert.equal(clergyByline({ text, entities: [] }), null);
   assert.equal(clergyByline({ text: "ՓՈՐՁՈՒԹՅՈՒՆ\nՆկարագրություն", entities: [{ type: "italic", offset: 0, length: 5 }] }), null);
-  assert.equal(clergyByline({ text: "", entities: [] }, { text, entities: [{ type: "italic", offset: offset + 1, length: 10 }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+  assert.equal(clergyByline({ text: "", entities: [] }, { text, entities: [{ type: "italic", offset: offset + 1, length: text.length - offset - 2 }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
+  const plain = "ՓՈՐՁՈՒԹՅՈՒՆ\nՆկարագրություն\n\nՍահակ Բ արքեպիսկոպոս Մաշալյան";
+  const at = plain.lastIndexOf("Սահակ");
+  assert.equal(clergyByline({ text: plain, entities: [{ type: "italic", offset: at, length: plain.length - at }] }), "Սահակ Բ արքեպիսկոպոս Մաշալյան");
 });
