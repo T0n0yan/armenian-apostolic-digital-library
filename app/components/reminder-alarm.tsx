@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, useActiveReminders, type ActiveReminder } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, markReminderRung, snoozeReminder, useActiveReminders, type ActiveReminder } from "../utils/reminder-store";
 import { materialIdFromShortPath, materialPath } from "../utils/material-path";
 
 type Upcoming = ActiveReminder;
@@ -38,14 +38,10 @@ const COUNTDOWN_SECONDS = 5;
 const REFRESH_MS = 10 * 60_000;
 const BELL_URL = "/sounds/church-bell.mp3";
 
-async function post(body: Record<string, unknown>) {
-  await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
-}
-
 /**
  * The in-app alarm: while the library is open, a due reminder slides up with a five-second
  * countdown, then the church bell rings once. The reader can open the material or snooze it for
- * one or five minutes. (With the library closed, Telegram's bot message reminds instead.)
+ * one or five minutes. (With the library closed or in the background, the bot's message or the phone's notification reminds instead.)
  */
 export function ReminderAlarm() {
   const navigate = useNavigate();
@@ -58,12 +54,16 @@ export function ReminderAlarm() {
 
   const recentlyRung = useRef(new Map<string, number>());
   const ring = useCallback((reminder: Upcoming) => {
+    // A library left open in the background (a phone's home button, another tab) must not
+    // claim the reminder: nobody would see it, and the server would skip the phone notification.
+    // It rings here when the page is shown again, if the server hasn't sent it by then.
+    if (document.visibilityState !== "visible") return;
     // The page's own timer and a push from the server can both announce the same reminder.
     const last = recentlyRung.current.get(reminder.materialId) ?? 0;
     if (Date.now() - last < 120_000) return;
     recentlyRung.current.set(reminder.materialId, Date.now());
     // Mark it rung right away so the bot doesn't also send it.
-    void post({ materialId: reminder.materialId, rang: true }).then(() => window.setTimeout(() => void loadReminders(), 500));
+    void markReminderRung(reminder.materialId).then(() => window.setTimeout(() => void loadReminders({ fresh: true }), 500));
     setQueue((items) => items.some((item) => item.materialId === reminder.materialId) ? items : [...items, reminder]);
   }, []);
 
@@ -172,7 +172,9 @@ export function ReminderAlarm() {
     if (!current) return;
     const reminder = current;
     dismiss();
-    await post({ materialId: reminder.materialId, snooze: minutes });
+    // The snoozed ring is a new one: it must not be taken for a repeat of the one just shown.
+    recentlyRung.current.delete(reminder.materialId);
+    await snoozeReminder(reminder.materialId, minutes);
     const at = new Date(Date.now() + minutes * 60_000).toISOString();
     timers.current.set(reminder.materialId, window.setTimeout(() => ring({ ...reminder, at }), minutes * 60_000 - COUNTDOWN_SECONDS * 1000));
   };

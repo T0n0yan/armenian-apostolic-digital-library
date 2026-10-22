@@ -136,7 +136,10 @@ export async function completeReminder(database: D1Database, key: ReminderKey, n
   }
 }
 
-/** Rings again in a few minutes; a one-off that already rang is kept as a one-off for then. */
+/**
+ * Rings again in a few minutes; a one-off that already rang is kept as a one-off for then. It
+ * leaves the bell's list until then, since it is no longer waiting to be read.
+ */
 export async function snoozeReminder(database: D1Database, key: ReminderKey & { telegramId: string }, minutes: number, now = Date.now()) {
   const at = new Date(now + minutes * MINUTE).toISOString();
   await database.prepare(
@@ -144,6 +147,7 @@ export async function snoozeReminder(database: D1Database, key: ReminderKey & { 
      VALUES (?, ?, ?, ?, ?, 'none')
      ON CONFLICT(user_id, chat_id, message_id) DO UPDATE SET snoozed_until = ?`,
   ).bind(key.userId, key.telegramId, key.chatId, key.messageId, at, at).run();
+  await markReminderRead(database, key);
 }
 
 type TelegramResult = { ok: boolean; error_code?: number; description?: string };
