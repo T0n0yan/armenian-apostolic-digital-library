@@ -22,7 +22,7 @@ import { getActiveCategoryBySlug, listActiveCategories } from "../data/categorie
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath } from "../data/material-page.server";
 import { categoryForSection, materialIdFromShortPath, sectionPath } from "../utils/material-path";
-import { DailyReadingCard, PsalmGrid, SaintGrid, TopicIntro } from "../components/category-cards";
+import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
@@ -63,12 +63,28 @@ const CATEGORY_SEARCH_PLACEHOLDERS: Record<string, string> = {
 };
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  category_saints_lives: "Վկայություններ սրբերի կյանքի, հավատքի և ծառայության մասին։",
-  category_gospel_teachings: "Ավետարանական մեկնություններ և հոգևոր ուղեցույցներ։",
+  category_saints_lives: "Սրբերի վարքը՝ հավատքի և ծառայության օրինակներ։",
+  category_gospel_teachings: "Ավետարանի բացատրություններ Եկեղեցու հոգևորականներից։",
   category_psalms: "Սաղմոսները՝ ըստ համարի և բովանդակության։",
   category_bible_questions: "Հարցեր և բացատրություններ Աստվածաշնչի շուրջ։",
   category_prayers: "Աղոթքներ՝ առօրյա, տոնական և անձնական ընթերցման համար։",
-  category_daily_readings: "Օրվա ընթերցվածքները, հիշատակությունները և տոնացույցը։",
+  category_daily_readings: "Օրվա ընթերցումները, տոներն ու հիշատակությունները։",
+};
+
+/** Sections whose introduction the site writes itself, in place of the Telegram topic's intro post. */
+const SECTION_INTROS: Record<string, { title: string; body: string }> = {
+  category_saints_lives: {
+    title: "Սրբերի վարքը",
+    body: "Այստեղ կծանոթանաք Հայ Առաքելական Սուրբ Եկեղեցու կողմից հիշատակվող սրբերի վարքին՝ Հին Ուխտի արդարներից ու մարգարեներից մինչև Եկեղեցու հայրեր, վարդապետներ և նահատակներ։ Նրանց կյանքը հավատքի, համբերության և սիրո օրինակ է մեզ համար։",
+  },
+  category_gospel_teachings: {
+    title: "Ավետարանի ուսուցում",
+    body: "Այստեղ կծանոթանաք Սուրբ Ավետարանի բացատրություններին, որոնք տալիս են Հայ Առաքելական Սուրբ Եկեղեցու հոգևորականները։ Դրանք օգնում են ավելի խորը հասկանալ Քրիստոսի խոսքը և ապրել նրանով առօրյա կյանքում։",
+  },
+  category_daily_readings: {
+    title: "Օրվա ընթերցումներ",
+    body: "Ամեն օր՝ Հայ Առաքելական Սուրբ Եկեղեցու տոնացույցով նշանակված Սուրբ Գրքի ընթերցումները, օրվա տոներն ու հիշատակությունները։ Սկսեք օրը Աստծո խոսքով։",
+  },
 };
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -220,7 +236,7 @@ const MaterialsList = memo(function MaterialsList({
   const typicalType = layout === "text" && polls > 0 && polls >= materials.length / 2 ? "poll" : undefined;
 
   const list = listItems.length > 0 ? (
-    <ol className="m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2">
+    <ol className={`m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2 ${typicalType === "poll" ? "min-[860px]:auto-rows-fr" : ""}`}>
       {listItems.map((material) =>
           <MaterialResultCard
             key={material.id}
@@ -310,6 +326,7 @@ function GroupedMaterials({ kind, ...props }: ListProps & { kind: string | null 
     const shown = quizFilter === "answered" ? answered : quizFilter === "open" ? open : props.materials;
     return (
       <div className="grid gap-3">
+        <QuizProgress total={props.materials.length} answers={answered.map((material) => answers[material.id])} />
         <FilterChips label="Հարցերի զտիչ" value={quizFilter} onChange={setQuizFilter}
           options={[{ id: "all" as const, label: "Բոլորը", count: props.materials.length }, { id: "open" as const, label: "Չպատասխանած", count: open.length }, { id: "answered" as const, label: "Պատասխանած", count: answered.length }]} />
         {shown.length ? <MaterialsList {...props} materials={shown} /> : (
@@ -320,6 +337,24 @@ function GroupedMaterials({ kind, ...props }: ListProps & { kind: string | null 
   }
 
   return <MaterialsList {...props} />;
+}
+
+/** How far the reader has come through the Bible questions: a bar with answered and right counts. */
+function QuizProgress({ total, answers }: { total: number; answers: QuizResult[] }) {
+  if (total === 0) return null;
+  const right = answers.filter((answer) => answer === "right").length;
+  const share = Math.round((answers.length / total) * 100);
+  return (
+    <div className="frosted-panel grid gap-2.5 px-4 py-3.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <strong className="text-[13.5px] text-ink">{answers.length === 0 ? "Փորձեք ձեր գիտելիքները" : answers.length === total ? "Բոլոր հարցերին պատասխանել եք" : `Պատասխանել եք ${answers.length} հարցի՝ ${total}-ից`}</strong>
+        {answers.length > 0 ? <span className="text-[12px] font-bold text-[rgb(52_130_74)]">✓ ճիշտ՝ {right}</span> : <span className="text-[12px] text-muted">{total} հարց</span>}
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-subtle" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={answers.length} aria-label="Պատասխանած հարցեր">
+        <div className="h-full rounded-full bg-[linear-gradient(90deg,#e2c27e,#b07d2e)] transition-[width] duration-700" style={{ width: `${share}%` }} />
+      </div>
+    </div>
+  );
 }
 
 export default function Category({ loaderData }: Route.ComponentProps) {
@@ -418,7 +453,9 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         searchPlaceholder={searchPlaceholder}
       />
 
-      {loaderData.intro && !loaderData.query ? <div className="mb-4"><TopicIntro material={loaderData.intro} /></div> : null}
+      {loaderData.query ? null : SECTION_INTROS[contentCategory]
+        ? <div className="mb-4"><SectionIntro {...SECTION_INTROS[contentCategory]} /></div>
+        : loaderData.intro ? <div className="mb-4"><TopicIntro material={loaderData.intro} /></div> : null}
 
       <section className="grid gap-[11px]" aria-labelledby="category-materials-title">
         <div className={sectionHeader}>

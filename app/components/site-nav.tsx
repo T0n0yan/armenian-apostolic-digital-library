@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -153,6 +153,13 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 <NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink>
               ) : null}
             </section>
+
+            {/* Sign-in, last in the menu where people look for it; it leads to «Իմ անկյունը». */}
+            {rootData && !rootData.signedIn ? (
+              <NavLink className="flex min-h-12 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-bold text-gold-bright no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]" to="/saved" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                <LogIn aria-hidden="true" size={17} /> Մուտք գործել
+              </NavLink>
+            ) : null}
           </div>
           )}
         </div>
