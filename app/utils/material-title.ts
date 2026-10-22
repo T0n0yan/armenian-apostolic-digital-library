@@ -59,18 +59,21 @@ export function psalmBodyText(material: { title: string; contentText?: string | 
 }
 
 /**
- * The clergy member a gospel-teaching post names on its last line, in italics and in parentheses:
- * «(Սահակ Բ արքեպիսկոպոս Մաշալյան)» → "Սահակ Բ արքեպիսկոպոս Մաշալյան". Null when the post has no
- * such line (nothing is guessed).
+ * The clergy member a gospel-teaching post names on its last line, in italics, usually in
+ * parentheses: «(Սահակ Բ արքեպիսկոպոս Մաշալյան)» → "Սահակ Բ արքեպիսկոպոս Մաշալյան". The line must
+ * be italic throughout its name; null when the post has no such line (nothing is guessed).
  */
 export function clergyByline(...sources: Array<{ text: string; entities: Array<{ type: string; offset: number; length: number }> } | null | undefined>) {
   for (const source of sources) {
     const text = source?.text.trimEnd() ?? "";
     if (!text) continue;
     const start = text.lastIndexOf("\n") + 1;
-    const match = /^\s*\(([^()\n]{3,160})\)\s*$/u.exec(text.slice(start));
+    const line = text.slice(start);
+    const match = /^\s*\(?([^()\n]{3,160}?)\)?\s*$/u.exec(line);
     if (!match) return null;
-    const italic = source!.entities.some((entity) => entity.type === "italic" && entity.offset < text.length && entity.offset + entity.length > start);
+    const nameStart = start + line.indexOf(match[1]);
+    const nameEnd = nameStart + match[1].length;
+    const italic = source!.entities.some((entity) => entity.type === "italic" && entity.offset <= nameStart && entity.offset + entity.length >= nameEnd);
     return italic ? match[1].replace(/\s+/gu, " ").trim() : null;
   }
   return null;
