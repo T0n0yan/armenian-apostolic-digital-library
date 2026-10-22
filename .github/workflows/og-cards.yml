@@ -45,7 +45,6 @@ jobs:
       OG_BUCKET: ${{ matrix.bucket }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      TELEGRAM_BRIDGE_SHARED_SECRET: ${{ secrets.TELEGRAM_BRIDGE_SHARED_SECRET }}
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
