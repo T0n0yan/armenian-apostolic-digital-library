@@ -19,7 +19,7 @@ import satori from "satori";
 
 import { OG_CARD_HEIGHT, OG_CARD_LAYOUT, OG_CARD_WIDTH, ogCardElement } from "../app/utils/og-card-layout";
 
-type Card = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string };
+type Card = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string };
 
 const site = (process.env.OG_SITE ?? "").replace(/\/+$/u, "");
 const bucket = process.env.OG_BUCKET ?? "";
@@ -93,15 +93,24 @@ const fonts = [
   { name: "Noto Serif Armenian", data: readFileSync("app/assets/og-fonts/NotoSerifArmenian-SemiBold.ttf"), weight: 600 as const, style: "normal" as const },
 ];
 
+/** A picture for the card as a data URI; only JPEG and PNG, which the drawing engines read. */
+async function picture(url: string | undefined) {
+  if (!url) return undefined;
+  const response = await fetch(url).catch(() => null);
+  const type = response?.headers.get("content-type")?.split(";")[0] ?? "";
+  if (!response?.ok || !["image/jpeg", "image/png"].includes(type)) return undefined;
+  return `data:${type};base64,${Buffer.from(await response.arrayBuffer()).toString("base64")}`;
+}
+
 async function draw(card: Card) {
-  const svg = await satori(ogCardElement(card) as never, { width: OG_CARD_WIDTH, height: OG_CARD_HEIGHT, fonts });
+  const svg = await satori(ogCardElement({ ...card, imageSrc: await picture(card.image) }) as never, { width: OG_CARD_WIDTH, height: OG_CARD_HEIGHT, fonts });
   const image = new Resvg(svg, { fitTo: { mode: "width", value: OG_CARD_WIDTH } }).render();
   return jpeg.encode({ data: Buffer.from(image.pixels), width: image.width, height: image.height }, 88).data;
 }
 
 const manifest = await readManifest();
 const cards = await listCards();
-const stamp = (card: Card) => `${OG_CARD_LAYOUT}:${card.version}:${card.label.length}:${card.subtitle?.length ?? 0}:${card.text.length}:${card.byline ?? ""}`;
+const stamp = (card: Card) => `${OG_CARD_LAYOUT}:${card.version}:${card.label.length}:${card.subtitle?.length ?? 0}:${card.text.length}:${card.byline ?? ""}:${card.image ? 1 : 0}`;
 const pending = cards.filter((card) => force || manifest[card.path] !== stamp(card));
 console.log(`${cards.length} cards, ${pending.length} to draw`);
 let done = 0;

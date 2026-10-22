@@ -11,6 +11,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const section = url.searchParams.get("section") ?? "";
   if (!(OG_CARD_SECTIONS as readonly string[]).includes(section)) return Response.json({ sections: OG_CARD_SECTIONS }, { status: 400 });
-  const page = await listOgCards(env.DB, section, url.searchParams.get("cursor"));
+  const page = await listOgCards(env.DB, section, url.searchParams.get("cursor"), url.origin);
   return Response.json(page, { headers: { "cache-control": "public, max-age=60", "x-robots-tag": "noindex" } });
 }

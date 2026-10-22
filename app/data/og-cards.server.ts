@@ -22,10 +22,10 @@ export function ogCardVersion(material: Pick<MaterialDetail, "editedAt" | "publi
   return (material.editedAt ?? material.publishedAt ?? "").replace(/\D/gu, "").slice(0, 14) || "0";
 }
 
-export type OgCard = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string };
+export type OgCard = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string };
 
 /** The cards of one material: the material itself and, for a psalm, each of its verses. */
-export function cardsFor(material: MaterialDetail): OgCard[] {
+export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
   const path = canonicalMaterialPath(material);
   const version = ogCardVersion(material);
   const section = material.categoryName.toLocaleUpperCase("hy");
@@ -34,6 +34,12 @@ export function cardsFor(material: MaterialDetail): OgCard[] {
   if (kind === "category_gospel_teachings") {
     const byline = clergyByline(material.formattedText, material.formattedCaption) ?? undefined;
     return [{ path, version, section, label: material.title, text: "", byline }];
+  }
+  // A saint: the name alone, with the saint's icon when the post has one (no caption text).
+  if (kind === "category_saints_lives") {
+    const photo = material.media.find((asset) => asset.kind === "photo" && asset.url)?.url;
+    const image = photo ? (photo.startsWith("/") ? `${origin}${photo}` : photo) : undefined;
+    return [{ path, version, section, label: material.title, text: "", image }];
   }
   // Everything else: its name on top, its opening text below.
   if (kind !== "category_psalms") {
@@ -48,7 +54,7 @@ export function cardsFor(material: MaterialDetail): OgCard[] {
 }
 
 /** One page of a section's cards for the drawing script. */
-export async function listOgCards(database: D1Database, section: string, cursor: string | null) {
+export async function listOgCards(database: D1Database, section: string, cursor: string | null, origin = "") {
   const contentCategory = categoryForSection(section);
   const topic = contentCategory
     ? (await listActiveCategories(database)).find((item) => resolveContentCategoryId(item.id, item.name) === contentCategory)
@@ -58,7 +64,7 @@ export async function listOgCards(database: D1Database, section: string, cursor:
   const cards: OgCard[] = [];
   for (const item of page.materials) {
     const material = await getPublicMaterialDetail(database, item.id);
-    if (material) cards.push(...cardsFor(material));
+    if (material) cards.push(...cardsFor(material, origin));
   }
   return { cards, next: page.nextCursor };
 }
