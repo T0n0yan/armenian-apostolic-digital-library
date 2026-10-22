@@ -198,6 +198,8 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
     // Some Android clients report no content inset in fullscreen although Telegram's Close and ⋯
     // buttons float over the top of the page; keep the page clear of them anyway.
     if (side === "top" && fullscreen && contentValue < 40) contentValue = 52;
+    // A little air under those buttons, so the page's own back link and search don't touch them.
+    if (side === "top" && fullscreen) contentValue += 14;
     root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
     root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
     // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the
