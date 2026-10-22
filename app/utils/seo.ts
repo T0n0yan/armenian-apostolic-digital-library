@@ -28,6 +28,15 @@ export function sectionImage(categoryId: string | null | undefined, categoryName
   return id ? `/og/${SECTION_IMAGES[id]}.jpg` : null;
 }
 
+/**
+ * The generated link-preview picture of a material at a readable address (/og/card/saghmosner/25/8,
+ * routes/og-card.ts), on `origin`; `version` changes when the text does, so previews refresh.
+ */
+export function cardImage(origin: string, path: string, version?: string | null) {
+  if (!/^\/[a-z-]+\/[a-z0-9-]+(?:\/\d{1,3})?$/u.test(path) || path.startsWith("/materials/")) return null;
+  return `${origin}/og/card${path}${version ? `?v=${encodeURIComponent(version.replace(/\D/gu, "").slice(0, 14))}` : ""}`;
+}
+
 export function absoluteUrl(path: string) {
   return /^https?:\/\//u.test(path) ? path : `${SITE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }

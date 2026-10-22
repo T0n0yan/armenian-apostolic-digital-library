@@ -332,8 +332,9 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
   if (typeof document === "undefined") return null;
   // On the page's body: the reading panel's blur would otherwise hold a fixed popup inside it.
   return createPortal(
-    <div className="fixed inset-x-0 bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-[80] flex justify-center px-3" data-verse-popup role="dialog" aria-label={label}>
-      <div className="install-toast grid w-full max-w-[440px] gap-2.5 rounded-[20px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]" data-phase={phase}>
+    // Only the card takes taps: the strip around it lets them through (the menu button, the page).
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tg-inset-bottom,0px)+88px)] z-[80] flex justify-center px-3" role="dialog" aria-label={label}>
+      <div className="install-toast pointer-events-auto grid w-full max-w-[440px] gap-2.5 rounded-[20px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]" data-verse-popup data-phase={phase}>
         <div className="flex items-center justify-between gap-2 pl-1">
           <strong className="text-[13px] text-gold-bright">{label}</strong>
           <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>

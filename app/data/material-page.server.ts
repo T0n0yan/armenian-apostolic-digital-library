@@ -74,5 +74,6 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
   // The verses of this psalm the reader saved (the verse popup's "Պահել").
   const savedVerses = user && psalmReference ? await listSavedVerseNumbers(env.DB, user.id, psalmReference.chatId, psalmReference.messageId).catch(() => []) : [];
-  return { material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
+  // Link previews point at this address's own pictures (staging's at staging).
+  return { origin: address.origin, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
 }

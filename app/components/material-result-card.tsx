@@ -34,7 +34,7 @@ import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
-import { useVideoPoster } from "../utils/video-frame";
+import { useVideoPoster, videoFromThumbnail } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { MaterialActionSheet } from "./material-action-sheet";
 import { useLongPress } from "../hooks/use-long-press";
@@ -245,7 +245,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   // Gospel videos fade in from black, so their thumbnails are captured from inside the video.
   const isVideo = variant === "video" || material.contentType === "video";
   const videoPoster = useVideoPoster(
-    isVideo ? material.preview.thumbnailUrl?.replace("?thumbnail=1&", "?").replace(/\?thumbnail=1$/u, "") ?? null : null,
+    isVideo && material.preview.thumbnailUrl ? videoFromThumbnail(material.preview.thumbnailUrl) : null,
     isVideo ? material.preview.thumbnailUrl : null,
   );
   const psalm = variant === "psalm" ? psalmNumber(material) : null;
