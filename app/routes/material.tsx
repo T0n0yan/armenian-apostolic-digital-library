@@ -37,7 +37,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   // The post's own picture (a saint, the day, a video's frame), else the section's preview picture
   // (a recording's cover art is not a fitting preview for a psalm or prayer).
   const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
-    ?? cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt)
+    ?? (loaderData.ogCards ? cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt) : null)
     ?? `${loaderData.origin}${sectionImage(material.categoryId, material.categoryName) ?? "/og-image.png"}`;
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
