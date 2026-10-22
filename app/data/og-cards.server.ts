@@ -41,6 +41,11 @@ export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
     const image = photo ? (photo.startsWith("/") ? `${origin}${photo}` : photo) : undefined;
     return [{ path, version, section, label: material.title, text: "", image }];
   }
+  // A Bible question: the section's name as the heading, the whole question in the middle.
+  if (kind === "category_bible_questions") {
+    const question = (material.poll?.question.text || material.title).trim();
+    return [{ path, version, section: "", label: material.categoryName, text: question }];
+  }
   // Everything else: its name on top, its opening text below.
   if (kind !== "category_psalms") {
     const text = material.poll?.question.text || material.contentText || material.captionText || "";
