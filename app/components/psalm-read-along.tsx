@@ -24,7 +24,8 @@ function currentAudio() {
  * otherwise the place is estimated from how far the recording has played, weighting each verse
  * by its length.
  *
- * Tapping a verse opens a small popup, as on bible.com: copy, share (the verse's own page,
+ * The verse being sung keeps a thin gold bar at its side; a tapped verse is underlined with dots
+ * (as on bible.com), so the two never look alike. Tapping a verse opens a small popup, as on bible.com: copy, share (the verse's own page,
  * /saghmosner/22/3), save in «Իմ անկյունը», and listen from this verse. A shared verse opens the
  * psalm at "#3", which lights that verse and opens its popup.
  */
@@ -234,7 +235,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
           <p
             key={index}
             ref={(element) => { lineRefs.current[index] = element; }}
-            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${selected !== null && verseOf[index] === selected ? "bg-[rgb(217_181_111/26%)] underline decoration-[rgb(176_125_46/70%)] decoration-dashed decoration-1 underline-offset-[5px]" : following && verseOf[index] >= 0 ? verseOf[index] === active ? "bg-[rgb(217_181_111/16%)] opacity-100" : "opacity-45" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
+            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity,box-shadow] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "rounded-none opacity-100 shadow-[inset_3px_0_0_rgb(217_181_111/90%)]" : "opacity-45" : ""} ${selected !== null && verseOf[index] === selected ? "underline decoration-[rgb(217_181_111/85%)] decoration-dotted decoration-2 underline-offset-[6px] opacity-100" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
             data-verse={verseOf[index] >= 0 ? verseNumbers[verseOf[index]] : undefined}
             onClick={() => onLineClick(index)}
           >
