@@ -29,12 +29,12 @@ export function sectionImage(categoryId: string | null | undefined, categoryName
 }
 
 /**
- * The generated link-preview picture of a material at a readable address (/og/card/saghmosner/25/8,
+ * The generated link-preview picture of a material at a readable address (/og/card/psalms/25/8,
  * routes/og-card.ts), on `origin`; `version` changes when the text does, so previews refresh.
  */
 export function cardImage(origin: string, path: string, version?: string | null) {
-  // Sections whose materials have no picture of their own (scripts/og-cards.ts draws their cards).
-  if (!/^\/(?:saghmosner|aghotkner|hartser)\/[a-z0-9-]+(?:\/\d{1,3})?$/u.test(path)) return null;
+  // Every material of the library's sections (scripts/og-cards.ts draws them).
+  if (!/^\/(?:psalms|pray|saints|gospel|daily|questions)\/\d{1,12}(?:\/\d{1,3})?$/u.test(path)) return null;
   return `${origin}/og/card${path}${version ? `?v=${encodeURIComponent(version.replace(/\D/gu, "").slice(0, 14))}` : ""}`;
 }
 
@@ -80,6 +80,12 @@ export function seoMeta({ title, description, path, image, type = "website", jso
     { property: "og:description", content: description },
     { property: "og:url", content: url },
     { property: "og:image", content: picture },
+    // The drawn cards (/og/card/…) are 1200×630 JPEGs; saying so lets WhatsApp show them large.
+    ...(picture.includes("/og/card/") ? [
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:type", content: "image/jpeg" },
+    ] : []),
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },

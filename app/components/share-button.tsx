@@ -2,16 +2,11 @@ import { Check, Share2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type ShareButtonProps = {
-  title: string;
-  /** Text shared with the link (title and a short excerpt). */
-  text: string;
   /** This page in the library: what readers share and copy. */
   pageUrl: string;
   className: string;
   /** Shows a short "Կիսվել" label under the icon (material page toolbar). */
   label?: boolean;
-  /** The material's address when it has a link-preview card to share as a picture. */
-  cardPath?: string | null;
 };
 
 export async function copyText(value: string) {
@@ -51,38 +46,22 @@ export async function systemShare(data: ShareData) {
   return true;
 }
 
-type MiniApp = { initData?: string; shareMessage?: (id: string, callback?: (sent: boolean) => void) => void };
+type MiniApp = { initData?: string; openTelegramLink?: (url: string) => void };
 const miniApp = () => typeof window === "undefined" ? undefined : (window as { Telegram?: { WebApp?: MiniApp } }).Telegram?.WebApp;
 
 /**
- * Shares a material's link-preview card itself (the picture), with its name, text and link as the
- * message: in the Mini App through Telegram's own share sheet (a prepared photo message), in a
- * browser through the phone's share sheet with the picture attached. Without either, the link is
- * shared or, last, copied. `cardPath` is the material's address (/saghmosner/22/3).
+ * Shares only the short link (/psalms/22/6): what the page is about shows in the link's preview
+ * card, the same in Telegram and WhatsApp. In the Mini App through Telegram's "send to a chat",
+ * in a browser through the phone's share sheet; without either, the link is copied.
  */
-export async function shareCard({ title, text, url, cardPath }: { title: string; text: string; url: string; cardPath?: string | null }) {
-  // Name, text, link — each once, in that order.
-  const body = text.trim() && text.trim() !== title.trim() ? text.trim() : "";
-  const message = [title.trim(), body, url].filter(Boolean).join("\n");
+export async function shareLink(url: string) {
   const webApp = miniApp();
-  if (cardPath && webApp?.initData && webApp.shareMessage) {
-    const prepared = await fetch("/api/share-prepare", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path: cardPath, caption: message }),
-    }).then((response) => response.ok ? response.json() as Promise<{ id: string | null }> : null).catch(() => null);
-    if (prepared?.id) { webApp.shareMessage(prepared.id); return "shared" as const; }
+  if (webApp?.initData && webApp.openTelegramLink) {
+    webApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`);
+    return "shared" as const;
   }
-  if (cardPath && !sheetOpen && typeof navigator.canShare === "function") {
-    const blob = await fetch(`/og/card${cardPath}`).then((response) => response.ok ? response.blob() : null).catch(() => null);
-    const file = blob && blob.type.startsWith("image/") ? new File([blob], `${cardPath.slice(1).replace(/\//gu, "-")}.${blob.type === "image/png" ? "png" : "jpg"}`, { type: blob.type }) : null;
-    if (file && navigator.canShare({ files: [file] })) {
-      // The picture with the message; some apps drop a separate url, so the link is in the text.
-      if (await systemShare({ files: [file], text: message })) return "shared" as const;
-    }
-  }
-  if (await systemShare({ title, text: [title.trim(), body].filter(Boolean).join("\n"), url })) return "shared" as const;
-  await copyText(message);
+  if (await systemShare({ url })) return "shared" as const;
+  await copyText(url);
   return "copied" as const;
 }
 
@@ -111,12 +90,12 @@ function siteUrl(pageUrl: string) {
  * on and needs no Telegram: the phone's share sheet when there is one (Android Quick Share, iOS
  * share sheet), otherwise the link is copied.
  */
-export function ShareButton({ title, text, pageUrl, className, label = false, cardPath = null }: ShareButtonProps) {
+export function ShareButton({ pageUrl, className, label = false }: ShareButtonProps) {
   const [copied, markCopied] = useCopied();
 
   const share = useCallback(async () => {
-    if (await shareCard({ title, text, url: siteUrl(pageUrl), cardPath }) === "copied") markCopied();
-  }, [cardPath, markCopied, pageUrl, text, title]);
+    if (await shareLink(siteUrl(pageUrl)) === "copied") markCopied();
+  }, [markCopied, pageUrl]);
 
   return (
     <button className={className} type="button" onClick={share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>

@@ -18,7 +18,7 @@ export async function findPsalmNeighbors(database: D1Database, topicSlug: string
   return { number: psalms[index].number, previous: psalms[index - 1] ?? null, next: psalms[index + 1] ?? null };
 }
 
-/** The psalm with this number (/saghmosner/22), or null. */
+/** The psalm with this number (/psalms/22), or null. */
 export async function findPsalmByNumber(database: D1Database, number: number) {
   const topic = (await listCloudLibraryCategories(database)).find((category) => resolveContentCategoryId(category.id, category.name) === "category_psalms");
   if (!topic) return null;

@@ -12,7 +12,7 @@
   - Երկրորդ փաթեթ՝ ստորագիրը էջի ամենաներքևում, «Այլ նյութ չկա»-ն հանել, բաժինների ենթավերնագրերը հանել, պատճենի/կիսվելու տեքստ՝ վերնագիր → տեքստ → հղում, ամեն նյութի հղման նախադիտման նկար (`public/og`, `scripts/make-og-images.py`)։
 
 - Telegram-ով մուտք բրաուզերում (oauth.telegram.org) և Google հաշիվը Telegram-ին կապելը — `feat/telegram-login` (`feat/verse-popup`-ի վրա)։ staging-ում աշխատում է (տերը մտավ Telegram-ով)։ Թողարկելիս՝ Ինտեգրացիաներին ասել, որ դնեն apostolic.am @armenian_apostolic_church_bot-ի վրա։
-- Կիսվելը քարտի նկարով և հղման նախադիտումը քարտով (`feat/telegram-login`)։
+- Անգլերեն հասցեներ (`/psalms/22/6`, `/pray/71`, `/saints/…`, `/gospel/…`, `/daily/…`, `/questions/…`, `/post/…`), հին հասցեները 301; ամեն նյութի հղման նախադիտումը՝ նույն քարտը; «Կիսվել»/«Պատճենել»՝ միայն հղումը (`feat/telegram-login`)։
 - Տիրոջ 4 դիտողություն (`feat/telegram-login`)՝ տեսանյութերի սև նկարներ, ամեն նյութի հղման քարտ տեքստի կտորով (`/og/card/...`), համարի պատուհանը չփակի մենյուն, «Ելք»-ը մենյուի ներքևում։
 
 ## Հերթ
@@ -28,7 +28,8 @@
 - 2026-10-22 — «Մեր մասին», «Կապ», «Գաղտնիություն» էջերի միատեսակ դիզայն ([#21](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/21))։
 
 ## Կարևոր մյուսների համար
-- Հղման քարտերը (սաղմոս, համար, աղոթք, հարց) նկարվում են GitHub Actions-ում (`scripts/og-cards.ts`, `.github/workflows/og-cards.yml`) և պահվում R2-ում `og/v1/<հասցե>.jpg`. Worker-ը միայն տալիս է (`/og/card/...`), քանի որ մեկ քարտը ~1 վրկ CPU է։ «Կիսվել»-ը ուղարկում է քարտը որպես նկար (`shareCard()`, Mini App-ում՝ `share-prepare` photo)։ og:url-ը էջի սեփական հասցեով է (staging-ը՝ staging)։
+- Նոր հասցեներ՝ `/psalms`, `/pray`, `/saints`, `/gospel`, `/daily`, `/questions`, `/post` (`material-path.ts`). Հին հայերեն հասցեները (`/saghmosner/22`, `/aghotkner/71-…`) և `pray_71`, `/materials/…`, `/categories/…` տանում են նորերին 301-ով։ Բոտի deep link՝ `psalms_22` (հինները էլ են աշխատում)։
+- Հղման քարտերը (սաղմոս, համար, աղոթք, հարց) նկարվում են GitHub Actions-ում (`scripts/og-cards.ts`, `.github/workflows/og-cards.yml`) և պահվում R2-ում `og/v1/<հասցե>.jpg`. Worker-ը միայն տալիս է (`/og/card/...`), քանի որ մեկ քարտը ~1 վրկ CPU է։ «Կիսվել»-ը և «Պատճենել»-ը տալիս են միայն հղումը (`shareLink()`), պատկերը՝ նախադիտման քարտում։ og:url-ը էջի սեփական հասցեով է (staging-ը՝ staging)։
 - media.apostolic.am-ը CORS չի տալիս. նկարի պիքսելներ կարդալու կամ տեսանյութից կադր վերցնելու համար՝ կայքի `/media/...` (`sameOriginMedia()`)։
 - Telegram մուտքը բրաուզերում՝ `/auth/telegram/start` → oauth.telegram.org → `/auth/telegram`. աշխատում է միայն երբ բոտի domain-ը դրված է BotFather-ում (production՝ apostolic.am, staging-ի բոտին՝ staging.apostolic.am)։ Google հաշիվը կապելիս նրա տվյալները տեղափոխվում են Telegram հաշվին (`account_links`, migration 0027)։
 - Հղման նախադիտման նկարներ՝ `public/og/<բաժին>.jpg` (`sectionImage()` `app/utils/seo.ts`-ում). նյութի սեփական նկարը (սուրբ, օր, տեսանյութ) առաջնային է։

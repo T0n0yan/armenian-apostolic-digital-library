@@ -2,7 +2,7 @@ import { Bookmark, Check, Copy, PencilLine, Play, RotateCcw, Share2, SkipForward
 import { Link } from "react-router";
 import { createPortal } from "react-dom";
 import { psalmLines, verseBody, verseLabel, verseNumber } from "../utils/psalm-verses";
-import { copyText, shareCard } from "./share-button";
+import { copyText, shareLink } from "./share-button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
@@ -26,7 +26,7 @@ function currentAudio() {
  *
  * The verse being sung keeps a thin gold bar at its side; a tapped verse is underlined with dots
  * (as on bible.com), so the two never look alike. Tapping a verse opens a small popup, as on bible.com: copy, share (the verse's own page,
- * /saghmosner/22/3), save in «Իմ անկյունը», and listen from this verse. A shared verse opens the
+ * /psalms/22/3), save in «Իմ անկյունը», and listen from this verse. A shared verse opens the
  * psalm at "#3", which lights that verse and opens its popup.
  */
 export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMark = false, psalmPath, title, hasAudio = false, canSave = false, savedVerses = [] }: {
@@ -192,7 +192,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     else { audio.addEventListener("loadedmetadata", seek, { once: true }); void audio.play().catch(() => undefined); }
   };
 
-  // A shared verse ("/saghmosner/22#3"): light it and open its popup.
+  // A shared verse ("/psalms/22#3"): light it and open its popup.
   useEffect(() => {
     const number = Number(window.location.hash.slice(1));
     const index = Number.isInteger(number) && number > 0 ? verseNumbers.indexOf(number) : -1;
@@ -319,14 +319,14 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
   const url = () => `${window.location.origin}${path}`;
   const copy = async () => {
     if (copied) return;
-    await copyText(`${label}\n«${text}»\n${url()}`);
+    // Only the link: the verse shows in its preview card.
+    await copyText(url());
     // The button turns into a check mark, then the popup goes.
     setCopied(true);
     copiedTimer.current = setTimeout(onClose, 900);
   };
-  // The verse's card as a picture, with its name, text and link (share-button.tsx).
   const share = async () => {
-    if (await shareCard({ title: label, text: `«${text}»`, url: url(), cardPath: path }) === "copied") onNotice("Պատճենվեց");
+    if (await shareLink(url()) === "copied") onNotice("Հղումը պատճենվեց");
   };
   if (typeof document === "undefined") return null;
   // On the page's body: the reading panel's blur would otherwise hold a fixed popup inside it.

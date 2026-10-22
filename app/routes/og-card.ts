@@ -6,7 +6,7 @@ import { categoryForSection } from "../utils/material-path";
 import { sectionImage } from "../utils/seo";
 
 /**
- * A material's link-preview card (/og/card/saghmosner/25, /og/card/saghmosner/25/8), drawn ahead of
+ * A material's link-preview card (/og/card/psalms/25, /og/card/psalms/25/8), drawn ahead of
  * time into R2 by scripts/og-cards.ts. A card not drawn yet sends the section's picture instead.
  */
 export async function loader({ params }: Route.LoaderArgs) {

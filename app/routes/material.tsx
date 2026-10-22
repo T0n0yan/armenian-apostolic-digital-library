@@ -35,10 +35,10 @@ export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [];
   const { material } = loaderData;
   const path = loaderData.canonicalPath;
-  // The post's own picture (a saint, the day, a video's frame), else the section's preview picture
-  // (a recording's cover art is not a fitting preview for a psalm or prayer).
-  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
-    ?? cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt)
+  // One look everywhere a link is shared: the material's drawn card (scripts/og-cards.ts); else its
+  // own picture, else the section's.
+  const picture = cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt)
+    ?? material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
     ?? `${loaderData.origin}${sectionImage(material.categoryId, material.categoryName) ?? "/og-image.png"}`;
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
@@ -200,10 +200,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </a>
           <ShareButton
             className={actionTile}
-            title={material.title}
-            text={material.title}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
-            cardPath={/^\/(?:saghmosner|aghotkner|hartser)\//u.test(loaderData.canonicalPath) ? loaderData.canonicalPath : null}
             label
           />
         </div>
