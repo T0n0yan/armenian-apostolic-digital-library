@@ -77,6 +77,6 @@ export function psalmVerseList(text: string) {
 
 /** How a verse is named: "Սաղմոս 22:3" for a psalm at a numbered address, else "<title>, 3". */
 export function verseLabel(psalmPath: string, title: string, verse: number) {
-  const psalm = /\/saghmosner\/(\d{1,3})$/u.exec(psalmPath)?.[1];
+  const psalm = /\/psalms\/(\d{1,3})$/u.exec(psalmPath)?.[1];
   return psalm ? `Սաղմոս ${psalm}:${verse}` : `${title}, ${verse}`;
 }

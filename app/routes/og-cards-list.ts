@@ -4,7 +4,7 @@ import type { Route } from "./+types/og-cards-list";
 import { OG_CARD_SECTIONS, listOgCards } from "../data/og-cards.server";
 
 /**
- * The cards to draw, one page of one section at a time: GET /api/og-cards?section=saghmosner
+ * The cards to draw, one page of one section at a time: GET /api/og-cards?section=psalms
  * &cursor=…, for scripts/og-cards.ts. Only public text, so no key; kept briefly at the edge.
  */
 export async function loader({ request }: Route.LoaderArgs) {

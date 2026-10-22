@@ -21,7 +21,7 @@ import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles
 import { getActiveCategoryBySlug, listActiveCategories } from "../data/categories.server";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath } from "../data/material-page.server";
-import { categoryForSection, materialIdFromShortPath, sectionPath } from "../utils/material-path";
+import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, sectionPath } from "../utils/material-path";
 import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
@@ -121,6 +121,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       if (!material) throw new Response("Not Found", { status: 404 });
       throw redirect(`${canonicalMaterialPath(material)}${search}`, 301);
     }
+    // An earlier Armenian section address (/saghmosner) moves to the English one (/psalms).
+    if (OLD_SECTION_SLUGS[segment]) throw redirect(`/${OLD_SECTION_SLUGS[segment]}${search}`, 301);
     const contentCategory = categoryForSection(segment);
     const topic = contentCategory
       ? (await listActiveCategories(env.DB, false, request.signal)).find((item) => resolveContentCategoryId(item.id, item.name) === contentCategory)
@@ -139,7 +141,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       statusText: "Not Found",
     });
   }
-  // /categories/<topic> of a known section moves permanently to its readable address (/saghmosner).
+  // /categories/<topic> of a known section moves permanently to its readable address (/psalms).
   const canonical = sectionPath(category);
   if (url.pathname.replace(/\.data$/u, "") !== canonical) throw redirect(`${canonical}${search}`, 301);
 

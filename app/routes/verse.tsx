@@ -15,7 +15,7 @@ import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
 import { NOINDEX, SITE_NAME, absoluteUrl, breadcrumbJsonLd, describe, cardImage, seoMeta } from "../utils/seo";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
-/** One psalm verse on its own page (/saghmosner/22/3): what the verse popup's "Կիսվել" shares. */
+/** One psalm verse on its own page (/psalms/22/3): what the verse popup's "Կիսվել" shares. */
 export async function loader({ params, request }: Route.LoaderArgs) {
   const number = /^\d{1,3}$/u.test(params.verse) ? Number(params.verse) : 0;
   const materialId = number > 0 ? await resolveMaterialId(params) : null;
@@ -62,7 +62,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
         url: absoluteUrl(loaderData.path),
         isPartOf: { "@type": "CreativeWork", name: loaderData.title, url: absoluteUrl(loaderData.psalmPath) },
       },
-      breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: loaderData.categoryName, path: "/saghmosner" }, { name: loaderData.title, path: loaderData.psalmPath }, { name: loaderData.label, path: loaderData.path }]),
+      breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: loaderData.categoryName, path: "/psalms" }, { name: loaderData.title, path: loaderData.psalmPath }, { name: loaderData.label, path: loaderData.path }]),
     ],
   });
 }
@@ -86,7 +86,7 @@ export default function VersePage({ loaderData }: Route.ComponentProps) {
         </Link>
         <div className="flex items-center justify-between gap-2 font-sans">
           {previous ? <Link className={stepLink} to={`${psalmPath}/${previous}`} aria-label={`Նախորդ համարը՝ ${previous}`}><ChevronLeft aria-hidden="true" size={17} /> {previous}</Link> : <span />}
-          <ShareButton className={stepLink} title={label} text={`«${text}»`} pageUrl={loaderData.path} cardPath={loaderData.path} label />
+          <ShareButton className={stepLink} pageUrl={loaderData.path} label />
           {next ? <Link className={stepLink} to={`${psalmPath}/${next}`} aria-label={`Հաջորդ համարը՝ ${next}`}>{next} <ChevronRight aria-hidden="true" size={17} /></Link> : <span />}
         </div>
       </article>

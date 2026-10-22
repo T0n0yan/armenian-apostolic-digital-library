@@ -19,7 +19,7 @@ import satori from "satori";
 
 import { OG_CARD_HEIGHT, OG_CARD_LAYOUT, OG_CARD_WIDTH, ogCardElement } from "../app/utils/og-card-layout";
 
-type Card = { path: string; version: string; section: string; label: string; text: string };
+type Card = { path: string; version: string; section: string; label: string; subtitle?: string; text: string };
 
 const site = (process.env.OG_SITE ?? "").replace(/\/+$/u, "");
 const bucket = process.env.OG_BUCKET ?? "";
@@ -63,7 +63,7 @@ const started = Date.now();
 
 async function listCards() {
   const cards: Card[] = [];
-  for (const section of ["saghmosner", "aghotkner", "hartser"]) {
+  for (const section of ["psalms", "pray", "saints", "gospel", "daily", "questions"]) {
     let cursor: string | null = null;
     for (;;) {
       const url = new URL(`${site}/api/og-cards`);
@@ -101,7 +101,7 @@ async function draw(card: Card) {
 
 const manifest = await readManifest();
 const cards = await listCards();
-const stamp = (card: Card) => `${OG_CARD_LAYOUT}:${card.version}:${card.label.length}:${card.text.length}`;
+const stamp = (card: Card) => `${OG_CARD_LAYOUT}:${card.version}:${card.label.length}:${card.subtitle?.length ?? 0}:${card.text.length}`;
 const pending = cards.filter((card) => force || manifest[card.path] !== stamp(card));
 console.log(`${cards.length} cards, ${pending.length} to draw`);
 let done = 0;

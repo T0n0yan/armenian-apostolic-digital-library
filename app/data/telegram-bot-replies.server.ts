@@ -48,7 +48,7 @@ export async function answerUpdate(update: Update) {
 
   if (command === "/start") {
     // A deep link (t.me/bot?start=psalm_169) opens that material.
-    // Start parameters can't hold "/": "saghmosner_22" stands for /saghmosner/22; old "psalm_169" works too.
+    // Start parameters can't hold "/": "psalms_22" stands for /psalms/22; old "psalm_169" works too.
     const candidate = `/${payload.replace(/^([a-z-]+)_(?=[0-9])/u, "$1/")}`;
     const path = /^[a-z0-9_-]{1,64}$/u.test(payload) && isLibraryPath(candidate) ? candidate : /^[a-z]+_\d{1,12}$/u.test(payload) && isLibraryPath(`/${payload}`) ? `/${payload}` : "/";
     await callTelegram(token, "sendMessage", {

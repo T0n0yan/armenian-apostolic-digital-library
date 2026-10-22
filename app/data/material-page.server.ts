@@ -14,7 +14,7 @@ import { psalmNumber } from "../utils/psalm-number";
 import type { MaterialDetail } from "./material-detail.server";
 import { parseMaterialId, resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
-/** A material's one canonical address (/saghmosner/22, /aghotkner/364-aghotk-yntaniki). */
+/** A material's one canonical address (/psalms/22, /pray/71). */
 export function canonicalMaterialPath(material: Pick<MaterialDetail, "id" | "title" | "categoryName" | "contentText" | "media">) {
   const mediaTitle = material.media.find((asset) => asset.kind === "audio" || asset.kind === "voice")?.title ?? null;
   const psalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms"
@@ -32,7 +32,7 @@ export async function resolveMaterialId(params: { materialId?: string; section?:
   return "psalm" in parsed ? await findPsalmByNumber(env.DB, parsed.psalm) : parsed.materialId;
 }
 
-/** A material page's data, for its readable (/saghmosner/22) and old (/materials/…) addresses. */
+/** A material page's data, for its readable (/psalms/22) and old (/materials/…) addresses. */
 export async function loadMaterialPage(materialId: string | null, request: Request) {
   if (!materialId || !/^material_[a-zA-Z0-9_-]{1,220}$/.test(materialId)) {
     throw new Response("Not Found", { status: 404 });

@@ -29,16 +29,16 @@ export default [
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),
-  // Readable addresses: /saghmosner, /saghmosner/22, /aghotkner/364-aghotk-yntaniki (material-path.ts).
+  // Readable addresses: /psalms, /psalms/22, /pray/71 (material-path.ts).
   route(":section/:item", "routes/material.tsx", { id: "section-item" }),
-  // One psalm verse: /saghmosner/22/3 (shared from the verse popup).
+  // One psalm verse: /psalms/22/3 (shared from the verse popup).
   route(":section/:item/:verse", "routes/verse.tsx"),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
-  // Link-preview cards, drawn ahead of time into R2: /og/card/saghmosner/25, /og/card/saghmosner/25/8.
+  // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),
   route("api/og-cards", "routes/og-cards-list.ts"),
-  // A section (/saghmosner) or an old short address (/pray_364, redirected); static routes win.
+  // A section (/psalms) or an old short address (/pray_364, redirected); static routes win.
   route(":section", "routes/category.tsx", { id: "section" }),
 ] satisfies RouteConfig;
