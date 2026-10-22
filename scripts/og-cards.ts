@@ -72,7 +72,7 @@ async function listCards() {
       const response = await fetch(url);
       // The site has no card list before this change reaches it (production until release); after a
       // push (OG_WAIT) the deploy may still be running, so wait for it up to a quarter of an hour.
-      if (response.status === 404) {
+      if (response.status === 404 || (process.env.OG_WAIT && response.status === 403)) {
         if (process.env.OG_WAIT && Date.now() - started < 15 * 60_000) { await new Promise((resolve) => setTimeout(resolve, 30_000)); continue; }
         console.log(`${site} has no card list yet`);
         process.exit(0);
