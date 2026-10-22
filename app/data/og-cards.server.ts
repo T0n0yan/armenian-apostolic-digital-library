@@ -3,7 +3,7 @@ import { canonicalMaterialPath } from "./material-page.server";
 import { listPublicMaterialPageByCategory } from "./materials.server";
 import { listActiveCategories } from "./categories.server";
 import { categoryForSection } from "../utils/material-path";
-import { clergyByline, psalmBodyText, shortestTimedQuestion } from "../utils/material-title";
+import { clergyByline, psalmBodyText } from "../utils/material-title";
 import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
@@ -30,12 +30,10 @@ export function cardsFor(material: MaterialDetail, origin = ""): OgCard[] {
   const version = ogCardVersion(material);
   const section = material.categoryName.toLocaleUpperCase("hy");
   const kind = resolveContentCategoryId(null, material.categoryName);
-  // A gospel teaching: its name, the shortest question it answers (without its time in the video)
-  // and the clergy member who gives it.
+  // A gospel teaching: its whole name in the middle and, under it, the clergy member who gives it.
   if (kind === "category_gospel_teachings") {
     const byline = clergyByline(material.formattedText, material.formattedCaption) ?? undefined;
-    const question = shortestTimedQuestion(material.contentText || material.captionText || "") ?? "";
-    return [{ path, version, section, label: material.title, text: question, byline, plain: true }];
+    return [{ path, version, section, label: material.title, text: "", byline }];
   }
   // A saint: the name alone, with the saint's icon when the post has one (no caption text).
   if (kind === "category_saints_lives") {

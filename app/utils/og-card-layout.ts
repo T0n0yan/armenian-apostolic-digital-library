@@ -2,7 +2,7 @@
 export const OG_CARD_WIDTH = 1200;
 export const OG_CARD_HEIGHT = 630;
 /** Raise when the design changes, so scripts/og-cards.ts draws every card again. */
-export const OG_CARD_LAYOUT = "4";
+export const OG_CARD_LAYOUT = "5";
 
 /** At most `limit` characters, cut at a word, with "…" when shortened. */
 export function excerpt(text: string, limit: number) {
@@ -58,7 +58,8 @@ function pictureCard({ label, section, imageSrc }: { label: string; section: str
  */
 export function ogCardElement({ label, subtitle, text, section, byline, imageSrc, plain = false }: { label: string; subtitle?: string; text: string; section: string; byline?: string; imageSrc?: string; plain?: boolean }) {
   if (imageSrc) return pictureCard({ label, section, imageSrc });
-  const title = excerpt(label, 48);
+  // A name with a passage under it is cut short; a name standing alone is shown whole.
+  const title = excerpt(label, text.trim() ? 48 : 140);
   const under = subtitle && comparable(subtitle) !== comparable(label) ? excerpt(subtitle, 60) : "";
   let body = text.replace(/\s+/gu, " ").trim();
   for (const head of [label, subtitle ?? ""]) {
@@ -70,6 +71,22 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
   // A clergy member's name keeps its room below a question, so the question is held shorter.
   const passage = excerpt(body, byline ? 120 : under ? 130 : section ? 160 : 200);
   const size = passage.length <= 80 ? 46 : passage.length <= 130 ? 40 : passage.length <= 165 ? 35 : 32;
+  // A gospel teaching: section, whole name and clergy member together in the middle.
+  if (byline && !passage) {
+    return h("div", { width: "100%", height: "100%", display: "flex", padding: 34, ...PARCHMENT }, h("div", {
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", width: "100%", height: "100%",
+      border: "2px solid rgba(176,125,46,0.55)", borderRadius: 26, padding: "34px 64px 28px",
+    }, [
+      h("div", { display: "flex" }),
+      h("div", { display: "flex", flexDirection: "column", alignItems: "center" }, [
+        h("div", { fontSize: 22, letterSpacing: 3, color: "#8a5a1c", fontWeight: 400 }, section),
+        h("div", { fontSize: title.length > 60 ? 40 : title.length > 30 ? 48 : 58, color: "#a06d22", fontWeight: 600, marginTop: 14, textAlign: "center", maxWidth: 1000, lineHeight: 1.25 }, title),
+        h("div", DIVIDER),
+        h("div", { fontSize: 32, color: "#7a5a3a", fontWeight: 400, marginTop: 22, textAlign: "center", maxWidth: 1000 }, excerpt(byline, 70)),
+      ]),
+      h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Հոգևոր ժառանգություն · apostolic.am"),
+    ]));
+  }
   return h("div", {
     width: "100%", height: "100%", display: "flex", padding: 34,
     backgroundColor: "#ead9b8",
