@@ -2,20 +2,37 @@ import { env } from "cloudflare:workers";
 import { CONTACT_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
 import { isLibraryPath } from "../utils/material-path";
+import { readerIdFrom, relayedText, SUPPORT_PROMPTS, supportHeader, supportKindFor, type SupportKind } from "../utils/support-relay";
 
-type BotEnv = { TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; SUPPORT_URL?: string };
-type Update = {
-  message?: {
-    chat: { id: number; type: string };
-    from?: { first_name?: string; language_code?: string };
-    text?: string;
-  };
+type BotEnv = {
+  TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; SUPPORT_URL?: string;
+  SUPPORT_CHAT_ID?: string; SUPPORT_TOPIC_SUPPORT?: string; SUPPORT_TOPIC_CONTACT?: string;
 };
+type User = { id: number; is_bot?: boolean; first_name?: string; last_name?: string; username?: string; language_code?: string };
+type Message = {
+  message_id: number;
+  message_thread_id?: number;
+  is_topic_message?: boolean;
+  chat: { id: number; type: string };
+  from?: User;
+  text?: string;
+  caption?: string;
+  photo?: unknown; video?: unknown; document?: unknown; audio?: unknown; voice?: unknown; animation?: unknown;
+  reply_to_message?: Message;
+};
+type Update = { message?: Message };
 
 
 function settings() {
-  const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support } = env as BotEnv;
-  return { token: token?.trim() || null, site: (site || "https://apostolic.am").replace(/\/+$/u, ""), support: support?.trim() || null };
+  const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support, SUPPORT_CHAT_ID: supportChat, SUPPORT_TOPIC_SUPPORT: supportTopic, SUPPORT_TOPIC_CONTACT: contactTopic } = env as BotEnv;
+  const topic = (value?: string) => Number(value?.trim()) || undefined;
+  return {
+    token: token?.trim() || null,
+    site: (site || "https://apostolic.am").replace(/\/+$/u, ""),
+    support: support?.trim() || null,
+    // The private group where readers' messages arrive (empty: the relay is off).
+    relay: Number(supportChat?.trim()) ? { chat: Number(supportChat), topics: { support: topic(supportTopic), contact: topic(contactTopic) } as Record<SupportKind, number | undefined> } : null,
+  };
 }
 
 export async function callTelegram(token: string, method: string, body: unknown) {
@@ -39,12 +56,43 @@ export async function webhookSecret(token: string) {
  * does and where to ask for help. Anything else gets the same short help.
  */
 export async function answerUpdate(update: Update) {
-  const { token, site, support } = settings();
+  const { token, site, support, relay } = settings();
   const message = update.message;
-  if (!token || !message || message.chat.type !== "private") return;
+  if (!token || !message) return;
+  if (message.chat.type === "group" || message.chat.type === "supergroup") return answerGroup(token, relay, message);
+  if (message.chat.type !== "private") return;
   const text = (message.text ?? "").trim();
   const [command, payload = ""] = text.split(/\s+/u, 2);
   const name = message.from?.first_name?.trim();
+
+  if (relay && (command === "/support" || command === "/contact")) {
+    await callTelegram(token, "sendMessage", {
+      chat_id: message.chat.id,
+      text: SUPPORT_PROMPTS[command === "/support" ? "support" : "contact"],
+      reply_markup: { force_reply: true, input_field_placeholder: "Ձեր հաղորդագրությունը…" },
+    });
+    return;
+  }
+  // Anything that isn't a command is a message for the team.
+  if (relay && message.from && !text.startsWith("/")) {
+    const kind = supportKindFor(message.reply_to_message?.text);
+    const header = supportHeader(kind, message.from);
+    const target = { chat_id: relay.chat, message_thread_id: relay.topics[kind] };
+    const captioned = message.photo || message.video || message.document || message.audio || message.voice || message.animation;
+    const sent = message.text
+      ? await callTelegram(token, "sendMessage", { ...target, text: relayedText(header, message.text, 4096) })
+      : captioned
+        ? await callTelegram(token, "copyMessage", { ...target, from_chat_id: message.chat.id, message_id: message.message_id, caption: relayedText(header, message.caption ?? "", 1024) })
+        // Stickers, locations… can't carry a caption: the header goes first, the message under it.
+        : await callTelegram(token, "sendMessage", { ...target, text: header }).then(async (posted) => posted.ok
+          ? callTelegram(token, "copyMessage", { ...target, from_chat_id: message.chat.id, message_id: message.message_id, reply_parameters: { message_id: (posted.result as { message_id: number }).message_id } })
+          : posted);
+    await callTelegram(token, "sendMessage", {
+      chat_id: message.chat.id,
+      text: sent.ok ? "Ստացանք ✅ Կպատասխանենք այստեղ՝ որքան հնարավոր է շուտ։" : `Չհաջողվեց ուղարկել 😔 Խնդրում ենք գրել ${SUPPORT_EMAIL}`,
+    });
+    return;
+  }
 
   if (command === "/start") {
     // A deep link (t.me/bot?start=psalm_169) opens that material.
@@ -78,12 +126,46 @@ export async function answerUpdate(update: Update) {
       "🔔 Հիշեցումները գալիս են այստեղ՝ ձեր դրած ժամին։",
       "🌐 Կայքը՝ " + site.replace(/^https?:\/\//u, ""),
       "",
-      support ? `Հարցերի և առաջարկների համար՝ ${support}` : `Հարցերի և առաջարկների համար՝ ${CONTACT_EMAIL}`,
-      `Տեխնիկական խնդիրների համար՝ ${SUPPORT_EMAIL}`,
+      ...(relay
+        ? ["✉️ Հարց կամ առաջարկ՝ /contact", "🛠 Տեխնիկական խնդիր՝ /support", "", `Էլ. փոստ՝ ${CONTACT_EMAIL}, ${SUPPORT_EMAIL}`]
+        : [support ? `Հարցերի և առաջարկների համար՝ ${support}` : `Հարցերի և առաջարկների համար՝ ${CONTACT_EMAIL}`, `Տեխնիկական խնդիրների համար՝ ${SUPPORT_EMAIL}`]),
     ].join("\n"),
     link_preview_options: { is_disabled: true },
     reply_markup: { inline_keyboard: [[{ text: "📖 Բացել գրադարանը", web_app: { url: `${site}/` } }]] },
   });
+}
+
+/**
+ * In groups the bot answers only two things: /chatid (so the owner can find the support group's
+ * and topics' ids) and, in the support group, an admin's reply to a relayed message, which is
+ * copied to that reader.
+ */
+async function answerGroup(token: string, relay: ReturnType<typeof settings>["relay"], message: Message) {
+  const text = (message.text ?? "").trim();
+  if (/^\/chatid(@\w+)?$/u.test(text)) {
+    await callTelegram(token, "sendMessage", {
+      chat_id: message.chat.id,
+      message_thread_id: message.is_topic_message ? message.message_thread_id : undefined,
+      text: [`chat: ${message.chat.id}`, message.is_topic_message ? `topic: ${message.message_thread_id}` : "topic: General"].join("\n"),
+    });
+    return;
+  }
+  const replied = message.reply_to_message;
+  const botId = Number(token.split(":")[0]);
+  if (!relay || message.chat.id !== relay.chat || !replied || replied.from?.id !== botId || text.startsWith("/")) return;
+  const reader = readerIdFrom(replied.text ?? replied.caption);
+  if (!reader) return;
+  const sent = await callTelegram(token, "copyMessage", { chat_id: reader, from_chat_id: message.chat.id, message_id: message.message_id });
+  if (sent.ok) {
+    await callTelegram(token, "setMessageReaction", { chat_id: message.chat.id, message_id: message.message_id, reaction: [{ type: "emoji", emoji: "👍" }] });
+  } else {
+    await callTelegram(token, "sendMessage", {
+      chat_id: message.chat.id,
+      message_thread_id: message.is_topic_message ? message.message_thread_id : undefined,
+      reply_parameters: { message_id: message.message_id },
+      text: "❌ Չհաջողվեց ուղարկել. հավանաբար մարդը արգելափակել է բոտը։",
+    });
+  }
 }
 
 /** Points the bot's webhook at this site and sets its command list. */
@@ -101,6 +183,10 @@ export async function connectBot() {
     commands: [
       { command: "start", description: "Բացել գրադարանը" },
       { command: "help", description: "Օգնություն և կապ" },
+      ...(settings().relay ? [
+        { command: "contact", description: "Հարց կամ առաջարկ" },
+        { command: "support", description: "Տեխնիկական խնդիր" },
+      ] : []),
     ],
   });
   return hook;
