@@ -131,7 +131,8 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                         <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={sectionPath(topic)} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                           <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="min-w-0 flex-1 truncate">{topic.name}</span>
-                          {topic.status !== "open" ? <span className="text-[10px] text-faint">{topic.status === "closed" ? "փակ" : "թաքցված"}</span> : null}
+                          {/* A closed Telegram topic only means that just admins post there; readers aren't told. */}
+                          {topic.status === "hidden" ? <span className="text-[10px] text-faint">թաքցված</span> : null}
                         </NavLink>
                       </li>
                     );
