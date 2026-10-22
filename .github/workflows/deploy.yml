@@ -7,6 +7,8 @@ name: Deploy
 on:
   push:
     branches: [main, staging]
+    # Notes and plans (docs/work/, CLAUDE.md) change often and need no deploy.
+    paths-ignore: ["**.md", "docs/**"]
   workflow_dispatch:
 
 concurrency:
