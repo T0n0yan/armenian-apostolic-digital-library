@@ -12,7 +12,18 @@ const HEIGHT = 630;
 // Workers may only run WebAssembly bundled with them, so both engines start from imported modules.
 let ready: Promise<void> | null = null;
 function start() {
-  ready ??= Promise.all([initSatori(yogaWasm as WebAssembly.Module), initWasm(resvgWasm as WebAssembly.Module)]).then(() => undefined);
+  ready ??= (async () => {
+    // Satori's layout engine looks up `self.location.href` while it starts, which Workers lack;
+    // a placeholder is set for that moment only.
+    const scope = globalThis as { location?: unknown };
+    const placeholder = scope.location === undefined;
+    if (placeholder) Object.defineProperty(globalThis, "location", { value: { href: "https://worker.invalid/" }, configurable: true, writable: true });
+    try {
+      await Promise.all([initSatori(yogaWasm as WebAssembly.Module), initWasm(resvgWasm as WebAssembly.Module)]);
+    } finally {
+      if (placeholder) delete scope.location;
+    }
+  })().catch((error) => { ready = null; throw error; });
   return ready;
 }
 
