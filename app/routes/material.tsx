@@ -35,8 +35,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [];
   const { material } = loaderData;
   const path = loaderData.canonicalPath;
-  // The post's own picture (a saint, the day, a video's frame), else the section's preview picture.
-  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.thumbnailUrl)?.thumbnailUrl
+  // The post's own picture (a saint, the day, a video's frame), else the section's preview picture
+  // (a recording's cover art is not a fitting preview for a psalm or prayer).
+  const picture = material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
     ?? sectionImage(material.categoryId, material.categoryName);
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
