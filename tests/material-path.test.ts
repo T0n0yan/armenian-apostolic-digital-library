@@ -28,3 +28,16 @@ test("addresses resolve back: psalm numbers, ids with titles, old short addresse
   assert.equal(sectionPath({ id: "telegram_topic:-100:9", name: "Նորություններ", slug: "topic-n100-9" }), "/categories/topic-n100-9");
   assert.equal(titleSlug("  "), "");
 });
+
+test("psalm verses: their text, names and pages", async () => {
+  const { psalmVerseList, verseLabel } = await import("../app/utils/psalm-verses");
+  const verses = psalmVerseList("Սաղմոս Դաւթի\n1 Տէրն է իմ հովիւը,\nոչինչ չի պակասի ինձ։ 2 Դալար արօտներում\nՏԻՐՈՋ ԳՈՎՔԸ\n3 Նա իմ անձը");
+  assert.deepEqual(verses, [
+    { number: 1, text: "Տէրն է իմ հովիւը, ոչինչ չի պակասի ինձ։" },
+    { number: 2, text: "Դալար արօտներում" },
+    { number: 3, text: "Նա իմ անձը" },
+  ]);
+  assert.equal(verseLabel("/saghmosner/22", "Սաղմոս 22", 3), "Սաղմոս 22:3");
+  assert.equal(verseLabel("/saghmosner/364-saghmos", "Սաղմոս", 3), "Սաղմոս, 3");
+  assert.ok(isLibraryPath("/saghmosner/22/3"));
+});

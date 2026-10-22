@@ -12,7 +12,7 @@ import {
   TimestampSeekContext,
   TelegramUnsupportedCard,
 } from "../components/telegram-content";
-import { leadingTitleLength, skipPsalmLabel } from "../utils/material-title";
+import { leadingTitleLength, psalmBodyText, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
@@ -103,8 +103,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const captionTitleLength = leadingTitleLength(material.formattedCaption.text, material.title);
   // Psalms always read verse by verse, whatever formatting Telegram gave the post (plain text, a
   // caption under the recording, or rich text): the text is laid out by the psalm standard.
-  const psalmSource = [material.formattedText.text, material.contentText, material.formattedCaption.text, material.captionText].find((value) => value?.trim()) ?? "";
-  const psalmText = psalmSource.slice(skipPsalmLabel(psalmSource, leadingTitleLength(psalmSource, material.title)));
+  const psalmText = psalmBodyText(material);
   const psalmView = isPsalm && psalmText.trim().length > 0 && !activeHit;
 
   useEffect(() => {
@@ -151,7 +150,18 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {psalmView ? (
           // Psalms follow their recording verse by verse.
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
-            <PsalmReadAlong key={material.id} text={psalmText} materialId={material.id} timings={loaderData.psalmTimings} canMark={loaderData.canMarkPsalm} />
+            <PsalmReadAlong
+              key={material.id}
+              text={psalmText}
+              materialId={material.id}
+              timings={loaderData.psalmTimings}
+              canMark={loaderData.canMarkPsalm}
+              psalmPath={loaderData.canonicalPath}
+              title={material.title}
+              hasAudio={material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"))}
+              canSave={loaderData.canSave}
+              savedVerses={loaderData.savedVerses}
+            />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
@@ -187,8 +197,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             className={actionTile}
             title={material.title}
             text={material.title}
-            url={material.telegramUrl}
-            materialId={material.id}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
             label
           />

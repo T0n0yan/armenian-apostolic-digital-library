@@ -7,6 +7,7 @@ import { getPublicMaterialDetail } from "./material-detail.server";
 import { getPollVotes } from "./poll-votes.server";
 import { findPsalmByNumber, findPsalmNeighbors } from "./psalm-neighbors.server";
 import { listSavedMaterialIds } from "./saved-materials.server";
+import { listSavedVerseNumbers } from "./saved-verses.server";
 import { materialMarks } from "./reading-log.server";
 import { isMaterialSection, materialPath, parseItemSegment } from "../utils/material-path";
 import { psalmNumber } from "../utils/psalm-number";
@@ -71,5 +72,7 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   // When this reader marked the material as read (the page compares with their local date).
   const own = user ? parseMaterialId(material.id) : null;
   const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
-  return { material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks };
+  // The verses of this psalm the reader saved (the verse popup's "Պահել").
+  const savedVerses = user && psalmReference ? await listSavedVerseNumbers(env.DB, user.id, psalmReference.chatId, psalmReference.messageId).catch(() => []) : [];
+  return { material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
 }

@@ -48,3 +48,12 @@ export function skipPsalmLabel(text: string, from: number) {
   while (end < text.length && /\s/u.test(text[end])) end += 1;
   return end;
 }
+
+/**
+ * A psalm's text without the title line and "(Սաղմոս N)" label: the first non-empty of the post's
+ * text or caption, whatever formatting Telegram gave it.
+ */
+export function psalmBodyText(material: { title: string; contentText?: string | null; captionText?: string | null; formattedText: { text: string }; formattedCaption: { text: string } }) {
+  const source = [material.formattedText.text, material.contentText, material.formattedCaption.text, material.captionText].find((value) => value?.trim()) ?? "";
+  return source.slice(skipPsalmLabel(source, leadingTitleLength(source, material.title)));
+}
