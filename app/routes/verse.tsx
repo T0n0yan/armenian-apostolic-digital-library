@@ -11,7 +11,7 @@ import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath, resolveMaterialId } from "../data/material-page.server";
 import { psalmBodyText } from "../utils/material-title";
 import { psalmVerseList, verseLabel } from "../utils/psalm-verses";
-import { NOINDEX, SITE_NAME, absoluteUrl, breadcrumbJsonLd, describe, cardImage, seoMeta } from "../utils/seo";
+import { NOINDEX, SITE_NAME, absoluteUrl, breadcrumbJsonLd, describe, cardImage, sectionImage, seoMeta } from "../utils/seo";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 
 /** One psalm verse on its own page (/saghmosner/22/3): what the verse popup's "Կիսվել" shares. */
@@ -29,6 +29,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (decodeURIComponent(pathname) !== path) throw redirect(path, 301);
   return {
     origin: new URL(request.url).origin,
+    ogCards: (env as { OG_CARDS?: string }).OG_CARDS === "on",
     path,
     psalmPath,
     title: material.title,
@@ -48,7 +49,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${loaderData.label} — ${SITE_NAME}`,
     description,
     path: loaderData.path,
-    image: cardImage(loaderData.origin, loaderData.path),
+    image: (loaderData.ogCards ? cardImage(loaderData.origin, loaderData.path) : null) ?? `${loaderData.origin}${sectionImage("category_psalms")}`,
     type: "article",
     jsonLd: [
       {

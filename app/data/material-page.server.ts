@@ -75,5 +75,8 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   // The verses of this psalm the reader saved (the verse popup's "Պահել").
   const savedVerses = user && psalmReference ? await listSavedVerseNumbers(env.DB, user.id, psalmReference.chatId, psalmReference.messageId).catch(() => []) : [];
   // Link previews point at this address's own pictures (staging's at staging).
-  return { origin: address.origin, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
+  // Drawing a card takes about a second of CPU, more than the Workers free plan allows per request;
+  // until OG_CARDS is "on" previews use the section pictures.
+  const ogCards = (env as { OG_CARDS?: string }).OG_CARDS === "on";
+  return { origin: address.origin, ogCards, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
 }
