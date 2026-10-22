@@ -66,8 +66,9 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
     // Drop as many leading words as the name has.
     body = body.split(" ").slice(head.trim().split(/\s+/u).length).join(" ").replace(/^[\s,։:.;—–-]+/u, "");
   }
-  const passage = excerpt(body, under ? 130 : 160);
-  const size = passage.length <= 80 ? 46 : passage.length <= 130 ? 40 : 35;
+  // Without a section line (a Bible question) the passage is the card's whole point and may run longer.
+  const passage = excerpt(body, under ? 130 : section ? 160 : 200);
+  const size = passage.length <= 80 ? 46 : passage.length <= 130 ? 40 : passage.length <= 165 ? 35 : 32;
   return h("div", {
     width: "100%", height: "100%", display: "flex", padding: 34,
     backgroundColor: "#ead9b8",
@@ -77,7 +78,7 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
     border: "2px solid rgba(176,125,46,0.55)", borderRadius: 26, padding: "34px 64px 28px",
   }, [
     h("div", { display: "flex", flexDirection: "column", alignItems: "center", marginTop: passage || byline ? 0 : 150 }, [
-      h("div", { fontSize: 22, letterSpacing: 3, color: "#8a5a1c", fontWeight: 400 }, section),
+      section ? h("div", { fontSize: 22, letterSpacing: 3, color: "#8a5a1c", fontWeight: 400 }, section) : null,
       h("div", { fontSize: under ? 52 : !passage && !byline ? (title.length > 30 ? 48 : 60) : title.length > 40 ? 34 : 42, color: "#a06d22", fontWeight: 600, marginTop: 6, textAlign: "center", maxWidth: 1000, lineHeight: 1.25 }, title),
       under ? h("div", { fontSize: 28, color: "#8a5a1c", fontWeight: 400, marginTop: 6, textAlign: "center", maxWidth: 1000 }, under) : null,
       h("div", { width: 220, height: 2, marginTop: 14, backgroundImage: "linear-gradient(90deg, rgba(176,125,46,0), #b07d2e, rgba(176,125,46,0))" }),
