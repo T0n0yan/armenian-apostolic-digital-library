@@ -12,6 +12,7 @@
 5. Սփորթ՝ բոտին գրված հաղորդագրությունները փոխանցվում են փակ «Support» խմբին, ադմինի պատասխանը վերադառնում է օգտատիրոջը (հիմնական բոտով, երկրորդ բոտ պետք չէ)։ Սպասում է՝ տերը ստեղծի խումբը և ավելացնի բոտը։
 6. Տիրոջ Telegram հաշիվը և dav.tonoyan.90@gmail.com-ը production-ում ադմին դարձնել (/admin → «Կայքի ադմիններ», t0n0yan.contact@gmail.com-ով մտած)։
 7. BotFather `/setdomain`՝ Telegram-ով մուտք բրաուզերում (Login Widget). production բոտ՝ `apostolic.am`, staging բոտ՝ `staging.apostolic.am`։ Staging բոտը՝ արված 2026-10-22 (տերը)։ Production-ը՝ `feat/telegram-login`-ի թողարկման ժամանակ, տիրոջը հարցնելուց հետո։
+8. Անդամների «բաց» թեմա (նկար/գրառում)՝ մյուս թեմաները Telegram-ում «Close topic» (գրում են միայն ադմինները)։ Կոդ՝ այդ թեման չպետք է հայտնվի կայքում որպես բաժին (bridge-ը բոլոր թեմաները բերում է, `isNavigableCategory`)։ Staging-ում ստուգել թեման ստեղծելուց առաջ։
 
 ## Արված
 - 2026-10-21 — info@apostolic.am (Cloudflare Email Routing), դոմենը Cloudflare-ում, media.apostolic.am։
