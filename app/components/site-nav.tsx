@@ -1,6 +1,6 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
-import { NavLink, useLocation, useRouteLoaderData } from "react-router";
+import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
 import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
@@ -32,6 +32,10 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   // Hidden once the library already runs as an installed app.
   const [canInstall, setCanInstall] = useState(false);
   useEffect(() => setCanInstall(!isInstalledApp()), []);
+  // The Mini App signs its reader in by itself, so signing out there would not last.
+  const [inMiniApp, setInMiniApp] = useState(true);
+  useEffect(() => setInMiniApp(Boolean((window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData)), []);
+  const account = rootData?.account ?? null;
   const location = useLocation();
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -159,6 +163,14 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               <NavLink className="flex min-h-12 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-bold text-gold-bright no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]" to="/saved" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                 <LogIn aria-hidden="true" size={17} /> Մուտք գործել
               </NavLink>
+            ) : null}
+            {account && (account.source === "google" || !inMiniApp) ? (
+              <Form className="flex items-center justify-between gap-3 border-t border-glass-border px-2 pt-3 text-[12.5px] text-muted" method="post" action="/auth/logout" onSubmit={() => setIsOpen(false)}>
+                <span className="min-w-0 truncate">{account.name} <span className="text-faint">· {account.source === "google" ? "Google" : "Telegram"}</span></span>
+                <button className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-3.5 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit" tabIndex={isOpen ? 0 : -1}>
+                  <LogOut aria-hidden="true" size={15} /> Ելք
+                </button>
+              </Form>
             ) : null}
           </div>
           )}

@@ -1222,8 +1222,11 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const bridgeRequestPaths: string[] = [];
   const serverRoot = resolve(ROOT, "build/server");
   const serverModules = readdirSync(serverRoot, { recursive: true })
-    .filter((path): path is string => typeof path === "string" && path.endsWith(".js"))
-    .map((path) => ({ type: "ESModule" as const, path, contents: readFileSync(resolve(serverRoot, path), "utf8") }));
+    .filter((path): path is string => typeof path === "string" && (path.endsWith(".js") || path.endsWith(".wasm")))
+    // The link-preview picture's WebAssembly engines are bundled as modules of their own.
+    .map((path) => path.endsWith(".wasm")
+      ? { type: "CompiledWasm" as const, path, contents: readFileSync(resolve(serverRoot, path)) }
+      : { type: "ESModule" as const, path, contents: readFileSync(resolve(serverRoot, path), "utf8") });
   const options = {
     workers: [{
       name: "bridge-worker-fixture",
@@ -1580,8 +1583,11 @@ test("production-like SSR bursts isolate client aborts without hanging healthy r
   });
   const serverRoot = resolve(ROOT, "build/server");
   const serverModules = readdirSync(serverRoot, { recursive: true })
-    .filter((path): path is string => typeof path === "string" && path.endsWith(".js"))
-    .map((path) => ({ type: "ESModule" as const, path, contents: readFileSync(resolve(serverRoot, path), "utf8") }));
+    .filter((path): path is string => typeof path === "string" && (path.endsWith(".js") || path.endsWith(".wasm")))
+    // The link-preview picture's WebAssembly engines are bundled as modules of their own.
+    .map((path) => path.endsWith(".wasm")
+      ? { type: "CompiledWasm" as const, path, contents: readFileSync(resolve(serverRoot, path)) }
+      : { type: "ESModule" as const, path, contents: readFileSync(resolve(serverRoot, path), "utf8") });
   let bridgeUnavailable = false;
   const mf = new Miniflare(convertV4MiniflareOptions({
     workers: [{

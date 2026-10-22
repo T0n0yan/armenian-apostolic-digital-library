@@ -93,6 +93,8 @@ export async function loader({request}: Route.LoaderArgs) {
     showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
     isAdmin: Boolean(telegramAdmin),
     signedIn: Boolean(telegramUser),
+    // Shown with "Ելք" at the bottom of the menu.
+    account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
   };

@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Bookmark, ChevronDown, Search, X } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Form, Link } from "react-router";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Link } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -198,9 +198,6 @@ function SavedVerses({ verses }: { verses: SavedVerse[] }) {
 }
 
 export default function Saved({ loaderData }: Route.ComponentProps) {
-  // In a browser (not the Mini App, which signs in by itself) a Telegram reader can sign out too.
-  const [inMiniApp, setInMiniApp] = useState(true);
-  useEffect(() => setInMiniApp(Boolean((window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData)), []);
   return (
     <PageShell>
       <SiteNav />
@@ -292,19 +289,13 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
               ))}
             </div>
           )}
-          {loaderData.user && (loaderData.user.source === "google" || !inMiniApp) ? (
-            <div className="mt-4 grid gap-3 border-t border-glass-border px-1 pt-4 text-[12.5px] text-muted">
-              <Form className="flex items-center justify-between gap-3" method="post" action="/auth/logout">
-                <span className="min-w-0 truncate">Մուտք՝ <strong className="text-ink">{loaderData.user.displayName}</strong> ({loaderData.user.source === "google" ? "Google" : "Telegram"})</span>
-                <button className="shrink-0 cursor-pointer rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-4 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit">Ելք</button>
-              </Form>
-              {loaderData.user.source === "google" ? (
-                // Joining moves this account's saved items to the Telegram account, so the Mini App shows them too.
-                <a className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline" href="/auth/telegram/start?return=/saved">
-                  Կապել Telegram հաշիվս
-                </a>
-              ) : null}
-              {loaderData.user.source === "google" ? <p className="m-0 text-[11.5px] leading-snug text-faint">Կապելուց հետո պահածներդ, նշումներդ և հիշեցումներդ նույնը կլինեն թե՛ կայքում, թե՛ Telegram-ի Mini App-ում։</p> : null}
+          {loaderData.user?.source === "google" ? (
+            // Joining moves this account's saved items to the Telegram account, so the Mini App shows them too.
+            <div className="mt-4 grid gap-2 border-t border-glass-border px-1 pt-4">
+              <a className="flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline" href="/auth/telegram/start?return=/saved">
+                Կապել Telegram հաշիվս
+              </a>
+              <p className="m-0 text-[11.5px] leading-snug text-faint">Կապելուց հետո պահածներդ, նշումներդ և հիշեցումներդ նույնը կլինեն թե՛ կայքում, թե՛ Telegram-ի Mini App-ում։</p>
             </div>
           ) : null}
         </section>

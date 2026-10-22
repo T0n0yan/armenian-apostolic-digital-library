@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { isNearlyBlackImage } from "./image-darkness";
 
-const CACHE_PREFIX = "video-frame:v2:";
+const CACHE_PREFIX = "video-frame:v3:";
 const CAPTURE_TIMEOUT_MS = 12_000;
 
 // One capture at a time: each one streams part of a video, and phones on mobile data feel it.
@@ -58,6 +58,25 @@ function captureFrame(videoUrl: string): Promise<string | null> {
   });
 }
 
+const DIRECT_MEDIA = /^https:\/\/[^/]+\/v1\/(-?\d+)\/(\d+)\/[^/]+\/(\d+)\/(thumbnail\.jpg|original\.[a-z0-9]+)(?:\?v=([^&#]+))?$/u;
+
+/**
+ * The same file through the site's own /media route. The media address (R2) sends no CORS headers,
+ * so the page can neither read a thumbnail's pixels nor draw a video frame from there.
+ */
+export function sameOriginMedia(url: string) {
+  const match = DIRECT_MEDIA.exec(url);
+  if (!match) return url;
+  const [, chatId, messageId, index, file, version] = match;
+  const query = [file === "thumbnail.jpg" ? "thumbnail=1" : "", version ? `v=${version}` : ""].filter(Boolean).join("&");
+  return `/media/${encodeURIComponent(chatId)}/${messageId}/${index}${query ? `?${query}` : ""}`;
+}
+
+/** A video's own address from its thumbnail's (both forms of media address). */
+export function videoFromThumbnail(thumbnailUrl: string) {
+  return thumbnailUrl.replace(/\/thumbnail\.jpg(?=\?|$)/u, "/original.mp4").replace("?thumbnail=1&", "?").replace(/\?thumbnail=1$/u, "");
+}
+
 function loadImage(src: string) {
   return new Promise<HTMLImageElement | null>((resolve) => {
     const image = new Image();
@@ -81,13 +100,13 @@ export function useVideoPoster(videoUrl: string | null, thumbnailUrl: string | n
     let active = true;
     const run = async () => {
       if (thumbnailUrl) {
-        const image = await loadImage(thumbnailUrl);
+        const image = await loadImage(sameOriginMedia(thumbnailUrl));
         if (!active) return;
         if (image && !isNearlyBlackImage(image)) { setPoster(thumbnailUrl); return; }
       }
       queue = queue.then(async () => {
         if (!active) return;
-        const frame = await captureFrame(videoUrl);
+        const frame = await captureFrame(sameOriginMedia(videoUrl));
         if (frame) remember(videoUrl, frame);
         if (active && frame) setPoster(frame);
       });
