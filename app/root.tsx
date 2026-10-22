@@ -76,10 +76,10 @@ const initialThemeScript = `(() => {
 })();`;
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico", sizes: "any" },
-  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png" },
-  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
-  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "icon", href: "/favicon.ico?v=2", sizes: "any" },
+  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=2" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
+  { rel: "manifest", href: "/manifest.webmanifest?v=2" },
 ];
 
 export async function loader({request}: Route.LoaderArgs) {
@@ -238,7 +238,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta name="color-scheme" content="light dark" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="Հոգևոր ժառանգ." />
+        <meta name="apple-mobile-web-app-title" content="Հոգևոր ժառանգություն" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="theme-color" content="#f4ead6" />
         <Meta />
@@ -329,6 +329,15 @@ export default function App({ loaderData }: Route.ComponentProps) {
     const timer = window.setInterval(send, 300_000);
     document.addEventListener("visibilitychange", send);
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", send); };
+  }, []);
+
+  // Load the bird-letter font for prayer initials once the page has settled, so opening a prayer
+  // shows the ornate letter at once instead of swapping it in.
+  useEffect(() => {
+    const warm = () => { document.fonts?.load('1em "Trchnatar Birds Color"', "Ա").catch(() => undefined); };
+    const idle = (window as { requestIdleCallback?: (callback: () => void) => number }).requestIdleCallback;
+    const handle = idle ? idle(warm) : window.setTimeout(warm, 1500);
+    return () => { if (!idle) window.clearTimeout(handle); };
   }, []);
 
   // After a new deploy, an open page may ask for scripts that no longer exist; reload it once

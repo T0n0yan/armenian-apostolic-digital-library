@@ -1,4 +1,5 @@
-import { Bot, Landmark, LifeBuoy, Mail, MessagesSquare } from "lucide-react";
+import { Bot, Check, Landmark, LifeBuoy, Mail, MessagesSquare } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import type { Route } from "./+types/contact";
 import { PageHeader, PageShell } from "../components/page-layout";
@@ -26,15 +27,26 @@ const emails = [
 
 /** How to reach the library: e-mail, the bot, the Telegram group. */
 export default function Contact() {
+  // A mail link opens nothing when no mail program is set up (and inside Telegram), so it also
+  // copies the address and says so.
+  const [copied, setCopied] = useState<string | null>(null);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  const copy = (address: string) => {
+    navigator.clipboard?.writeText(address).then(() => setCopied(address), () => undefined);
+  };
   return (
     <PageShell>
       <SiteNav />
       <PageHeader backTo="/" backLabel="Գրադարան" title="Կապ" />
       <div className="mt-4 grid gap-2.5">
         {emails.map(({ address, title, note, Icon }) => (
-          <a key={address} className={row} href={`mailto:${address}`}>
+          <a key={address} className={row} href={`mailto:${address}`} onClick={() => copy(address)}>
             <span className={icon}><Icon aria-hidden="true" size={19} /></span>
-            <span className="grid"><strong className="text-[14.5px] text-ink">{title}</strong><span className="text-[12.5px] text-muted">{address} · {note}</span></span>
+            <span className="grid"><strong className="text-[14.5px] text-ink">{title}</strong><span className="text-[12.5px] text-muted">{copied === address ? <span className="inline-flex items-center gap-1 text-gold-bright"><Check aria-hidden="true" size={13} /> Հասցեն պատճենվեց</span> : <>{address} · {note}</>}</span></span>
           </a>
         ))}
         <a className={row} href="https://t.me/armenian_apostolic_church_bot" target="_blank" rel="noreferrer">

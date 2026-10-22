@@ -58,7 +58,7 @@ export function PageShell({children, width = "content"}: PageShellProps) {
     >
         {children}
         {/* A quiet line at the very bottom of the page, however short the content: it should not draw the eye. */}
-        <footer className="mt-auto grid pt-24 justify-items-center gap-1 text-center text-[10.5px] leading-snug text-faint opacity-70">
+        <footer className="mt-auto grid pt-12 justify-items-center gap-1 text-center text-[10.5px] leading-snug text-faint opacity-70">
             <span>© {new Date().getFullYear()} Հոգևոր ժառանգություն։ Բոլոր իրավունքները պաշտպանված են։</span>
             <nav className="flex flex-wrap justify-center gap-x-2" aria-label="Կայքի մասին">
               <Link className="text-faint no-underline hover:underline" to="/mer-masin">Մեր մասին</Link>·

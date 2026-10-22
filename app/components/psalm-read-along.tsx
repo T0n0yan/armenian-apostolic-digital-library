@@ -350,7 +350,7 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
             <Bookmark aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" fill={saved ? "currentColor" : "none"} /> {saved ? "Պահված է" : "Պահել"}
           </button>
           {hasAudio ? (
-            <button className={`${popupTile} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={onListen}><Play aria-hidden="true" size={19} strokeWidth={2} /> Լսել այստեղից</button>
+            <button className={`${popupTile} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={onListen}><Play aria-hidden="true" size={19} strokeWidth={2} /> Լսել</button>
           ) : null}
         </div>
         {needsSignIn ? (
