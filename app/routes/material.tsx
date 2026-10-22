@@ -39,7 +39,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   // own picture, else the section's.
   const picture = cardImage(loaderData.origin, path, material.editedAt ?? material.publishedAt)
     ?? material.media.find((asset) => asset.kind === "photo")?.url ?? material.media.find((asset) => asset.kind === "video" && asset.thumbnailUrl)?.thumbnailUrl
-    ?? `${loaderData.origin}${sectionImage(material.categoryId, material.categoryName) ?? "/og-image.png"}`;
+    ?? `${loaderData.origin}${sectionImage(material.categoryId, material.categoryName) ?? "/og-image.png?v=2"}`;
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
   return seoMeta({

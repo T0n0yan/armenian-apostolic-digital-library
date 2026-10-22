@@ -7,7 +7,7 @@ import { resolveContentCategoryId, type ContentCategoryId } from "../../shared/t
 
 export const SITE_URL = "https://apostolic.am";
 export const SITE_NAME = "Հոգևոր ժառանգություն";
-export const SITE_IMAGE = `${SITE_URL}/og-image.png`;
+export const SITE_IMAGE = `${SITE_URL}/og-image.png?v=2`;
 const ALTERNATE_NAMES = ["Apostolic", "apostolic.am", "Հայ Առաքելական Եկեղեցու գրադարան", "Armenian Apostolic Church Library"];
 
 const SECTION_IMAGES: Record<ContentCategoryId, string> = {
@@ -110,7 +110,7 @@ export const organizationJsonLd = {
   name: SITE_NAME,
   alternateName: ALTERNATE_NAMES,
   url: `${SITE_URL}/`,
-  logo: `${SITE_URL}/icon-512.png`,
+  logo: `${SITE_URL}/icon-512.png?v=2`,
   description: "Անկախ թվային գրադարան՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը (Եկեղեցու պաշտոնական կայքը չէ)։",
   sameAs: ["https://t.me/armenian_apostolic_church", "https://t.me/armenian_apostolic_church_bot"],
 };

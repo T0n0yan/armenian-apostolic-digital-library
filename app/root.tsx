@@ -76,10 +76,10 @@ const initialThemeScript = `(() => {
 })();`;
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico", sizes: "any" },
-  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png" },
-  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
-  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "icon", href: "/favicon.ico?v=2", sizes: "any" },
+  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=2" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
+  { rel: "manifest", href: "/manifest.webmanifest?v=2" },
 ];
 
 export async function loader({request}: Route.LoaderArgs) {

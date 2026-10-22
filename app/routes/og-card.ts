@@ -15,7 +15,7 @@ export async function loader({ params }: Route.LoaderArgs) {
     ? await (env as unknown as { MEDIA: R2Bucket }).MEDIA.get(ogCardKey(path)).catch(() => null)
     : null;
   if (!object) {
-    const fallback = sectionImage(categoryForSection(params.section)) ?? "/og-image.png";
+    const fallback = sectionImage(categoryForSection(params.section)) ?? "/og-image.png?v=2";
     return new Response(null, { status: 302, headers: { location: fallback, "cache-control": "public, max-age=300" } });
   }
   return new Response(object.body, {

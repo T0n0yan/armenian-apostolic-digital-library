@@ -26,8 +26,8 @@ def cut_out(image: Image.Image) -> Image.Image:
     rgb = np.asarray(image.convert("RGB")).astype(np.float32) / 255
     high, low = rgb.max(axis=2), rgb.min(axis=2)
     saturation = np.where(high > 0, (high - low) / np.maximum(high, 1e-6), 0)
-    # Gold: saturated and not near-white. Paper (and its soft gray shadow) is almost unsaturated.
-    alpha = smoothstep(0.13, 0.26, saturation)
+    # Gold is strongly saturated (over 0.5); the warm cream paper and its shadow stay under 0.25.
+    alpha = smoothstep(0.30, 0.42, saturation)
     mask = Image.fromarray((alpha * 255).astype(np.uint8))
     # Close pinholes inside the bird (bright highlights), then soften the edge by a pixel.
     mask = mask.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
@@ -93,6 +93,21 @@ def main():
     small = compose(dove, 256, "none", 0.98, False)
     small.save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
     small.resize((64, 64), Image.LANCZOS).save(PUBLIC / "favicon-64.png", optimize=True)
+
+    # Maskable home-screen icons: flat paper (the launcher draws its own shape), bird inside the
+    # central safe circle.
+    paper = (236, 223, 194, 255)
+    maskable = Image.new("RGBA", (512, 512), paper)
+    maskable.alpha_composite(compose(dove, 512, "none", 0.62, False))
+    maskable.save(PUBLIC / "icon-maskable-512.png", optimize=True)
+    maskable.resize((192, 192), Image.LANCZOS).save(PUBLIC / "icon-maskable-192.png", optimize=True)
+
+    # The site's default link preview: the bird on the left, the name and address on the right stay.
+    og = Image.open(PUBLIC / "og-image.png").convert("RGBA")
+    og.paste(paper, (60, 120, 440, 520))
+    bird = compose(dove, 310, "none", 1.0, False)
+    og.alpha_composite(bird, (100, 160))
+    og.convert("RGB").save(PUBLIC / "og-image.png", optimize=True)
 
     # In-app mark (menu button): transparent, 192 px tall is plenty for a 25–60 px element.
     mark_height = 192
