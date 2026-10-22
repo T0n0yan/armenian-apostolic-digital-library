@@ -13,7 +13,7 @@
 
 - Միշտ նախ staging, production՝ միայն տիրոջ «թողարկիր»-ից հետո։
 - Հասցեները ընթեռնելի են՝ `/saghmosner/22`, `/aghotkner/364-…` (`app/utils/material-path.ts`). հին հասցեները 301-ով տանում են նորերին։
-- Կապի հասցե՝ info@apostolic.am (`app/utils/contact.ts`)։
+- Էլ. հասցեներ (`app/utils/contact.ts`)՝ contact@ հարցեր/առաջարկներ, support@ տեխնիկական խնդիրներ, info@ պաշտոնական և գաղտնիություն։
 - Այցելությունների վիճակագրությունը անանուն է, գաղտնիության էջում չի նշվում։
 - Մեդիան՝ `media.apostolic.am` (R2), պահեստային՝ կայքի `/media/...`. նվագարկիչը ինքն է փորձում երկուսն էլ։
 - Production բոտ՝ @armenian_apostolic_church_bot, staging-ի համար՝ հին բոտը։
