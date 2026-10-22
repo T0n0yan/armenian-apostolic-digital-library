@@ -40,7 +40,12 @@
 				"MEDIA_BASE_URL": "https://media-staging.apostolic.am",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
-				"VAPID_SUBJECT": "mailto:info@apostolic.am"
+				"VAPID_SUBJECT": "mailto:info@apostolic.am",
+				// The private support group and its topics (app/data/telegram-bot-replies.server.ts);
+				// both bots are admins there, each relays only replies to its own messages.
+				"SUPPORT_CHAT_ID": "-1004327865153",
+				"SUPPORT_TOPIC_SUPPORT": "2",
+				"SUPPORT_TOPIC_CONTACT": "7"
 			},
 			"d1_databases": [
 				{
@@ -71,7 +76,12 @@
 				"MEDIA_DIRECT_FROM": "2026-10-22T04:00:00Z",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.
 				"VAPID_PUBLIC_KEY": "BLjRkHQtrhXZusTlLWoBA_aTzoMe8Ed03SwoSG98FRMBzXmTPWc3giv2aE5fcymivjRaOwKmCgQZ30UmGMCGABo",
-				"VAPID_SUBJECT": "mailto:info@apostolic.am"
+				"VAPID_SUBJECT": "mailto:info@apostolic.am",
+				// The private support group and its topics (app/data/telegram-bot-replies.server.ts);
+				// both bots are admins there, each relays only replies to its own messages.
+				"SUPPORT_CHAT_ID": "-1004327865153",
+				"SUPPORT_TOPIC_SUPPORT": "2",
+				"SUPPORT_TOPIC_CONTACT": "7"
 			},
 			"d1_databases": [
 				{
