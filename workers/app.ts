@@ -151,16 +151,20 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
   if (request.method === "GET" && new URL(request.url).pathname.startsWith("/media/") && new URL(request.url).searchParams.has("v")) return serveMedia(request, context);
   {
     const url = new URL(request.url);
+    // Moving between pages inside the site fetches "<page>.data" (the home page: "/_root.data");
+    // those are cached like the pages themselves, so searching or opening a section from inside
+    // the site costs the Worker no CPU the second time (the free plan allows 10 ms a request).
+    const page = url.pathname.replace(/\.data$/u, "").replace(/^\/_root$/u, "/");
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
     const sharedJson = url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
       && (sharedJson || !request.headers.has("cookie"))
       && !url.searchParams.has("refresh")
-      && (url.pathname === "/"
-        || url.pathname === "/search"
-        || url.pathname.startsWith("/categories/")
-        || url.pathname.startsWith("/materials/")
-        || isLibraryPath(url.pathname)
+      && (page === "/"
+        || page === "/search"
+        || page.startsWith("/categories/")
+        || page.startsWith("/materials/")
+        || isLibraryPath(page)
         || url.pathname.startsWith("/api/categories/")
         || url.pathname === "/api/search-page"
         || url.pathname === "/api/search-suggestions");
@@ -176,7 +180,9 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const response = await requestHandler(request);
     if (response.status !== 200 || response.headers.has("set-cookie")) return response;
     const cacheResponse = new Response(response.body, response);
-    cacheResponse.headers.set("Cache-Control", "public, max-age=30, s-maxage=60");
+    // Five minutes at the edge: a new Telegram post shows within that, and «Թարմացնել կայքը» in the
+    // admin page (a new cache version) makes every page fresh at once.
+    cacheResponse.headers.set("Cache-Control", "public, max-age=30, s-maxage=300");
     context.waitUntil(cache.put(cacheKey, cacheResponse.clone()));
     return cacheResponse;
   }

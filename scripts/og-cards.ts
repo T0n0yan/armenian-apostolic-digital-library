@@ -120,6 +120,12 @@ async function draw(card: Card) {
 }
 
 const manifest = await readManifest();
+// Nothing changed since the last run (most syncs): stop before asking the site for every card.
+const version = await fetch(`${site}/api/og-cards?section=version`).then(async (response) => response.ok ? (await response.json() as { version?: string }).version ?? null : null).catch(() => null);
+if (version && !force && manifest.__version === version) {
+  console.log("nothing changed since the last run");
+  process.exit(0);
+}
 const cards = await listCards();
 const stamp = (card: Card) => `${OG_CARD_LAYOUT}:${card.version}:${card.label.length}:${card.subtitle?.length ?? 0}:${card.text.length}:${card.byline ?? ""}:${card.image ? 1 : 0}`;
 const pending = cards.filter((card) => force || manifest[card.path] !== stamp(card));
@@ -137,5 +143,6 @@ await Promise.all(Array.from({ length: 4 }, async () => {
     if (done % 50 === 0) { console.log(`${done}/${pending.length}`); await saveManifest(manifest); }
   }
 }));
-if (pending.length) await saveManifest(manifest);
+if (version) manifest.__version = version;
+if (pending.length || version) await saveManifest(manifest);
 console.log(`drew ${done} cards`);
