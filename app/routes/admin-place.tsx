@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Check, Copy, ImagePlus, Star, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
 
 import type { Route } from "./+types/admin-place";
 import { requireAdmin, requireSameOrigin } from "../auth/admin.server";
@@ -90,7 +90,24 @@ export async function action({ request, params }: Route.ActionArgs) {
   return redirect(`/admin/places/${place.id}`);
 }
 
-const smallButton = "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
+/**
+ * An Armenian «choose file» button (the browser's own reads «Choose File»): picking files sends the
+ * form at once.
+ */
+function UploadButton({ name, intent, accept, multiple, label, icon, disabled }: { name: string; intent: string; accept: string; multiple?: boolean; label: string; icon: React.ReactNode; disabled: boolean }) {
+  return (
+    <Form method="post" encType="multipart/form-data">
+      <input type="hidden" name="intent" value={intent} />
+      <label className={`${smallButton} ${disabled ? "opacity-60" : ""}`}>
+        {icon} {disabled ? "Վերբեռնվում է…" : label}
+        <input className="sr-only" type="file" name={name} accept={accept} multiple={multiple} disabled={disabled}
+          onChange={(event) => { if (event.currentTarget.files?.length) event.currentTarget.form?.requestSubmit(); }} />
+      </label>
+    </Form>
+  );
+}
+
+const smallButton = "inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
 const textarea = `${fieldControl} min-h-[110px] resize-y leading-relaxed`;
 
 /** One place: its text, location, photos, map drawing, and whether it is on the public map. */
@@ -98,7 +115,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
   const { place } = loaderData;
   const busy = useNavigation().state === "submitting";
   const [copied, setCopied] = useState(false);
-  const saved = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("saved");
+  const saved = useSearchParams()[0].has("saved");
   return (
     <PageShell width="admin">
       <SiteNav />
@@ -143,10 +160,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
               {place.icon ? <img className="size-24 object-contain" src={placeMediaUrl(place.icon)} alt="" /> : <span className="px-2 text-center text-[12px] text-[#7a5a3a]">Դեռ չկա. քարտեզում կերևա կլոր լուսանկարը</span>}
             </span>
             <div className="grid gap-2">
-              <Form method="post" encType="multipart/form-data" className="flex flex-wrap items-center gap-2">
-                <input type="file" name="icon" accept="image/png,image/webp" required className="max-w-[230px] text-[13px] text-muted" />
-                <button className={smallButton} type="submit" name="intent" value="icon" disabled={busy}><Upload aria-hidden="true" size={14} /> Վերբեռնել</button>
-              </Form>
+              <UploadButton name="icon" intent="icon" accept="image/png,image/webp" label={place.icon ? "Փոխել գծանկարը (PNG)" : "Վերբեռնել գծանկարը (PNG)"} icon={<Upload aria-hidden="true" size={14} />} disabled={busy} />
               {place.icon ? <Form method="post"><button className={smallButton} type="submit" name="intent" value="remove-icon" disabled={busy}><Trash2 aria-hidden="true" size={14} /> Հեռացնել գծանկարը</button></Form> : null}
             </div>
           </div>
@@ -174,10 +188,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
               </figure>
             ))}
           </div>
-          <Form method="post" encType="multipart/form-data" className="flex flex-wrap items-center gap-2">
-            <input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required className="max-w-[260px] text-[13px] text-muted" />
-            <button className={smallButton} type="submit" name="intent" value="photos" disabled={busy}><ImagePlus aria-hidden="true" size={14} /> Ավելացնել նկարներ</button>
-          </Form>
+          <UploadButton name="photos" intent="photos" accept="image/jpeg,image/png,image/webp" multiple label="Ավելացնել նկարներ" icon={<ImagePlus aria-hidden="true" size={14} />} disabled={busy} />
         </section>
 
         <Form method="post" className="flex justify-end" onSubmit={(event) => { if (!window.confirm(`Ջնջե՞լ «${place.name}»-ը և նրա բոլոր նկարները։`)) event.preventDefault(); }}>

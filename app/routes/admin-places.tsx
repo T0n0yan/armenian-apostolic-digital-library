@@ -116,7 +116,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
           <div className="grid gap-2">
             {places.map((place) => (
               <Link key={place.id} className="frosted-card flex items-center gap-3 p-3 text-inherit no-underline" to={`/admin/places/${place.id}`}>
-                <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-subtle">
+                <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-[#efe3c8]">
                   {place.icon ? <img className="size-full object-contain" src={placeMediaUrl(place.icon)} alt="" /> : place.photos[0] ? <img className="size-full object-cover" src={placeMediaUrl(place.photos[0])} alt="" /> : <MapPin aria-hidden="true" size={20} className="text-faint" />}
                 </span>
                 <span className="grid min-w-0 flex-1 gap-0.5">
