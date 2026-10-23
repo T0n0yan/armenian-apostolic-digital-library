@@ -17,7 +17,7 @@ import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import jpeg from "jpeg-js";
 import satori from "satori";
 
-import { OG_CARD_HEIGHT, OG_CARD_LAYOUT, OG_CARD_WIDTH, ogCardElement } from "../app/utils/og-card-layout";
+import { OG_CARD_HEIGHT, OG_CARD_LAYOUT, OG_CARD_WIDTH, ogCardElement, type OgInitial } from "../app/utils/og-card-layout";
 
 type Card = { path: string; version: string; section: string; label: string; subtitle?: string; text: string; byline?: string; image?: string; plain?: boolean };
 
@@ -102,8 +102,19 @@ async function picture(url: string | undefined) {
   return `data:${type};base64,${Buffer.from(await response.arrayBuffer()).toString("base64")}`;
 }
 
+/** A prayer's bird-letter initial (scripts/build-bird-initials.py writes them). */
+const birdInitial: OgInitial = (letter) => {
+  const file = `app/assets/og-initials/${letter.codePointAt(0)?.toString(16)}.svg`;
+  let svg: string;
+  try { svg = readFileSync(file, "utf8"); } catch { return undefined; }
+  const [, width, height] = /viewBox="0 0 (\d+) (\d+)"/u.exec(svg) ?? [];
+  if (!width || !height) return undefined;
+  return { src: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`, ratio: Number(width) / Number(height) };
+};
+
 async function draw(card: Card) {
-  const svg = await satori(ogCardElement({ ...card, imageSrc: await picture(card.image) }) as never, { width: OG_CARD_WIDTH, height: OG_CARD_HEIGHT, fonts });
+  const initial = card.path.startsWith("/pray/") ? birdInitial : undefined;
+  const svg = await satori(ogCardElement({ ...card, imageSrc: await picture(card.image), initial }) as never, { width: OG_CARD_WIDTH, height: OG_CARD_HEIGHT, fonts });
   const image = new Resvg(svg, { fitTo: { mode: "width", value: OG_CARD_WIDTH } }).render();
   return jpeg.encode({ data: Buffer.from(image.pixels), width: image.width, height: image.height }, 88).data;
 }
