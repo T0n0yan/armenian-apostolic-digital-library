@@ -24,22 +24,22 @@ function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void })
     <div className="place-card" role="dialog" aria-label={place.name}>
       <button className="place-card-close" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={16} /></button>
       <div className="flex gap-3">
-        <span className={`grid size-[76px] shrink-0 place-items-center overflow-hidden rounded-[14px] ${place.cover ? "" : "bg-[#efe3c8]"}`}>
-          {picture ? <img className={place.cover ? "size-full object-cover" : "size-[66px] object-contain"} src={picture} alt="" /> : <MapPin aria-hidden="true" size={22} className="text-[#a06d22]" />}
+        <span className={`grid size-[60px] shrink-0 place-items-center overflow-hidden rounded-[14px] ${place.cover ? "" : "bg-[#efe3c8]"}`}>
+          {picture ? <img className={place.cover ? "size-full object-cover" : "size-[54px] object-contain"} src={picture} alt="" /> : <MapPin aria-hidden="true" size={22} className="text-[#a06d22]" />}
         </span>
-        <div className="grid min-w-0 content-start gap-0.5 pr-6">
-          <strong className="font-noto text-[16px] leading-snug text-ink">{place.name}</strong>
-          <span className="text-[12px] text-muted">{PLACE_KINDS[place.kind]}{place.region ? ` · ${place.region}` : ""}{place.verified ? "" : " · ⚑ Ճշտել"}</span>
-          {place.summary ? <p className="m-0 mt-1 line-clamp-2 text-[13px] leading-snug text-muted">{place.summary}</p> : null}
+        <div className="grid min-w-0 content-start gap-0.5 pr-7">
+          <strong className="truncate font-noto text-[15px] leading-snug text-ink">{place.name}</strong>
+          <span className="line-clamp-2 text-[11.5px] leading-snug text-muted">{PLACE_KINDS[place.kind]}{place.region ? ` · ${place.region}` : ""}{place.verified ? "" : " · ⚑ Ճշտել"}</span>
+          {place.summary ? <p className="m-0 mt-0.5 line-clamp-1 text-[12.5px] leading-snug text-muted">{place.summary}</p> : null}
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Link className="inline-flex min-h-9 items-center gap-1 rounded-[11px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
+      <div className="mt-2.5 flex items-center gap-1.5">
+        <Link className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-[11px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
           Մանրամասն <ChevronRight aria-hidden="true" size={15} />
         </Link>
         {directionLinks(place.latitude, place.longitude).map((link) => (
-          <a key={link.href} className="inline-flex min-h-9 items-center gap-1 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer">
-            <Navigation aria-hidden="true" size={13} /> {link.label}
+          <a key={link.href} className="inline-flex min-h-9 items-center gap-1 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
+            <Navigation aria-hidden="true" size={13} /> {link.label.replace(" Maps", "")}
           </a>
         ))}
       </div>
