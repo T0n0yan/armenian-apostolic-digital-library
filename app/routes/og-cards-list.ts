@@ -14,12 +14,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   // A cheap fingerprint of everything the cards show, so the drawing job can stop at once when
   // nothing changed since its last run (it runs after every Telegram sync).
   if (section === "version") {
+    // Only what the cards show: which posts exist, their edits, and the sections' names. Sync times
+    // change on every run and would make the job draw again for nothing.
     const row = await env.DB.prepare(
-      `SELECT COUNT(*) AS count, MAX(message_id) AS last, MAX(COALESCE(edited_at, '')) AS edited, MAX(updated_at) AS updated
+      `SELECT COUNT(*) AS count, MAX(message_id) AS last, SUM(message_id) AS ids, MAX(COALESCE(edited_at, '')) AS edited
        FROM library_materials WHERE sync_state = 'ready' AND deleted_at IS NULL`,
-    ).first<{ count: number; last: number | null; edited: string | null; updated: string | null }>();
-    const topics = await env.DB.prepare("SELECT COUNT(*) AS count, MAX(updated_at) AS updated FROM library_topics").first<{ count: number; updated: string | null }>();
-    const version = [OG_CARD_LAYOUT, row?.count, row?.last, row?.edited, row?.updated, topics?.count, topics?.updated].join(":");
+    ).first<{ count: number; last: number | null; ids: number | null; edited: string | null }>();
+    const topics = await env.DB.prepare("SELECT group_concat(id || ':' || status || ':' || name, '|') AS names FROM library_topics").first<{ names: string | null }>();
+    const version = [OG_CARD_LAYOUT, row?.count, row?.last, row?.ids, row?.edited, topics?.names].join(":");
     return Response.json({ version }, { headers: { "cache-control": "no-store", "x-robots-tag": "noindex" } });
   }
   if (!(OG_CARD_SECTIONS as readonly string[]).includes(section)) return Response.json({ sections: OG_CARD_SECTIONS }, { status: 400 });
