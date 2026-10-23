@@ -1,12 +1,14 @@
 import { env } from "cloudflare:workers";
 import { CONTACT_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
+import { answerPlaceName, continuePlace, startPlace } from "./place-intake.server";
 import { isLibraryPath } from "../utils/material-path";
 import { readerIdFrom, relayedText, SUPPORT_PROMPTS, supportHeader, supportKindFor, type SupportKind } from "../utils/support-relay";
 
 type BotEnv = {
   TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; SUPPORT_URL?: string;
-  SUPPORT_CHAT_ID?: string; SUPPORT_TOPIC_SUPPORT?: string; SUPPORT_TOPIC_CONTACT?: string;
+  SUPPORT_CHAT_ID?: string; SUPPORT_TOPIC_SUPPORT?: string; SUPPORT_TOPIC_CONTACT?: string; SUPPORT_TOPIC_PLACES?: string;
+  DB?: D1Database;
 };
 type User = { id: number; is_bot?: boolean; first_name?: string; last_name?: string; username?: string; language_code?: string };
 type Message = {
@@ -20,18 +22,20 @@ type Message = {
   photo?: unknown; video?: unknown; document?: unknown; audio?: unknown; voice?: unknown; animation?: unknown;
   reply_to_message?: Message;
 };
-type Update = { message?: Message };
+type CallbackQuery = { id: string; data?: string; from: User; message?: { chat: { id: number }; message_id: number } };
+type Update = { message?: Message; callback_query?: CallbackQuery };
 
 
 function settings() {
-  const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support, SUPPORT_CHAT_ID: supportChat, SUPPORT_TOPIC_SUPPORT: supportTopic, SUPPORT_TOPIC_CONTACT: contactTopic } = env as BotEnv;
+  const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support, SUPPORT_CHAT_ID: supportChat, SUPPORT_TOPIC_SUPPORT: supportTopic, SUPPORT_TOPIC_CONTACT: contactTopic, SUPPORT_TOPIC_PLACES: placesTopic, DB: db } = env as BotEnv;
   const topic = (value?: string) => Number(value?.trim()) || undefined;
   return {
     token: token?.trim() || null,
     site: (site || "https://apostolic.am").replace(/\/+$/u, ""),
     support: support?.trim() || null,
     // The private group where readers' messages arrive (empty: the relay is off).
-    relay: Number(supportChat?.trim()) ? { chat: Number(supportChat), topics: { support: topic(supportTopic), contact: topic(contactTopic) } as Record<SupportKind, number | undefined> } : null,
+    relay: Number(supportChat?.trim()) ? { chat: Number(supportChat), topics: { support: topic(supportTopic), contact: topic(contactTopic) } as Record<SupportKind, number | undefined>, places: topic(placesTopic) } : null,
+    db: db ?? null,
   };
 }
 
@@ -56,7 +60,13 @@ export async function webhookSecret(token: string) {
  * does and where to ask for help. Anything else gets the same short help.
  */
 export async function answerUpdate(update: Update) {
-  const { token, site, support, relay } = settings();
+  const { token, site, support, relay, db } = settings();
+  const call = (method: string, body: unknown) => callTelegram(token ?? "", method, body);
+  const places = relay ? { chat_id: relay.chat, message_thread_id: relay.places } : null;
+  if (token && places && db && update.callback_query?.data?.startsWith("place:")) {
+    await answerPlaceName(call, db, places, update.callback_query);
+    return;
+  }
   const message = update.message;
   if (!token || !message) return;
   if (message.chat.type === "group" || message.chat.type === "supergroup") return answerGroup(token, relay, message);
@@ -65,6 +75,13 @@ export async function answerUpdate(update: Update) {
   const [command, payload = ""] = text.split(/\s+/u, 2);
   const name = message.from?.first_name?.trim();
 
+  // /place: a reader sends a church or shrine for the map; their messages go to the places topic
+  // until they press «Ավարտել».
+  if (places && db && message.from && command === "/place") {
+    await startPlace(call, db, message.chat.id, message.from.id);
+    return;
+  }
+  if (places && db && message.from && !text.startsWith("/") && await continuePlace(call, db, places, { ...message, from: message.from })) return;
   if (relay && (command === "/support" || command === "/contact")) {
     await callTelegram(token, "sendMessage", {
       chat_id: message.chat.id,
@@ -127,7 +144,7 @@ export async function answerUpdate(update: Update) {
       "🌐 Կայքը՝ " + site.replace(/^https?:\/\//u, ""),
       "",
       ...(relay
-        ? ["✉️ Հարց կամ առաջարկ՝ /contact", "🛠 Տեխնիկական խնդիր՝ /support", "", `Էլ. փոստ՝ ${CONTACT_EMAIL}, ${SUPPORT_EMAIL}`]
+        ? ["✉️ Հարց կամ առաջարկ՝ /contact", "🛠 Տեխնիկական խնդիր՝ /support", "📍 Ուղարկել սրբավայր՝ /place", "", `Էլ. փոստ՝ ${CONTACT_EMAIL}, ${SUPPORT_EMAIL}`]
         : [support ? `Հարցերի և առաջարկների համար՝ ${support}` : `Հարցերի և առաջարկների համար՝ ${CONTACT_EMAIL}`, `Տեխնիկական խնդիրների համար՝ ${SUPPORT_EMAIL}`]),
     ].join("\n"),
     link_preview_options: { is_disabled: true },
@@ -175,7 +192,7 @@ export async function connectBot() {
   const hook = await callTelegram(token, "setWebhook", {
     url: `${site}/telegram/webhook`,
     secret_token: await webhookSecret(token),
-    allowed_updates: ["message"],
+    allowed_updates: ["message", "callback_query"],
     drop_pending_updates: true,
   });
   if (!hook.ok) return hook;
@@ -186,6 +203,7 @@ export async function connectBot() {
       ...(settings().relay ? [
         { command: "contact", description: "Հարց կամ առաջարկ" },
         { command: "support", description: "Տեխնիկական խնդիր" },
+        { command: "place", description: "Ուղարկել սրբավայր քարտեզի համար" },
       ] : []),
     ],
   });

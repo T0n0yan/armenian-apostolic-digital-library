@@ -17,10 +17,41 @@ export function supportKindFor(repliedText: string | undefined): SupportKind {
   return repliedText === SUPPORT_PROMPTS.support ? "support" : "contact";
 }
 
-export function supportHeader(kind: SupportKind, user: { id: number; first_name?: string; last_name?: string; username?: string }) {
+type Reader = { id: number; first_name?: string; last_name?: string; username?: string };
+
+/** The line the team sees above a reader's message: what it is, who sent it, and their id. */
+export function relayHeader(label: string, user: Reader) {
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ").trim() || "Անանուն";
-  return `${LABELS[kind]} · ${name}${user.username ? ` @${user.username}` : ""} · #u${user.id}`;
+  return `${label} · ${name}${user.username ? ` @${user.username}` : ""} · #u${user.id}`;
 }
+
+export function supportHeader(kind: SupportKind, user: Reader) {
+  return relayHeader(LABELS[kind], user);
+}
+
+/** The /place conversation: what the reader is asked and the buttons that end it. */
+export const PLACE_TEXT = {
+  start: [
+    "📍 Ուղարկեք սրբավայր",
+    "",
+    "Այս չաթում ուղարկեք՝",
+    "1. Մի քանի նկար (լավ կլինի, որ ամբողջ եկեղեցին երևա)",
+    "2. Տեղադրությունը՝ 📎 → Location",
+    "3. Անունը և այն, ինչ գիտեք դրա մասին",
+    "4. Տեսանյութ, եթե ունեք",
+    "",
+    "Ուղարկածը տեսնում է միայն մեր թիմը։ Վերջում սեղմեք «✅ Ավարտել»։",
+  ].join("\n"),
+  received: "Ստացանք ✅ Շարունակեք ուղարկել կամ սեղմեք «✅ Ավարտել»։",
+  empty: "Դեռ ոչինչ չեք ուղարկել. ուղարկեք նկարները կամ սեղմեք «✖️ Չեղարկել»։",
+  done: "Ստացանք ձեր ուղարկածը ✅ Շնորհակալություն 🙏",
+  askName: "Եթե տեղն ավելացնենք քարտեզում, նշե՞նք ձեր անունը որպես ուղարկող։",
+  named: "Լավ, կնշենք ձեր անունը։",
+  anonymous: "Լավ, կմնաք անանուն։",
+  cancelled: "Չեղարկվեց։ Կարող եք նորից սկսել /place հրամանով։",
+  finish: "✅ Ավարտել",
+  cancel: "✖️ Չեղարկել",
+};
 
 /** The reader's Telegram id from a relayed message, or null when it isn't one. */
 export function readerIdFrom(text: string | undefined) {
