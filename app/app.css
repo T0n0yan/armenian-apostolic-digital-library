@@ -527,19 +527,30 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 /* Developer mode (admins only): texts can be selected and copied again. */
 html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"] main * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 
-/* Sacred places map (/places): OpenStreetMap toned to parchment, church drawings as markers. */
-.places-map {
-  height: min(72svh, 640px);
-  min-height: 360px;
+/* Sacred places map (/places): OpenStreetMap toned to parchment, Armenia only, church drawings as
+   markers, and a card that slides up inside the map when one is tapped. */
+.places-map-frame {
+  position: relative;
   overflow: hidden;
   border: 1px solid rgb(217 181 111 / 40%);
   border-radius: 22px;
   background: #efe3c8;
   box-shadow: 0 14px 40px rgb(40 20 10 / 18%);
+}
+.places-map {
+  /* Armenia is about as wide as it is tall on the map: a near-square frame wastes no space on phones. */
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: min(74svh, 680px);
+  min-height: 320px;
+  background: #efe3c8;
   --pin-scale: 1;
 }
+.places-map-frame--small .places-map { aspect-ratio: 16 / 10; min-height: 220px; max-height: 360px; }
 .places-map .parchment-tiles { filter: sepia(0.42) saturate(0.78) hue-rotate(-6deg) brightness(1.03) contrast(0.94); }
 .places-map .leaflet-control-attribution { background: rgb(245 236 214 / 85%); color: #6b4f2e; font-size: 10px; }
+.places-map .leaflet-control-zoom a { background: #fbf4e4; color: #6b3f12; border-color: rgb(176 125 46 / 35%); }
+.places-map .leaflet-control-zoom a.leaflet-disabled { color: #c9b48f; background: #f3e9d2; }
 .place-pin { background: none; border: 0; }
 .place-pin-drawing {
   width: 64px; height: 64px; object-fit: contain;
@@ -558,14 +569,16 @@ html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"
   display: grid; width: 34px; height: 34px; margin: 6px; place-items: center; border-radius: 50%;
   background: #b07d2e; color: #fff8e8; font-size: 16px; box-shadow: 0 3px 10px rgb(40 20 10 / 35%);
 }
-.place-popup-shell .leaflet-popup-content-wrapper { padding: 0; overflow: hidden; border-radius: 16px; background: #fbf4e4; color: #3a2412; }
-.place-popup-shell .leaflet-popup-content { width: 260px !important; margin: 0; font: 13px/1.5 system-ui, sans-serif; }
-.place-popup-shell .leaflet-popup-tip { background: #fbf4e4; }
-.place-popup-cover { display: block; width: 100%; height: 130px; object-fit: cover; }
-.place-popup-body { display: grid; gap: 4px; padding: 10px 12px 12px; }
-.place-popup-body strong { font-family: "Noto Serif Armenian", Georgia, serif; font-size: 15px; color: #6b3f12; }
-.place-popup-body p { margin: 2px 0; color: #4a3220; }
-.place-popup-meta { color: #8a6a44; font-size: 12px; }
-.place-popup-more { width: fit-content; margin-top: 2px; color: #a06d22 !important; font-weight: 700; }
-.place-popup-routes { color: #8a6a44; font-size: 12px; }
-.place-popup-route { margin-left: 6px; color: #a06d22 !important; }
+.place-card {
+  position: absolute; z-index: 1000; right: 10px; bottom: 10px; left: 10px;
+  max-width: 440px; margin: 0 auto; padding: 12px;
+  border: 1px solid rgb(217 181 111 / 45%); border-radius: 18px;
+  background: var(--page-bg); box-shadow: 0 16px 40px rgb(40 20 10 / 32%);
+  animation: place-card-in 200ms ease-out;
+}
+.place-card-close {
+  position: absolute; top: 8px; right: 8px; display: grid; width: 30px; height: 30px; place-items: center;
+  border: 0; border-radius: 50%; background: var(--subtle-bg); color: var(--muted); cursor: pointer;
+}
+@keyframes place-card-in { from { opacity: 0; transform: translateY(14px); } }
+@media (prefers-reduced-motion: reduce) { .place-card { animation: none; } }

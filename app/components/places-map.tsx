@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { ChevronRight, MapPin, Navigation, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 
 import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
 import { directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
@@ -8,8 +10,6 @@ export type MapPlace = {
   summary: string; icon: string | null; cover: string | null; verified: boolean;
 };
 
-const escape = (text: string) => text.replace(/[&<>"']/gu, (character) => `&#${character.charCodeAt(0)};`);
-
 /** The marker: the church's drawing when there is one, else its cover photo in a gold ring. */
 function markerHtml(place: MapPlace) {
   if (place.icon) return `<img class="place-pin-drawing" src="${placeMediaUrl(place.icon)}" alt="" draggable="false">`;
@@ -17,27 +17,45 @@ function markerHtml(place: MapPlace) {
   return `<span class="place-pin-dot">✠</span>`;
 }
 
-function popupHtml(place: MapPlace) {
-  const links = directionLinks(place.latitude, place.longitude)
-    .map((link) => `<a class="place-popup-route" href="${link.href}" target="_blank" rel="noreferrer">${escape(link.label)}</a>`).join("");
-  return `<div class="place-popup">
-    ${place.cover ? `<img class="place-popup-cover" src="${placeMediaUrl(place.cover)}" alt="">` : ""}
-    <div class="place-popup-body">
-      <strong>${escape(place.name)}</strong>
-      <span class="place-popup-meta">${escape(PLACE_KINDS[place.kind])}${place.region ? ` · ${escape(place.region)}` : ""}${place.verified ? "" : " · ⚑ Ճշտել"}</span>
-      ${place.summary ? `<p>${escape(place.summary)}</p>` : ""}
-      <a class="place-popup-more" href="/places/${place.id}">Մանրամասն →</a>
-      <span class="place-popup-routes">Ինչպես հասնել՝ ${links}</span>
+/** The card that slides up inside the map when a church is tapped: never cut by the map's edge. */
+function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void }) {
+  const picture = place.cover ? placeMediaUrl(place.cover) : place.icon ? placeMediaUrl(place.icon) : null;
+  return (
+    <div className="place-card" role="dialog" aria-label={place.name}>
+      <button className="place-card-close" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={16} /></button>
+      <div className="flex gap-3">
+        <span className={`grid size-[76px] shrink-0 place-items-center overflow-hidden rounded-[14px] ${place.cover ? "" : "bg-[#efe3c8]"}`}>
+          {picture ? <img className={place.cover ? "size-full object-cover" : "size-[66px] object-contain"} src={picture} alt="" /> : <MapPin aria-hidden="true" size={22} className="text-[#a06d22]" />}
+        </span>
+        <div className="grid min-w-0 content-start gap-0.5 pr-6">
+          <strong className="font-noto text-[16px] leading-snug text-ink">{place.name}</strong>
+          <span className="text-[12px] text-muted">{PLACE_KINDS[place.kind]}{place.region ? ` · ${place.region}` : ""}{place.verified ? "" : " · ⚑ Ճշտել"}</span>
+          {place.summary ? <p className="m-0 mt-1 line-clamp-2 text-[13px] leading-snug text-muted">{place.summary}</p> : null}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Link className="inline-flex min-h-9 items-center gap-1 rounded-[11px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
+          Մանրամասն <ChevronRight aria-hidden="true" size={15} />
+        </Link>
+        {directionLinks(place.latitude, place.longitude).map((link) => (
+          <a key={link.href} className="inline-flex min-h-9 items-center gap-1 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer">
+            <Navigation aria-hidden="true" size={13} /> {link.label}
+          </a>
+        ))}
+      </div>
     </div>
-  </div>`;
+  );
 }
 
 /**
- * Armenia with every published place on it (Leaflet over OpenStreetMap, toned to the site's
- * parchment). Leaflet needs a browser, so it is loaded once the page is on screen.
+ * Armenia alone (Leaflet over OpenStreetMap, toned to the site's parchment; the rest of the world
+ * covered), with every published place drawn on it. Tapping a church opens its card. Leaflet needs a
+ * browser, so it is loaded once the page is on screen. With `focus`, the map shows that one place
+ * up close (a place's own page) and its marker opens nothing.
  */
 export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: string }) {
   const container = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => {
     let map: import("leaflet").Map | null = null;
     let cancelled = false;
@@ -61,25 +79,28 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
         stroke: false, fillColor: "#efe3c8", fillOpacity: 1, interactive: false,
       }).addTo(map);
       L.polygon(ARMENIA_BORDER, { color: "#b07d2e", weight: 2, opacity: 0.85, fill: false, interactive: false }).addTo(map);
-      const markers = places.map((place) => {
-        const size: [number, number] = place.icon ? [64, 64] : [46, 46];
+      for (const place of places) {
         const marker = L.marker([place.latitude, place.longitude], {
-          title: place.name, alt: place.name, riseOnHover: true,
-          icon: L.divIcon({ className: "place-pin", html: markerHtml(place), iconSize: size, iconAnchor: place.icon ? [32, 60] : [23, 23], popupAnchor: [0, place.icon ? -54 : -20] }),
-        }).bindPopup(popupHtml(place), { maxWidth: 280, minWidth: 220, className: "place-popup-shell" }).addTo(map!);
-        if (place.id === focus) marker.openPopup();
-        return marker;
-      });
+          title: place.name, alt: place.name, riseOnHover: true, keyboard: !focus, interactive: !focus,
+          icon: L.divIcon({ className: "place-pin", html: markerHtml(place), iconSize: place.icon ? [64, 64] : [46, 46], iconAnchor: place.icon ? [32, 60] : [23, 23] }),
+        }).addTo(map);
+        if (!focus) marker.on("click", () => setSelected(place.id));
+      }
+      if (!focus) map.on("click", () => setSelected(null));
       // Bigger drawings as the map comes closer.
       const scale = () => container.current?.style.setProperty("--pin-scale", String(Math.min(1.6, Math.max(0.7, 0.7 + ((map?.getZoom() ?? 8) - 7) * 0.18))));
       map.on("zoomend", scale);
+      const place = focus ? places.find((item) => item.id === focus) : null;
+      if (place) map.setView([place.latitude, place.longitude], 13);
       scale();
-      if (focus) {
-        const place = places.find((item) => item.id === focus);
-        if (place) map.setView([place.latitude, place.longitude], 13);
-      }
     });
     return () => { cancelled = true; map?.remove(); };
   }, [places, focus]);
-  return <div ref={container} className="places-map" role="region" aria-label="Սրբավայրերի քարտեզ" />;
+  const current = places.find((place) => place.id === selected);
+  return (
+    <div className={`places-map-frame ${focus ? "places-map-frame--small" : ""}`}>
+      <div ref={container} className="places-map" role="region" aria-label="Սրբավայրերի քարտեզ" />
+      {current ? <PlaceCard key={current.id} place={current} onClose={() => setSelected(null)} /> : null}
+    </div>
+  );
 }
