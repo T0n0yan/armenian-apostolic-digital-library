@@ -20,7 +20,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       `SELECT COUNT(*) AS count, MAX(message_id) AS last, SUM(message_id) AS ids, MAX(COALESCE(edited_at, '')) AS edited
        FROM library_materials WHERE sync_state = 'ready' AND deleted_at IS NULL`,
     ).first<{ count: number; last: number | null; ids: number | null; edited: string | null }>();
-    const topics = await env.DB.prepare("SELECT group_concat(id || ':' || status || ':' || name, '|') AS names FROM library_topics").first<{ names: string | null }>();
+    const topics = await env.DB.prepare("SELECT group_concat(id || ':' || status || ':' || title, '|') AS names FROM library_topics").first<{ names: string | null }>();
     const version = [OG_CARD_LAYOUT, row?.count, row?.last, row?.ids, row?.edited, topics?.names].join(":");
     return Response.json({ version }, { headers: { "cache-control": "no-store", "x-robots-tag": "noindex" } });
   }
