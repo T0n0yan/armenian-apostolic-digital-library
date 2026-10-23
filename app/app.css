@@ -571,7 +571,7 @@ html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"
 }
 .place-card {
   position: absolute; z-index: 1000; right: 10px; bottom: 10px; left: 10px;
-  max-width: 440px; margin: 0 auto; padding: 12px;
+  max-width: 420px; margin: 0 auto; padding: 10px;
   border: 1px solid rgb(217 181 111 / 45%); border-radius: 18px;
   background: var(--page-bg); box-shadow: 0 16px 40px rgb(40 20 10 / 32%);
   animation: place-card-in 200ms ease-out;
