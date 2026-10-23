@@ -65,10 +65,12 @@ export async function answerUpdate(update: Update) {
   const [command, payload = ""] = text.split(/\s+/u, 2);
   const name = message.from?.first_name?.trim();
 
-  if (relay && (command === "/support" || command === "/contact")) {
+  // /support, /contact, or the group welcome's «Գրել մեզ» button (t.me/bot?start=contact).
+  const asks = command === "/start" && (payload === "contact" || payload === "support") ? `/${payload}` : command;
+  if (relay && (asks === "/support" || asks === "/contact")) {
     await callTelegram(token, "sendMessage", {
       chat_id: message.chat.id,
-      text: SUPPORT_PROMPTS[command === "/support" ? "support" : "contact"],
+      text: SUPPORT_PROMPTS[asks === "/support" ? "support" : "contact"],
       reply_markup: { force_reply: true, input_field_placeholder: "Ձեր հաղորդագրությունը…" },
     });
     return;
@@ -166,6 +168,44 @@ async function answerGroup(token: string, relay: ReturnType<typeof settings>["re
       text: "❌ Չհաջողվեց ուղարկել. հավանաբար մարդը արգելափակել է բոտը։",
     });
   }
+}
+
+/** The welcome the bot posts and pins in the main group: what is here and where to go. */
+export const GROUP_WELCOME = [
+  "✠ Բարի գալուստ «Հայ Առաքելական Սուրբ Եկեղեցի» խումբ",
+  "",
+  "Այստեղ հրապարակվում են աղոթքներ, սաղմոսներ՝ ձայնագրությամբ, սրբերի վարքեր, Ավետարանի ուսուցում և օրվա ընթերցումներ։",
+  "",
+  "Բոլոր նյութերը հավաքված են նաև մեր գրադարանում՝ որոնումով, պահվածներով և հիշեցումներով։ Այն բացվում է հենց Telegram-ում՝ ներքևի կոճակով։",
+  "",
+  "✉️ Հարցերի և առաջարկների համար գրեք մեզ՝ «Գրել մեզ» կոճակով։",
+].join("\n");
+
+/**
+ * Posts the welcome with its buttons, without a sound. With `pin`, it is also pinned, again
+ * without notifying anyone. Buttons in groups can't open a Mini App directly, so «Բացել
+ * գրադարանը» is the bot's ?startapp link, which opens the library inside Telegram.
+ */
+export async function postGroupWelcome(chatId: string | number, pin: boolean) {
+  const { token, site } = settings();
+  if (!token) return { ok: false, description: "TELEGRAM_BOT_TOKEN չկա" };
+  const me = await callTelegram(token, "getMe", {});
+  const username = (me.result as { username?: string } | undefined)?.username;
+  if (!username) return { ok: false, description: me.description ?? "getMe failed" };
+  const sent = await callTelegram(token, "sendMessage", {
+    chat_id: chatId,
+    text: GROUP_WELCOME,
+    disable_notification: true,
+    link_preview_options: { is_disabled: true },
+    reply_markup: { inline_keyboard: [
+      [{ text: "📖 Բացել գրադարանը", url: `https://t.me/${username}?startapp` }],
+      [{ text: "🌐 Կայքը", url: site }, { text: "✉️ Գրել մեզ", url: `https://t.me/${username}?start=contact` }],
+    ] },
+  });
+  if (!sent.ok || !pin) return sent;
+  const messageId = (sent.result as { message_id: number }).message_id;
+  const pinned = await callTelegram(token, "pinChatMessage", { chat_id: chatId, message_id: messageId, disable_notification: true });
+  return pinned.ok ? sent : { ok: false, description: `Ուղարկվեց, բայց չամրացվեց. ${pinned.description ?? ""}` };
 }
 
 /** Points the bot's webhook at this site and sets its command list. */

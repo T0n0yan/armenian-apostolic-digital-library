@@ -21,7 +21,7 @@ import {
 import { formatArmenianDate } from "../utils/armenian-date";
 import { siteStats, type Platform } from "../data/presence.server";
 import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
-import { botStatus, connectBot } from "../data/telegram-bot-replies.server";
+import { botStatus, connectBot, GROUP_WELCOME, postGroupWelcome } from "../data/telegram-bot-replies.server";
 import { RouteErrorPage } from "../components/error-page";
 
 export function meta() {
@@ -45,7 +45,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const bot = await botStatus().catch(() => null);
   const url = new URL(request.url);
   const refreshed = url.searchParams.get("refreshed");
-  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
+  const isProduction = (env as { PUBLIC_URL?: string }).PUBLIC_URL === "https://apostolic.am";
+  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), welcome: url.searchParams.get("welcome"), welcomeText: GROUP_WELCOME, isProduction, canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
     headers: { "Set-Cookie": createAdminNavigationCookie(request) },
   });
 }
@@ -60,6 +61,17 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "connect-bot") {
     const result = await connectBot().catch(() => ({ ok: false }));
     return redirect(`/admin?bot=${result.ok ? "connected" : "failed"}`);
+  }
+
+  // The group welcome: a preview in the private support group, or the real post (pinned, silent)
+  // in the main group. Only production's bot is a member of the main group.
+  if (intent === "welcome-preview" || intent === "welcome-post") {
+    const target = intent === "welcome-preview"
+      ? (env as { SUPPORT_CHAT_ID?: string }).SUPPORT_CHAT_ID?.trim()
+      : await getContentChatId(env.DB);
+    const result = target ? await postGroupWelcome(target, intent === "welcome-post").catch(() => ({ ok: false, description: "" })) : { ok: false, description: "Խումբը չի գտնվել" };
+    const outcome = result.ok ? (intent === "welcome-post" ? "posted" : "previewed") : `failed:${result.description ?? ""}`;
+    return redirect(`/admin?welcome=${encodeURIComponent(outcome)}#welcome`);
   }
 
   // "Թարմացնել կայքը": every cached page is rebuilt now, and Telegram is synced again.
@@ -120,7 +132,7 @@ function ActionButton({ intent, telegramUserId, userId, displayName, children, d
 }
 
 export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
-  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync, bot, botMessage } = loaderData;
+  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync, bot, botMessage, welcome, welcomeText, isProduction } = loaderData;
   const navigation = useNavigation();
   const refreshing = navigation.state !== "idle" && navigation.formData?.get("intent") === "refresh-site";
   const error = actionData && "error" in actionData ? actionData.error : null;
@@ -169,6 +181,31 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
               {bot.lastError ? ` Վերջին սխալը՝ ${bot.lastError}` : ""}
             </p>
             {botMessage ? <p className={`m-0 text-[13px] ${botMessage === "connected" ? "text-[rgb(52_130_74)]" : "text-danger"}`} role="status">{botMessage === "connected" ? "✓ Կապված է։ Գրիր բոտին /start։" : "Չհաջողվեց կապել. ստուգիր TELEGRAM_BOT_TOKEN-ը։"}</p> : null}
+          </section>
+        ) : null}
+
+        {bot ? (
+          <section id="welcome" className={panelSection + " grid gap-3"}>
+            <h2 className="m-0 flex items-center gap-2 text-[17px]"><Bot aria-hidden="true" size={19} className="text-gold" /> Ողջույն խմբում</h2>
+            <p className="m-0 text-[13px] leading-[1.6] text-muted">
+              Բոտը խմբում հրապարակում է այս հաղորդագրությունը «📖 Բացել գրադարանը», «🌐 Կայքը» և «✉️ Գրել մեզ» կոճակներով և ամրացնում այն՝ առանց ծանուցման։
+              Նախ սեղմիր «Նախադիտում». հաղորդագրությունը կգա միայն Support խումբ։
+            </p>
+            <p className="m-0 whitespace-pre-line rounded-[14px] bg-subtle p-3 text-[13.5px] leading-relaxed text-ink">{welcomeText}</p>
+            <div className="flex flex-wrap gap-2">
+              <Form method="post"><input type="hidden" name="intent" value="welcome-preview" /><button className={primaryButton} type="submit">Նախադիտում Support խմբում</button></Form>
+              {isProduction ? (
+                <Form method="post" onSubmit={(event) => { if (!window.confirm("Հրապարակե՞լ և ամրացնել ողջույնը գլխավոր խմբում (առանց ծանուցման)։")) event.preventDefault(); }}>
+                  <input type="hidden" name="intent" value="welcome-post" />
+                  <button className={primaryButton} type="submit">Հրապարակել գլխավոր խմբում</button>
+                </Form>
+              ) : <span className="self-center text-[12.5px] text-faint">Գլխավոր խմբում հրապարակել կարելի է միայն apostolic.am-ից։</span>}
+            </div>
+            {welcome ? (
+              <p className={`m-0 text-[13px] ${welcome.startsWith("failed") ? "text-danger" : "text-[rgb(52_130_74)]"}`} role="status">
+                {welcome === "posted" ? "✓ Հրապարակվեց և ամրացվեց գլխավոր խմբում։" : welcome === "previewed" ? "✓ Նախադիտումը ուղարկվեց Support խումբ։" : `Չհաջողվեց. ${welcome.slice(7) || "բոտը խմբում ադմին չէ՞"}`}
+              </p>
+            ) : null}
           </section>
         ) : null}
 
