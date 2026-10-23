@@ -548,7 +548,13 @@ async function loadSearchCloudLibraryPosts(
   }
   // Psalms that match equally well read in their own order (1, 2, 3…), not by when they were posted.
   // The number comes from the audio title ("Սաղմոս 42") or the text ("(Սաղմոս 42)").
+  const psalmNumbers = new Map<SearchableTelegramDocument, number | null>();
   const psalmNumberOf = (document: SearchableTelegramDocument) => {
+    if (psalmNumbers.has(document)) return psalmNumbers.get(document) ?? null;
+    psalmNumbers.set(document, findPsalmNumber(document));
+    return psalmNumbers.get(document) ?? null;
+  };
+  const findPsalmNumber = (document: SearchableTelegramDocument) => {
     for (const field of [...document.fields].sort((a, b) => Number(b.primary) - Number(a.primary))) {
       const found = /սաղմոս\S*\s*(\d{1,3})(?!\d)/iu.exec(field.value);
       if (found) return Number(found[1]);
