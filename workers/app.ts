@@ -88,8 +88,8 @@ export default {
   async fetch(request, env, context) {
     // A failure outside the app's own error pages (the database or the platform) still gets a
     // calm page in Armenian instead of the platform's English one.
-    const response = secure(await handle(request, env, context).catch((error: unknown) => {
-      console.error(error);
+    const response = secure(await handleWithRetry(request, env, context).catch((error: unknown) => {
+      console.error("request failed twice", request.method, new URL(request.url).pathname, error);
       return failurePage(request);
     }));
     // Only the real address is indexed; staging and old addresses stay out of search results.
@@ -98,15 +98,31 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+/**
+ * D1 and the platform sometimes fail a request for a moment (a dropped connection, a storage
+ * reset, an overloaded database), which Cloudflare advises to simply retry. A read is tried once
+ * more before the reader sees an error page; writes are never repeated.
+ */
+async function handleWithRetry(request: Request, env: Env, context: ExecutionContext) {
+  if (request.method !== "GET" && request.method !== "HEAD") return handle(request, env, context);
+  try {
+    return await handle(request, env, context);
+  } catch (error) {
+    console.error("request failed, retrying", new URL(request.url).pathname, error);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return handle(request, env, context);
+  }
+}
+
 function failurePage(request: Request) {
   const accept = request.headers.get("accept") ?? "";
   if (!accept.includes("text/html")) return new Response("Service unavailable", { status: 503, headers: { "Retry-After": "60" } });
   const html = `<!doctype html><html lang="hy"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Կայքը կարճ ժամանակով անհասանելի է — Հոգևոր ժառանգություն</title>
 <style>:root{color-scheme:light dark;--bg:#f4ead6;--ink:#2a1633;--muted:#6b5a52;--gold:#9a6b1f}@media (prefers-color-scheme:dark){:root{--bg:#120a17;--ink:#f4ead6;--muted:#bfb2a5;--gold:#d9b56f}}
 body{margin:0;min-height:100svh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,sans-serif;padding:16px;box-sizing:border-box}
-main{max-width:460px;text-align:center}b{display:block;font-size:44px;color:var(--gold);line-height:1}h1{font-size:22px;margin:12px 0 6px}p{color:var(--muted);margin:0 0 18px}
+main{max-width:460px;text-align:center}img{display:block;margin:0 auto;border-radius:16px}h1{font-size:22px;margin:12px 0 6px}p{color:var(--muted);margin:0 0 18px}
 a,button{display:inline-block;min-height:44px;padding:10px 18px;border-radius:12px;border:1px solid var(--gold);color:var(--gold);background:none;font:600 14px system-ui,sans-serif;text-decoration:none;cursor:pointer;margin:4px}</style>
-<main><b aria-hidden="true">✠</b><h1>Կայքը կարճ ժամանակով անհասանելի է</h1><p>Խնդրում ենք փորձել մի քանի րոպեից։ Եթե խնդիրը կրկնվում է, գրեք մեզ՝ support@apostolic.am</p>
+<main><img src="/icon-192.png" width="64" height="64" alt="" aria-hidden="true"><h1>Կայքը կարճ ժամանակով անհասանելի է</h1><p>Խնդրում ենք փորձել մի քանի րոպեից։ Եթե խնդիրը կրկնվում է, գրեք մեզ՝ support@apostolic.am</p>
 <button type="button" onclick="location.reload()">Կրկին փորձել</button><a href="/">Գլխավոր էջ</a></main></html>`;
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
 }
