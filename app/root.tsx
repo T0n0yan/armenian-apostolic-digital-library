@@ -165,13 +165,15 @@ function loadTelegramSdk() {
 }
 
 /**
- * Whether Telegram's Close/⋯ buttons float over the top of the page. On phones the library's bot
- * opens fullscreen, but some Android clients report neither isFullscreen nor a content inset, so a
- * phone Mini App counts as fullscreen unless Telegram reports a header of its own.
+ * Whether Telegram's Close/⋯ buttons float over the top of the page. Telegram says so with
+ * isFullscreen; when it opens the page under its own header (the usual bot button) that is false
+ * and the page needs no room at the top. Older clients without the flag count as fullscreen only
+ * when the page fills the whole screen.
  */
 function isTelegramFullscreen(webApp: TelegramWebApp) {
-  if (webApp.isFullscreen) return true;
-  return webApp.platform === "android" || webApp.platform === "ios";
+  if (typeof webApp.isFullscreen === "boolean") return webApp.isFullscreen;
+  const phone = webApp.platform === "android" || webApp.platform === "ios";
+  return phone && window.innerHeight >= window.screen.height - 32;
 }
 
 /** `?tgdebug` shows what Telegram reports about the screen, to diagnose layout on a device. */

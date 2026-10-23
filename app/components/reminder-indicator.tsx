@@ -95,7 +95,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
   if (reminders.length === 0 && missed.length === 0) return null;
   const count = missed.length || reminders.length;
   return (
-    <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "pointer-events-none opacity-0" : "opacity-100"}`} ref={rootRef}>
+    <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "hidden" : "opacity-100"}`} ref={rootRef}>
       <button
         className={`relative grid size-[46px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] text-gold-bright shadow-[var(--fab-shadow)] backdrop-blur-xl ${swinging ? "bell-swing" : ""}`}
         type="button"
