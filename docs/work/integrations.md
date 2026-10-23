@@ -1,7 +1,8 @@
 # Ինտեգրացիաներ
 
 ## Հիմա
-- Production բոտը կապել (apostolic.am/admin → «Կապել բոտը», սեղմում է տերը) և ստուգել սփորթը։
+- Սրբավայրերի քարտեզ՝ `feat/place-intake`, միայն staging-ում (տերը փորձարկում է)։ Բոտ /place → Support խմբի «Սրբավայրեր» թեմա (41) + `place_submissions`, /admin/places, /places, /places/:id։ Production-ի մասին՝ միայն տիրոջ հաստատումից հետո։ Թողարկելուց հետո՝ «Կապել բոտը» (callback_query)։
+- Staging-ում փորձնական տվյալներ՝ 9 տեղ (Էջմիածին, Գեղարդ, Խոր Վիրապ, Հաղպատ, Տաթև, Սևանավանք, Նորավանք, Սաղմոսավանք, «Թեստային մատուռ»), գծանկարները՝ ծրագրով արված նախնական (`icon-demo.png`), 1 թեստային առաջարկ։ Production-ում չկան։
 
 ## Հերթ
 1. Telegram խմբի կարգավորումներ՝ անդամների ցուցակ, slow mode, հակասպամ (թեմաներն արդեն փակ են)։
@@ -29,4 +30,5 @@
 - Support խումբ՝ `SUPPORT_CHAT_ID` և թեմաները `wrangler.jsonc`-ում. երկու բոտն էլ այնտեղ ադմին են, ամեն մեկը փոխանցում է միայն իր հաղորդագրությունների reply-ները։ Բոտին գրված ցանկացած ոչ-հրաման նամակ գնում է Support խումբ։
 - Պատկերակները՝ `design/logo/dove/source.webp` → `python3 scripts/build-brand-assets.py`. փոխելիս բարձրացնել `?v=` համարը (`app/root.tsx`, `manifest.webmanifest`, `app/utils/seo.ts`)։
 - Կիսվելու նկարները նկարում է `og-cards.yml`-ը deploy-ից հետո. դիզայնը փոխելիս բարձրացնել `OG_CARD_LAYOUT`-ը։
+- Քարտեզը՝ Leaflet + OpenStreetMap, միայն Հայաստանը (`app/utils/armenia-border.ts`, OSM-ից, պարզեցված). սահմանից դուրսը ծածկված է։ Գծանկարների prompt-ը՝ `DRAWING_PROMPT` (`app/routes/admin-place.tsx`)։
 - Խմբում ծանուցում չուղարկել. ամրացնել առանց «Notify all members», գրել «Send without sound»-ով։
