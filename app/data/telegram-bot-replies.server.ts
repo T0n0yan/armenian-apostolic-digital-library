@@ -172,24 +172,24 @@ async function answerGroup(token: string, relay: ReturnType<typeof settings>["re
 
 /** The welcome the bot posts and pins in the main group: what is here and where to go. */
 export const GROUP_WELCOME = [
-  "Սիրելի՛ անդամներ, բարի գալուստ ✠",
+  "Բարև, սիրելի՛ քրիստոնյա ☺️🙏",
   "",
-  "Խմբում հրապարակվող աղոթքները, ձայնագրված սաղմոսները, սրբերի վարքերը, Ավետարանի ուսուցումները և օրվա ընթերցումները հասանելի են նաև մեր թվային գրադարանում։",
+  "Խմբում հրապարակվող 📿 աղոթքները, 🎧 ձայնագրված սաղմոսները, 🕊 սրբերի վարքերը, 📖 Ավետարանի ուսուցումները և 🗓 օրվա ընթերցումները հասանելի են նաև մեր թվային գրադարանում ✨",
   "",
-  "Գրադարանում կարող եք՝",
-  "• արագ որոնել անհրաժեշտ նյութը,",
-  "• պահպանել նախընտրած նյութերը,",
-  "• ստեղծել անձնական նշումներ և հիշեցումներ։",
+  "Գրադարանում կարող ես՝",
+  "🔍 արագ որոնել անհրաժեշտ նյութը,",
+  "🔖 պահպանել նախընտրած նյութերը,",
+  "📝 ստեղծել անձնական նշումներ և 🔔 հիշեցումներ։",
   "",
-  "Գրադարանը բացվում է անմիջապես Telegram-ում՝ ներքևի կոճակով։",
+  "📱 Գրադարանը բացվում է անմիջապես Telegram-ում՝ ներքևի կոճակով 👇",
   "",
-  "Հարցերի և առաջարկների համար կարող եք գրել մեզ՝ «Գրել մեզ» կոճակով։",
+  "💬 Հարցերի և առաջարկների համար կարող ես գրել մեզ՝ «Կապ մեզ հետ» կոճակով։",
 ].join("\n");
 
 /**
  * Posts the welcome with its buttons, without a sound. With `pin`, it is also pinned, again
  * without notifying anyone. Buttons in groups can't open a Mini App directly, so «Բացել
- * գրադարանը» is the bot's ?startapp link, which opens the library inside Telegram.
+ * Telegram-ում» is the bot's ?startapp link, which opens the library inside Telegram.
  */
 export async function postGroupWelcome(chatId: string | number, pin: boolean) {
   const { token, site } = settings();
@@ -203,8 +203,8 @@ export async function postGroupWelcome(chatId: string | number, pin: boolean) {
     disable_notification: true,
     link_preview_options: { is_disabled: true },
     reply_markup: { inline_keyboard: [
-      [{ text: "📖 Բացել գրադարանը", url: `https://t.me/${username}?startapp` }],
-      [{ text: "🌐 Կայքը", url: site }, { text: "✉️ Գրել մեզ", url: `https://t.me/${username}?start=contact` }],
+      [{ text: "📱 Բացել Telegram-ում", url: `https://t.me/${username}?startapp` }],
+      [{ text: "🌐 Բացել բրաուզերում", url: site }, { text: "✉️ Կապ մեզ հետ", url: `https://t.me/${username}?start=contact` }],
     ] },
   });
   if (!sent.ok || !pin) return sent;

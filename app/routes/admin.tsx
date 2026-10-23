@@ -189,7 +189,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
           <section id="welcome" className={panelSection + " grid gap-3"}>
             <h2 className="m-0 flex items-center gap-2 text-[17px]"><Bot aria-hidden="true" size={19} className="text-gold" /> Ողջույն խմբում</h2>
             <p className="m-0 text-[13px] leading-[1.6] text-muted">
-              Բոտը խմբում հրապարակում է այս հաղորդագրությունը «📖 Բացել գրադարանը», «🌐 Կայքը» և «✉️ Գրել մեզ» կոճակներով և ամրացնում այն՝ առանց ծանուցման։
+              Բոտը խմբում հրապարակում է այս հաղորդագրությունը «📱 Բացել Telegram-ում», «🌐 Բացել բրաուզերում» և «✉️ Կապ մեզ հետ» կոճակներով և ամրացնում այն՝ առանց ծանուցման։
               Նախ սեղմիր «Նախադիտում». հաղորդագրությունը կգա և կամրացվի միայն Support խմբում։
             </p>
             <p className="m-0 whitespace-pre-line rounded-[14px] bg-subtle p-3 text-[13.5px] leading-relaxed text-ink">{welcomeText}</p>
