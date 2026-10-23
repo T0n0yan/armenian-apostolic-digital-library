@@ -102,7 +102,8 @@ const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png",
 
 /** Stores one picture or video of a place in R2 and returns its key. */
 export async function storePlaceFile(bucket: R2Bucket, id: string, name: string, body: ArrayBuffer | ReadableStream, type: string) {
-  const key = `places/${id}/${name}-${Date.now().toString(36)}.${TYPES[type] ?? "bin"}`;
+  // Unique even for files stored in the same millisecond (several photos in one upload).
+  const key = `places/${id}/${name}-${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}.${TYPES[type] ?? "bin"}`;
   await bucket.put(key, body, { httpMetadata: { contentType: type, cacheControl: "public, max-age=31536000, immutable" } });
   return key;
 }
