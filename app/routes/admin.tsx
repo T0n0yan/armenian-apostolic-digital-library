@@ -69,7 +69,8 @@ export async function action({ request }: Route.ActionArgs) {
     const target = intent === "welcome-preview"
       ? (env as { SUPPORT_CHAT_ID?: string }).SUPPORT_CHAT_ID?.trim()
       : await getContentChatId(env.DB);
-    const result = target ? await postGroupWelcome(target, intent === "welcome-post").catch(() => ({ ok: false, description: "" })) : { ok: false, description: "Խումբը չի գտնվել" };
+    // The preview is pinned too (the support group is private), so the owner sees exactly that.
+    const result = target ? await postGroupWelcome(target, true).catch(() => ({ ok: false, description: "" })) : { ok: false, description: "Խումբը չի գտնվել" };
     const outcome = result.ok ? (intent === "welcome-post" ? "posted" : "previewed") : `failed:${result.description ?? ""}`;
     return redirect(`/admin?welcome=${encodeURIComponent(outcome)}#welcome`);
   }
@@ -189,7 +190,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             <h2 className="m-0 flex items-center gap-2 text-[17px]"><Bot aria-hidden="true" size={19} className="text-gold" /> Ողջույն խմբում</h2>
             <p className="m-0 text-[13px] leading-[1.6] text-muted">
               Բոտը խմբում հրապարակում է այս հաղորդագրությունը «📖 Բացել գրադարանը», «🌐 Կայքը» և «✉️ Գրել մեզ» կոճակներով և ամրացնում այն՝ առանց ծանուցման։
-              Նախ սեղմիր «Նախադիտում». հաղորդագրությունը կգա միայն Support խումբ։
+              Նախ սեղմիր «Նախադիտում». հաղորդագրությունը կգա և կամրացվի միայն Support խմբում։
             </p>
             <p className="m-0 whitespace-pre-line rounded-[14px] bg-subtle p-3 text-[13.5px] leading-relaxed text-ink">{welcomeText}</p>
             <div className="flex flex-wrap gap-2">
