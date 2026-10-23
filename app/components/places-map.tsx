@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
 import { directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
 export type MapPlace = {
@@ -42,14 +43,24 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
     let cancelled = false;
     void import("leaflet").then(({ default: L }) => {
       if (cancelled || !container.current) return;
+      const armenia = L.latLngBounds(ARMENIA_BOUNDS);
       map = L.map(container.current, {
-        center: [40.25, 44.85], zoom: 8, minZoom: 6, maxZoom: 18, zoomControl: true, attributionControl: true,
-        maxBounds: L.latLngBounds([37.5, 41.5], [42.5, 48.5]), maxBoundsViscosity: 0.8,
+        zoomControl: true, attributionControl: false, maxZoom: 18, zoomSnap: 0.25,
+        maxBounds: armenia.pad(0.08), maxBoundsViscosity: 1,
       });
+      map.fitBounds(armenia, { padding: [8, 8] });
+      // Never further out than all of Armenia.
+      map.setMinZoom(map.getBoundsZoom(armenia, false, L.point(16, 16)));
+      L.control.attribution({ position: "bottomleft", prefix: false }).addTo(map);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19, className: "parchment-tiles",
         attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
       }).addTo(map);
+      // Only Armenia: the rest of the world is covered with plain parchment, the border drawn in gold.
+      L.polygon([[[-85, -180], [85, -180], [85, 180], [-85, 180]], ...ARMENIA_BORDER], {
+        stroke: false, fillColor: "#efe3c8", fillOpacity: 1, interactive: false,
+      }).addTo(map);
+      L.polygon(ARMENIA_BORDER, { color: "#b07d2e", weight: 2, opacity: 0.85, fill: false, interactive: false }).addTo(map);
       const markers = places.map((place) => {
         const size: [number, number] = place.icon ? [64, 64] : [46, 46];
         const marker = L.marker([place.latitude, place.longitude], {
@@ -66,8 +77,6 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
       if (focus) {
         const place = places.find((item) => item.id === focus);
         if (place) map.setView([place.latitude, place.longitude], 13);
-      } else if (markers.length > 1) {
-        map.fitBounds(L.featureGroup(markers).getBounds().pad(0.25), { maxZoom: 10 });
       }
     });
     return () => { cancelled = true; map?.remove(); };
