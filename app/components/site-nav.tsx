@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, MapPin, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -17,7 +17,6 @@ const quickItems = [
   { to: "/", label: "Գլխավոր", icon: Church, end: true },
   { to: "/search", label: "Որոնում", icon: Search, end: false },
   { to: "/saved", label: "Իմ անկյունը", icon: Bookmark, end: false },
-  { to: "/places", label: "Սրբավայրեր", icon: MapPin, end: false },
 ] as const;
 
 const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-[13px] font-semibold text-muted no-underline outline-none transition-[background,color,transform] duration-150 hover:bg-subtle hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] active:scale-[.985]";
@@ -111,7 +110,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             <div className="menu-view max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
           ) : (
           <div className="menu-view grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
-            <ul className="m-0 grid list-none grid-cols-4 gap-1.5 p-0" aria-label="Հիմնական էջեր">
+            <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
                   <NavLink className={({ isActive }) => `flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[14px] border px-1 text-center text-[11px] font-semibold no-underline outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
