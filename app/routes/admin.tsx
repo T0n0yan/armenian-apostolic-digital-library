@@ -199,7 +199,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             </p>
             <Form method="post" className="grid gap-2">
               <textarea className={`${fieldControl} min-h-[320px] resize-y text-[14px] leading-relaxed`} name="text" defaultValue={welcomeText} key={welcomeText} maxLength={4000} aria-label="Ողջույնի տեքստը" />
-              <p className="m-0 text-[12px] text-faint">Տեքստը փոխեք այստեղ, սեղմեք «Պահել տեքստը», հետո՝ «Նախադիտում»։ Կոճակները ավելանում են ինքնաբերաբար։</p>
+              <p className="m-0 text-[12px] text-faint">Տեքստը փոխեք այստեղ, սեղմեք «Պահել տեքստը», հետո՝ «Նախադիտում»։ Նկարն ու կոճակները ավելանում են ինքնաբերաբար։ Նկարով հաղորդագրությունում տեքստը կարող է լինել մինչև 1024 նիշ. ավելի երկարը կգնա առանց նկարի։</p>
               <div className="flex flex-wrap gap-2">
                 <button className={primaryButton} type="submit" name="intent" value="welcome-save">Պահել տեքստը</button>
                 <button className="inline-flex min-h-[46px] cursor-pointer items-center rounded-[14px] border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-muted" type="submit" name="intent" value="welcome-reset">Վերադարձնել նախնականը</button>
