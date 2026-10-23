@@ -19,7 +19,9 @@ type Message = {
   from?: User;
   text?: string;
   caption?: string;
-  photo?: unknown; video?: unknown; document?: unknown; audio?: unknown; voice?: unknown; animation?: unknown;
+  photo?: Array<{ file_id: string; width?: number; height?: number }>; video?: { file_id: string };
+  document?: unknown; audio?: unknown; voice?: unknown; animation?: unknown;
+  location?: { latitude: number; longitude: number };
   reply_to_message?: Message;
 };
 type CallbackQuery = { id: string; data?: string; from: User; message?: { chat: { id: number }; message_id: number } };
@@ -77,7 +79,7 @@ export async function answerUpdate(update: Update) {
 
   // /place: a reader sends a church or shrine for the map; their messages go to the places topic
   // until they press «Ավարտել».
-  if (places && db && message.from && command === "/place") {
+  if (places && db && message.from && (command === "/place" || (command === "/start" && payload === "place"))) {
     await startPlace(call, db, message.chat.id, message.from.id);
     return;
   }
