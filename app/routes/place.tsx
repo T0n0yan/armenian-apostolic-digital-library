@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import leafletCss from "leaflet/dist/leaflet.css?url";
 import { Navigation } from "lucide-react";
+import { useMemo } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/place";
@@ -47,6 +48,8 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
   const { place } = loaderData;
   const video = place.videoUrl.startsWith("places/") ? placeMediaUrl(place.videoUrl) : null;
   const embed = video ? null : youtubeEmbed(place.videoUrl);
+  // One array per place, so the small map is drawn once and not again on every render.
+  const pin = useMemo(() => [{ id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region, summary: "", icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified }], [place]);
   return (
     <PageShell>
       <SiteNav />
@@ -78,7 +81,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
               </a>
             ))}
           </div>
-          <PlacesMap places={[{ id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region, summary: "", icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified }]} focus={place.id} />
+          <PlacesMap places={pin} focus={place.id} />
         </section>
         {place.creditName ? <p className="m-0 text-center text-[12.5px] text-faint">Նկարներն ու տեղեկությունը ուղարկեց՝ {place.creditName}։ Շնորհակալություն 🙏</p> : null}
         <Link className="mx-auto text-[13.5px] text-gold-bright" to="/places">← Բոլոր սրբավայրերը քարտեզում</Link>
