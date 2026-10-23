@@ -170,7 +170,7 @@ async function answerGroup(token: string, relay: ReturnType<typeof settings>["re
   }
 }
 
-/** The welcome the bot posts and pins in the main group: what is here and where to go. */
+/** The welcome the bot posts and pins in the main group, until the owner writes their own in /admin. */
 export const GROUP_WELCOME = [
   "Բարև, սիրելի՛ քրիստոնյա ☺️🙏",
   "",
@@ -191,7 +191,23 @@ export const GROUP_WELCOME = [
  * without notifying anyone. Buttons in groups can't open a Mini App directly, so «Բացել
  * Telegram-ում» is the bot's ?startapp link, which opens the library inside Telegram.
  */
-export async function postGroupWelcome(chatId: string | number, pin: boolean) {
+/** The welcome text as saved in /admin (site_settings), or the default above. */
+export async function readGroupWelcome(db: D1Database) {
+  const row = await db.prepare("SELECT value FROM site_settings WHERE key = 'group_welcome'").first<{ value: string }>().catch(() => null);
+  return row?.value?.trim() || GROUP_WELCOME;
+}
+
+/** Saves the owner's welcome text; an empty text brings the default back. */
+export async function saveGroupWelcome(db: D1Database, text: string) {
+  const value = text.replace(/\r\n/gu, "\n").trim();
+  if (!value || value === GROUP_WELCOME) {
+    await db.prepare("DELETE FROM site_settings WHERE key = 'group_welcome'").run();
+    return;
+  }
+  await db.prepare("INSERT INTO site_settings (key, value) VALUES ('group_welcome', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')").bind(value.slice(0, 4000)).run();
+}
+
+export async function postGroupWelcome(chatId: string | number, pin: boolean, text = GROUP_WELCOME) {
   const { token, site } = settings();
   if (!token) return { ok: false, description: "TELEGRAM_BOT_TOKEN չկա" };
   const me = await callTelegram(token, "getMe", {});
@@ -199,7 +215,7 @@ export async function postGroupWelcome(chatId: string | number, pin: boolean) {
   if (!username) return { ok: false, description: me.description ?? "getMe failed" };
   const sent = await callTelegram(token, "sendMessage", {
     chat_id: chatId,
-    text: GROUP_WELCOME,
+    text,
     disable_notification: true,
     link_preview_options: { is_disabled: true },
     reply_markup: { inline_keyboard: [

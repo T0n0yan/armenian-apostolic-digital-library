@@ -21,7 +21,7 @@ import {
 import { formatArmenianDate } from "../utils/armenian-date";
 import { siteStats, type Platform } from "../data/presence.server";
 import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
-import { botStatus, connectBot, GROUP_WELCOME, postGroupWelcome } from "../data/telegram-bot-replies.server";
+import { botStatus, connectBot, postGroupWelcome, readGroupWelcome, saveGroupWelcome } from "../data/telegram-bot-replies.server";
 import { RouteErrorPage } from "../components/error-page";
 
 export function meta() {
@@ -46,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const refreshed = url.searchParams.get("refreshed");
   const isProduction = (env as { PUBLIC_URL?: string }).PUBLIC_URL === "https://apostolic.am";
-  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), welcome: url.searchParams.get("welcome"), welcomeText: GROUP_WELCOME, isProduction, canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
+  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), welcome: url.searchParams.get("welcome"), welcomeText: await readGroupWelcome(env.DB), isProduction, canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
     headers: { "Set-Cookie": createAdminNavigationCookie(request) },
   });
 }
@@ -65,12 +65,17 @@ export async function action({ request }: Route.ActionArgs) {
 
   // The group welcome: a preview in the private support group, or the real post (pinned, silent)
   // in the main group. Only production's bot is a member of the main group.
+  // The owner's own welcome text («Պահել տեքստը»), or the default back («Վերադարձնել»).
+  if (intent === "welcome-save" || intent === "welcome-reset") {
+    await saveGroupWelcome(env.DB, intent === "welcome-save" ? String(form.get("text") ?? "") : "");
+    return redirect(`/admin?welcome=saved#welcome`);
+  }
   if (intent === "welcome-preview" || intent === "welcome-post") {
     const target = intent === "welcome-preview"
       ? (env as { SUPPORT_CHAT_ID?: string }).SUPPORT_CHAT_ID?.trim()
       : await getContentChatId(env.DB);
     // The preview is pinned too (the support group is private), so the owner sees exactly that.
-    const result = target ? await postGroupWelcome(target, true).catch(() => ({ ok: false, description: "" })) : { ok: false, description: "Խումբը չի գտնվել" };
+    const result = target ? await postGroupWelcome(target, true, await readGroupWelcome(env.DB)).catch(() => ({ ok: false, description: "" })) : { ok: false, description: "Խումբը չի գտնվել" };
     const outcome = result.ok ? (intent === "welcome-post" ? "posted" : "previewed") : `failed:${result.description ?? ""}`;
     return redirect(`/admin?welcome=${encodeURIComponent(outcome)}#welcome`);
   }
@@ -192,7 +197,14 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
               Բոտը խմբում հրապարակում է այս հաղորդագրությունը «📱 Բացել Telegram-ում», «🌐 Բացել բրաուզերում» և «✉️ Կապ մեզ հետ» կոճակներով և ամրացնում այն՝ առանց ծանուցման։
               Նախ սեղմիր «Նախադիտում». հաղորդագրությունը կգա և կամրացվի միայն Support խմբում։
             </p>
-            <p className="m-0 whitespace-pre-line rounded-[14px] bg-subtle p-3 text-[13.5px] leading-relaxed text-ink">{welcomeText}</p>
+            <Form method="post" className="grid gap-2">
+              <textarea className={`${fieldControl} min-h-[320px] resize-y text-[14px] leading-relaxed`} name="text" defaultValue={welcomeText} key={welcomeText} maxLength={4000} aria-label="Ողջույնի տեքստը" />
+              <p className="m-0 text-[12px] text-faint">Տեքստը փոխեք այստեղ, սեղմեք «Պահել տեքստը», հետո՝ «Նախադիտում»։ Կոճակները ավելանում են ինքնաբերաբար։</p>
+              <div className="flex flex-wrap gap-2">
+                <button className={primaryButton} type="submit" name="intent" value="welcome-save">Պահել տեքստը</button>
+                <button className="inline-flex min-h-[46px] cursor-pointer items-center rounded-[14px] border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-muted" type="submit" name="intent" value="welcome-reset">Վերադարձնել նախնականը</button>
+              </div>
+            </Form>
             <div className="flex flex-wrap gap-2">
               <Form method="post"><input type="hidden" name="intent" value="welcome-preview" /><button className={primaryButton} type="submit">Նախադիտում Support խմբում</button></Form>
               {isProduction ? (
@@ -204,7 +216,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             </div>
             {welcome ? (
               <p className={`m-0 text-[13px] ${welcome.startsWith("failed") ? "text-danger" : "text-[rgb(52_130_74)]"}`} role="status">
-                {welcome === "posted" ? "✓ Հրապարակվեց և ամրացվեց գլխավոր խմբում։" : welcome === "previewed" ? "✓ Նախադիտումը ուղարկվեց Support խումբ։" : `Չհաջողվեց. ${welcome.slice(7) || "բոտը խմբում ադմին չէ՞"}`}
+                {welcome === "posted" ? "✓ Հրապարակվեց և ամրացվեց գլխավոր խմբում։" : welcome === "previewed" ? "✓ Նախադիտումը ուղարկվեց Support խումբ։" : welcome === "saved" ? "✓ Տեքստը պահված է։ Հիմա սեղմեք «Նախադիտում»։" : `Չհաջողվեց. ${welcome.slice(7) || "բոտը խմբում ադմին չէ՞"}`}
               </p>
             ) : null}
           </section>
