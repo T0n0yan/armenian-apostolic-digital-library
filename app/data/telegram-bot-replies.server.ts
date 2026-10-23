@@ -213,16 +213,15 @@ export async function postGroupWelcome(chatId: string | number, pin: boolean, te
   const me = await callTelegram(token, "getMe", {});
   const username = (me.result as { username?: string } | undefined)?.username;
   if (!username) return { ok: false, description: me.description ?? "getMe failed" };
-  const sent = await callTelegram(token, "sendMessage", {
-    chat_id: chatId,
-    text,
-    disable_notification: true,
-    link_preview_options: { is_disabled: true },
-    reply_markup: { inline_keyboard: [
+  const buttons = { inline_keyboard: [
       [{ text: "📱 Բացել Telegram-ում", url: `https://t.me/${username}?startapp` }],
       [{ text: "🌐 Բացել բրաուզերում", url: site }, { text: "✉️ Կապ մեզ հետ", url: `https://t.me/${username}?start=contact` }],
-    ] },
-  });
+  ] };
+  // With the library's picture (dove and name) on top; a caption holds at most 1024 characters, so
+  // a longer text goes as a plain message.
+  const sent = text.length <= 1024
+    ? await callTelegram(token, "sendPhoto", { chat_id: chatId, photo: `${site}/og-image.png?v=2`, caption: text, disable_notification: true, reply_markup: buttons })
+    : await callTelegram(token, "sendMessage", { chat_id: chatId, text, disable_notification: true, link_preview_options: { is_disabled: true }, reply_markup: buttons });
   if (!sent.ok || !pin) return sent;
   const messageId = (sent.result as { message_id: number }).message_id;
   const pinned = await callTelegram(token, "pinChatMessage", { chat_id: chatId, message_id: messageId, disable_notification: true });
