@@ -86,10 +86,13 @@ export function InstallPrompt() {
   const [mode, setMode] = useState<Mode | null>(null);
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<"in" | "out">("in");
+  // Shown only after «Ավելացնել» when the browser gave no install dialog to open.
+  const [showHint, setShowHint] = useState(false);
 
   const open = useCallback((next: Mode | null) => {
     if (!next) return;
     setMode(next);
+    setShowHint(false);
     setPhase("in");
     setVisible(true);
   }, []);
@@ -135,17 +138,21 @@ export function InstallPrompt() {
       // iOS 17+ opens x-safari-https://… in Safari.
       window.location.href = `x-safari-${window.location.href.split("#")[0]}`;
       dismiss();
-    } else if (mode === "browser" && deferredInstall) {
+    } else if (deferredInstall) {
+      // The browser's own «Install» dialog, at once.
       const event = deferredInstall;
       deferredInstall = null;
       await event.prompt();
       await event.userChoice.catch(() => null);
       dismiss();
+    } else {
+      // This browser offers no dialog right now (already shown once, or not supported): say where it is.
+      setShowHint(true);
     }
   }, [dismiss, mode]);
 
   if (!visible || !mode) return null;
-  const hasButton = mode === "browser" || mode === "open-safari";
+  const hasButton = mode !== "ios";
   const iphone = mode === "ios" && /iphone|ipod/iu.test(navigator.userAgent);
   return (
     <>
@@ -166,14 +173,13 @@ export function InstallPrompt() {
           <p className="m-0 text-center text-[13px] text-ink">
             Հպեք <Share aria-label="Կիսվել" className="inline size-[15px] align-[-2px] text-gold-bright" /> → «<strong>Add to Home Screen</strong>»
           </p>
-        ) : mode === "manual" ? (
-          <p className="m-0 text-center text-[13px] text-ink">Հպեք <strong>⋮</strong> → «<strong>Add to Home screen</strong>»</p>
         ) : null}
         {hasButton ? (
           <button className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[13px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/22%)]" type="button" onClick={install}>
             <Plus aria-hidden="true" size={16} /> {mode === "open-safari" ? "Բացել Safari-ում" : "Ավելացնել"}
           </button>
         ) : null}
+        {showHint ? <p className="m-0 text-center text-[13px] text-ink">Հպեք բրաուզերի <strong>⋮</strong> → «<strong>Add to Home screen</strong>»</p> : null}
       </aside>
       {iphone && phase === "in" ? (
         // Points at Safari's Share button in the bottom bar.
