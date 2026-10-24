@@ -7,17 +7,18 @@ import { CategoryIcon } from "./category-icon";
 import { REMINDER_RINGING_EVENT, dismissReminder, markReminderDone, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
 import { ReminderButton } from "./reminder-button";
 import { materialPath } from "../utils/material-path";
+import { formatClock, formatDayMonth } from "../utils/armenian-date";
 
 const REPEAT_TEXT: Record<string, string> = { daily: "ամեն օր", weekly: "ամեն շաբաթ", monthly: "ամեն ամիս", yearly: "ամեն տարի" };
 
 function formatWhen(iso: string) {
   const date = new Date(iso);
   const today = new Date();
-  const time = date.toLocaleTimeString("hy-AM", { hour: "2-digit", minute: "2-digit" });
+  const time = formatClock(date);
   if (date.toDateString() === today.toDateString()) return `այսօր ${time}`;
   const tomorrow = new Date(today.getTime() + 86_400_000);
   if (date.toDateString() === tomorrow.toDateString()) return `վաղը ${time}`;
-  return `${date.toLocaleDateString("hy-AM", { day: "numeric", month: "long" })}, ${time}`;
+  return `${formatDayMonth(date)}, ${time}`;
 }
 
 const cardAction = "grid size-8 cursor-pointer place-items-center rounded-full border transition-transform active:scale-90";

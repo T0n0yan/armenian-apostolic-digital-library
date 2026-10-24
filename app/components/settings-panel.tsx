@@ -8,6 +8,7 @@ import {
 } from "../utils/theme";
 import { readPreference, readSunPlace, saveSunPlace, setPreference, type Motion, type ReadingFont, type TitleSize, type Toggle } from "../utils/preferences";
 import { sunTimes } from "../../shared/theme";
+import { formatClock } from "../utils/armenian-date";
 
 function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
   value: T; options: Array<{ value: T; label: string; icon?: ReactNode; sample?: ReactNode }>; onChange: (value: T) => void; columns?: number;
@@ -90,7 +91,7 @@ export function SettingsPanel() {
     if (theme !== "sun") { setSunText(null); return; }
     const place = readSunPlace() ?? { latitude: 40.18, longitude: 44.51 };
     const times = sunTimes(new Date(), place.latitude, place.longitude);
-    const time = (date: Date) => date.toLocaleTimeString("hy-AM", { hour: "2-digit", minute: "2-digit" });
+    const time = formatClock;
     setSunText(times ? `Բաց՝ ${time(times.sunrise)}-ից, մուգ՝ ${time(times.sunset)}-ից${readSunPlace() ? "" : " (Երևանի ժամով)"}` : null);
   }, [theme, locating]);
 
