@@ -74,7 +74,7 @@ type MediaRow = {
 };
 
 /** A short stable tag for the stored file, so a replaced file gets a new URL. */
-function mediaVersion(item: MediaRow) {
+export function mediaVersion(item: { r2_etag?: string | null; r2_key?: string | null; thumbnail_etag?: string | null }) {
   const source = `${item.r2_etag ?? item.r2_key ?? ""}|${item.thumbnail_etag ?? ""}`;
   let hash = 2166136261;
   for (let index = 0; index < source.length; index += 1) hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);

@@ -448,6 +448,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         title={category.name}
         query={loaderData.query}
         searchAction={sectionPath(category)}
+        searchCategoryId={category.id}
         searchLabel={`${category.name} բաժնում որոնում`}
         searchPlaceholder={searchPlaceholder}
       />

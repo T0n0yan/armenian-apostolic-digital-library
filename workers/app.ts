@@ -155,7 +155,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     // the site costs the Worker no CPU the second time (the free plan allows 10 ms a request).
     const page = url.pathname.replace(/\.data$/u, "").replace(/^\/_root$/u, "/");
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
-    const sharedJson = url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname.startsWith("/api/categories/");
+    const sharedJson = url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname === "/api/search-index" || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
       && (sharedJson || !request.headers.has("cookie"))
       && !url.searchParams.has("refresh")
@@ -166,6 +166,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
         || isLibraryPath(page)
         || url.pathname.startsWith("/api/categories/")
         || url.pathname === "/api/search-page"
+        || url.pathname === "/api/search-index"
         || url.pathname === "/api/search-suggestions");
     if (!cacheable) return requestHandler(request);
     const cache = (caches as CacheStorage & { default: Cache }).default;
@@ -180,8 +181,11 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     if (response.status !== 200 || response.headers.has("set-cookie")) return response;
     const cacheResponse = new Response(response.body, response);
     // Five minutes at the edge: a new Telegram post shows within that, and «Թարմացնել կայքը» in the
-    // admin page (a new cache version) makes every page fresh at once.
-    cacheResponse.headers.set("Cache-Control", "public, max-age=30, s-maxage=300");
+    // admin page (a new cache version) makes every page fresh at once. The title index's address
+    // carries its version, so it is kept for good, everywhere.
+    const versioned = url.pathname === "/api/search-index" && response.headers.get("Cache-Control")?.includes("immutable");
+    if (url.pathname === "/api/search-index" && !versioned) return response;
+    cacheResponse.headers.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "public, max-age=30, s-maxage=300");
     context.waitUntil(cache.put(cacheKey, cacheResponse.clone()));
     return cacheResponse;
   }

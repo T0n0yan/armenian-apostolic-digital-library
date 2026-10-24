@@ -17,7 +17,9 @@ import { CandleLoader } from "./components/candle-loader";
 import { PageShell } from "./components/page-layout";
 import { RouteErrorPage } from "./components/error-page";
 import {listActiveCategories} from "./data/categories.server";
+import {contentVersion} from "./data/content-version.server";
 import { setRemindersEnabled } from "./utils/reminder-store";
+import { setContentVersion, setRootSearchState } from "./utils/search-state";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
@@ -97,6 +99,8 @@ export async function loader({request}: Route.LoaderArgs) {
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
+    // Phones keep pages and the title index until this changes (public/sw.js, utils/local-search.ts).
+    contentVersion: await contentVersion(env.DB).catch(() => "0"),
   };
   return value;
 }
@@ -262,6 +266,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ loaderData }: Route.ComponentProps) {
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn));
+  // The phone's title search and page keeping follow the content version (utils/local-search.ts).
+  setContentVersion(loaderData.contentVersion);
+  setRootSearchState({ signedIn: Boolean(loaderData.signedIn), categories: loaderData.categories });
   const revalidator = useRevalidator();
   const sessionAttempted = useRef(false);
 
@@ -352,6 +359,15 @@ export default function App({ loaderData }: Route.ComponentProps) {
     const clear = window.setTimeout(() => { try { sessionStorage.removeItem(KEY); } catch { /* ignore */ } }, 10_000);
     return () => { window.removeEventListener("vite:preloadError", reload); window.removeEventListener("unhandledrejection", onRejection); window.clearTimeout(clear); };
   }, []);
+
+  // The service worker answers page data it already has while the content version stays the same.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const tell = () => navigator.serviceWorker.controller?.postMessage({ type: "content-version", version: loaderData.contentVersion });
+    tell();
+    navigator.serviceWorker.addEventListener("controllerchange", tell);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", tell);
+  }, [loaderData.contentVersion]);
 
   // The service worker keeps visited pages and pictures for slow or missing connections.
   useEffect(() => {
