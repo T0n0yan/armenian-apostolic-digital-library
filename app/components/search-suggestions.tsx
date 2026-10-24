@@ -2,15 +2,21 @@ import { Search } from "lucide-react";
 import { useEffect, useMemo, useState, type RefObject } from "react";
 
 import { normalizeTelegramSearchText, searchAliases } from "../../shared/telegram-search";
+import { foreignSuggestions, indexSuggestionTerms, loadSearchIndex } from "../utils/local-search";
 
 const MAX_SUGGESTIONS = 6;
 let termsPromise: Promise<string[]> | null = null;
 
-/** Suggestion terms, fetched once per page load (the endpoint is edge-cached). */
+/**
+ * Suggestion terms: the sections, common words and every title, from the title index the phone
+ * keeps (no request once it has it); the server's list only when the index can't be had.
+ */
 function loadTerms() {
-  termsPromise ??= fetch("/api/search-suggestions")
-    .then((response) => response.ok ? response.json() as Promise<{ terms: string[] }> : { terms: [] })
-    .then((data) => data.terms.map((term) => term.trim()).filter(Boolean))
+  termsPromise ??= loadSearchIndex()
+    .then((index) => index ? indexSuggestionTerms(index.index) : fetch("/api/search-suggestions")
+      .then((response) => response.ok ? response.json() as Promise<{ terms: string[] }> : { terms: [] })
+      .then((data) => data.terms))
+    .then((terms) => terms.map((term) => term.trim()).filter(Boolean))
     .catch(() => { termsPromise = null; return []; });
   return termsPromise;
 }
@@ -62,7 +68,8 @@ export function SearchSuggestions({ inputRef, onPick }: { inputRef: RefObject<HT
   const [typed, setTyped] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const suggestions = useMemo(() => rank(terms, typed), [terms, typed]);
+  // English or Russian typing ("prayer", "молитва") suggests the Armenian word it means.
+  const suggestions = useMemo(() => [...new Set([...foreignSuggestions(typed), ...rank(terms, typed)])].slice(0, MAX_SUGGESTIONS), [terms, typed]);
 
   useEffect(() => {
     const input = inputRef.current;
