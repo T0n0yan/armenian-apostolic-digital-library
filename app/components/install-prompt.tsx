@@ -1,4 +1,4 @@
-import { ExternalLink, Plus, Share, X } from "lucide-react";
+import { ArrowDown, Plus, Share, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import DoveMark from "../assets/dove-mark.png";
@@ -6,21 +6,19 @@ import DoveMark from "../assets/dove-mark.png";
 const DISMISS_KEY = "library-install-dismissed-at";
 const DISMISS_DAYS = 30;
 const SHOW_AFTER_MS = 12_000;
+/** An address with ?install=1 (a link to share) shows the prompt at once. */
+const INSTALL_PARAM = "install";
 /** Dispatched by the menu's "Add to home screen" item; opens the prompt even if it was dismissed. */
 export const INSTALL_REQUEST_EVENT = "library:install";
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
-type TelegramHomeScreen = {
-  initData?: string;
-  platform?: string;
-  openLink?: (url: string, options?: { try_browser?: string; try_instant_view?: boolean }) => void;
-  addToHomeScreen?: () => void;
-  checkHomeScreenStatus?: (callback: (status: "unsupported" | "unknown" | "added" | "missed") => void) => void;
-};
+type TelegramWebApp = { initData?: string };
 
-// "open-browser": inside Telegram on a client without home-screen support (iOS), open the page in
-// the system browser, where the regular "Add to Home Screen" works.
-type Mode = "telegram" | "browser" | "ios" | "manual" | "open-browser";
+// "browser": the browser's own install dialog (Chrome, Edge, Samsung). "ios": Safari, which has no
+// install API, so a one-line hint and an arrow to its Share button. "manual": other browsers.
+// "open-safari": an iPhone app's own browser (Instagram, Facebook…), which cannot add to the home
+// screen. In Telegram's Mini App nothing is offered.
+type Mode = "browser" | "ios" | "manual" | "open-safari";
 
 function recentlyDismissed() {
   try {
@@ -32,7 +30,17 @@ function recentlyDismissed() {
 }
 
 function telegramWebApp() {
-  return (window as Window & { Telegram?: { WebApp?: TelegramHomeScreen } }).Telegram?.WebApp;
+  return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+}
+
+/**
+ * Opened as Telegram's Mini App. There the site can't be added to the home screen and links out
+ * don't open reliably, so nothing about it is offered. Telegram's SDK loads a moment after the
+ * page; until then its launch data in the address, or the flag root.tsx sets, gives it away.
+ */
+export function isTelegramMiniApp() {
+  if (typeof window === "undefined") return false;
+  return Boolean(telegramWebApp()?.initData) || document.documentElement.dataset.telegramContext === "true" || /tgWebApp/u.test(window.location.hash);
 }
 
 export function isInstalledApp() {
@@ -43,41 +51,48 @@ export function isInstalledApp() {
 
 // The browser fires beforeinstallprompt once, possibly before React mounts; keep it for later.
 let deferredInstall: InstallEvent | null = null;
+const INSTALL_READY_EVENT = "library:install-ready";
 if (typeof window !== "undefined") {
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     deferredInstall = event as InstallEvent;
+    window.dispatchEvent(new Event(INSTALL_READY_EVENT));
   });
 }
 
 function isAppleDevice() {
-  return typeof navigator !== "undefined" && /iphone|ipad|ipod/iu.test(navigator.userAgent);
+  return /iphone|ipad|ipod/iu.test(navigator.userAgent);
 }
 
-/** Which way of adding to the home screen this device supports right now. */
-function currentMode(): Mode {
-  const telegram = telegramWebApp();
-  // Inside Telegram the site is installed from the phone's browser, not from Telegram itself.
-  if (telegram?.initData) return "open-browser";
+/** Instagram, Facebook, TikTok… open links in their own browser, which has no «Add to Home Screen». */
+function isInAppBrowser() {
+  return /FBAN|FBAV|Instagram|Line\/|TikTok|musical_ly|Snapchat|LinkedInApp|Twitter|GSA\//u.test(navigator.userAgent);
+}
+
+/** Which way of adding to the home screen this device supports right now (null: none, in Telegram). */
+function currentMode(): Mode | null {
+  if (isTelegramMiniApp()) return null;
   if (deferredInstall) return "browser";
-  if (/iphone|ipad|ipod/iu.test(navigator.userAgent)) return "ios";
+  if (isAppleDevice()) return isInAppBrowser() ? "open-safari" : "ios";
   return "manual";
 }
 
 /**
- * Offers to put the library on the home screen: Telegram's addToHomeScreen inside the Mini App,
- * the browser's install prompt on Chrome/Edge/Android, or step-by-step hints where no install API
- * exists (iOS Safari, other browsers). Shown once after a short visit ("✕" hides it for 30 days)
- * and any time from the menu.
+ * Offers to put the library on the home screen in as few taps as the phone allows: the browser's
+ * install dialog where there is one, a one-line hint on iPhone Safari; nothing inside Telegram. Shown once after a short visit ("✕" hides
+ * it for 30 days) and any time from the menu.
  */
 export function InstallPrompt() {
   const [mode, setMode] = useState<Mode | null>(null);
   const [visible, setVisible] = useState(false);
-  // "in" slides the toast up from below the screen; "out" slides it back down before unmounting.
   const [phase, setPhase] = useState<"in" | "out">("in");
+  // Shown only after «Ավելացնել» when the browser gave no install dialog to open.
+  const [showHint, setShowHint] = useState(false);
 
-  const open = useCallback((next: Mode) => {
+  const open = useCallback((next: Mode | null) => {
+    if (!next) return;
     setMode(next);
+    setShowHint(false);
     setPhase("in");
     setVisible(true);
   }, []);
@@ -85,35 +100,30 @@ export function InstallPrompt() {
   useEffect(() => {
     if (isInstalledApp()) return;
     let timer: number | undefined;
-    // The Telegram SDK loads asynchronously; give it a moment before deciding.
+    // Arrived from Telegram's «Ավելացնել»: show at once, and drop the flag from the address.
+    const url = new URL(window.location.href);
+    const requested = url.searchParams.has(INSTALL_PARAM);
+    if (requested) {
+      url.searchParams.delete(INSTALL_PARAM);
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
+    // The Telegram SDK and Chrome's install event arrive a moment after load; wait before deciding.
     const decide = window.setTimeout(() => {
-      if (recentlyDismissed()) return;
       const next = currentMode();
-      const showSoon = () => { timer = window.setTimeout(() => open(next), SHOW_AFTER_MS); };
-      const telegram = telegramWebApp();
-      if (next === "telegram" && telegram?.checkHomeScreenStatus) {
-        telegram.checkHomeScreenStatus((status) => { if (status === "missed" || status === "unknown") showSoon(); });
-      } else if (next === "browser" || next === "ios") {
-        showSoon();
-      }
-    }, 1_500);
-    const onRequest = () => {
-      const next = currentMode();
-      const telegram = telegramWebApp();
-      // Some Telegram clients expose addToHomeScreen but cannot do it; ask before offering it.
-      if (next === "telegram" && telegram?.checkHomeScreenStatus) {
-        let answered = false;
-        telegram.checkHomeScreenStatus((status) => { answered = true; open(status === "unsupported" ? "open-browser" : next); });
-        window.setTimeout(() => { if (!answered) open(next); }, 600);
-      } else {
-        open(next);
-      }
-    };
+      if (requested) return open(next);
+      if (!next || recentlyDismissed() || next === "manual") return;
+      timer = window.setTimeout(() => open(currentMode()), SHOW_AFTER_MS);
+    }, requested ? 800 : 1_500);
+    const onRequest = () => open(currentMode());
+    // Chrome may allow installing only after the hint is already on screen: offer the button then.
+    const onReady = () => setMode((current) => (current === "manual" ? "browser" : current));
     window.addEventListener(INSTALL_REQUEST_EVENT, onRequest);
+    window.addEventListener(INSTALL_READY_EVENT, onReady);
     return () => {
       window.clearTimeout(decide);
       if (timer) window.clearTimeout(timer);
       window.removeEventListener(INSTALL_REQUEST_EVENT, onRequest);
+      window.removeEventListener(INSTALL_READY_EVENT, onReady);
     };
   }, [open]);
 
@@ -124,60 +134,59 @@ export function InstallPrompt() {
   }, []);
 
   const install = useCallback(async () => {
-    if (mode === "open-browser") {
-      const url = new URL(window.location.href);
-      url.hash = "";
-      const telegram = telegramWebApp();
-      if (telegram?.openLink) telegram.openLink(url.toString(), { try_browser: telegram.platform === "ios" ? "safari" : "chrome", try_instant_view: false });
-      else window.open(url.toString(), "_blank", "noopener,noreferrer");
+    if (mode === "open-safari") {
+      // iOS 17+ opens x-safari-https://… in Safari.
+      window.location.href = `x-safari-${window.location.href.split("#")[0]}`;
       dismiss();
-    } else if (mode === "telegram") {
-      telegramWebApp()?.addToHomeScreen?.();
-      dismiss();
-    } else if (mode === "browser" && deferredInstall) {
+    } else if (deferredInstall) {
+      // The browser's own «Install» dialog, at once.
       const event = deferredInstall;
       deferredInstall = null;
       await event.prompt();
       await event.userChoice.catch(() => null);
       dismiss();
+    } else {
+      // This browser offers no dialog right now (already shown once, or not supported): say where it is.
+      setShowHint(true);
     }
   }, [dismiss, mode]);
 
   if (!visible || !mode) return null;
-  const canInstall = mode === "telegram" || mode === "browser" || mode === "open-browser";
+  const hasButton = mode !== "ios";
+  const iphone = mode === "ios" && /iphone|ipod/iu.test(navigator.userAgent);
   return (
-    <aside
-      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
-      data-phase={phase}
-      role="dialog"
-      aria-label="Ավելացնել գլխավոր էկրանին"
-    >
-      <div className="grid grid-cols-[44px_1fr_auto] items-center gap-3">
-        <img className="size-11 object-contain" src={DoveMark} width={44} height={44} alt="" aria-hidden="true" />
-        <div className="grid min-w-0 gap-0.5">
-          <strong className="text-[14px] leading-tight text-ink">Ավելացրեք գլխավոր էկրանին</strong>
-          <span className="text-[12px] leading-snug text-muted">Գրադարանը մեկ սեղմումով՝ ինչպես հավելված</span>
+    <>
+      <aside
+        className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
+        data-phase={phase}
+        role="dialog"
+        aria-label="Ավելացնել գլխավոր էկրանին"
+      >
+        <div className="grid grid-cols-[40px_1fr_auto] items-center gap-3">
+          <img className="size-10 object-contain" src={DoveMark} width={40} height={40} alt="" aria-hidden="true" />
+          <strong className="text-[14.5px] leading-tight text-ink">Ավելացրեք գլխավոր էկրանին</strong>
+          <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:text-ink" type="button" onClick={dismiss} aria-label="Հետո">
+            <X aria-hidden="true" size={17} />
+          </button>
         </div>
-        <button className="grid size-9 cursor-pointer place-items-center self-start rounded-full border-0 bg-transparent text-muted hover:text-ink" type="button" onClick={dismiss} aria-label="Հետո">
-          <X aria-hidden="true" size={17} />
-        </button>
-      </div>
-      {mode === "ios" ? (
-        <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-[12.5px] leading-snug text-ink">
-          Սեղմեք <Share aria-label="Share" className="inline size-[14px] align-[-2px] text-gold-bright" />, ապա ընտրեք «Add to Home Screen»։
-        </p>
-      ) : mode === "open-browser" ? (
-        <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-[12.5px] leading-snug text-ink">
-          Սա հնարավոր է <strong>միայն բրաուզերից</strong> (Chrome կամ Safari)։ Բացեք կայքը բրաուզերում, ապա {isAppleDevice() ? "Share → «Add to Home Screen»" : "⋮ → «Add to Home screen»"}։
-        </p>
-      ) : mode === "manual" ? (
-        <p className="m-0 rounded-[12px] bg-subtle px-3 py-2 text-[12.5px] leading-snug text-ink">Բրաուզերի մենյուում (⋮) ընտրեք «Add to Home screen» կամ «Install»։</p>
+        {mode === "ios" ? (
+          <p className="m-0 text-center text-[13px] text-ink">
+            Հպեք <Share aria-label="Կիսվել" className="inline size-[15px] align-[-2px] text-gold-bright" /> → «<strong>Add to Home Screen</strong>»
+          </p>
+        ) : null}
+        {hasButton ? (
+          <button className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[13px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/22%)]" type="button" onClick={install}>
+            <Plus aria-hidden="true" size={16} /> {mode === "open-safari" ? "Բացել Safari-ում" : "Ավելացնել"}
+          </button>
+        ) : null}
+        {showHint ? <p className="m-0 text-center text-[13px] text-ink">Հպեք բրաուզերի <strong>⋮</strong> → «<strong>Add to Home screen</strong>»</p> : null}
+      </aside>
+      {iphone && phase === "in" ? (
+        // Points at Safari's Share button in the bottom bar.
+        <span className="install-arrow pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom,0px)+58px)] left-1/2 z-[64] grid place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] p-2 text-[#2a1708] shadow-[0_8px_20px_rgb(150_100_30/35%)]" aria-hidden="true">
+          <ArrowDown size={22} strokeWidth={2.4} />
+        </span>
       ) : null}
-      {canInstall ? (
-        <button className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[13px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[13.5px] font-bold text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/22%)]" type="button" onClick={install}>
-          {mode === "open-browser" ? <><ExternalLink aria-hidden="true" size={16} /> Բացել բրաուզերում</> : <><Plus aria-hidden="true" size={16} /> Ավելացնել</>}
-        </button>
-      ) : null}
-    </aside>
+    </>
   );
 }
