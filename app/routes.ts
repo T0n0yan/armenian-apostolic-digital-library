@@ -19,6 +19,7 @@ export default [
   route("auth/telegram", "routes/auth-telegram.tsx"),
   route("api/share-prepare", "routes/share-prepare.ts"),
   route("api/reminders", "routes/reminders.ts"),
+  route("api/calendar", "routes/calendar.ts"),
   route("api/push", "routes/push.ts"),
   route("api/poll-vote", "routes/poll-vote.ts"),
   route("api/psalm-timings", "routes/psalm-timings.ts"),
