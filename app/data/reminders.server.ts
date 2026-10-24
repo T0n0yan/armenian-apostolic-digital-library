@@ -3,17 +3,25 @@ import { sendWebPush, type PushKeys, type PushSubscriptionRow } from "./web-push
 import { materialPath } from "../utils/material-path";
 
 export type ReminderRepeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
-export type Reminder = { materialId: string; remindAt: string; repeat: ReminderRepeat };
+/** "push": the server sends it (bot, notification); "calendar": the phone's calendar rings it. */
+export type ReminderChannel = "push" | "calendar";
+export type Reminder = { materialId: string; remindAt: string; repeat: ReminderRepeat; channel?: ReminderChannel };
 export type UpcomingReminder = Reminder & { at: string; title: string; categoryName: string | null };
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
 const MAX_AHEAD_MS = 366 * DAY;
-const BATCH = 40;
+// Each reminder may take a bot message and a few notifications; the free plan allows 50 such
+// requests per run, so the clock sends 15 at a time and comes back for the rest.
+const BATCH = 15;
 const REPEATS: ReminderRepeat[] = ["none", "daily", "weekly", "monthly", "yearly"];
 
 export function isReminderRepeat(value: unknown): value is ReminderRepeat {
   return REPEATS.includes(value as ReminderRepeat);
+}
+
+export function isReminderChannel(value: unknown): value is ReminderChannel {
+  return value === "push" || value === "calendar";
 }
 
 /** A reminder time is valid from a minute ahead (with a little slack) to a year ahead. */
@@ -45,21 +53,33 @@ export function canMessage(telegramId: string) {
 
 export async function getReminder(database: D1Database, userId: string, chatId: string, messageId: number): Promise<Reminder | null> {
   const row = await database.prepare(
-    "SELECT remind_at, repeat FROM reading_reminders WHERE user_id = ? AND chat_id = ? AND message_id = ?",
-  ).bind(userId, chatId, messageId).first<{ remind_at: string; repeat: ReminderRepeat }>();
-  return row ? { materialId: createMaterialId(chatId, messageId), remindAt: row.remind_at, repeat: row.repeat } : null;
+    "SELECT remind_at, repeat, channel FROM reading_reminders WHERE user_id = ? AND chat_id = ? AND message_id = ?",
+  ).bind(userId, chatId, messageId).first<{ remind_at: string; repeat: ReminderRepeat; channel: ReminderChannel }>();
+  return row ? { materialId: createMaterialId(chatId, messageId), remindAt: row.remind_at, repeat: row.repeat, channel: row.channel } : null;
 }
 
 export async function setReminder(database: D1Database, reminder: {
-  userId: string; telegramId: string; chatId: string; messageId: number; remindAt: string; repeat: ReminderRepeat;
+  userId: string; telegramId: string; chatId: string; messageId: number; remindAt: string; repeat: ReminderRepeat; channel?: ReminderChannel;
 }) {
   await database.prepare(
-    `INSERT INTO reading_reminders (user_id, telegram_id, chat_id, message_id, remind_at, repeat)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO reading_reminders (user_id, telegram_id, chat_id, message_id, remind_at, repeat, channel)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(user_id, chat_id, message_id) DO UPDATE SET
        telegram_id = excluded.telegram_id, remind_at = excluded.remind_at, repeat = excluded.repeat,
-       snoozed_until = NULL, last_sent_at = NULL`,
-  ).bind(reminder.userId, reminder.telegramId, reminder.chatId, reminder.messageId, reminder.remindAt, reminder.repeat).run();
+       channel = excluded.channel, snoozed_until = NULL, last_sent_at = NULL`,
+  ).bind(reminder.userId, reminder.telegramId, reminder.chatId, reminder.messageId, reminder.remindAt, reminder.repeat, reminder.channel ?? "push").run();
+}
+
+/**
+ * When the next server-sent reminder (or snooze) is due, in milliseconds; null when none is set.
+ * Calendar reminders ring on the phone, so the server never wakes for them.
+ */
+export async function nextReminderTime(database: D1Database) {
+  const row = await database.prepare(
+    `SELECT MIN(CASE WHEN snoozed_until IS NOT NULL AND snoozed_until < remind_at THEN snoozed_until ELSE remind_at END) AS next
+     FROM reading_reminders WHERE channel = 'push'`,
+  ).first<{ next: string | null }>();
+  return row?.next ? Date.parse(row.next) : null;
 }
 
 export async function deleteReminder(database: D1Database, userId: string, chatId: string, messageId: number) {
@@ -77,7 +97,7 @@ export async function listUpcomingReminders(database: D1Database, userId: string
      LEFT JOIN library_materials AS materials
        ON materials.chat_id = reminders.chat_id AND materials.message_id = reminders.message_id
      LEFT JOIN library_topics AS topics ON topics.id = materials.topic_key
-     WHERE reminders.user_id = ? AND (reminders.remind_at <= ? OR reminders.snoozed_until <= ?)
+     WHERE reminders.user_id = ? AND reminders.channel = 'push' AND (reminders.remind_at <= ? OR reminders.snoozed_until <= ?)
      ORDER BY reminders.remind_at LIMIT 50`,
   ).bind(userId, until, until).all<{ chat_id: string; message_id: number; remind_at: string; repeat: ReminderRepeat; snoozed_until: string | null; title: string | null; category_name: string | null }>();
   return results.map((row) => ({
@@ -215,9 +235,10 @@ export async function sendDueReminders(database: D1Database, options: { token: s
      LEFT JOIN library_materials AS materials
        ON materials.chat_id = reminders.chat_id AND materials.message_id = reminders.message_id
      LEFT JOIN library_topics AS topics ON topics.id = materials.topic_key
-     WHERE reminders.remind_at <= ? OR reminders.snoozed_until <= ?
+     WHERE reminders.channel = 'push' AND (reminders.remind_at <= ? OR reminders.snoozed_until <= ?)
      ORDER BY reminders.remind_at LIMIT ${BATCH}`,
   ).bind(nowIso, nowIso).all<DueRow>();
+  let retried = false;
 
   for (const row of results) {
     const key = { userId: row.user_id, chatId: row.chat_id, messageId: row.message_id };
@@ -240,7 +261,10 @@ export async function sendDueReminders(database: D1Database, options: { token: s
       if (result.ok) delivered = true;
       else if (!(result.error_code === 403 || result.error_code === 400) && !delivered) retry = true;
     }
-    if (retry) continue;
+    if (retry) { retried = true; continue; }
     await completeReminder(database, key, now);
   }
+  // What the clock should do next: a full batch may have left more due; a failed send is retried.
+  const remaining: false | "more" | "retry" = retried ? "retry" : results.length === BATCH ? "more" : false;
+  return { remaining };
 }
