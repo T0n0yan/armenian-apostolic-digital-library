@@ -1,11 +1,14 @@
 import {
   createSearchableTelegramDocument,
-  matchSearchableTelegramDocument,
+  locateStoredSearchHit,
+  matchStoredSearchFields,
   messageIdSearchMatch,
+  searchStem,
   parseTelegramSearchQuery,
   searchScoreRank,
   type SearchableTelegramDocument,
   type SearchableTelegramFieldKind,
+  type StoredSearchField,
 } from "../../shared/telegram-search";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { remember } from "./memory-cache.server";
@@ -90,7 +93,9 @@ type SearchFieldRow = {
   published_at: string | null;
   field_kind: SearchableTelegramFieldKind;
   block_id: string | null;
-  original_text: string;
+  field_id: string;
+  normalized_text: string;
+  aliases_text: string;
   is_primary: number;
 };
 
@@ -236,6 +241,17 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
   }));
 }
 
+async function searchFieldOriginals(database: D1Database, fields: Array<{ chatId: string; messageId: number; fieldId: string }>) {
+  const originals = new Map<string, string>();
+  if (!fields.length) return originals;
+  const clauses = fields.map(() => "(chat_id = ? AND message_id = ? AND field_id = ?)").join(" OR ");
+  const result = await database.prepare(`SELECT chat_id, message_id, field_id, original_text FROM library_search_documents WHERE ${clauses}`)
+    .bind(...fields.flatMap((field) => [field.chatId, field.messageId, field.fieldId]))
+    .all<{ chat_id: string; message_id: number; field_id: string; original_text: string }>();
+  for (const row of result.results) originals.set(`${row.chat_id}:${row.message_id}:${row.field_id}`, row.original_text);
+  return originals;
+}
+
 async function materialRowsByIdentity(database: D1Database, identities: Array<{ chatId: string; messageId: number }>) {
   const rows: MaterialRow[] = [];
   const batchSize = 40;
@@ -251,18 +267,6 @@ async function materialRowsByIdentity(database: D1Database, identities: Array<{ 
   return rows;
 }
 
-function candidateFragments(values: string[]) {
-  const fragments = new Set<string>();
-  for (const value of values) {
-    const characters = Array.from(value.replaceAll("%", "").replaceAll("_", "")).filter((character) => !/\s/u.test(character));
-    if (characters.length < 2) continue;
-    fragments.add(characters.slice(0, 2).join(""));
-    if (characters.length >= 3) fragments.add(characters.slice(0, 3).join(""));
-    if (fragments.size >= 24) break;
-  }
-  return [...fragments];
-}
-
 function ftsCandidateExpression(values: string[]) {
   const terms = new Set<string>();
   for (const value of values) {
@@ -270,7 +274,8 @@ function ftsCandidateExpression(values: string[]) {
       const characters = Array.from(token);
       if (characters.length < 2 || !/^[\p{L}\p{N}]+$/u.test(token)) continue;
       terms.add(`${token}*`);
-      if (characters.length >= 4) terms.add(`${characters.slice(0, -1).join("")}*`);
+      // Other endings of the word ("խաղաղություն" finds "խաղաղության").
+      if (characters.length >= 4) terms.add(`${searchStem(token)}*`);
       if (terms.size >= 24) break;
     }
     if (terms.size >= 24) break;
@@ -444,90 +449,47 @@ async function loadSearchCloudLibraryPosts(
     return { posts: page, total: page.length, nextCursor: null };
   }
 
-  // The index and the query are both folded across classical and reformed spelling.
+  // The index and the query are both folded across classical and reformed spelling. FTS finds and
+  // orders the candidates (bm25) inside D1, whose time isn't the Worker's CPU; the Worker only
+  // ranks the best few with the stored normalized text, without normalizing anything again.
   const candidateValues = [parsed.normalized, ...parsed.tokens, ...parsed.aliases];
   const ftsExpression = ftsCandidateExpression(candidateValues);
   if (!ftsExpression) return { posts: [], total: 0, nextCursor: null };
   const ftsBindings: unknown[] = [ftsExpression];
   if (categoryId) ftsBindings.push(categoryId);
   const ftsFields = await database.prepare(
-    `WITH ranked_candidates AS (
+    `WITH matched AS (
+       SELECT library_search_fts.chat_id, CAST(library_search_fts.message_id AS INTEGER) AS message_id,
+         library_search_fts.field_id, bm25(library_search_fts) AS score
+       FROM library_search_fts WHERE library_search_fts MATCH ?
+       ORDER BY score LIMIT ${categoryId ? 1500 : 400}
+     ), ranked_candidates AS (
        SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
          materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
-         documents.block_id,documents.original_text,documents.is_primary,documents.ordinal,
+         documents.block_id,documents.field_id,documents.normalized_text,documents.aliases_text,documents.is_primary,
+         matched.score,
          ROW_NUMBER() OVER (
            PARTITION BY documents.chat_id,documents.message_id
-           ORDER BY documents.is_primary DESC,documents.ordinal
+           ORDER BY documents.is_primary DESC,matched.score
          ) AS candidate_rank
-       FROM library_search_fts
+       FROM matched
        INNER JOIN library_search_documents AS documents
-         ON documents.chat_id=library_search_fts.chat_id
-         AND documents.message_id=CAST(library_search_fts.message_id AS INTEGER)
-         AND documents.field_id=library_search_fts.field_id
+         ON documents.chat_id=matched.chat_id AND documents.message_id=matched.message_id
+         AND documents.field_id=matched.field_id
        INNER JOIN library_materials AS materials
          ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
        INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
        WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
-         AND topics.is_general=0 AND topics.status!='hidden'
-         AND library_search_fts MATCH ? ${categoryClause}
+         AND topics.is_general=0 AND topics.status!='hidden' ${categoryClause}
      )
      SELECT chat_id,message_id,topic_id,media_group_id,constituent_message_ids_json,
-       published_at,field_kind,block_id,original_text,is_primary
+       published_at,field_kind,block_id,field_id,normalized_text,aliases_text,is_primary
      FROM ranked_candidates WHERE candidate_rank <= 2
-     ORDER BY message_id DESC,ordinal
-     LIMIT 300`,
+     ORDER BY score
+     LIMIT 120`,
   ).bind(...ftsBindings).all<SearchFieldRow>();
-  const fragments = candidateFragments(candidateValues);
-  let fieldRows = ftsFields.results;
-  // FTS already indexes normalized values, transliteration aliases, and bounded
-  // prefix terms. The shorter-prefix FTS pass is reserved for sparse candidate
-  // sets that still need typo expansion; running both paths for broad terms
-  // needlessly spends Worker CPU and can exhaust the request budget under
-  // concurrent search. The bounded threshold keeps fuzzy recall for small
-  // result sets without scanning again once FTS already found a broad set.
-  const armenianFallbackFragments = fragments.filter((fragment) => /\p{Script=Armenian}/u.test(fragment));
-  if (armenianFallbackFragments.length > 0 && /\p{Script=Armenian}/u.test(parsed.normalized) && ftsFields.results.length < 10) {
-    const fallbackExpression = armenianFallbackFragments
-      .filter((fragment) => /^[\p{L}\p{N}]+$/u.test(fragment))
-      .map((fragment) => `${fragment}*`)
-      .join(" OR ");
-    const fallbackBindings: unknown[] = [fallbackExpression];
-    if (categoryId) fallbackBindings.push(categoryId);
-    const fallback = await database.prepare(
-      `WITH ranked_candidates AS (
-         SELECT documents.chat_id,documents.message_id,materials.topic_id,materials.media_group_id,
-           materials.constituent_message_ids_json,materials.published_at,documents.field_kind,
-           documents.block_id,documents.original_text,documents.is_primary,documents.ordinal,
-           ROW_NUMBER() OVER (
-             PARTITION BY documents.chat_id,documents.message_id
-             ORDER BY documents.is_primary DESC,documents.ordinal
-           ) AS candidate_rank
-         FROM library_search_fts
-         INNER JOIN library_search_documents AS documents
-           ON documents.chat_id=library_search_fts.chat_id
-           AND documents.message_id=CAST(library_search_fts.message_id AS INTEGER)
-           AND documents.field_id=library_search_fts.field_id
-         INNER JOIN library_materials AS materials
-           ON materials.chat_id=documents.chat_id AND materials.message_id=documents.message_id
-         INNER JOIN library_topics AS topics ON topics.id=materials.topic_key
-         WHERE materials.sync_state='ready' AND materials.deleted_at IS NULL
-           AND topics.is_general=0 AND topics.status!='hidden'
-           AND library_search_fts MATCH ? ${categoryClause}
-       )
-       SELECT chat_id,message_id,topic_id,media_group_id,constituent_message_ids_json,
-         published_at,field_kind,block_id,original_text,is_primary
-       FROM ranked_candidates WHERE candidate_rank <= 2
-       ORDER BY message_id DESC,ordinal
-       LIMIT 500`,
-    ).bind(...fallbackBindings).all<SearchFieldRow>();
-    const unique = new Map<string, SearchFieldRow>();
-    for (const field of [...fieldRows, ...fallback.results]) {
-      unique.set(`${field.chat_id}:${field.message_id}:${field.field_kind}:${field.block_id ?? ""}:${field.original_text}`, field);
-    }
-    fieldRows = [...unique.values()];
-  }
-  const documents = new Map<string, SearchableTelegramDocument & { publishedAt: string | null }>();
-  for (const field of fieldRows) {
+  const documents = new Map<string, SearchableTelegramDocument & { publishedAt: string | null; stored: StoredSearchField[]; fieldIds: string[] }>();
+  for (const field of ftsFields.results) {
     const key = `${field.chat_id}:${field.message_id}`;
     const document = documents.get(key) ?? {
       chatId: field.chat_id,
@@ -536,38 +498,43 @@ async function loadSearchCloudLibraryPosts(
       mediaGroupId: field.media_group_id,
       constituentMessageIds: json<number[]>(field.constituent_message_ids_json, [field.message_id]),
       fields: [],
+      stored: [],
+      fieldIds: [],
       publishedAt: field.published_at,
     };
-    document.fields.push({
+    document.stored.push({
       kind: field.field_kind,
-      value: field.original_text,
+      normalized: field.normalized_text,
+      aliases: field.aliases_text,
       primary: Boolean(field.is_primary),
       blockId: field.block_id,
     });
+    document.fieldIds.push(field.field_id);
     documents.set(key, document);
   }
   // Psalms that match equally well read in their own order (1, 2, 3…), not by when they were posted.
   // The number comes from the audio title ("Սաղմոս 42") or the text ("(Սաղմոս 42)").
-  const psalmNumbers = new Map<SearchableTelegramDocument, number | null>();
-  const psalmNumberOf = (document: SearchableTelegramDocument) => {
+  type Candidate = SearchableTelegramDocument & { stored: StoredSearchField[] };
+  const psalmNumbers = new Map<Candidate, number | null>();
+  const psalmNumberOf = (document: Candidate) => {
     if (psalmNumbers.has(document)) return psalmNumbers.get(document) ?? null;
     psalmNumbers.set(document, findPsalmNumber(document));
     return psalmNumbers.get(document) ?? null;
   };
-  const findPsalmNumber = (document: SearchableTelegramDocument) => {
-    for (const field of [...document.fields].sort((a, b) => Number(b.primary) - Number(a.primary))) {
-      const found = /սաղմոս\S*\s*(\d{1,3})(?!\d)/iu.exec(field.value);
+  const findPsalmNumber = (document: Candidate) => {
+    for (const field of [...document.stored].sort((a, b) => Number(b.primary) - Number(a.primary))) {
+      const found = /սաղմոս\S*\s*(\d{1,3})(?!\d)/iu.exec(field.normalized);
       if (found) return Number(found[1]);
     }
     return null;
   };
-  const psalmOrder = (left: SearchableTelegramDocument, right: SearchableTelegramDocument) => {
+  const psalmOrder = (left: Candidate, right: Candidate) => {
     if (left.topicId !== right.topicId) return 0;
     const a = psalmNumberOf(left), b = psalmNumberOf(right);
     return a !== null && b !== null ? a - b : 0;
   };
   const matches = [...documents.values()].flatMap((document) => {
-    const match = matchSearchableTelegramDocument(document, parsed);
+    const match = matchStoredSearchFields(document.stored, parsed);
     return match ? [{ document, match, rank: match.rank }] : [];
   }).sort((left, right) =>
     right.rank - left.rank ||
@@ -582,9 +549,17 @@ async function loadSearchCloudLibraryPosts(
     chatId: document.chatId, messageId: document.messageId,
   })));
   const postByIdentity = new Map((await hydrateRows(database, selectedRows)).map((post) => [`${post.chatId}:${post.messageId}`, post]));
+  // The highlight needs the shown text: read only the matched field of the materials on this page.
+  const originals = await searchFieldOriginals(database, selected.map(({ document, match }) => ({
+    chatId: document.chatId, messageId: document.messageId, fieldId: document.fieldIds[match.fieldIndex],
+  })));
   const page = selected.flatMap(({ document, match }) => {
     const post = postByIdentity.get(`${document.chatId}:${document.messageId}`);
-    return post ? [{ ...post, searchMatch: match }] : [];
+    if (!post) return [];
+    const original = originals.get(`${document.chatId}:${document.messageId}:${document.fieldIds[match.fieldIndex]}`);
+    const hit = original ? locateStoredSearchHit(original, document.stored[match.fieldIndex], parsed, match) : undefined;
+    const { fieldIndex: _field, normalizedStart: _start, normalizedLength: _length, ...searchMatch } = match;
+    return [{ ...post, searchMatch: { ...searchMatch, hit } }];
   });
   const nextOffset = offset + selected.length;
   return {

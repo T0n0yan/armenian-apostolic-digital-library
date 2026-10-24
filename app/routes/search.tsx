@@ -596,7 +596,6 @@ export default function Search({ loaderData }: Route.ComponentProps) {
               <Link
                 className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
-                prefetch="intent"
               >
                 Փորձել բոլոր բաժիններում <ArrowRight aria-hidden="true" size={16} />
               </Link>
