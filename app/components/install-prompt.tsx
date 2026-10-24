@@ -6,24 +6,19 @@ import DoveMark from "../assets/dove-mark.png";
 const DISMISS_KEY = "library-install-dismissed-at";
 const DISMISS_DAYS = 30;
 const SHOW_AFTER_MS = 12_000;
-/** Added to the address when Telegram opens the site in the browser: the prompt shows at once there. */
+/** An address with ?install=1 (a link to share) shows the prompt at once. */
 const INSTALL_PARAM = "install";
 /** Dispatched by the menu's "Add to home screen" item; opens the prompt even if it was dismissed. */
 export const INSTALL_REQUEST_EVENT = "library:install";
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
-type TelegramWebApp = {
-  initData?: string;
-  platform?: string;
-  openLink?: (url: string, options?: { try_browser?: string; try_instant_view?: boolean }) => void;
-};
+type TelegramWebApp = { initData?: string };
 
 // "browser": the browser's own install dialog (Chrome, Edge, Samsung). "ios": Safari, which has no
 // install API, so a one-line hint and an arrow to its Share button. "manual": other browsers.
-// "open-browser": inside Telegram, open the site in the phone's browser and finish there (Telegram's
-// own shortcut would add the bot, not the site). "open-safari": an iPhone app's own browser
-// (Instagram, Facebook…), which cannot add to the home screen.
-type Mode = "browser" | "ios" | "manual" | "open-browser" | "open-safari";
+// "open-safari": an iPhone app's own browser (Instagram, Facebook…), which cannot add to the home
+// screen. In Telegram's Mini App nothing is offered.
+type Mode = "browser" | "ios" | "manual" | "open-safari";
 
 function recentlyDismissed() {
   try {
@@ -36,6 +31,16 @@ function recentlyDismissed() {
 
 function telegramWebApp() {
   return (window as Window & { Telegram?: { WebApp?: TelegramWebApp } }).Telegram?.WebApp;
+}
+
+/**
+ * Opened as Telegram's Mini App. There the site can't be added to the home screen and links out
+ * don't open reliably, so nothing about it is offered. Telegram's SDK loads a moment after the
+ * page; until then its launch data in the address, or the flag root.tsx sets, gives it away.
+ */
+export function isTelegramMiniApp() {
+  if (typeof window === "undefined") return false;
+  return Boolean(telegramWebApp()?.initData) || document.documentElement.dataset.telegramContext === "true" || /tgWebApp/u.test(window.location.hash);
 }
 
 export function isInstalledApp() {
@@ -64,9 +69,9 @@ function isInAppBrowser() {
   return /FBAN|FBAV|Instagram|Line\/|TikTok|musical_ly|Snapchat|LinkedInApp|Twitter|GSA\//u.test(navigator.userAgent);
 }
 
-/** Which way of adding to the home screen this device supports right now. */
-function currentMode(): Mode {
-  if (telegramWebApp()?.initData) return "open-browser";
+/** Which way of adding to the home screen this device supports right now (null: none, in Telegram). */
+function currentMode(): Mode | null {
+  if (isTelegramMiniApp()) return null;
   if (deferredInstall) return "browser";
   if (isAppleDevice()) return isInAppBrowser() ? "open-safari" : "ios";
   return "manual";
@@ -74,8 +79,7 @@ function currentMode(): Mode {
 
 /**
  * Offers to put the library on the home screen in as few taps as the phone allows: the browser's
- * install dialog where there is one, the site opened in the browser from Telegram (where the prompt
- * shows again at once), a one-line hint on iPhone Safari. Shown once after a short visit ("✕" hides
+ * install dialog where there is one, a one-line hint on iPhone Safari; nothing inside Telegram. Shown once after a short visit ("✕" hides
  * it for 30 days) and any time from the menu.
  */
 export function InstallPrompt() {
@@ -83,7 +87,8 @@ export function InstallPrompt() {
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<"in" | "out">("in");
 
-  const open = useCallback((next: Mode) => {
+  const open = useCallback((next: Mode | null) => {
+    if (!next) return;
     setMode(next);
     setPhase("in");
     setVisible(true);
@@ -103,7 +108,7 @@ export function InstallPrompt() {
     const decide = window.setTimeout(() => {
       const next = currentMode();
       if (requested) return open(next);
-      if (recentlyDismissed() || next === "manual") return;
+      if (!next || recentlyDismissed() || next === "manual") return;
       timer = window.setTimeout(() => open(currentMode()), SHOW_AFTER_MS);
     }, requested ? 800 : 1_500);
     const onRequest = () => open(currentMode());
@@ -126,15 +131,7 @@ export function InstallPrompt() {
   }, []);
 
   const install = useCallback(async () => {
-    if (mode === "open-browser") {
-      const url = new URL(window.location.href);
-      url.hash = "";
-      url.searchParams.set(INSTALL_PARAM, "1");
-      const telegram = telegramWebApp();
-      if (telegram?.openLink) telegram.openLink(url.toString(), { try_browser: telegram.platform === "ios" ? "safari" : "chrome", try_instant_view: false });
-      else window.open(url.toString(), "_blank", "noopener,noreferrer");
-      dismiss();
-    } else if (mode === "open-safari") {
+    if (mode === "open-safari") {
       // iOS 17+ opens x-safari-https://… in Safari.
       window.location.href = `x-safari-${window.location.href.split("#")[0]}`;
       dismiss();
@@ -148,7 +145,7 @@ export function InstallPrompt() {
   }, [dismiss, mode]);
 
   if (!visible || !mode) return null;
-  const hasButton = mode === "browser" || mode === "open-browser" || mode === "open-safari";
+  const hasButton = mode === "browser" || mode === "open-safari";
   const iphone = mode === "ios" && /iphone|ipod/iu.test(navigator.userAgent);
   return (
     <>

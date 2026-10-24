@@ -7,7 +7,7 @@ import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
 import { ReminderIndicator } from "./reminder-indicator";
-import { INSTALL_REQUEST_EVENT, isInstalledApp } from "./install-prompt";
+import { INSTALL_REQUEST_EVENT, isInstalledApp, isTelegramMiniApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
 import { sectionPath } from "../utils/material-path";
 
@@ -31,7 +31,13 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   useEffect(() => { if (!isOpen) { const timer = window.setTimeout(() => setView("main"), 300); return () => window.clearTimeout(timer); } }, [isOpen]);
   // Hidden once the library already runs as an installed app.
   const [canInstall, setCanInstall] = useState(false);
-  useEffect(() => setCanInstall(!isInstalledApp()), []);
+  // Not offered when already installed, nor in Telegram's Mini App (its SDK may arrive a moment later).
+  useEffect(() => {
+    const check = () => setCanInstall(!isInstalledApp() && !isTelegramMiniApp());
+    check();
+    const later = window.setTimeout(check, 1500);
+    return () => window.clearTimeout(later);
+  }, []);
   // The Mini App signs its reader in by itself, so signing out there would not last.
   const [inMiniApp, setInMiniApp] = useState(true);
   useEffect(() => setInMiniApp(Boolean((window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData)), []);
