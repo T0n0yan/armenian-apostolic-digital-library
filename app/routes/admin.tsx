@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { Activity, Ban, Bot, Check, Crown, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
-import { data, Form, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin";
 import { createAdminNavigationCookie, requireAdmin, requireSameOrigin } from "../auth/admin.server";
@@ -320,21 +320,24 @@ function Stat({ label, value, note }: { label: string; value: number; note?: str
   );
 }
 
-/** Accounts (Telegram / Google), devices of the last 30 days, and how many are on the site right now. */
+/** Accounts (Telegram / Google) and the devices that visited, with the way to the full lists. */
 function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderData"]["stats"]> }) {
   const deviceTotal = stats.devices.reduce((sum, row) => sum + row.count, 0);
   return (
     <section className={panelSection + " grid gap-4"}>
-      <h2 className="m-0 flex items-center gap-2 text-[17px]"><Users aria-hidden="true" size={19} className="text-gold" /> Օգտատերեր</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 flex items-center gap-2 text-[17px]"><Users aria-hidden="true" size={19} className="text-gold" /> Օգտատերեր</h2>
+        <Link className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[rgb(217_181_111/40%)] px-3.5 text-[12.5px] font-bold text-gold-bright no-underline" to="/admin/people">Բոլորը, որոնում, Excel →</Link>
+      </div>
       <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-4">
         <Stat label="Գրանցված" value={stats.accounts.total} note={`+${stats.accounts.week} այս շաբաթ`} />
         <Stat label="Telegram-ով" value={stats.accounts.telegram} />
         <Stat label="Google-ով" value={stats.accounts.google} />
-        <Stat label="Հիմա կայքում" value={stats.online.total} note="վերջին 7 րոպեում" />
+        <Stat label="Այցելած սարքեր" value={stats.visitors.total} note={`+${stats.visitors.week} այս շաբաթ`} />
       </div>
 
       <div className="grid gap-2">
-        <h3 className="m-0 flex items-center gap-2 text-[14px]"><MonitorSmartphone aria-hidden="true" size={16} className="text-gold" /> Սարքեր՝ վերջին 30 օրում</h3>
+        <h3 className="m-0 flex items-center gap-2 text-[14px]"><MonitorSmartphone aria-hidden="true" size={16} className="text-gold" /> Սարքեր</h3>
         {deviceTotal === 0 ? <p className="m-0 text-[12.5px] text-faint">Դեռ տվյալ չկա։</p> : (
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {stats.devices.map((row) => (
