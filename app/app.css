@@ -593,3 +593,10 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 }
 @keyframes place-card-in { from { opacity: 0; transform: translateY(14px); } }
 @media (prefers-reduced-motion: reduce) { .place-card { animation: none; } }
+/* A group of nearby places on the map, before it comes close enough to show them one by one. */
+.place-cluster { display: grid; place-items: center; }
+.place-cluster span {
+  display: grid; width: 100%; height: 100%; place-items: center; border-radius: 50%;
+  border: 3px solid #fbf4e4; background: linear-gradient(135deg, #d9b56f, #a8752a); color: #2a1708;
+  font: 700 13px/1 system-ui, sans-serif; box-shadow: 0 4px 12px rgb(40 20 10 / 35%);
+}

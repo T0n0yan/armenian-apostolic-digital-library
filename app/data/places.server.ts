@@ -4,6 +4,8 @@ export type Place = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
   description: string; clergy: string; services: string; videoUrl: string; icon: string | null;
   photos: string[]; creditName: string; verified: boolean; published: boolean; updatedAt: string;
+  /** Brought in from OpenStreetMap (scripts/import-osm-places.py). */
+  fromOsm: boolean;
 };
 
 export type PlaceSubmission = {
@@ -14,7 +16,7 @@ export type PlaceSubmission = {
 type PlaceRow = {
   id: string; name: string; kind: string; latitude: number; longitude: number; region: string; description: string;
   clergy: string; services: string; video_url: string; icon: string | null; photos_json: string; credit_name: string;
-  verified: number; published: number; updated_at: string;
+  verified: number; published: number; updated_at: string; osm_id?: string | null;
 };
 
 const list = (json: string) => {
@@ -26,7 +28,7 @@ function toPlace(row: PlaceRow): Place {
     id: row.id, name: row.name, kind: isPlaceKind(row.kind) ? row.kind : "church", latitude: row.latitude, longitude: row.longitude,
     region: row.region, description: row.description, clergy: row.clergy, services: row.services, videoUrl: row.video_url,
     icon: row.icon, photos: list(row.photos_json), creditName: row.credit_name, verified: Boolean(row.verified),
-    published: Boolean(row.published), updatedAt: row.updated_at,
+    published: Boolean(row.published), updatedAt: row.updated_at, fromOsm: Boolean(row.osm_id),
   };
 }
 
