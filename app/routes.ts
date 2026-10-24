@@ -36,6 +36,8 @@ export default [
   route(":section/:item/:verse", "routes/verse.tsx"),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
   route("admin", "routes/admin.tsx"),
+  route("admin/people", "routes/admin-people.tsx"),
+  route("admin/people/export", "routes/admin-people-export.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),
