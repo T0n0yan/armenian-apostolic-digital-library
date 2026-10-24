@@ -55,7 +55,8 @@
 				// both bots are admins there, each relays only replies to its own messages.
 				"SUPPORT_CHAT_ID": "-1004327865153",
 				"SUPPORT_TOPIC_SUPPORT": "2",
-				"SUPPORT_TOPIC_CONTACT": "7"
+				"SUPPORT_TOPIC_CONTACT": "7",
+				"SUPPORT_TOPIC_PLACES": "41"
 			},
 			"d1_databases": [
 				{
@@ -97,7 +98,8 @@
 				// both bots are admins there, each relays only replies to its own messages.
 				"SUPPORT_CHAT_ID": "-1004327865153",
 				"SUPPORT_TOPIC_SUPPORT": "2",
-				"SUPPORT_TOPIC_CONTACT": "7"
+				"SUPPORT_TOPIC_CONTACT": "7",
+				"SUPPORT_TOPIC_PLACES": "41"
 			},
 			"d1_databases": [
 				{
