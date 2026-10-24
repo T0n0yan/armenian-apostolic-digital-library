@@ -1,7 +1,7 @@
 # Բագեր
 
 ## Հիմա
-- Հերթի 4 բագը (աղոթքների տառաչափ, «Օրվա համարը»-ի կարգավորումը միանգամից, «Սարքի պես» թեման ուղիղ, «M10» ամսաթվեր, նաև ադմինի էջում) — `fix/queued-bugs`։
+- (դատարկ)
 
 ## Հերթ
 - Telegram-ում Ղուկաս 4.31–41 գրառման տառասխալը ուղղում է տերը ինքը Telegram-ում (կայքը կթարմանա ինքնաբերաբար)։
@@ -19,11 +19,13 @@
 - 2026-10-24 — Ամեն րոպեի cron-ը հանված է. սինքը՝ նոր գրառումից 15 րոպե հետո, հիշեցումները՝ ճիշտ ժամին (Clock Durable Object), հիշեցում հեռախոսի օրացույցով կամ ծանուցումով ([#43](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/43))։
 - 2026-10-24 — /admin/people. գրանցվածների և անանուն սարքերի ցուցակ, որոնում, Excel ([#44](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/44))։
 - 2026-10-24 — Վերնագրերի որոնում հեռախոսում (առանց հարցման), անգլերեն/ռուսերեն բառեր, էջերը պահվում են հեռախոսում մինչև նոր նյութ ([#45](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/45))։
+- 2026-10-24 — Աղոթքների տառաչափը աշխատում է, «Օրվա համարը»-ի և «Սարքի պես» թեմայի փոփոխությունները՝ միանգամից, ամսաթվերը՝ հայերեն ամսանուններով («M10»-ի փոխարեն) ([#47](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/47))։
 
 ## Կարևոր մյուսների համար
 - Cron-ը հիմա միայն գիշերային է (`17 0 * * *`)։ Սինքը և հիշեցումները ժամանակացույց են դնում `CLOCK` Durable Object-ի alarm-ով (`workers/clock.ts`)։ Production-ում `SYNC_ON_POSTS=1`. webhook-ը նոր գրառումից հետո սինք է պլանավորում 15 րոպե հետո։ Webhook-ը հիմա ստանում է նաև `edited_message` (գիշերային cron-ը ինքն է թարմացնում)։
 - `reminders.channel` ('push' | 'calendar'), migration 0030։ Օրացույցով հիշեցումները սերվերը չի ուղարկում։
 - Migration 0031՝ ինդեքս `library_materials(updated_at)`-ի վրա. `contentVersion`-ը (root loader) դրանից է հաշվում։ Վերնագրերի ինդեքսը՝ `/api/search-index?v=…`։ Service worker v5-ը պահում է էջերի տվյալները ըստ այդ տարբերակի. նոր նյութից հետո (մինչև 5 րոպե edge cache) հեռախոսները նորից են բերում։
+- Ամսաթվերի համար `toLocaleString("hy-AM")` մի օգտագործեք (որոշ հեռախոսներում «M10» է). `app/utils/armenian-date.ts`-ի `formatDayMonth`, `formatClock`, `formatYerevanDateTime`։
 - Workers Free-ում հարցման CPU-ն 10 մվ է. ծանր հաշվարկը տեղափոխեք D1 SQL կամ հեռախոս։
 - Telegram-ում «փակ» թեման նշանակում է միայն, որ գրում են ադմինները. կայքում դա ընթերցողներին ցույց չի տրվում (միայն «թաքցված»-ն է նշվում)։
 - MediaError code 4-ը Android WebView-ում հաճախ նշանակում է «ֆայլը չհասավ», ոչ թե ձևաչափ։
