@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, type FormEvent } from "react";
 import { useSubmit } from "react-router";
 
-export function useDebouncedFormSubmit(delayMs: number, minimumCharacters = 0) {
+export function useDebouncedFormSubmit(delayMs: number, _minimumCharacters = 0) {
   const formRef = useRef<HTMLFormElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submit = useSubmit();
@@ -23,12 +23,14 @@ export function useDebouncedFormSubmit(delayMs: number, minimumCharacters = 0) {
   const submitImmediately = useCallback(() => submitForm(false), [submitForm]);
   const submitDebounced = useCallback(() => submitForm(true), [submitForm]);
 
+  // Searching starts with the button or Enter (every search costs the server); typing only
+  // clears the results once the box is emptied.
   const scheduleSubmit = useCallback((event?: FormEvent<HTMLInputElement>) => {
     cancelPending();
     const value = event?.currentTarget.value.trim() ?? "";
-    if (value && Array.from(value).length < minimumCharacters) return;
+    if (value) return;
     timerRef.current = setTimeout(submitDebounced, delayMs);
-  }, [cancelPending, delayMs, minimumCharacters, submitDebounced]);
+  }, [cancelPending, delayMs, submitDebounced]);
 
   return { cancelPending, formRef, scheduleSubmit, submitImmediately };
 }

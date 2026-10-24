@@ -349,6 +349,112 @@ export function matchSearchableTelegramDocument(document: SearchableTelegramDocu
   return { scoreCategory: category(bestRank), reasons: [...reasons], rank: bestRank, strength, hit: bestHit };
 }
 
+/**
+ * A word without its ending, for finding its other forms: "խաղաղություն" → "խաղաղությ" (finds
+ * "խաղաղության"), "աղոթք" → "աղոթ". Short words and numbers stay whole.
+ */
+export function searchStem(term: string) {
+  const letters = Array.from(term);
+  if (letters.length < 4 || numericToken.test(term)) return term;
+  return letters.slice(0, letters.length >= 10 ? -3 : letters.length >= 7 ? -2 : -1).join("");
+}
+
+/** A field as the index stores it: already normalized (library_search_documents). */
+export type StoredSearchField = {
+  kind: SearchableTelegramFieldKind;
+  normalized: string;
+  aliases: string;
+  primary: boolean;
+  blockId: string | null;
+};
+
+export type StoredSearchMatch = RankedTelegramSearchMatch & {
+  /** The best field and where in its normalized text the query was found (for the highlight). */
+  fieldIndex: number;
+  normalizedStart: number;
+  normalizedLength: number;
+};
+
+const ARTICLE_ENDINGS = ["ն", "ը", "ս", "դ"];
+
+/**
+ * matchSearchableTelegramDocument for text the index has already normalized: the same ranks
+ * (exact, whole word, word start, inside a word, Latin spelling), without typo matching and
+ * without normalizing the text again, so it stays cheap enough for the free plan's CPU budget
+ * on the server and for the whole library on a phone.
+ */
+export function matchStoredSearchFields(fields: StoredSearchField[], query: ParsedTelegramSearchQuery): StoredSearchMatch | null {
+  if (!query.normalized || query.messageIdIntent) return null;
+  const phrase = foldSpelling(query.normalized);
+  const terms = query.tokens.map(foldSpelling);
+  const variants = [phrase, ...query.aliases];
+  let best: StoredSearchMatch | null = null;
+  const reasons = new Set<BridgeSearchMatchReason>();
+  fields.forEach((field, fieldIndex) => {
+    const normalized = foldSpelling(field.normalized);
+    if (!normalized) return;
+    let rank = 0; let start = -1; let length = phrase.length;
+    const padded = ` ${normalized} `;
+    if (normalized === phrase && field.primary) { rank = 7; start = 0; }
+    else if (padded.includes(` ${phrase} `)) { rank = 5; start = padded.indexOf(` ${phrase} `); }
+    else if (terms.length === 1 && ARTICLE_ENDINGS.some((ending) => padded.includes(` ${phrase}${ending} `))) {
+      rank = 5; start = Math.max(0, ...ARTICLE_ENDINGS.map((ending) => padded.indexOf(` ${phrase}${ending} `)));
+    } else if (terms.length && terms.every((term, index) => {
+      if (!numericToken.test(term)) return padded.includes(` ${term}`);
+      if (index === 0) return padded.includes(` ${term} `);
+      return new RegExp(`(?:^| )${escapeRegExp(terms[index - 1])}\\S* ${term}(?: |$)`, "u").test(normalized);
+    })) { rank = 4; start = padded.indexOf(` ${terms[0]}`); length = terms[0].length; }
+    else if (Array.from(phrase).length >= 4 && includesWhole(normalized, phrase)) { rank = 3; start = normalized.indexOf(phrase) + 1; }
+    else if (query.aliases.length && (
+      variants.some((variant) => startsAtWord(field.aliases, variant)) ||
+      query.aliases.some((alias) => startsAtWord(normalized, alias)))) { rank = 2; start = 0; length = 0; }
+    // Another ending of the same word ("խաղաղություն" → "խաղաղության"), the cheap stand-in for
+    // typo matching.
+    else if (terms.length && terms.every((term) => padded.includes(` ${searchStem(term)}`))) {
+      rank = 1;
+      const stem = searchStem(terms[0]);
+      start = padded.indexOf(` ${stem}`); length = stem.length;
+    }
+    if (!rank) return;
+    reasons.add(reasonByField[field.kind]);
+    const strength = field.primary ? 2 : field.kind === "topic" || field.kind === "hashtag" ? 1 : 0;
+    // The padded text has one extra space in front.
+    const normalizedStart = Math.max(0, start - 1);
+    if (!best || rank > best.rank || (rank === best.rank && strength > (best.strength ?? 0))) {
+      best = { scoreCategory: category(rank), reasons: [], rank, strength, fieldIndex, normalizedStart, normalizedLength: length };
+    }
+  });
+  if (!best) return null;
+  const match = best as StoredSearchMatch;
+  if (match.rank === 2) reasons.add("transliteration");
+  if (match.rank === 1) reasons.add("fuzzy");
+  match.reasons = [...reasons];
+  return match;
+}
+
+/**
+ * The highlight for a stored match, found near where the normalized text placed it: only a window
+ * of the original text is mapped, never a whole long text.
+ */
+export function locateStoredSearchHit(value: string, field: StoredSearchField, query: ParsedTelegramSearchQuery, match: StoredSearchMatch): BridgeSearchHit | undefined {
+  const parsed = { ...query, normalized: foldSpelling(query.normalized), tokens: query.tokens.map(foldSpelling) };
+  // Short texts (titles, captions) get the exact mapping; it costs too much for a long body.
+  if (value.length <= 600) return locateSearchHit(value, field.kind, field.blockId, parsed, Math.max(match.rank, 2));
+  const ratio = field.normalized.length ? match.normalizedStart / field.normalized.length : 0;
+  const around = Math.round(ratio * value.length);
+  const from = Math.max(0, around - 400);
+  const window = foldSpelling(value.slice(from, Math.min(value.length, around + 400)).toLocaleLowerCase("hy-AM"));
+  // Lowercasing and the է/օ fold keep every position, so an index in the window is one in the text.
+  for (const candidate of [parsed.normalized, ...parsed.tokens].filter(Boolean)) {
+    const pattern = new RegExp(`(?:^|[^\\p{L}\\p{N}])(${escapeRegExp(candidate)})`, "u");
+    const found = pattern.exec(window);
+    if (!found) continue;
+    const start = from + found.index + found[0].length - found[1].length;
+    return { source: sourceFor(field.kind), blockId: field.blockId, start, length: candidate.length, ...snippetFor(value, start, candidate.length) };
+  }
+  return undefined;
+}
+
 export function messageIdSearchMatch(messageId: number): RankedTelegramSearchMatch {
   return { scoreCategory: "message-id", reasons: ["telegram-id"], matchedMessageId: messageId, rank: scoreRank["message-id"] };
 }

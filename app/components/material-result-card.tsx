@@ -335,7 +335,6 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           className={`${interactiveGlassCard} hold-card grid ${day ? "items-center" : quizCard ? "items-stretch" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? `grid-cols-1 px-[16px] py-[14px] ${quizCard ? "h-full" : ""}` : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
-          prefetch="intent"
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
           aria-busy={isOpening || undefined}

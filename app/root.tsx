@@ -107,7 +107,8 @@ export async function loader({request}: Route.LoaderArgs) {
  * for it explicitly (revalidate after the Telegram sign-in), which keeps the URL the same.
  */
 export function shouldRevalidate({ currentUrl, nextUrl, formMethod, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs) {
-  if (formMethod || currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
+  // A search form (GET) is only a move to another address; it must not cost a second request.
+  if ((formMethod && formMethod.toUpperCase() !== "GET") || currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
   return false;
 }
 
@@ -307,32 +308,22 @@ export default function App({ loaderData }: Route.ComponentProps) {
     };
   }, []);
 
-  // Tells the site this device has a page open (every 5 minutes while visible), for the admin's
-  // "online now" and device numbers. A random id stays in the browser; nothing else is sent.
+  // Tells the site once that this device has visited, for the admin's visitor list. A random id
+  // stays in the browser; nothing else is sent. Once per device: each request costs the free plan.
   useEffect(() => {
     let visitorId = "";
     try {
+      if (localStorage.getItem("library-presence-sent") === "1") return;
       visitorId = localStorage.getItem("library-visitor") ?? "";
       if (!visitorId) { visitorId = crypto.randomUUID(); localStorage.setItem("library-visitor", visitorId); }
-    } catch { visitorId = crypto.randomUUID(); }
+    } catch { return; }
     const agent = navigator.userAgent;
     const platform = /iPhone|iPad|iPod/u.test(agent) || (/Macintosh/u.test(agent) && navigator.maxTouchPoints > 1) ? "ios"
       : /Android/u.test(agent) ? "android" : /Windows/u.test(agent) ? "windows" : /Macintosh|Mac OS X/u.test(agent) ? "macos" : /Linux|CrOS/u.test(agent) ? "linux" : "other";
     const inTelegram = Boolean((window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData);
-    const send = () => {
-      if (document.visibilityState !== "visible") return;
-      // At most once in 5 minutes, also across page reloads and new tabs.
-      try {
-        const last = Number(localStorage.getItem("library-presence-at") ?? 0);
-        if (Date.now() - last < 290_000) return;
-        localStorage.setItem("library-presence-at", String(Date.now()));
-      } catch { /* storage blocked: send anyway */ }
-      void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true }).catch(() => null);
-    };
-    send();
-    const timer = window.setInterval(send, 300_000);
-    document.addEventListener("visibilitychange", send);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", send); };
+    void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true })
+      .then((response) => { if (response.ok) localStorage.setItem("library-presence-sent", "1"); })
+      .catch(() => null);
   }, []);
 
   // Load the bird-letter font for prayer initials once the page has settled, so opening a prayer
