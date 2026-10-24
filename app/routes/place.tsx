@@ -83,6 +83,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           </div>
           <PlacesMap places={pin} focus={place.id} />
         </section>
+        {place.fromOsm ? <p className="m-0 text-center text-[12px] text-faint">Տեղը և անունը՝ <a className="text-faint underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>-ի մասնակիցներ։</p> : null}
         {place.creditName ? <p className="m-0 text-center text-[12.5px] text-faint">Նկարներն ու տեղեկությունը ուղարկեց՝ {place.creditName}։ Շնորհակալություն 🙏</p> : null}
         <Link className="mx-auto text-[13.5px] text-gold-bright" to="/places">← Բոլոր սրբավայրերը քարտեզում</Link>
       </article>

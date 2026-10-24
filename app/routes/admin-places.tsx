@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { Check, ImageOff, MapPin, Plus, X } from "lucide-react";
+import { useState } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin-places";
@@ -63,6 +64,9 @@ const smallButton = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 ro
 export default function AdminPlaces({ loaderData, actionData }: Route.ComponentProps) {
   const { submissions, places } = loaderData;
   const busy = useNavigation().state === "submitting";
+  const [filter, setFilter] = useState("");
+  const query = filter.trim().toLocaleLowerCase("hy");
+  const shown = query ? places.filter((place) => `${place.name} ${place.region}`.toLocaleLowerCase("hy").includes(query)) : places;
   return (
     <PageShell width="admin">
       <SiteNav />
@@ -113,8 +117,9 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
             <h2 className="m-0 text-[17px] font-bold text-ink">Տեղեր քարտեզում ({places.length})</h2>
             <Link className="text-[13px] text-gold-bright" to="/places">Բացել քարտեզը →</Link>
           </div>
+          <input className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել անունով կամ մարզով…" aria-label="Փնտրել տեղերը" />
           <div className="grid gap-2">
-            {places.map((place) => (
+            {shown.slice(0, 150).map((place) => (
               <Link key={place.id} className="frosted-card flex items-center gap-3 p-3 text-inherit no-underline" to={`/admin/places/${place.id}`}>
                 <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-[#efe3c8]">
                   {place.icon ? <img className="size-full object-contain" src={placeMediaUrl(place.icon)} alt="" /> : place.photos[0] ? <img className="size-full object-cover" src={placeMediaUrl(place.photos[0])} alt="" /> : <MapPin aria-hidden="true" size={20} className="text-faint" />}
@@ -127,6 +132,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                 </span>
               </Link>
             ))}
+            {shown.length > 150 ? <p className="m-0 text-center text-[12.5px] text-faint">Ցույց է տրված 150-ը {shown.length}-ից. գրեք անունը՝ գտնելու համար։</p> : null}
           </div>
           <Form method="post" className="grid gap-2 border-t border-glass-border pt-3 min-[560px]:grid-cols-[1fr_1fr_auto]">
             <input className={fieldControl} name="name" placeholder="Նոր տեղի անունը" required />

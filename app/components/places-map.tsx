@@ -59,7 +59,10 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
   useEffect(() => {
     let map: import("leaflet").Map | null = null;
     let cancelled = false;
-    void import("leaflet").then(({ default: L }) => {
+    void import("leaflet").then(async ({ default: L }) => {
+      // The clustering plugin attaches itself to the global L.
+      (window as unknown as { L: typeof L }).L = L;
+      await import("leaflet.markercluster");
       if (cancelled || !container.current) return;
       const armenia = L.latLngBounds(ARMENIA_BOUNDS);
       map = L.map(container.current, {
@@ -79,11 +82,22 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
         stroke: false, fillColor: "#efe3c8", fillOpacity: 1, interactive: false,
       }).addTo(map);
       L.polygon(ARMENIA_BORDER, { color: "#b07d2e", weight: 2, opacity: 0.85, fill: false, interactive: false }).addTo(map);
+      // Nearby places gather into one gold count until the map comes close (hundreds from OSM).
+      const layer = focus ? L.layerGroup() : L.markerClusterGroup({
+        maxClusterRadius: 48, disableClusteringAtZoom: 13, showCoverageOnHover: false, spiderfyOnMaxZoom: true,
+        iconCreateFunction: (cluster) => {
+          const count = cluster.getChildCount();
+          const size = count < 10 ? 38 : count < 50 ? 46 : 54;
+          return L.divIcon({ className: "place-cluster", html: `<span>${count}</span>`, iconSize: [size, size] });
+        },
+      });
+      layer.addTo(map);
       for (const place of places) {
         const marker = L.marker([place.latitude, place.longitude], {
           title: place.name, alt: place.name, riseOnHover: true, keyboard: !focus, interactive: !focus,
           icon: L.divIcon({ className: "place-pin", html: markerHtml(place), iconSize: place.icon ? [64, 64] : [46, 46], iconAnchor: place.icon ? [32, 60] : [23, 23] }),
-        }).addTo(map);
+        });
+        layer.addLayer(marker);
         if (!focus) marker.on("click", () => setSelected(place.id));
       }
       if (!focus) map.on("click", () => setSelected(null));
