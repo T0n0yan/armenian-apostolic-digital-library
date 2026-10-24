@@ -84,10 +84,12 @@ export async function answerUpdate(update: Update) {
     return;
   }
   if (places && db && message.from && !text.startsWith("/") && await continuePlace(call, db, places, { ...message, from: message.from })) return;
-  if (relay && (command === "/support" || command === "/contact")) {
+  // /support, /contact, or the group welcome's «Գրել մեզ» button (t.me/bot?start=contact).
+  const asks = command === "/start" && (payload === "contact" || payload === "support") ? `/${payload}` : command;
+  if (relay && (asks === "/support" || asks === "/contact")) {
     await callTelegram(token, "sendMessage", {
       chat_id: message.chat.id,
-      text: SUPPORT_PROMPTS[command === "/support" ? "support" : "contact"],
+      text: SUPPORT_PROMPTS[asks === "/support" ? "support" : "contact"],
       reply_markup: { force_reply: true, input_field_placeholder: "Ձեր հաղորդագրությունը…" },
     });
     return;
@@ -187,6 +189,66 @@ async function answerGroup(token: string, relay: ReturnType<typeof settings>["re
   }
 }
 
+/** The welcome the bot posts and pins in the main group, until the owner writes their own in /admin. */
+export const GROUP_WELCOME = [
+  "Բարև, սիրելի՛ քրիստոնյա ☺️🙏",
+  "",
+  "Խմբում հրապարակվող 📿 աղոթքները, 🎧 ձայնագրված սաղմոսները, 🕊 սրբերի վարքերը, 📖 Ավետարանի ուսուցումները և 🗓 օրվա ընթերցումները հասանելի են նաև մեր թվային գրադարանում ✨",
+  "",
+  "Գրադարանում կարող ես՝",
+  "🔍 արագ որոնել անհրաժեշտ նյութը,",
+  "🔖 պահպանել նախընտրած նյութերը,",
+  "📝 ստեղծել անձնական նշումներ և 🔔 հիշեցումներ։",
+  "",
+  "📱 Գրադարանը բացվում է անմիջապես Telegram-ում՝ ներքևի կոճակով 👇",
+  "",
+  "💬 Հարցերի և առաջարկների համար կարող ես գրել մեզ՝ «Կապ մեզ հետ» կոճակով։",
+].join("\n");
+
+/**
+ * Posts the welcome with its buttons, without a sound. With `pin`, it is also pinned, again
+ * without notifying anyone. Buttons in groups can't open a Mini App directly, so «Բացել
+ * Telegram-ում» is the bot's ?startapp link, which opens the library inside Telegram.
+ */
+/** The welcome text as saved in /admin (site_settings), or the default above. */
+export async function readGroupWelcome(db: D1Database) {
+  const row = await db.prepare("SELECT value FROM site_settings WHERE key = 'group_welcome'").first<{ value: string }>().catch(() => null);
+  return row?.value?.trim() || GROUP_WELCOME;
+}
+
+/** Saves the owner's welcome text; an empty text brings the default back. */
+export async function saveGroupWelcome(db: D1Database, text: string) {
+  const value = text.replace(/\r\n/gu, "\n").trim();
+  if (!value || value === GROUP_WELCOME) {
+    await db.prepare("DELETE FROM site_settings WHERE key = 'group_welcome'").run();
+    return;
+  }
+  await db.prepare("INSERT INTO site_settings (key, value) VALUES ('group_welcome', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')").bind(value.slice(0, 4000)).run();
+}
+
+export async function postGroupWelcome(chatId: string | number, pin: boolean, text = GROUP_WELCOME) {
+  const { token, site } = settings();
+  if (!token) return { ok: false, description: "TELEGRAM_BOT_TOKEN չկա" };
+  const me = await callTelegram(token, "getMe", {});
+  const username = (me.result as { username?: string } | undefined)?.username;
+  if (!username) return { ok: false, description: me.description ?? "getMe failed" };
+  const buttons = { inline_keyboard: [
+      [{ text: "📱 Բացել Telegram-ում", url: `https://t.me/${username}?startapp` }],
+      [{ text: "🌐 Բացել բրաուզերում", url: site }, { text: "✉️ Կապ մեզ հետ", url: `https://t.me/${username}?start=contact` }],
+  ] };
+  // With the library's picture (dove and name) on top; a caption holds at most 1024 characters, so
+  // a longer text goes as a plain message.
+  const sent = text.length <= 1024
+    ? await callTelegram(token, "sendPhoto", { chat_id: chatId, photo: `${site}/og-image.png?v=2`, caption: text, disable_notification: true, reply_markup: buttons })
+    : await callTelegram(token, "sendMessage", { chat_id: chatId, text, disable_notification: true, link_preview_options: { is_disabled: true }, reply_markup: buttons });
+  if (!sent.ok || !pin) return sent;
+  const messageId = (sent.result as { message_id: number }).message_id;
+  const pinned = await callTelegram(token, "pinChatMessage", { chat_id: chatId, message_id: messageId, disable_notification: true });
+  return pinned.ok ? sent : { ok: false, description: `Ուղարկվեց, բայց չամրացվեց. ${pinned.description ?? ""}` };
+}
+
+export const WEBHOOK_UPDATES = ["message", "edited_message", "callback_query"];
+
 /** Points the bot's webhook at this site and sets its command list. */
 export async function connectBot() {
   const { token, site } = settings();
@@ -194,7 +256,8 @@ export async function connectBot() {
   const hook = await callTelegram(token, "setWebhook", {
     url: `${site}/telegram/webhook`,
     secret_token: await webhookSecret(token),
-    allowed_updates: ["message", "callback_query"],
+    // Edited posts too: an edit in the group syncs like a new post.
+    allowed_updates: WEBHOOK_UPDATES,
     drop_pending_updates: true,
   });
   if (!hook.ok) return hook;
@@ -210,6 +273,21 @@ export async function connectBot() {
     ],
   });
   return hook;
+}
+
+/**
+ * Re-points the webhook when it doesn't yet ask for every update the site needs (once a day, from
+ * the cron): a deploy that adds an update type then takes effect without a visit to /admin.
+ */
+export async function ensureWebhookUpdates() {
+  const { token, site } = settings();
+  if (!token) return;
+  const info = await callTelegram(token, "getWebhookInfo", {});
+  const result = info.result as { url?: string; allowed_updates?: string[] } | undefined;
+  if (!info.ok || result?.url !== `${site}/telegram/webhook`) return;
+  const allowed = result.allowed_updates ?? ["message"];
+  if (WEBHOOK_UPDATES.every((type) => allowed.includes(type))) return;
+  await callTelegram(token, "setWebhook", { url: `${site}/telegram/webhook`, secret_token: await webhookSecret(token), allowed_updates: WEBHOOK_UPDATES });
 }
 
 export async function botStatus() {

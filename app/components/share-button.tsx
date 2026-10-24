@@ -46,20 +46,13 @@ export async function systemShare(data: ShareData) {
   return true;
 }
 
-type MiniApp = { initData?: string; openTelegramLink?: (url: string) => void };
-const miniApp = () => typeof window === "undefined" ? undefined : (window as { Telegram?: { WebApp?: MiniApp } }).Telegram?.WebApp;
-
 /**
  * Shares only the short link (/psalms/22/6): what the page is about shows in the link's preview
- * card, the same in Telegram and WhatsApp. In the Mini App through Telegram's "send to a chat",
- * in a browser through the phone's share sheet; without either, the link is copied.
+ * card, the same in Telegram and WhatsApp. Everywhere, the Mini App included, through the phone's
+ * own share sheet, as in Chrome; where there is none (a desktop browser, some Android WebViews) the
+ * link is copied.
  */
 export async function shareLink(url: string) {
-  const webApp = miniApp();
-  if (webApp?.initData && webApp.openTelegramLink) {
-    webApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`);
-    return "shared" as const;
-  }
   if (await systemShare({ url })) return "shared" as const;
   await copyText(url);
   return "copied" as const;

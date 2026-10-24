@@ -46,8 +46,15 @@ and the `CLOUDFLARE_ACCOUNT_ID` variable of the repository.
 ## Telegram sync
 
 `.github/workflows/cloud-sync.yml` syncs the Telegram group into both environments, one after the
-other. Each Worker's per-minute cron starts it every 30 minutes when its `GITHUB_SYNC_TOKEN`
-secret is set; GitHub's own schedule is a fallback.
+other. Production's bot is an admin in the group, so its webhook sees every new or edited post:
+each one sets the Worker's Clock (a Durable Object, `workers/clock.ts`) 15 minutes ahead, and the
+sync starts once, 15 minutes after the last post (needs the `GITHUB_SYNC_TOKEN` secret). A cron once
+a night (00:17 UTC) starts a full sync too, since Telegram doesn't announce deleted posts; GitHub's
+own daily schedule is a fallback. Nothing runs every minute any more (each wake-up counts against
+the free plan's 100,000 requests a day).
+
+Reminders sent by the server (the bot's message, phone notifications) wake the same Clock at their
+own minute; reminders the reader put in the phone's calendar are never sent by the server.
 
 ## Settings per Worker
 

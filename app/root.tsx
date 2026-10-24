@@ -17,7 +17,9 @@ import { CandleLoader } from "./components/candle-loader";
 import { PageShell } from "./components/page-layout";
 import { RouteErrorPage } from "./components/error-page";
 import {listActiveCategories} from "./data/categories.server";
+import {contentVersion} from "./data/content-version.server";
 import { setRemindersEnabled } from "./utils/reminder-store";
+import { setContentVersion, setRootSearchState } from "./utils/search-state";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
@@ -56,7 +58,7 @@ const initialThemeScript = `(() => {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark" || value === "sun") preference = value;
       // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
-      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]], devMode: ["library-dev-mode", ["on"]] };
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]], devMode: ["library-dev-mode", ["on"]], dailyVerse: ["library-daily-verse", ["off"]] };
       for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
       if (!root.dataset.titleSize) root.dataset.titleSize = "small";
       // Unless chosen, animations follow the phone: off in power-saving / reduced-motion / data-saver.
@@ -97,6 +99,8 @@ export async function loader({request}: Route.LoaderArgs) {
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
     navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
+    // Phones keep pages and the title index until this changes (public/sw.js, utils/local-search.ts).
+    contentVersion: await contentVersion(env.DB).catch(() => "0"),
   };
   return value;
 }
@@ -107,7 +111,8 @@ export async function loader({request}: Route.LoaderArgs) {
  * for it explicitly (revalidate after the Telegram sign-in), which keeps the URL the same.
  */
 export function shouldRevalidate({ currentUrl, nextUrl, formMethod, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs) {
-  if (formMethod || currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
+  // A search form (GET) is only a move to another address; it must not cost a second request.
+  if ((formMethod && formMethod.toUpperCase() !== "GET") || currentUrl.href === nextUrl.href) return defaultShouldRevalidate;
   return false;
 }
 
@@ -165,13 +170,15 @@ function loadTelegramSdk() {
 }
 
 /**
- * Whether Telegram's Close/⋯ buttons float over the top of the page. On phones the library's bot
- * opens fullscreen, but some Android clients report neither isFullscreen nor a content inset, so a
- * phone Mini App counts as fullscreen unless Telegram reports a header of its own.
+ * Whether Telegram's Close/⋯ buttons float over the top of the page. Telegram says so with
+ * isFullscreen; when it opens the page under its own header (the usual bot button) that is false
+ * and the page needs no room at the top. Older clients without the flag count as fullscreen only
+ * when the page fills the whole screen.
  */
 function isTelegramFullscreen(webApp: TelegramWebApp) {
-  if (webApp.isFullscreen) return true;
-  return webApp.platform === "android" || webApp.platform === "ios";
+  if (typeof webApp.isFullscreen === "boolean") return webApp.isFullscreen;
+  const phone = webApp.platform === "android" || webApp.platform === "ios";
+  return phone && window.innerHeight >= window.screen.height - 32;
 }
 
 /** `?tgdebug` shows what Telegram reports about the screen, to diagnose layout on a device. */
@@ -199,7 +206,7 @@ function syncTelegramSafeArea(webApp: TelegramWebApp) {
     // buttons float over the top of the page; keep the page clear of them anyway.
     if (side === "top" && fullscreen && contentValue < 40) contentValue = 52;
     // A little air under those buttons, so the page's own back link and search don't touch them.
-    if (side === "top" && fullscreen) contentValue += 14;
+    if (side === "top" && fullscreen) contentValue += 4;
     root.style.setProperty(`--tg-safe-area-inset-${side}`, `${safeValue}px`);
     root.style.setProperty(`--tg-content-safe-area-inset-${side}`, `${contentValue}px`);
     // In fullscreen Mini Apps the content inset (Telegram's Close/⋯ buttons) is measured from the
@@ -259,6 +266,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ loaderData }: Route.ComponentProps) {
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn));
+  // The phone's title search and page keeping follow the content version (utils/local-search.ts).
+  setContentVersion(loaderData.contentVersion);
+  setRootSearchState({ signedIn: Boolean(loaderData.signedIn), categories: loaderData.categories });
   const revalidator = useRevalidator();
   const sessionAttempted = useRef(false);
 
@@ -305,32 +315,22 @@ export default function App({ loaderData }: Route.ComponentProps) {
     };
   }, []);
 
-  // Tells the site this device has a page open (every 5 minutes while visible), for the admin's
-  // "online now" and device numbers. A random id stays in the browser; nothing else is sent.
+  // Tells the site once that this device has visited, for the admin's visitor list. A random id
+  // stays in the browser; nothing else is sent. Once per device: each request costs the free plan.
   useEffect(() => {
     let visitorId = "";
     try {
+      if (localStorage.getItem("library-presence-sent") === "1") return;
       visitorId = localStorage.getItem("library-visitor") ?? "";
       if (!visitorId) { visitorId = crypto.randomUUID(); localStorage.setItem("library-visitor", visitorId); }
-    } catch { visitorId = crypto.randomUUID(); }
+    } catch { return; }
     const agent = navigator.userAgent;
     const platform = /iPhone|iPad|iPod/u.test(agent) || (/Macintosh/u.test(agent) && navigator.maxTouchPoints > 1) ? "ios"
       : /Android/u.test(agent) ? "android" : /Windows/u.test(agent) ? "windows" : /Macintosh|Mac OS X/u.test(agent) ? "macos" : /Linux|CrOS/u.test(agent) ? "linux" : "other";
     const inTelegram = Boolean((window as Window & { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData);
-    const send = () => {
-      if (document.visibilityState !== "visible") return;
-      // At most once in 5 minutes, also across page reloads and new tabs.
-      try {
-        const last = Number(localStorage.getItem("library-presence-at") ?? 0);
-        if (Date.now() - last < 290_000) return;
-        localStorage.setItem("library-presence-at", String(Date.now()));
-      } catch { /* storage blocked: send anyway */ }
-      void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true }).catch(() => null);
-    };
-    send();
-    const timer = window.setInterval(send, 300_000);
-    document.addEventListener("visibilitychange", send);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", send); };
+    void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true })
+      .then((response) => { if (response.ok) localStorage.setItem("library-presence-sent", "1"); })
+      .catch(() => null);
   }, []);
 
   // Load the bird-letter font for prayer initials once the page has settled, so opening a prayer
@@ -360,6 +360,15 @@ export default function App({ loaderData }: Route.ComponentProps) {
     return () => { window.removeEventListener("vite:preloadError", reload); window.removeEventListener("unhandledrejection", onRejection); window.clearTimeout(clear); };
   }, []);
 
+  // The service worker answers page data it already has while the content version stays the same.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const tell = () => navigator.serviceWorker.controller?.postMessage({ type: "content-version", version: loaderData.contentVersion });
+    tell();
+    navigator.serviceWorker.addEventListener("controllerchange", tell);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", tell);
+  }, [loaderData.contentVersion]);
+
   // The service worker keeps visited pages and pictures for slow or missing connections.
   useEffect(() => {
     if (!("serviceWorker" in navigator) || window.location.protocol !== "https:") return;
@@ -368,12 +377,16 @@ export default function App({ loaderData }: Route.ComponentProps) {
     else window.addEventListener("load", register, { once: true });
   }, []);
 
-  // The "sun" theme turns at the real sunrise and sunset; check again every few minutes.
+  // The "sun" theme turns at the real sunrise and sunset; check again every few minutes. "system"
+  // follows the phone switching between light and dark while the page is open.
   useEffect(() => {
     const refresh = () => { if (readStoredThemePreference() === "sun") applyThemePreference("sun"); };
     refresh();
     const timer = window.setInterval(refresh, 5 * 60_000);
-    return () => window.clearInterval(timer);
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const followPhone = () => { if (readStoredThemePreference() === "system") applyThemePreference("system"); };
+    scheme.addEventListener?.("change", followPhone);
+    return () => { window.clearInterval(timer); scheme.removeEventListener?.("change", followPhone); };
   }, []);
 
   useEffect(() => {

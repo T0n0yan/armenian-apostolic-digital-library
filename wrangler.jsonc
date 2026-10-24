@@ -21,6 +21,12 @@
 			"bucket_name": "armenian-apostolic-library-media-local"
 		}
 	],
+	// The site's alarm clock (workers/clock.ts): the sync 15 minutes after new posts, and each
+	// reminder at its own minute, in place of a cron every minute. SQLite-backed: free plan.
+	"durable_objects": {
+		"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Clock"] }],
 	"observability": {
 		"enabled": true
 	},
@@ -33,7 +39,11 @@
 			"preview_urls": false,
 			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
 			// cloud sync on GitHub (workers/app.ts).
-			"triggers": { "crons": ["* * * * *"] },
+			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces (workers/app.ts).
+			"triggers": { "crons": ["17 0 * * *"] },
+			"durable_objects": {
+				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
+			},
 			"vars": {
 				"PUBLIC_URL": "https://staging.apostolic.am",
 				// Pictures and recordings straight from R2 behind the CDN (app/data/media-url.server.ts).
@@ -68,9 +78,15 @@
 			"preview_urls": false,
 			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
 			// cloud sync on GitHub when GITHUB_SYNC_TOKEN is set (workers/app.ts).
-			"triggers": { "crons": ["* * * * *"] },
+			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces (workers/app.ts).
+			"triggers": { "crons": ["17 0 * * *"] },
+			"durable_objects": {
+				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
+			},
 			"vars": {
 				"PUBLIC_URL": "https://apostolic.am",
+				// This site's bot is in the library group: its posts start the sync (for both sites).
+				"SYNC_ON_POSTS": "1",
 				// Pictures and recordings straight from R2 behind the CDN, once new DNS has reached Armenian
 				// resolvers (app/data/media-url.server.ts).
 				"MEDIA_BASE_URL": "https://media.apostolic.am",

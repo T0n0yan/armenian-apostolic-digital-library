@@ -38,6 +38,8 @@ type SectionHeaderProps = {
   imageSrc: string;
   query?: string;
   searchAction: string;
+  /** A section's search goes to the search page, filtered to the section (titles on the phone first). */
+  searchCategoryId?: string;
   searchLabel: string;
   searchPlaceholder: string;
   showSearch?: boolean;
@@ -79,17 +81,19 @@ export const SectionHeader = memo(function SectionHeader({
   imageSrc,
   query = "",
   searchAction,
+  searchCategoryId,
   searchLabel,
   searchPlaceholder,
   showSearch = true,
   title,
   description,
 }: SectionHeaderProps) {
+  const formAction = searchCategoryId ? "/search" : searchAction;
   const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
     useDebouncedFormSubmit(320, 2);
   const inputRef = useSyncedQueryInput(query);
   const navigation = useNavigation();
-  const isSearching = navigation.location?.pathname === searchAction;
+  const isSearching = navigation.location?.pathname === formAction;
 
   return (
     <header className="mb-[14px] grid gap-[10px] min-[768px]:mb-[18px] min-[768px]:gap-[14px]">
@@ -131,12 +135,13 @@ export const SectionHeader = memo(function SectionHeader({
             <Form
               ref={formRef}
               className="relative z-30 flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
-              action={searchAction}
+              action={formAction}
               method="get"
               role="search"
               onSubmit={cancelPending}
               aria-busy={isSearching || undefined}
             >
+              {searchCategoryId ? <input type="hidden" name="category" value={searchCategoryId} /> : null}
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
               <SearchSuggestions inputRef={inputRef} onPick={submitImmediately} />
               <input

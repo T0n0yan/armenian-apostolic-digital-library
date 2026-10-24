@@ -42,7 +42,6 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
         <Link
             className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
             to={targetPath}
-            prefetch="intent"
             aria-busy={isOpening || undefined}
             // Start the section's picture as soon as a finger or pointer reaches the card.
             onPointerEnter={() => void preloadArt(getCategoryImage(category.id, category.name))}
@@ -106,28 +105,21 @@ function HomeTitle() {
     </header>);
 }
 
-/** The home search box: suggestions as you type, a search button, and results after a pause. */
+/** The home search box: suggestions as you type, results with the search button or Enter. */
 function HomeSearch() {
     const navigate = useNavigate();
     const inputRef = useRef<HTMLInputElement>(null);
-    const timer = useRef<number | undefined>(undefined);
     const [value, setValue] = useState("");
+    // Searching starts with the button, Enter or a suggestion (every search costs the server).
     const go = (query: string) => {
-        window.clearTimeout(timer.current);
         const trimmed = query.trim();
-        if (Array.from(trimmed).length >= 2) navigate(`/search?q=${encodeURIComponent(trimmed)}&focus=1`);
+        if (Array.from(trimmed).length >= 2) navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     };
     return (<Form className="hero-rise hero-rise-delay-2 relative z-30 mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control pr-[6px] pl-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search" onSubmit={(event) => { event.preventDefault(); go(value); }}>
         <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
         <SearchSuggestions inputRef={inputRef} onPick={go}/>
         <input ref={inputRef} className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"
-            value={value} onChange={(event) => {
-                const next = event.target.value;
-                setValue(next);
-                window.clearTimeout(timer.current);
-                // Results open by themselves after a short pause in typing.
-                if (Array.from(next.trim()).length >= 2) timer.current = window.setTimeout(() => go(next), 900);
-            }}/>
+            value={value} onChange={(event) => setValue(event.target.value)}/>
         <button className={`grid size-10 shrink-0 cursor-pointer place-items-center rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] transition-[opacity,transform] duration-200 ${value.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"}`} type="submit" aria-label="Որոնել">
             <ArrowRight aria-hidden="true" size={18}/>
         </button>

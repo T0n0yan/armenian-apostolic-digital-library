@@ -2,7 +2,7 @@
 export const OG_CARD_WIDTH = 1200;
 export const OG_CARD_HEIGHT = 630;
 /** Raise when the design changes, so scripts/og-cards.ts draws every card again. */
-export const OG_CARD_LAYOUT = "7";
+export const OG_CARD_LAYOUT = "8";
 
 /** At most `limit` characters, cut at a word, with "…" when shortened. */
 export function excerpt(text: string, limit: number) {
@@ -71,7 +71,10 @@ function pictureCard({ label, section, imageSrc }: { label: string; section: str
  * who gives it, and a card with neither has its name in the middle. Long names and passages are cut at a word with "…"; a passage
  * that starts with the name does not repeat it.
  */
-export function ogCardElement({ label, subtitle, text, section, byline, imageSrc, plain = false }: { label: string; subtitle?: string; text: string; section: string; byline?: string; imageSrc?: string; plain?: boolean }) {
+/** A bird-letter (Trchnatar) initial for a capital letter: the picture and its width ÷ height. */
+export type OgInitial = (letter: string) => { src: string; ratio: number } | undefined;
+
+export function ogCardElement({ label, subtitle, text, section, byline, imageSrc, plain = false, initial }: { label: string; subtitle?: string; text: string; section: string; byline?: string; imageSrc?: string; plain?: boolean; initial?: OgInitial }) {
   if (imageSrc) return pictureCard({ label, section, imageSrc });
   // A name with a passage under it is cut short; a name standing alone is shown whole.
   const title = excerpt(label, text.trim() ? 48 : 140);
@@ -86,6 +89,16 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
   // A clergy member's name keeps its room below a question, so the question is held shorter.
   const passage = excerpt(body, byline ? 120 : under ? 130 : section ? 160 : 200);
   const size = passage.length <= 80 ? 46 : passage.length <= 130 ? 40 : passage.length <= 165 ? 35 : 32;
+  // A prayer opens with its first letter in bird letters, as in the old prayer books.
+  const letter = initial && passage ? /^\p{Script=Armenian}/u.exec(passage)?.[0] : undefined;
+  const ornate = letter ? initial?.(letter.toLocaleUpperCase("hy")) : undefined;
+  const ornateHeight = Math.round(size * 1.45 * 2.7);
+  const passageNode = !passage ? null : ornate && letter
+    ? h("div", { display: "flex", alignItems: "flex-start", maxWidth: 1000 }, [
+      { type: "img", props: { src: ornate.src, width: Math.round(ornateHeight * ornate.ratio), height: ornateHeight, style: { width: Math.round(ornateHeight * ornate.ratio), height: ornateHeight, marginRight: 10, marginTop: 2, flexShrink: 0 } } },
+      h("div", { display: "flex", fontSize: size, lineHeight: 1.45, color: "#3a2412", textAlign: "left", fontWeight: 400, flexShrink: 1 }, passage.slice(letter.length)),
+    ])
+    : h("div", { display: "flex", fontSize: size, lineHeight: 1.45, color: "#3a2412", textAlign: "center", fontWeight: 400, maxWidth: 1000 }, plain ? passage : `«${passage}»`);
   // A gospel teaching: the section on top, its whole name in the middle, the clergy member below.
   if (byline && !passage) {
     return h("div", { width: "100%", height: "100%", display: "flex", padding: 34, ...PARCHMENT }, h("div", {
@@ -118,7 +131,7 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
     // The middle: the passage (a question stands without quotation marks) and, under it, the clergy member.
     passage || byline
       ? h("div", { display: "flex", flexDirection: "column", alignItems: "center" }, [
-        passage ? h("div", { display: "flex", fontSize: size, lineHeight: 1.45, color: "#3a2412", textAlign: "center", fontWeight: 400, maxWidth: 1000 }, plain ? passage : `«${passage}»`) : null,
+        passageNode,
         byline ? h("div", { display: "flex", fontSize: passage ? 28 : 36, lineHeight: 1.4, color: "#7a5a3a", textAlign: "center", fontWeight: 400, maxWidth: 1000, marginTop: passage ? 26 : 0 }, `— ${excerpt(byline, 70)}`) : null,
       ].filter(Boolean))
       : h("div", { display: "flex" }),

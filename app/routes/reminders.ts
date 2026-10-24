@@ -3,9 +3,10 @@ import { env } from "cloudflare:workers";
 import type { Route } from "./+types/reminders";
 import { getOptionalTelegramUser, requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
 import {
-  completeReminder, deleteReminder, getReminder, isReminderRepeat, listMissedReminders, listUpcomingReminders, markReminderRead,
+  completeReminder, deleteReminder, getReminder, isReminderChannel, isReminderRepeat, listMissedReminders, listUpcomingReminders, markReminderRead,
   sendBellSoundOnce, setReminder, snoozeReminder, validReminderTime,
 } from "../data/reminders.server";
+import { scheduleReminders } from "../data/clock.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 
 const noStore = { "Cache-Control": "private, no-store" };
@@ -33,7 +34,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
   const user = await requireTelegramUser(request);
-  const body = (await request.json().catch(() => null)) as { materialId?: unknown; remindAt?: unknown; repeat?: unknown; remove?: unknown; rang?: unknown; snooze?: unknown; read?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { materialId?: unknown; remindAt?: unknown; repeat?: unknown; channel?: unknown; remove?: unknown; rang?: unknown; snooze?: unknown; read?: unknown } | null;
   const reference = typeof body?.materialId === "string" ? parseMaterialId(body.materialId) : null;
   if (!reference || user.source === "local-development") return Response.json({ ok: false }, { status: 400, headers: noStore });
   const key = { userId: user.id, chatId: reference.chatId, messageId: reference.messageId };
@@ -52,14 +53,19 @@ export async function action({ request }: Route.ActionArgs) {
   }
   if (body?.snooze === 1 || body?.snooze === 5) {
     await snoozeReminder(env.DB, { ...key, telegramId: user.telegramId }, body.snooze);
+    await scheduleReminders().catch((error: unknown) => console.error("reminder clock", error));
     return Response.json({ ok: true }, { headers: noStore });
   }
   const remindAt = validReminderTime(body?.remindAt);
   const repeat = isReminderRepeat(body?.repeat) ? body.repeat : "none";
+  const channel = isReminderChannel(body?.channel) ? body.channel : "push";
   if (!remindAt) return Response.json({ ok: false }, { status: 400, headers: noStore });
 
-  await setReminder(env.DB, { ...key, telegramId: user.telegramId, remindAt, repeat });
-  const token = (env as { TELEGRAM_BOT_TOKEN?: string }).TELEGRAM_BOT_TOKEN?.trim();
-  if (token) await sendBellSoundOnce(env.DB, token, user.telegramId, new URL(request.url).origin).catch(() => undefined);
-  return Response.json({ ok: true, reminder: { materialId: body?.materialId, remindAt, repeat } }, { headers: noStore });
+  await setReminder(env.DB, { ...key, telegramId: user.telegramId, remindAt, repeat, channel });
+  if (channel === "push") {
+    await scheduleReminders().catch((error: unknown) => console.error("reminder clock", error));
+    const token = (env as { TELEGRAM_BOT_TOKEN?: string }).TELEGRAM_BOT_TOKEN?.trim();
+    if (token) await sendBellSoundOnce(env.DB, token, user.telegramId, new URL(request.url).origin).catch(() => undefined);
+  }
+  return Response.json({ ok: true, reminder: { materialId: body?.materialId, remindAt, repeat, channel } }, { headers: noStore });
 }

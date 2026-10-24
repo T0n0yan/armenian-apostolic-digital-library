@@ -4,6 +4,7 @@ import { isRouteErrorResponse, Link } from "react-router";
 import { PageShell } from "./page-layout";
 import { SiteNav } from "./site-nav";
 import { glassPanel } from "./ui-styles";
+import DoveMark from "../assets/dove-mark.png";
 import { SUPPORT_EMAIL } from "../utils/contact";
 
 type ErrorCopy = { title: string; text: string; retry: boolean };
@@ -24,7 +25,9 @@ export function ErrorPage({ status, notFoundTitle }: { status: number; notFoundT
   const button = "inline-flex min-h-11 items-center gap-2 rounded-[12px] px-4 text-[13px] font-bold no-underline";
   return (
     <section className={`${glassPanel} mx-auto mt-6 grid max-w-[560px] justify-items-center gap-3 px-6 py-10 text-center`} data-error-status={status}>
-      <span className="font-noto text-[44px] leading-none font-semibold text-gold-bright/70" aria-hidden="true">{status === 404 ? "404" : "✠"}</span>
+      {status === 404
+        ? <span className="font-noto text-[44px] leading-none font-semibold text-gold-bright/70" aria-hidden="true">404</span>
+        : <img className="size-16 object-contain" src={DoveMark} width={64} height={64} alt="" aria-hidden="true" />}
       <h1 className="m-0 font-noto text-[22px] font-semibold text-ink">{title}</h1>
       <p className="m-0 max-w-[420px] text-[14px] leading-[1.7] text-muted">{text}</p>
       <div className="mt-2 flex flex-wrap justify-center gap-2.5">

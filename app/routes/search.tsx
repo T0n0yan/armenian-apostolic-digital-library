@@ -53,6 +53,8 @@ import { SearchSuggestions } from "../components/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
+import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
+import { normalizeTelegramSearchText } from "../../shared/telegram-search";
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
@@ -251,12 +253,54 @@ export async function loader({ request }: Route.LoaderArgs) {
     correctedQuery: resolvedQuery.correctedQuery,
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: await getTelegramUserCacheScope(user),
+    titlesOnly: false,
   };
 }
 
 type SearchLoaderData = Awaited<ReturnType<typeof loader>>;
 
+/**
+ * Titles are searched on the phone (utils/local-search.ts), with no request; the texts only on the
+ * server, when no title answers or the reader asks for them («Փնտրել նաև տեքստերում», &text=1).
+ */
+async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
+  const url = new URL(href);
+  const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
+  const categoryId = (url.searchParams.get("category") ?? "").slice(0, 80);
+  if (url.searchParams.get("scope") === "saved" || url.searchParams.get("text") === "1" || url.searchParams.get("from") || url.searchParams.get("to")) return null;
+  if (Array.from(query).length < 2) return null;
+  const index = await loadSearchIndex();
+  if (!index) return null;
+  const materials = searchTitles(index, query, categoryId);
+  if (materials.length === 0) return null;
+  const root = rootSearchState();
+  return {
+    categories: root.categories as SearchLoaderData["categories"],
+    filters: { query, categoryId, scope: "library", dateFrom: "", dateTo: "" },
+    hasCriteria: true,
+    materials,
+    personalMaterials: [],
+    total: materials.length,
+    nextCursor: null,
+    savedMaterialIds: [],
+    canSave: root.signedIn,
+    highlightQuery: normalizeTelegramSearchText(translateQuery(query)),
+    correctedQuery: "",
+    navigationCacheKey: `${url.pathname}${url.search}`,
+    navigationCacheScope: "phone",
+    titlesOnly: true,
+  };
+}
+
+// Opened straight at /search, the first run hydrates the server's own page (its data is already
+// here); loaded while moving from another page, every run is a navigation.
+let hydrating = typeof document !== "undefined" && document.location.pathname === "/search";
+
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
+  const first = hydrating;
+  hydrating = false;
+  const local = first ? null : await searchOnPhone(request.url);
+  if (local) return local;
   return loadNavigationData("search-results", request.url, async () => await serverLoader() as SearchLoaderData);
 }
 clientLoader.hydrate = true as const;
@@ -575,9 +619,15 @@ export default function Search({ loaderData }: Route.ComponentProps) {
       <section className="mt-4 grid gap-3" aria-live="polite" aria-busy={isRefreshing || undefined}>
         {hasCriteria ? (
           <div className={sectionHeader}>
-            <h2 className={sectionTitle}>{selectedTitle}</h2>
+            <h2 className={sectionTitle}>{loaderData.titlesOnly ? "Վերնագրերում" : selectedTitle}</h2>
             <span className={countBadge}>{total}</span>
           </div>
+        ) : null}
+        {/* Found on the phone among the titles: the texts are one tap (and one request) away. */}
+        {loaderData.titlesOnly && !isRefreshing ? (
+          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)] px-4 text-[13px] font-bold text-gold-bright no-underline" to={`${getPageHref(filters)}&text=1`}>
+            <SearchIcon aria-hidden="true" size={16} /> Փնտրել նաև տեքստերում
+          </Link>
         ) : null}
 
         {isRefreshing ? (
@@ -596,7 +646,6 @@ export default function Search({ loaderData }: Route.ComponentProps) {
               <Link
                 className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
-                prefetch="intent"
               >
                 Փորձել բոլոր բաժիններում <ArrowRight aria-hidden="true" size={16} />
               </Link>

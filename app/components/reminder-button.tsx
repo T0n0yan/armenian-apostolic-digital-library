@@ -1,17 +1,34 @@
-import { Bell, BellRing, Check, LoaderCircle, X } from "lucide-react";
+import { Bell, BellRing, CalendarPlus, Check, LoaderCircle, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BottomSheet } from "./bottom-sheet";
 import { REMINDERS_CHANGED_EVENT } from "../utils/reminder-store";
 import { enablePushNotifications, pushSupport, type PushSupport } from "../utils/web-push";
+import { calendarFileUrl, googleCalendarUrl } from "../utils/calendar";
+import { formatClock, formatDayMonth } from "../utils/armenian-date";
 
 type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 type Mode = "daily" | "date";
-type Reminder = { remindAt: string; repeat: Repeat };
+/** "calendar": an event in the phone's calendar (the phone rings it); "push": the site sends it. */
+type Channel = "calendar" | "push";
+type Reminder = { remindAt: string; repeat: Repeat; channel?: Channel };
 
 type TelegramWriteAccess = Window & {
-  Telegram?: { WebApp?: { initData?: string; isVersionAtLeast?: (version: string) => boolean; requestWriteAccess?: (callback: (granted: boolean) => void) => void } };
+  Telegram?: { WebApp?: {
+    initData?: string; platform?: string;
+    isVersionAtLeast?: (version: string) => boolean;
+    requestWriteAccess?: (callback: (granted: boolean) => void) => void;
+    openLink?: (url: string, options?: { try_browser?: string; try_instant_view?: boolean }) => void;
+  } };
 };
+
+/** Opens a calendar link outside the Mini App (Telegram's own view can't add calendar events). */
+function openCalendarLink(event: { preventDefault: () => void }, url: string) {
+  const webApp = (window as TelegramWriteAccess).Telegram?.WebApp;
+  if (!webApp?.initData || !webApp.openLink) return;
+  event.preventDefault();
+  webApp.openLink(url, { try_browser: webApp.platform === "ios" ? "safari" : "chrome", try_instant_view: false });
+}
 
 const REPEATS: Array<{ value: Repeat; label: string }> = [
   { value: "none", label: "Մեկ անգամ" },
@@ -43,11 +60,8 @@ function nextDaily(hour: number, minute: number) {
 }
 
 function formatWhen(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("hy-AM", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return new Date(iso).toLocaleString();
-  }
+  const date = new Date(iso);
+  return `${formatDayMonth(date)}, ${formatClock(date)}`;
 }
 
 /** Asks Telegram to let the library's bot message the reader; true where that isn't needed. */
@@ -94,8 +108,11 @@ function Wheel({ count, value, onChange, label }: { count: number; value: number
  * is due the bell rings in the library; with the library closed, a notification or the Telegram
  * bot reminds instead.
  */
-export function ReminderButton({ materialId, title, className, label = false, prefetch = false }: { materialId: string; title: string; className: string; label?: boolean; prefetch?: boolean }) {
+export function ReminderButton({ materialId, title, className, label = false, prefetch = false, path }: { materialId: string; title: string; className: string; label?: boolean; prefetch?: boolean; path?: string }) {
   const [open, setOpen] = useState(false);
+  const [channel, setChannel] = useState<Channel>("calendar");
+  const [android, setAndroid] = useState(false);
+  useEffect(() => setAndroid(/Android/u.test(navigator.userAgent)), []);
   const [reminder, setReminder] = useState<Reminder | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<Mode>("date");
@@ -138,6 +155,8 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     setMinute(current ? at.getMinutes() : 0);
     setMode(current?.repeat === "daily" ? "daily" : "date");
     setRepeat(current && current.repeat !== "daily" ? current.repeat : "none");
+    // The phone's calendar first: it rings offline and costs the server nothing.
+    setChannel(current?.channel ?? "calendar");
   };
 
   const days = useMemo(() => Array.from({ length: DAY_STRIP }, (_, index) => {
@@ -166,13 +185,30 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     const response = await fetch("/api/reminders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ materialId, remindAt: chosen.toISOString(), repeat: chosenRepeat }),
+      body: JSON.stringify({ materialId, remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "push" }),
     }).catch(() => null);
     setBusy(false);
     if (!response?.ok) { setError("Չհաջողվեց պահել։ Փորձեք նորից։"); return; }
-    setReminder({ remindAt: chosen.toISOString(), repeat: chosenRepeat });
+    setReminder({ remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "push" });
     window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
     setOpen(false);
+  };
+
+  // The calendar link opens in its own tab; the reminder is noted at the same tap so the bell
+  // shows it (the server never sends a calendar reminder).
+  const calendarEvent = { title, path: path ?? `/materials/${encodeURIComponent(materialId)}`, start: chosen, repeat: mode === "daily" ? "daily" as const : repeat };
+  const origin = typeof window === "undefined" ? "https://apostolic.am" : window.location.origin;
+  const noteCalendarReminder = () => {
+    const chosenRepeat: Repeat = mode === "daily" ? "daily" : repeat;
+    void fetch("/api/reminders", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ materialId, remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "calendar" }),
+      keepalive: true,
+    }).catch(() => null);
+    setReminder({ remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "calendar" });
+    window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
+    window.setTimeout(() => setOpen(false), 400);
   };
 
   const remove = async () => {
@@ -186,6 +222,8 @@ export function ReminderButton({ materialId, title, className, label = false, pr
 
   const close = useCallback(() => setOpen(false), []);
   const Icon = reminder ? BellRing : Bell;
+  const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
+  const secondary = "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/40%)] bg-transparent text-[13px] font-semibold text-gold-bright no-underline";
   const segment = (active: boolean) => `min-h-10 cursor-pointer rounded-[10px] border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
   return (
     <>
@@ -205,9 +243,17 @@ export function ReminderButton({ materialId, title, className, label = false, pr
 
         {reminder ? (
           <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/9%)] px-3.5 py-2.5 text-[13px] text-ink">
-            Դրված է՝ <strong>{formatWhen(reminder.remindAt)}</strong>{REPEAT_TEXT[reminder.repeat]}
+            Դրված է՝ <strong>{formatWhen(reminder.remindAt)}</strong>{REPEAT_TEXT[reminder.repeat]}{reminder.channel === "calendar" ? " · 📅 օրացույցում" : ""}
           </p>
         ) : null}
+
+        <div className="grid gap-1.5">
+          <span className="px-1 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Ինչպես հիշեցնել</span>
+          <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Ինչպես հիշեցնել">
+            <button className={segment(channel === "calendar")} type="button" role="radio" aria-checked={channel === "calendar"} onClick={() => setChannel("calendar")}>📅 Օրացույցով</button>
+            <button className={segment(channel === "push")} type="button" role="radio" aria-checked={channel === "push"} onClick={() => setChannel("push")}>🔔 Ծանուցումով</button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Երբ">
           <button className={segment(mode === "daily")} type="button" role="radio" aria-checked={mode === "daily"} onClick={() => setMode("daily")}>Ամեն օր</button>
@@ -248,13 +294,19 @@ export function ReminderButton({ materialId, title, className, label = false, pr
         <p className={`m-0 rounded-[12px] px-3 py-2 text-center text-[13px] ${tooSoon ? "bg-[rgb(205_70_55/10%)] text-[#b4472f]" : "bg-subtle text-ink"}`}>
           {tooSoon
             ? "Հիշեցումը պետք է լինի առնվազն 1 րոպե հետո"
+            : channel === "calendar"
+              ? mode === "daily"
+                ? <>Ամեն օր <strong>{pad(hour)}:{pad(minute)}</strong>-ին Ձեր հեռախոսը կհիշեցնի</>
+                : <>Ձեր հեռախոսը կհիշեցնի <strong>{formatWhen(chosen.toISOString())}</strong>{REPEAT_TEXT[repeat]}</>
             : mode === "daily"
               ? <>Ամեն օր <strong>{pad(hour)}:{pad(minute)}</strong>-ին Ձեզ կուղարկենք հիշեցում</>
               : <>Ձեզ կհիշեցնենք <strong>{formatWhen(chosen.toISOString())}</strong>{REPEAT_TEXT[repeat]}</>}
         </p>
 
         {/* Whether reminders can reach the reader while the library is closed. */}
-        {push === "telegram" ? (
+        {channel === "calendar" ? (
+          <p className="m-0 text-center text-[12px] leading-snug text-muted">Հիշեցումը կավելանա Ձեր հեռախոսի օրացույցին և կհնչի նույնիսկ առանց ինտերնետի։ Մենք Ձեր օրացույցը չենք տեսնում։</p>
+        ) : push === "telegram" ? (
           <p className="m-0 text-center text-[12px] text-muted">Հիշեցումը կստանաք նաև Telegram-ում՝ բոտի հաղորդագրությամբ։</p>
         ) : push === "ready" ? (
           granted ? (
@@ -272,10 +324,26 @@ export function ReminderButton({ materialId, title, className, label = false, pr
 
         {error ? <p className="m-0 text-center text-[12.5px] text-[#b4472f]" role="alert">{error}</p> : null}
         <div className="grid gap-2">
-          <button className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60" type="button" disabled={busy || tooSoon} onClick={save}>
-            {busy ? <LoaderCircle aria-hidden="true" size={17} className="animate-search-spin" /> : <Bell aria-hidden="true" size={17} />}
-            {reminder ? "Փոխել հիշեցումը" : "Դնել հիշեցում"}
-          </button>
+          {channel === "calendar" ? (
+            <>
+              {/* Android phones often can't open .ics files by themselves: Google Calendar first. */}
+              {android ? (
+                <a className={`${primary} ${tooSoon ? "pointer-events-none opacity-60" : ""}`} href={googleCalendarUrl(origin, calendarEvent)} target="_blank" rel="noreferrer"
+                  onClick={(event) => { openCalendarLink(event, googleCalendarUrl(origin, calendarEvent)); noteCalendarReminder(); }}>
+                  <CalendarPlus aria-hidden="true" size={17} /> Ավելացնել Google Օրացույցին
+                </a>
+              ) : null}
+              <a className={`${android ? secondary : primary} ${tooSoon ? "pointer-events-none opacity-60" : ""}`} href={calendarFileUrl(origin, calendarEvent)} target="_blank" rel="noreferrer"
+                onClick={(event) => { openCalendarLink(event, calendarFileUrl(origin, calendarEvent)); noteCalendarReminder(); }}>
+                <CalendarPlus aria-hidden="true" size={17} /> {android ? "Այլ օրացույց (.ics)" : "Ավելացնել օրացույցին"}
+              </a>
+            </>
+          ) : (
+            <button className={primary} type="button" disabled={busy || tooSoon} onClick={save}>
+              {busy ? <LoaderCircle aria-hidden="true" size={17} className="animate-search-spin" /> : <Bell aria-hidden="true" size={17} />}
+              {reminder ? "Փոխել հիշեցումը" : "Դնել հիշեցում"}
+            </button>
+          )}
           {reminder ? <button className="min-h-11 cursor-pointer rounded-[14px] border border-glass-border bg-transparent text-[13px] font-semibold text-muted" type="button" disabled={busy} onClick={remove}>Չեղարկել հիշեցումը</button> : null}
         </div>
       </BottomSheet>

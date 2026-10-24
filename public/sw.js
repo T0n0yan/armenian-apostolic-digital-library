@@ -3,16 +3,70 @@
 //
 // Caching:
 // - built assets, fonts and sounds: cache first (their names never change);
-// - pages and their data: network first, falling back to the last copy after a few seconds or
-//   when offline, so pages already visited open without internet;
+// - page data (<page>.data) seen before: answered from the phone while the library's content
+//   version is the same (the page tells it, app/root.tsx), nothing was written since (saving,
+//   a reminder, signing in) and it is the same day; otherwise network first. Each request saved
+//   counts: the free plan allows 100,000 a day;
+// - pages (HTML): network first; the last copy only offline (an old copy may point at scripts a
+//   newer deploy has replaced);
 // - pictures from /media: cache first, so thumbnails and saints' icons stay available.
 // Personal and sign-in requests, writes, and audio/video streams are never cached.
-const VERSION = "v4";
+const VERSION = "v5";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const MEDIA = `media-${VERSION}`;
+const STATE = "sw-state";
 const NETWORK_TIMEOUT_MS = 4_000;
 const LIMITS = { [PAGES]: 250, [MEDIA]: 400 };
+
+// The content version and the time of the last write, kept across restarts of the worker. A write
+// is also noted at once in memory: the page reloads its data right after saving.
+let state = null;
+let lastWrite = 0;
+async function readState() {
+  if (state) return state;
+  const stored = await caches.open(STATE).then((cache) => cache.match("/__state")).catch(() => undefined);
+  state = stored ? await stored.json().catch(() => null) : null;
+  state ??= { version: "", writeAt: 0 };
+  return state;
+}
+async function saveState(next) {
+  state = next;
+  await caches.open(STATE).then((cache) => cache.put("/__state", new Response(JSON.stringify(next), { headers: { "content-type": "application/json" } }))).catch(() => undefined);
+}
+async function markWrite(at) {
+  const current = await readState();
+  if (current.writeAt < at) await saveState({ ...current, writeAt: at });
+}
+
+self.addEventListener("message", (event) => {
+  const data = event.data || {};
+  if (data.type !== "content-version" || typeof data.version !== "string") return;
+  event.waitUntil(readState().then((current) => current.version === data.version ? undefined : saveState({ ...current, version: data.version })));
+});
+
+/** A copy to keep, marked with the content version and the time it was fetched. */
+async function stamped(response, version) {
+  const headers = new Headers(response.headers);
+  headers.set("x-sw-version", version);
+  headers.set("x-sw-at", String(Date.now()));
+  return new Response(await response.clone().arrayBuffer(), { status: response.status, statusText: response.statusText, headers });
+}
+
+function sameDay(left, right) {
+  return new Date(left).toDateString() === new Date(right).toDateString();
+}
+
+/** Page data from the phone when nothing can have changed it; otherwise from the site. */
+async function pageData(request) {
+  const current = await readState();
+  const cache = await caches.open(PAGES);
+  const cached = await cache.match(request);
+  const at = Number(cached?.headers.get("x-sw-at") ?? 0);
+  const written = Math.max(current.writeAt, lastWrite);
+  if (cached && current.version && cached.headers.get("x-sw-version") === current.version && at > written && sameDay(at, Date.now())) return cached;
+  return networkFirst(request, current.version);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(PAGES).then((cache) => cache.add("/").catch(() => undefined)));
@@ -20,7 +74,8 @@ self.addEventListener("install", (event) => {
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (![STATIC, PAGES, MEDIA].includes(key)) await caches.delete(key);
+    // The title index (utils/local-search.ts) and this worker's state are kept too.
+    for (const key of await caches.keys()) if (![STATIC, PAGES, MEDIA, STATE, "search-index"].includes(key)) await caches.delete(key);
     await self.clients.claim();
   })());
 });
@@ -43,10 +98,10 @@ async function cacheFirst(request, name) {
   return response;
 }
 
-async function networkFirst(request) {
+async function networkFirst(request, version = "") {
   const cache = await caches.open(PAGES);
   const network = fetch(request).then(async (response) => {
-    if (response.ok) { await cache.put(request, response.clone()); void trim(PAGES); }
+    if (response.ok) { await cache.put(request, version ? await stamped(response, version) : response.clone()); void trim(PAGES); }
     return response;
   });
   // A page (HTML) is only ever answered from the cache when offline: an old copy may point at
@@ -71,8 +126,13 @@ const PRIVATE = /^\/(api\/(reminders|push|poll-vote|reading-log|share-prepare|ps
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== "GET" || request.headers.has("range")) return;
   const url = new URL(request.url);
+  // Saving, a reminder, signing in or out: the kept page data may no longer be right.
+  if (url.origin === self.location.origin && (request.method !== "GET" || /^\/(auth|telegram)\//u.test(url.pathname))) {
+    lastWrite = Date.now();
+    event.waitUntil(markWrite(lastWrite));
+  }
+  if (request.method !== "GET" || request.headers.has("range")) return;
   // Pictures from the media address (media.apostolic.am, served from R2) are kept like /media ones.
   if (/^media(-staging)?\.apostolic\.am$/u.test(url.hostname)) {
     if (request.destination === "image") event.respondWith(cacheFirst(request, MEDIA));
@@ -84,7 +144,9 @@ self.addEventListener("fetch", (event) => {
   } else if (url.pathname.startsWith("/media/")) {
     // Pictures only; recordings and videos stream with range requests and are left alone.
     if (request.destination === "image" || url.searchParams.has("thumbnail")) event.respondWith(cacheFirst(request, MEDIA));
-  } else if (request.mode === "navigate" || url.pathname.endsWith(".data") || url.pathname.startsWith("/api/")) {
+  } else if (url.pathname.endsWith(".data")) {
+    event.respondWith(pageData(request));
+  } else if (request.mode === "navigate" || url.pathname.startsWith("/api/")) {
     event.respondWith(networkFirst(request));
   }
 });

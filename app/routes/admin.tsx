@@ -21,8 +21,9 @@ import {
 import { formatArmenianDate } from "../utils/armenian-date";
 import { siteStats, type Platform } from "../data/presence.server";
 import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
-import { botStatus, connectBot } from "../data/telegram-bot-replies.server";
+import { botStatus, connectBot, postGroupWelcome, readGroupWelcome, saveGroupWelcome } from "../data/telegram-bot-replies.server";
 import { RouteErrorPage } from "../components/error-page";
+import { formatYerevanDateTime } from "../utils/armenian-date";
 
 export function meta() {
   return [{ title: "Կառավարում — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
@@ -45,7 +46,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   const bot = await botStatus().catch(() => null);
   const url = new URL(request.url);
   const refreshed = url.searchParams.get("refreshed");
-  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
+  const isProduction = (env as { PUBLIC_URL?: string }).PUBLIC_URL === "https://apostolic.am";
+  return data({ admin, chatId, publishers, withheld, siteUsers, sync, stats, refreshed, bot, botMessage: url.searchParams.get("bot"), welcome: url.searchParams.get("welcome"), welcomeText: await readGroupWelcome(env.DB), isProduction, canSync: Boolean((env as { GITHUB_SYNC_TOKEN?: string }).GITHUB_SYNC_TOKEN) }, {
     headers: { "Set-Cookie": createAdminNavigationCookie(request) },
   });
 }
@@ -60,6 +62,23 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "connect-bot") {
     const result = await connectBot().catch(() => ({ ok: false }));
     return redirect(`/admin?bot=${result.ok ? "connected" : "failed"}`);
+  }
+
+  // The group welcome: a preview in the private support group, or the real post (pinned, silent)
+  // in the main group. Only production's bot is a member of the main group.
+  // The owner's own welcome text («Պահել տեքստը»), or the default back («Վերադարձնել»).
+  if (intent === "welcome-save" || intent === "welcome-reset") {
+    await saveGroupWelcome(env.DB, intent === "welcome-save" ? String(form.get("text") ?? "") : "");
+    return redirect(`/admin?welcome=saved#welcome`);
+  }
+  if (intent === "welcome-preview" || intent === "welcome-post") {
+    const target = intent === "welcome-preview"
+      ? (env as { SUPPORT_CHAT_ID?: string }).SUPPORT_CHAT_ID?.trim()
+      : await getContentChatId(env.DB);
+    // The preview is pinned too (the support group is private), so the owner sees exactly that.
+    const result = target ? await postGroupWelcome(target, true, await readGroupWelcome(env.DB)).catch(() => ({ ok: false, description: "" })) : { ok: false, description: "Խումբը չի գտնվել" };
+    const outcome = result.ok ? (intent === "welcome-post" ? "posted" : "previewed") : `failed:${result.description ?? ""}`;
+    return redirect(`/admin?welcome=${encodeURIComponent(outcome)}#welcome`);
   }
 
   // "Թարմացնել կայքը": every cached page is rebuilt now, and Telegram is synced again.
@@ -120,7 +139,7 @@ function ActionButton({ intent, telegramUserId, userId, displayName, children, d
 }
 
 export default function Admin({ loaderData, actionData }: Route.ComponentProps) {
-  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync, bot, botMessage } = loaderData;
+  const { publishers, withheld, siteUsers, sync, stats, refreshed, canSync, bot, botMessage, welcome, welcomeText, isProduction } = loaderData;
   const navigation = useNavigation();
   const refreshing = navigation.state !== "idle" && navigation.formData?.get("intent") === "refresh-site";
   const error = actionData && "error" in actionData ? actionData.error : null;
@@ -174,6 +193,38 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
               {bot.lastError ? ` Վերջին սխալը՝ ${bot.lastError}` : ""}
             </p>
             {botMessage ? <p className={`m-0 text-[13px] ${botMessage === "connected" ? "text-[rgb(52_130_74)]" : "text-danger"}`} role="status">{botMessage === "connected" ? "✓ Կապված է։ Գրիր բոտին /start։" : "Չհաջողվեց կապել. ստուգիր TELEGRAM_BOT_TOKEN-ը։"}</p> : null}
+          </section>
+        ) : null}
+
+        {bot ? (
+          <section id="welcome" className={panelSection + " grid gap-3"}>
+            <h2 className="m-0 flex items-center gap-2 text-[17px]"><Bot aria-hidden="true" size={19} className="text-gold" /> Ողջույն խմբում</h2>
+            <p className="m-0 text-[13px] leading-[1.6] text-muted">
+              Բոտը խմբում հրապարակում է այս հաղորդագրությունը «📱 Բացել Telegram-ում», «🌐 Բացել բրաուզերում» և «✉️ Կապ մեզ հետ» կոճակներով և ամրացնում այն՝ առանց ծանուցման։
+              Նախ սեղմիր «Նախադիտում». հաղորդագրությունը կգա և կամրացվի միայն Support խմբում։
+            </p>
+            <Form method="post" className="grid gap-2">
+              <textarea className={`${fieldControl} min-h-[320px] resize-y text-[14px] leading-relaxed`} name="text" defaultValue={welcomeText} key={welcomeText} maxLength={4000} aria-label="Ողջույնի տեքստը" />
+              <p className="m-0 text-[12px] text-faint">Տեքստը փոխեք այստեղ, սեղմեք «Պահել տեքստը», հետո՝ «Նախադիտում»։ Նկարն ու կոճակները ավելանում են ինքնաբերաբար։ Նկարով հաղորդագրությունում տեքստը կարող է լինել մինչև 1024 նիշ. ավելի երկարը կգնա առանց նկարի։</p>
+              <div className="flex flex-wrap gap-2">
+                <button className={primaryButton} type="submit" name="intent" value="welcome-save">Պահել տեքստը</button>
+                <button className="inline-flex min-h-[46px] cursor-pointer items-center rounded-[14px] border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-muted" type="submit" name="intent" value="welcome-reset">Վերադարձնել նախնականը</button>
+              </div>
+            </Form>
+            <div className="flex flex-wrap gap-2">
+              <Form method="post"><input type="hidden" name="intent" value="welcome-preview" /><button className={primaryButton} type="submit">Նախադիտում Support խմբում</button></Form>
+              {isProduction ? (
+                <Form method="post" onSubmit={(event) => { if (!window.confirm("Հրապարակե՞լ և ամրացնել ողջույնը գլխավոր խմբում (առանց ծանուցման)։")) event.preventDefault(); }}>
+                  <input type="hidden" name="intent" value="welcome-post" />
+                  <button className={primaryButton} type="submit">Հրապարակել գլխավոր խմբում</button>
+                </Form>
+              ) : <span className="self-center text-[12.5px] text-faint">Գլխավոր խմբում հրապարակել կարելի է միայն apostolic.am-ից։</span>}
+            </div>
+            {welcome ? (
+              <p className={`m-0 text-[13px] ${welcome.startsWith("failed") ? "text-danger" : "text-[rgb(52_130_74)]"}`} role="status">
+                {welcome === "posted" ? "✓ Հրապարակվեց և ամրացվեց գլխավոր խմբում։" : welcome === "previewed" ? "✓ Նախադիտումը ուղարկվեց Support խումբ։" : welcome === "saved" ? "✓ Տեքստը պահված է։ Հիմա սեղմեք «Նախադիտում»։" : `Չհաջողվեց. ${welcome.slice(7) || "բոտը խմբում ադմին չէ՞"}`}
+              </p>
+            ) : null}
           </section>
         ) : null}
 
@@ -253,7 +304,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             <p className="m-0 text-[13px] text-muted">Կայքում՝ {sync.readyMaterials} նյութ{sync.pendingFailures > 0 ? ` · ${sync.pendingFailures} չստացված ֆայլ` : ""}</p>
             {sync.lastRun ? (
               <p className="m-0 text-[13px] text-muted">
-                Վերջին համաժամեցումը՝ {new Date(sync.lastRun.startedAt).toLocaleString("hy-AM", { timeZone: "Asia/Yerevan" })} · {sync.lastRun.status === "complete" ? "հաջող" : sync.lastRun.status === "running" ? "ընթացքում" : "սխալներով"}
+                Վերջին համաժամեցումը՝ {formatYerevanDateTime(sync.lastRun.startedAt)} · {sync.lastRun.status === "complete" ? "հաջող" : sync.lastRun.status === "running" ? "ընթացքում" : "սխալներով"}
               </p>
             ) : null}
           </section>
@@ -275,21 +326,24 @@ function Stat({ label, value, note }: { label: string; value: number; note?: str
   );
 }
 
-/** Accounts (Telegram / Google), devices of the last 30 days, and how many are on the site right now. */
+/** Accounts (Telegram / Google) and the devices that visited, with the way to the full lists. */
 function SiteStats({ stats }: { stats: NonNullable<Route.ComponentProps["loaderData"]["stats"]> }) {
   const deviceTotal = stats.devices.reduce((sum, row) => sum + row.count, 0);
   return (
     <section className={panelSection + " grid gap-4"}>
-      <h2 className="m-0 flex items-center gap-2 text-[17px]"><Users aria-hidden="true" size={19} className="text-gold" /> Օգտատերեր</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 flex items-center gap-2 text-[17px]"><Users aria-hidden="true" size={19} className="text-gold" /> Օգտատերեր</h2>
+        <Link className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[rgb(217_181_111/40%)] px-3.5 text-[12.5px] font-bold text-gold-bright no-underline" to="/admin/people">Բոլորը, որոնում, Excel →</Link>
+      </div>
       <div className="grid grid-cols-2 gap-2 min-[620px]:grid-cols-4">
         <Stat label="Գրանցված" value={stats.accounts.total} note={`+${stats.accounts.week} այս շաբաթ`} />
         <Stat label="Telegram-ով" value={stats.accounts.telegram} />
         <Stat label="Google-ով" value={stats.accounts.google} />
-        <Stat label="Հիմա կայքում" value={stats.online.total} note="վերջին 7 րոպեում" />
+        <Stat label="Այցելած սարքեր" value={stats.visitors.total} note={`+${stats.visitors.week} այս շաբաթ`} />
       </div>
 
       <div className="grid gap-2">
-        <h3 className="m-0 flex items-center gap-2 text-[14px]"><MonitorSmartphone aria-hidden="true" size={16} className="text-gold" /> Սարքեր՝ վերջին 30 օրում</h3>
+        <h3 className="m-0 flex items-center gap-2 text-[14px]"><MonitorSmartphone aria-hidden="true" size={16} className="text-gold" /> Սարքեր</h3>
         {deviceTotal === 0 ? <p className="m-0 text-[12.5px] text-faint">Դեռ տվյալ չկա։</p> : (
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {stats.devices.map((row) => (

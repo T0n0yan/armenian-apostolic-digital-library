@@ -7,17 +7,18 @@ import { CategoryIcon } from "./category-icon";
 import { REMINDER_RINGING_EVENT, dismissReminder, markReminderDone, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
 import { ReminderButton } from "./reminder-button";
 import { materialPath } from "../utils/material-path";
+import { formatClock, formatDayMonth } from "../utils/armenian-date";
 
 const REPEAT_TEXT: Record<string, string> = { daily: "ամեն օր", weekly: "ամեն շաբաթ", monthly: "ամեն ամիս", yearly: "ամեն տարի" };
 
 function formatWhen(iso: string) {
   const date = new Date(iso);
   const today = new Date();
-  const time = date.toLocaleTimeString("hy-AM", { hour: "2-digit", minute: "2-digit" });
+  const time = formatClock(date);
   if (date.toDateString() === today.toDateString()) return `այսօր ${time}`;
   const tomorrow = new Date(today.getTime() + 86_400_000);
   if (date.toDateString() === tomorrow.toDateString()) return `վաղը ${time}`;
-  return `${date.toLocaleDateString("hy-AM", { day: "numeric", month: "long" })}, ${time}`;
+  return `${formatDayMonth(date)}, ${time}`;
 }
 
 const cardAction = "grid size-8 cursor-pointer place-items-center rounded-full border transition-transform active:scale-90";
@@ -95,7 +96,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
   if (reminders.length === 0 && missed.length === 0) return null;
   const count = missed.length || reminders.length;
   return (
-    <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "pointer-events-none opacity-0" : "opacity-100"}`} ref={rootRef}>
+    <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "hidden" : "opacity-100"}`} ref={rootRef}>
       <button
         className={`relative grid size-[46px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] text-gold-bright shadow-[var(--fab-shadow)] backdrop-blur-xl ${swinging ? "bell-swing" : ""}`}
         type="button"
