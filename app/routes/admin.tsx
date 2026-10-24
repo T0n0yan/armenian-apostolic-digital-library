@@ -23,6 +23,7 @@ import { siteStats, type Platform } from "../data/presence.server";
 import { bumpCacheEpoch, dispatchCloudSync } from "../data/site-refresh.server";
 import { botStatus, connectBot, postGroupWelcome, readGroupWelcome, saveGroupWelcome } from "../data/telegram-bot-replies.server";
 import { RouteErrorPage } from "../components/error-page";
+import { formatYerevanDateTime } from "../utils/armenian-date";
 
 export function meta() {
   return [{ title: "Կառավարում — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
@@ -298,7 +299,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             <p className="m-0 text-[13px] text-muted">Կայքում՝ {sync.readyMaterials} նյութ{sync.pendingFailures > 0 ? ` · ${sync.pendingFailures} չստացված ֆայլ` : ""}</p>
             {sync.lastRun ? (
               <p className="m-0 text-[13px] text-muted">
-                Վերջին համաժամեցումը՝ {new Date(sync.lastRun.startedAt).toLocaleString("hy-AM", { timeZone: "Asia/Yerevan" })} · {sync.lastRun.status === "complete" ? "հաջող" : sync.lastRun.status === "running" ? "ընթացքում" : "սխալներով"}
+                Վերջին համաժամեցումը՝ {formatYerevanDateTime(sync.lastRun.startedAt)} · {sync.lastRun.status === "complete" ? "հաջող" : sync.lastRun.status === "running" ? "ընթացքում" : "սխալներով"}
               </p>
             ) : null}
           </section>
