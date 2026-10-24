@@ -58,7 +58,7 @@ const initialThemeScript = `(() => {
       const value = localStorage.getItem("library-theme-v1");
       if (value === "light" || value === "dark" || value === "sun") preference = value;
       // Reader preferences become data attributes that CSS follows (see app/utils/preferences.ts).
-      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]], devMode: ["library-dev-mode", ["on"]] };
+      const prefs = { readingFont: ["library-reading-font", ["book", "serif", "sans"]], titleSize: ["library-title-size", ["medium", "large"]], motion: ["library-motion", ["reduced", "full"]], devMode: ["library-dev-mode", ["on"]], dailyVerse: ["library-daily-verse", ["off"]] };
       for (const name in prefs) { const stored = localStorage.getItem(prefs[name][0]); if (prefs[name][1].includes(stored)) root.dataset[name] = stored; }
       if (!root.dataset.titleSize) root.dataset.titleSize = "small";
       // Unless chosen, animations follow the phone: off in power-saving / reduced-motion / data-saver.
@@ -377,12 +377,16 @@ export default function App({ loaderData }: Route.ComponentProps) {
     else window.addEventListener("load", register, { once: true });
   }, []);
 
-  // The "sun" theme turns at the real sunrise and sunset; check again every few minutes.
+  // The "sun" theme turns at the real sunrise and sunset; check again every few minutes. "system"
+  // follows the phone switching between light and dark while the page is open.
   useEffect(() => {
     const refresh = () => { if (readStoredThemePreference() === "sun") applyThemePreference("sun"); };
     refresh();
     const timer = window.setInterval(refresh, 5 * 60_000);
-    return () => window.clearInterval(timer);
+    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
+    const followPhone = () => { if (readStoredThemePreference() === "system") applyThemePreference("system"); };
+    scheme.addEventListener?.("change", followPhone);
+    return () => { window.clearInterval(timer); scheme.removeEventListener?.("change", followPhone); };
   }, []);
 
   useEffect(() => {

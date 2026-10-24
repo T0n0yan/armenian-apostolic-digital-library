@@ -2,7 +2,6 @@ import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { DAILY_VERSES, type DailyVerse } from "../data/daily-verses";
-import { readPreference } from "../utils/preferences";
 
 /** The reader's calendar day as a number (local midnight), so the verse turns over at midnight. */
 function dayNumber(date = new Date()) {
@@ -29,16 +28,14 @@ function closeQuotes(text: string) {
   return open > closed ? `${text}${"»".repeat(open - closed)}` : text;
 }
 
-/** «Աստվածաշունչն ասում է…» — a short verse that changes every day, on the home page. */
+/**
+ * «Աստվածաշունչն ասում է…» — a short verse that changes every day, on the home page. The settings
+ * switch hides it through <html data-daily-verse="off"> (app.css), so turning it off or on shows at once.
+ */
 export function DailyVerseCard() {
   // Server render picks by UTC; the reader's own day replaces it after hydration.
   const [verse, setVerse] = useState(() => verseForDay(Math.floor(Date.now() / 86_400_000)));
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    setVerse(verseForDay(dayNumber()));
-    setHidden(readPreference("dailyVerse") === "off");
-  }, []);
-  if (hidden) return null;
+  useEffect(() => { setVerse(verseForDay(dayNumber())); }, []);
   return (
     <section className="daily-verse relative mx-auto grid w-full max-w-[600px] justify-items-center min-[860px]:max-w-[1040px] gap-2.5 px-5 pt-5 pb-4 text-center" aria-label="Աստվածաշունչն ասում է">
       <span className="flex w-full items-center gap-3 text-gold" aria-hidden="true">
