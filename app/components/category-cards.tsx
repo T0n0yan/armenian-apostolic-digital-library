@@ -53,7 +53,6 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
               <Link
                 className={`frosted-card grid aspect-square place-items-center rounded-[12px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
                 to={targetPath}
-                prefetch="intent"
                 aria-label={`Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}`}
                 title={material.title}
               >
@@ -83,7 +82,6 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
             <Link
               className="group relative block aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
               to={targetPath}
-              prefetch="intent"
               aria-busy={isOpening || undefined}
             >
               {image ? (
@@ -200,7 +198,7 @@ export const DailyReadingCard = memo(function DailyReadingCard({ material }: { m
   const image = material.preview.imageUrl ?? material.preview.thumbnailUrl;
   return (
     <li>
-      <Link className={`frosted-card grid overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath} prefetch="intent">
+      <Link className={`frosted-card grid overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath}>
         {image ? (
           // The picture's top (the day's verse) matters most, so crop from the bottom.
           <span className="relative block aspect-[16/9] overflow-hidden" aria-hidden="true">
