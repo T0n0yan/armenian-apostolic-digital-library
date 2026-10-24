@@ -17,24 +17,28 @@ export async function touchPresence(database: D1Database, entry: { visitorId: st
   ).bind(entry.visitorId, entry.platform, entry.inTelegram ? 1 : 0).run();
 }
 
-/** Numbers for the admin page: accounts, devices of the last 30 days, and how many are online now. */
+/**
+ * Numbers for the admin page: accounts, and the devices that ever visited (each device reports
+ * its first visit once; see app/root.tsx).
+ */
 export async function siteStats(database: D1Database) {
-  const [accounts, devices, online] = await Promise.all([
+  const [accounts, devices, visitors] = await Promise.all([
     database.prepare(`SELECT COUNT(*) AS total,
         SUM(CASE WHEN telegram_id LIKE 'google:%' THEN 1 ELSE 0 END) AS google,
         SUM(CASE WHEN created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days') THEN 1 ELSE 0 END) AS week
       FROM app_users`).first<{ total: number; google: number | null; week: number | null }>(),
     database.prepare(`SELECT platform, COUNT(*) AS count, SUM(in_telegram) AS telegram FROM site_presence
-      WHERE last_seen >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days') GROUP BY platform ORDER BY count DESC`)
+      GROUP BY platform ORDER BY count DESC`)
       .all<{ platform: Platform; count: number; telegram: number }>(),
-    database.prepare(`SELECT COUNT(*) AS total FROM site_presence
-      WHERE last_seen >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 minutes')`).first<{ total: number }>(),
+    database.prepare(`SELECT COUNT(*) AS total,
+        SUM(CASE WHEN first_seen >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days') THEN 1 ELSE 0 END) AS week
+      FROM site_presence`).first<{ total: number; week: number | null }>(),
   ]);
   const total = accounts?.total ?? 0;
   const google = accounts?.google ?? 0;
   return {
     accounts: { total, telegram: total - google, google, week: accounts?.week ?? 0 },
     devices: devices.results,
-    online: { total: online?.total ?? 0 },
+    visitors: { total: visitors?.total ?? 0, week: visitors?.week ?? 0 },
   };
 }
