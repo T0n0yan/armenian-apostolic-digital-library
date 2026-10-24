@@ -433,6 +433,9 @@ html[data-tg-fullscreen="true"] body::before {
   text-wrap: pretty;
   font-synthesis: weight style;
 }
+/* The id outranks the reading-size utility on the same element, so the reader's chosen size is
+   restated here; without it the text-size setting did nothing on prayers. */
+.prayer-text #telegram-formatted-text { font-size: calc(var(--reading-size) * 1.08); }
 /* A psalm's superscription ("Սաղմոս Դաւթի, երբ…") stands apart from the verses. */
 /* The superscription reads in the verses' own face and size; a rule sets it apart. */
 .psalm-text .psalm-superscription { font-size: 1em !important; }
@@ -526,3 +529,6 @@ input, textarea, select, [contenteditable="true"] { -webkit-user-select: text; u
 .reading-body a, .reading-body img, .reading-body button, .reading-body audio, .reading-body video { -webkit-touch-callout: none; }
 /* Developer mode (admins only): texts can be selected and copied again. */
 html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"] main * { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+
+/* «Օրվա համարը գլխավոր էջում» off (settings panel): hidden at once, and with no flash on load. */
+html[data-daily-verse="off"] .daily-verse { display: none; }

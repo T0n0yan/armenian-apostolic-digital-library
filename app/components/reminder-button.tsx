@@ -5,6 +5,7 @@ import { BottomSheet } from "./bottom-sheet";
 import { REMINDERS_CHANGED_EVENT } from "../utils/reminder-store";
 import { enablePushNotifications, pushSupport, type PushSupport } from "../utils/web-push";
 import { calendarFileUrl, googleCalendarUrl } from "../utils/calendar";
+import { formatClock, formatDayMonth } from "../utils/armenian-date";
 
 type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
 type Mode = "daily" | "date";
@@ -59,11 +60,8 @@ function nextDaily(hour: number, minute: number) {
 }
 
 function formatWhen(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("hy-AM", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return new Date(iso).toLocaleString();
-  }
+  const date = new Date(iso);
+  return `${formatDayMonth(date)}, ${formatClock(date)}`;
 }
 
 /** Asks Telegram to let the library's bot message the reader; true where that isn't needed. */
