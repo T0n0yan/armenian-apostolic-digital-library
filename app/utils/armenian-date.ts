@@ -36,3 +36,11 @@ export function formatDayMonth(date: Date) {
 export function formatClock(date: Date) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
+
+/** "24 հոկտեմբերի 2026, 05:02" in Yerevan time (UTC+4 all year), whatever the phone's own zone. */
+export function formatYerevanDateTime(iso: string) {
+  const date = new Date(Date.parse(iso) + 4 * 3_600_000);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getUTCDate()} ${ARMENIAN_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
