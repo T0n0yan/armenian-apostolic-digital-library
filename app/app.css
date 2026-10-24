@@ -532,3 +532,8 @@ html[data-dev-mode="on"], html[data-dev-mode="on"] body, html[data-dev-mode="on"
 
 /* «Օրվա համարը գլխավոր էջում» off (settings panel): hidden at once, and with no flash on load. */
 html[data-daily-verse="off"] .daily-verse { display: none; }
+
+/* The arrow under the iPhone install hint, bobbing toward Safari's Share button. */
+.install-arrow { animation: install-arrow 1.1s ease-in-out infinite; }
+@keyframes install-arrow { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 10px); } }
+@media (prefers-reduced-motion: reduce) { .install-arrow { animation: none; } }
