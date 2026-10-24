@@ -1,12 +1,14 @@
 # Telegram → Cloudflare sync for both sites. Reconciles the content forum into each environment's
-# D1/R2: new and edited posts appear, deleted ones are taken down. Started every 30 minutes by the
-# Workers' cron (GitHub's own schedule below is only a fallback). Free within GitHub's minutes.
+# D1/R2: new and edited posts appear, deleted ones are taken down. Started by production's Worker
+# 15 minutes after the last new or edited post in the group (the bot's webhook and its Clock,
+# workers/clock.ts) and once a night by its cron, for deletions; GitHub's own schedule below is
+# only a fallback. Free within GitHub's minutes.
 name: Cloud sync
 
 on:
   schedule:
-    # Minute 17 avoids the top-of-hour rush on GitHub's scheduler.
-    - cron: "17 * * * *"
+    # Once a day, after the Worker's nightly run (00:17 UTC); minute 47 avoids the top-of-hour rush.
+    - cron: "47 1 * * *"
   workflow_dispatch:
 
 concurrency:

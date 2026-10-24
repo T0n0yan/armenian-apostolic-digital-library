@@ -228,6 +228,8 @@ export async function postGroupWelcome(chatId: string | number, pin: boolean, te
   return pinned.ok ? sent : { ok: false, description: `Ուղարկվեց, բայց չամրացվեց. ${pinned.description ?? ""}` };
 }
 
+export const WEBHOOK_UPDATES = ["message", "edited_message"];
+
 /** Points the bot's webhook at this site and sets its command list. */
 export async function connectBot() {
   const { token, site } = settings();
@@ -235,7 +237,8 @@ export async function connectBot() {
   const hook = await callTelegram(token, "setWebhook", {
     url: `${site}/telegram/webhook`,
     secret_token: await webhookSecret(token),
-    allowed_updates: ["message"],
+    // Edited posts too: an edit in the group syncs like a new post.
+    allowed_updates: WEBHOOK_UPDATES,
     drop_pending_updates: true,
   });
   if (!hook.ok) return hook;
@@ -250,6 +253,21 @@ export async function connectBot() {
     ],
   });
   return hook;
+}
+
+/**
+ * Re-points the webhook when it doesn't yet ask for every update the site needs (once a day, from
+ * the cron): a deploy that adds an update type then takes effect without a visit to /admin.
+ */
+export async function ensureWebhookUpdates() {
+  const { token, site } = settings();
+  if (!token) return;
+  const info = await callTelegram(token, "getWebhookInfo", {});
+  const result = info.result as { url?: string; allowed_updates?: string[] } | undefined;
+  if (!info.ok || result?.url !== `${site}/telegram/webhook`) return;
+  const allowed = result.allowed_updates ?? ["message"];
+  if (WEBHOOK_UPDATES.every((type) => allowed.includes(type))) return;
+  await callTelegram(token, "setWebhook", { url: `${site}/telegram/webhook`, secret_token: await webhookSecret(token), allowed_updates: WEBHOOK_UPDATES });
 }
 
 export async function botStatus() {

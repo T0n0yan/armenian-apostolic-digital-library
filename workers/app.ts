@@ -1,8 +1,7 @@
 import { createRequestHandler } from "react-router";
 
-import { sendDueReminders } from "../app/data/reminders.server";
-import { pushKeysFrom } from "../app/data/web-push.server";
 import { cacheEpoch, dispatchCloudSync } from "../app/data/site-refresh.server";
+import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -10,11 +9,14 @@ const requestHandler = createRequestHandler(
   import.meta.env.MODE,
 );
 
-type SyncEnv = { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string };
-type ReminderEnv = { DB: D1Database; TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; VAPID_PUBLIC_KEY?: string; VAPID_PRIVATE_JWK?: string; VAPID_SUBJECT?: string };
+export { Clock } from "./clock";
 
-// GitHub skips many of its own scheduled runs (hours apart), so Cloudflare's cron starts the
-// Telegram → cloud sync workflow instead (dispatchCloudSync).
+type SyncEnv = { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string; SYNC_ON_POSTS?: string };
+type ClockEnv = { CLOCK?: DurableObjectNamespace<import("./clock").Clock> };
+
+// Nothing wakes the Worker every minute any more (each wake-up counts against the free plan):
+// new posts start the sync through the bot's webhook and the Clock, reminders wake the Clock at
+// their own minute, and a cron once a night does what no event announces (workers/clock.ts).
 
 const MEDIA_EDGE_SECONDS = 86_400;
 const MEDIA_WARM_MAX_BYTES = 40 * 1024 * 1024;
@@ -73,17 +75,14 @@ function secure(response: Response) {
 }
 
 export default {
-  async scheduled(controller, env, context) {
-    const reminderEnv = env as unknown as ReminderEnv;
-    if (reminderEnv.PUBLIC_URL) {
-      context.waitUntil(sendDueReminders(reminderEnv.DB, {
-        token: reminderEnv.TELEGRAM_BOT_TOKEN?.trim() || null,
-        publicUrl: reminderEnv.PUBLIC_URL.replace(/\/$/u, ""),
-        pushKeys: pushKeysFrom(reminderEnv),
-      }));
-    }
-    // The cron fires every minute; the sync only needs to start every half hour.
-    if (new Date(controller.scheduledTime).getUTCMinutes() % 30 === 0) context.waitUntil(dispatchCloudSync(env as SyncEnv));
+  async scheduled(_controller, env, context) {
+    // Once a night: posts deleted in Telegram send no update, so a full sync takes them down;
+    // the reminders' clock is set again in case it was lost; the webhook asks for every update.
+    const sync = env as unknown as SyncEnv;
+    if (sync.SYNC_ON_POSTS === "1") context.waitUntil(dispatchCloudSync(sync));
+    const clock = (env as unknown as ClockEnv).CLOCK;
+    if (clock) context.waitUntil(clock.get(clock.idFromName("reminders")).scheduleReminders().catch((error: unknown) => console.error("reminder clock", error)));
+    context.waitUntil(ensureWebhookUpdates().catch((error: unknown) => console.error("webhook", error)));
   },
   async fetch(request, env, context) {
     // A failure outside the app's own error pages (the database or the platform) still gets a
