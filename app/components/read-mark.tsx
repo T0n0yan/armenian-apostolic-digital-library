@@ -46,7 +46,7 @@ export function ReadMark({ materialId, kind, marks }: { materialId: string; kind
   const { mark, done: doneText, icon: Icon } = TEXT[kind];
   return (
     <button
-      className={`read-mark flex min-h-[54px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-[16px] border px-4 text-[14.5px] font-bold transition-[background,border-color,transform,color] duration-200 active:scale-[.98] ${done
+      className={`read-mark flex min-h-[54px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-[16px] border px-4 text-[14.5px] font-bold transition-[background,border-color,transform,translate,scale,color] duration-200 active:scale-[.98] ${done
         ? "border-[rgb(74_160_96/50%)] bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]"
         : "border-[rgb(217_181_111/45%)] bg-[linear-gradient(180deg,rgb(217_181_111/18%),rgb(217_181_111/8%))] text-gold-bright"}`}
       type="button"

@@ -124,7 +124,7 @@ function HomeSearch() {
         <SearchSuggestions inputRef={inputRef} onPick={go}/>
         <input ref={inputRef} className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" maxLength={120} enterKeyHint="search"
             value={value} onChange={(event) => setValue(event.target.value)}/>
-        <button className={`grid size-10 shrink-0 cursor-pointer place-items-center rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] transition-[opacity,transform] duration-200 ${value.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"}`} type="submit" aria-label="Որոնել">
+        <button className={`grid size-10 shrink-0 cursor-pointer place-items-center rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] transition-[opacity,transform,translate,scale] duration-200 ${value.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"}`} type="submit" aria-label="Որոնել">
             <ArrowRight aria-hidden="true" size={18}/>
         </button>
     </Form>{error ? <p role="alert" className="mt-2 text-sm search-validation-error">{error}</p> : null}</div>);
