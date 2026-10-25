@@ -33,6 +33,7 @@ import "./app.css";
 const initialThemeScript = `(() => {
   try {
     const root = document.documentElement;
+    try { if (sessionStorage.getItem("library-loader-seen-v4") === "1") root.dataset.introSeen = "true"; } catch {}
     let telegramTheme = null;
     try {
       const params = new URLSearchParams(location.hash.slice(1));

@@ -12,6 +12,7 @@ const SESSION_KEY = "library-loader-seen-v4";
 type Phase = "unlit" | "lit" | "hidden" | "removed";
 
 const styles = `
+html[data-intro-seen] .candle-loader{display:none}
 .candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .8s ease 1.1s}
 .candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
 .candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}
@@ -47,7 +48,11 @@ const styles = `
  * navigations in the same session skip it.
  */
 export function CandleLoader() {
-  const [phase, setPhase] = useState<Phase>("removed");
+  // Drawn in the server HTML too, so it covers the page from the first paint instead of the page
+  // showing and the intro jumping over it after hydration. The boot script in root.tsx marks
+  // <html data-intro-seen> before paint for visitors who saw it this session (it stays hidden), and
+  // readers without JavaScript never see it (<noscript> below).
+  const [phase, setPhase] = useState<Phase>("unlit");
 
   useEffect(() => {
     let active = true;
@@ -75,6 +80,7 @@ export function CandleLoader() {
   return (
     <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label="Բարի գալուստ գրադարան" aria-hidden={phase === "hidden"}>
       <style>{styles}</style>
+      <noscript><style>{".candle-loader{display:none!important}"}</style></noscript>
       <div className="candle-loader__scene" aria-hidden="true">
         <span className="candle-loader__light" />
         <span className="candle-loader__glow" />

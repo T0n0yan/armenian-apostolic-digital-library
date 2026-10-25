@@ -10,6 +10,17 @@ on:
     # Once a day, after the Worker's nightly run (00:17 UTC); minute 47 avoids the top-of-hour rush.
     - cron: "47 1 * * *"
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Which site to sync (a manual test of new sync code can stay on staging)"
+        type: choice
+        options: [both, staging, production]
+        default: both
+      mode:
+        description: "reconcile changes the site; dry-run only reports what it would do"
+        type: choice
+        options: [reconcile, dry-run]
+        default: reconcile
 
 concurrency:
   group: cloud-sync-${{ github.ref }}
@@ -42,12 +53,17 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
       - uses: pnpm/action-setup@v4
+        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
       - uses: actions/setup-node@v4
+        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
         with:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
+        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Reconcile Telegram into Cloudflare
-        run: node --import tsx services/telegram-bridge/src/cloud-import.ts reconcile
+        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
+        run: node --import tsx services/telegram-bridge/src/cloud-import.ts ${{ inputs.mode == 'dry-run' && 'dry-run' || 'reconcile' }}
