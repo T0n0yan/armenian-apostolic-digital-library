@@ -71,7 +71,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
-const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline transition-[transform,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";
+const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline transition-[transform,translate,scale,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";
 
 export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { material } = loaderData;
@@ -127,7 +127,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader
+      <PageHeader showSearch={false}
         backTo={sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug })}
         backLabel={material.categoryName}
         title={material.title}

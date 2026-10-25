@@ -1,5 +1,6 @@
+import { searchValidation } from "../utils/search-validation";
 import { env } from "cloudflare:workers";
-import { Search } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, LoaderCircle, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link, redirect, useNavigation } from "react-router";
 
@@ -21,7 +22,7 @@ import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles
 import { getActiveCategoryBySlug, listActiveCategories } from "../data/categories.server";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath } from "../data/material-page.server";
-import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, sectionPath } from "../utils/material-path";
+import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, materialPath, sectionPath } from "../utils/material-path";
 import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
@@ -30,6 +31,7 @@ import type { PublicMaterial } from "../data/materials.server";
 import { getTopicIntro, listPublicMaterialPageByCategory } from "../data/materials.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
 import type { SearchFilters, SearchMaterial } from "../data/search-materials";
+import { SearchSnippet } from "../components/material-result-card";
 import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
@@ -110,6 +112,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const query = (url.searchParams.get("q") ?? "")
     .trim()
     .slice(0, 120);
+  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const search = (() => { const kept = new URLSearchParams(url.search); kept.delete("_routes"); const value = kept.toString(); return value ? `?${value}` : ""; })();
   let slug = params.slug;
@@ -142,6 +145,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       statusText: "Not Found",
     });
   }
+  if (query && searchValidation(query, resolveContentCategoryId(category.id, category.name) === "category_psalms")) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
   // /categories/<topic> of a known section moves permanently to its readable address (/psalms).
   const canonical = sectionPath(category);
   if (url.pathname.replace(/\.data$/u, "") !== canonical) throw redirect(`${canonical}${search}`, 301);
@@ -242,7 +246,7 @@ const MaterialsList = memo(function MaterialsList({
   const typicalType = layout === "text" && polls > 0 && polls >= materials.length / 2 ? "poll" : undefined;
 
   const list = listItems.length > 0 ? (
-    <ol className={`m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2 ${typicalType === "poll" ? "min-[860px]:auto-rows-fr" : ""}`}>
+    <ol className={`m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2 min-[860px]:auto-rows-fr`}>
       {listItems.map((material) =>
           <MaterialResultCard
             key={material.id}
@@ -438,10 +442,78 @@ export default function Category({ loaderData }: Route.ComponentProps) {
       });
   }, [category.slug, isLoadingMore, loaderData.query, nextCursor, stateKey]);
 
+  // Searching inside a section finds among the section's own items: the page scrolls to the first
+  // match and lights it up (psalms by their number on the phone, words through the library's search),
+  // and only when nothing here matches offers the whole library.
+  type Hit = { id: string; title: string; excerpt?: string | null; searchHit?: SearchMaterial["searchHit"] };
+  const [found, setFound] = useState<{ query: string; ids: string[]; hits: Record<string, Hit>; index: number } | null>(null);
+  const [finding, setFinding] = useState(false);
+  const isPsalms = contentCategory === "category_psalms";
+  const hrefOf = useCallback((material: CategoryMaterial) =>
+    materialPath(material.id, contentCategory, { psalm: isPsalms ? psalmNumber(material) : null, title: material.title }), [contentCategory, isPsalms]);
+  const findInSection = useCallback(async (query: string) => {
+    if (!query) { setFound(null); return; }
+    setFinding(true);
+    // Every item of the section on the page first (sections are a few dozen to a few hundred posts).
+    let pool = materials;
+    let cursor = nextCursor;
+    for (let page = 0; cursor && page < 25; page += 1) {
+      const response = await fetch(`/api/categories/${category.slug}/posts?cursor=${encodeURIComponent(cursor)}`).catch(() => null);
+      if (!response?.ok) break;
+      const data = await response.json() as { materials: CategoryMaterial[]; nextCursor: string | null };
+      const byId = new Map(pool.map((material) => [material.id, material]));
+      for (const material of data.materials) if (material.id !== loaderData.intro?.id) byId.set(material.id, material);
+      pool = [...byId.values()];
+      cursor = data.nextCursor;
+    }
+    if (pool !== materials) { setMaterials(pool); setNextCursor(cursor); }
+    let ids: string[] = [];
+    const hits: Record<string, Hit> = {};
+    if (isPsalms && /^\d{1,3}$/u.test(query)) {
+      ids = pool.filter((material) => psalmNumber(material) === Number(query)).map((material) => material.id);
+    } else {
+      const response = await fetch(`/api/search-page?category=${encodeURIComponent(category.id)}&q=${encodeURIComponent(query)}`).catch(() => null);
+      const data = response?.ok ? await response.json() as { materials: Hit[] } : { materials: [] };
+      const here = new Set(pool.map((material) => material.id));
+      for (const material of data.materials) if (here.has(material.id)) { ids.push(material.id); hits[material.id] = material; }
+    }
+    setFound({ query, ids, hits, index: 0 });
+    setFinding(false);
+  }, [category.id, category.slug, isPsalms, loaderData.intro?.id, materials, nextCursor]);
+
+  // Another section starts clean: no earlier search in its field, nothing found yet.
+  useEffect(() => { setFound(null); setFinding(false); }, [category.id]);
+
+  // A link from elsewhere (/psalms?find=5) finds on arrival.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("find");
+    if (wanted && !searchValidation(wanted, isPsalms)) void findInSection(wanted);
+    // Once per arrival on the section.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category.id]);
+
+  // Light up the matches and bring the current one to the middle of the screen.
+  useEffect(() => {
+    const list = document.querySelector('[aria-labelledby="category-materials-title"]');
+    list?.querySelectorAll("[data-found]").forEach((element) => element.removeAttribute("data-found"));
+    if (!found?.ids.length) return;
+    const wanted = new Set(found.ids.map((id) => materials.find((material) => material.id === id)).filter(Boolean).map((material) => hrefOf(material as CategoryMaterial)));
+    const links = [...(list?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [])].filter((link) => wanted.has(new URL(link.href).pathname));
+    links.forEach((link) => link.setAttribute("data-found", "true"));
+    const currentId = found.ids[found.index % found.ids.length];
+    const currentMaterial = materials.find((material) => material.id === currentId);
+    const current = links.find((link) => currentMaterial && new URL(link.href).pathname === hrefOf(currentMaterial)) ?? links[0];
+    if (!current) return;
+    current.setAttribute("data-found", "current");
+    current.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    current.focus({ preventScroll: true });
+  }, [found, hrefOf, materials]);
+
   return (
     <PageShell>
       <SiteNav />
       <SectionHeader
+        key={category.id}
         backTo="/"
         backLabel="Բաժիններ"
         imageSrc={getCategoryImage(category.id, category.name)}
@@ -451,7 +523,53 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         searchCategoryId={category.id}
         searchLabel={`${category.name} բաժնում որոնում`}
         searchPlaceholder={searchPlaceholder}
+        onSearch={(query) => void findInSection(query)}
       />
+
+      {finding || found ? (() => {
+        const count = found?.ids.length ?? 0;
+        const position = count ? (found!.index % count + count) % count : 0;
+        const currentId = count ? found!.ids[position] : null;
+        const current = currentId ? materials.find((material) => material.id === currentId) : null;
+        const hit = currentId ? found?.hits[currentId] : null;
+        const step = (delta: number) => found && setFound({ ...found, index: found.index + delta });
+        const label = current ? (isPsalms && psalmNumber(current) ? `Սաղմոս ${psalmNumber(current)}` : current.title) : "";
+        const target = current ? hrefOf(current) : null;
+        // A quiet bar at the bottom: it rises in, stays one tap away however far the page scrolls,
+        // steps through the matches, and opens the match when tapped. It hides while the menu is open.
+        return (
+          <div className="find-bar fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto flex max-w-[520px] items-center gap-1.5 rounded-[18px] border border-[rgb(217_181_111/32%)] bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] py-2 pr-2 pl-3 shadow-[0_14px_36px_rgb(20_10_5/32%)] backdrop-blur-md" role="status" aria-live="polite">
+            {finding ? (
+              <span className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[13px] text-muted"><LoaderCircle className="animate-search-spin shrink-0 text-gold" aria-hidden="true" size={15} /> Փնտրում եմ այս բաժնում…</span>
+            ) : target ? (
+              <Link className="group grid min-w-0 flex-1 gap-0.5 rounded-[12px] px-1 py-1 text-inherit no-underline" to={target} aria-label={`Բացել՝ ${label}`}>
+                <span className="flex items-center gap-1.5 text-[13px]">
+                  <strong className="truncate font-semibold text-gold-bright">{label}</strong>
+                  {count > 1 ? <span className="shrink-0 text-[11.5px] text-faint tabular-nums">{position + 1} / {count}</span> : null}
+                  <ChevronRight className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5" aria-hidden="true" size={15} />
+                </span>
+                {hit?.searchHit || hit?.excerpt ? (
+                  <span className="truncate text-[12px] leading-[1.45] text-muted">
+                    <SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt?.replace(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*`, "u"), "")} />
+                  </span>
+                ) : null}
+              </Link>
+            ) : (
+              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-1 text-[13px]">
+                <span className="text-ink">«{found?.query}» այս բաժնում չկա</span>
+                <Link className="font-semibold text-gold-bright no-underline hover:underline" to={`/search?q=${encodeURIComponent(found?.query ?? "")}`}>Որոնել ամբողջ կայքում</Link>
+              </span>
+            )}
+            {!finding && count > 1 ? (
+              <>
+                <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright hover:bg-subtle" onClick={() => step(-1)} aria-label="Նախորդը"><ChevronUp aria-hidden="true" size={17} /></button>
+                <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright hover:bg-subtle" onClick={() => step(1)} aria-label="Հաջորդը"><ChevronDown aria-hidden="true" size={17} /></button>
+              </>
+            ) : null}
+            {!finding ? <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:bg-subtle hover:text-ink" onClick={() => setFound(null)} aria-label="Փակել որոնումը"><X aria-hidden="true" size={16} /></button> : null}
+          </div>
+        );
+      })() : null}
 
       {loaderData.query ? null : SECTION_INTROS[contentCategory]
         ? <div className="mb-4"><SectionIntro {...SECTION_INTROS[contentCategory]} /></div>
@@ -473,13 +591,21 @@ export default function Category({ loaderData }: Route.ComponentProps) {
               icon={<Search aria-hidden="true" size={28} strokeWidth={1.6} />}
               title={`«${loaderData.query}» բառով նյութ չկա`}
             >
-              <p>Փորձիր մեկ այլ բառ կամ մաքրիր որոնումը։</p>
-              <Link
-                className="mt-[7px] inline-flex text-[12px] font-bold text-gold-bright no-underline"
-                to={sectionPath(category)}
-              >
-                Ցույց տալ բոլոր նյութերը
-              </Link>
+              <p>Այս բաժնում չգտնվեց։ Որոնե՞լ ամբողջ կայքում։</p>
+              <span className="mt-[9px] flex flex-wrap gap-2">
+                <Link
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-[12px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[12.5px] font-bold text-[#2a1708] no-underline"
+                  to={`/search?q=${encodeURIComponent(loaderData.query)}`}
+                >
+                  Որոնել ամբողջ կայքում
+                </Link>
+                <Link
+                  className="inline-flex min-h-10 items-center rounded-[12px] border border-glass-border px-4 text-[12.5px] font-bold text-gold-bright no-underline"
+                  to={sectionPath(category)}
+                >
+                  Ցույց տալ բաժնի բոլոր նյութերը
+                </Link>
+              </span>
             </EmptyState>
           ) : (
             <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>

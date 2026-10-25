@@ -4,9 +4,7 @@
 name: Link-preview cards
 
 on:
-  # A push draws that branch's environment once its deploy is up (staging → staging, main → production).
-  push:
-    branches: [staging, main]
+  # Run after a successful deployment/sync; avoid the duplicate push job.
   workflow_run:
     workflows: ["Cloud sync", "Deploy"]
     types: [completed]
@@ -26,6 +24,7 @@ permissions:
 
 jobs:
   draw:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -40,7 +39,6 @@ jobs:
             site: https://staging.apostolic.am
             bucket: armenian-apostolic-library-media-staging
     env:
-      OG_WAIT: ${{ github.event_name == 'push' && '1' || '' }}
       OG_SITE: ${{ matrix.site }}
       OG_BUCKET: ${{ matrix.bucket }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -48,18 +46,18 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
-        # A push only draws its own environment; a sync or a manual run draws both.
-        if: github.event_name != 'push' || (github.ref_name == 'staging') == (matrix.environment == 'staging')
+        # A deployment draws its own environment; a sync (production only now) draws production; a manual run both.
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
       - uses: pnpm/action-setup@v4
-        if: github.event_name != 'push' || (github.ref_name == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
       - uses: actions/setup-node@v4
-        if: github.event_name != 'push' || (github.ref_name == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
         with:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
-        if: github.event_name != 'push' || (github.ref_name == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Draw cards
-        if: github.event_name != 'push' || (github.ref_name == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
         run: node --import tsx scripts/og-cards.ts ${{ inputs.force && '--force' || '' }}

@@ -34,7 +34,7 @@ import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
 import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
-import { useVideoPoster, videoFromThumbnail } from "../utils/video-frame";
+import { sameOriginMedia, useVideoPoster, videoFromThumbnail } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { MaterialActionSheet } from "./material-action-sheet";
 import { useLongPress } from "../hooks/use-long-press";
@@ -201,6 +201,12 @@ function highlightHit(hit: BridgeSearchHit) {
   return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
 }
 
+/** The found words in their sentence, as the search results show them (used by a section's find bar). */
+export function SearchSnippet({ hit, excerpt }: { hit?: BridgeSearchHit | null; excerpt?: string | null }) {
+  if (hit?.snippet) return highlightHit(hit);
+  return excerpt ? <>{excerpt}</> : null;
+}
+
 type TelegramWindow = Window & {
   Telegram?: {
     WebApp?: {
@@ -250,7 +256,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   );
   const psalm = variant === "psalm" ? psalmNumber(material) : null;
   const day = variant === "daily" ? calendarParts(material.dateValue ?? material.publishedAt ?? null) : null;
-  const thumbnail = isVideo ? videoPoster.poster : material.preview.thumbnailUrl;
+  const thumbnail = isVideo ? videoPoster.poster : material.preview.thumbnailUrl ?? material.preview.imageUrl;
   const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
   const TypeIcon = typeMeta.Icon;
   // A daily reading's date is already on its calendar leaf; its feast (or weekday) is the title.
@@ -329,10 +335,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   // Bible questions share one even card shape in their list.
   const quizCard = variant === "text" && material.contentType === "poll";
   return (
-    <li className={`animate-glass-enter ${quizCard ? "h-full" : ""}`} data-material-id={material.id}>
-      <div className={`relative ${quizCard ? "h-full" : ""}`}>
+    <li className={`animate-glass-enter h-full`} data-material-id={material.id}>
+      <div className={`relative h-full`}>
         <Link
-          className={`${interactiveGlassCard} hold-card grid ${day ? "items-center" : quizCard ? "items-stretch" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? `grid-cols-1 px-[16px] py-[14px] ${quizCard ? "h-full" : ""}` : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveGlassCard} hold-card grid h-full ${day ? "items-center" : quizCard ? "items-stretch" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? `grid-cols-1 px-[16px] py-[14px] h-full` : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
           to={targetPath}
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           tabIndex={isNoteMounted ? -1 : undefined}
@@ -344,7 +350,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         {variant === "video" ? (
           <span ref={videoPoster.ref} className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
             {videoPoster.poster ? (
-              <img className="h-full w-full object-cover opacity-95 motion-safe:animate-[glass-enter_400ms_ease-out]" src={videoPoster.poster} alt="" decoding="async" />
+              <img className="h-full w-full object-cover opacity-95 motion-safe:animate-[glass-enter_400ms_ease-out]" src={videoPoster.poster} alt="" loading="lazy" decoding="async" onError={(event) => { const image = event.currentTarget; const fallback = sameOriginMedia(image.src); if (new URL(fallback, location.origin).href !== image.src) image.src = fallback; else image.style.visibility = "hidden"; }} />
             ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgb(10_5_14/70%))]" aria-hidden="true" />
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
@@ -354,7 +360,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           // Saints: the portrait fills the top of the card with the name on it, as in their section.
           <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[14px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
             {thumbnail && !thumbnailFailed ? (
-              <img className="h-full w-full object-cover object-top" src={material.preview.imageUrl ?? thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
+              <img className="h-full w-full object-cover object-top" src={thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
             ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgb(20_10_24/82%))]" aria-hidden="true" />
             <span className="absolute inset-x-0 bottom-0 grid justify-items-center gap-1.5 px-4 pb-3.5 text-center">

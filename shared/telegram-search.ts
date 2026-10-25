@@ -175,6 +175,13 @@ export function searchAliases(value: string) {
     // A Latin query's Armenian reading, folded like the index ("astvats" → "աստված").
     aliases.add(foldOrthography(latinToArmenian(normalized)));
     aliases.add(replacePairs(normalized, latinSpellingPairs));
+    // A word's first Ո and Ե are said "vo" and "ye", and people type them so ("voromneri" → որոմների,
+    // "yekeghetsi" → եկեղեցի): read them as the letters they stand for.
+    const spoken = normalized.replace(/(^|\s)vo/gu, "$1o").replace(/(^|\s)ye/gu, "$1e");
+    if (spoken !== normalized) {
+      aliases.add(foldOrthography(latinToArmenian(spoken)));
+      aliases.add(spoken);
+    }
   }
   aliases.delete(""); aliases.delete(normalized);
   return [...aliases];

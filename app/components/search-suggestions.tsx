@@ -1,3 +1,4 @@
+import { contentVersionNow } from "../utils/search-state";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useState, type RefObject } from "react";
 
@@ -5,20 +6,26 @@ import { normalizeTelegramSearchText, searchAliases } from "../../shared/telegra
 import { foreignSuggestions, indexSuggestionTerms, loadSearchIndex } from "../utils/local-search";
 
 const MAX_SUGGESTIONS = 6;
-let termsPromise: Promise<string[]> | null = null;
+let termsCache: { key: string; promise: Promise<string[]> } | null = null;
 
 /**
  * Suggestion terms: the sections, common words and every title, from the title index the phone
  * keeps (no request once it has it); the server's list only when the index can't be had.
  */
-function loadTerms() {
-  termsPromise ??= loadSearchIndex()
-    .then((index) => index ? indexSuggestionTerms(index.index) : fetch("/api/search-suggestions")
-      .then((response) => response.ok ? response.json() as Promise<{ terms: string[] }> : { terms: [] })
-      .then((data) => data.terms))
-    .then((terms) => terms.map((term) => term.trim()).filter(Boolean))
-    .catch(() => { termsPromise = null; return []; });
-  return termsPromise;
+function loadTerms(categoryId = "") {
+  const key = `${contentVersionNow()}:${categoryId}`;
+  if (termsCache?.key === key) return termsCache.promise;
+  const promise = loadSearchIndex()
+    .then((loaded) => {
+      if (loaded) {
+        const index = loaded.index;
+        return indexSuggestionTerms(categoryId ? { ...index, categories: Object.fromEntries(Object.entries(index.categories).filter(([id]) => id === categoryId)), items: index.items.filter((item) => item[3] === categoryId) } : index);
+      }
+      if (categoryId) return [];
+      return fetch("/api/search-suggestions").then((response) => response.ok ? response.json() as Promise<{ terms: string[] }> : { terms: [] }).then((data) => data.terms);
+    }).catch(() => { termsCache = null; return []; });
+  termsCache = { key, promise };
+  return promise;
 }
 
 // Latin letters that stand for more than one Armenian letter ("t" is տ or թ, "p" պ or փ…).
@@ -63,18 +70,18 @@ function rank(terms: string[], typed: string) {
  * A Google-style list under a search box: terms and material titles that match what is being
  * typed. Choosing one fills the box and searches right away.
  */
-export function SearchSuggestions({ inputRef, onPick }: { inputRef: RefObject<HTMLInputElement | null>; onPick: (term: string) => void }) {
+export function SearchSuggestions({ inputRef, onPick, categoryId = "" }: { categoryId?: string; inputRef: RefObject<HTMLInputElement | null>; onPick: (term: string) => void }) {
   const [terms, setTerms] = useState<string[]>([]);
   const [typed, setTyped] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   // English or Russian typing ("prayer", "молитва") suggests the Armenian word it means.
-  const suggestions = useMemo(() => [...new Set([...foreignSuggestions(typed), ...rank(terms, typed)])].slice(0, MAX_SUGGESTIONS), [terms, typed]);
+  const suggestions = useMemo(() => [...new Set([...(categoryId ? [] : foreignSuggestions(typed)), ...rank(terms, typed)])].slice(0, MAX_SUGGESTIONS), [terms, typed, categoryId]);
 
   useEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    const onFocus = () => { void loadTerms().then(setTerms); setTyped(input.value); setOpen(true); };
+    const onFocus = () => { void loadTerms(categoryId).then(setTerms); setTyped(input.value); setOpen(true); };
     const onInput = () => { setTyped(input.value); setOpen(true); setActive(-1); };
     // Let a tap on a suggestion land before the list closes.
     const onBlur = () => window.setTimeout(() => setOpen(false), 160);
@@ -87,7 +94,7 @@ export function SearchSuggestions({ inputRef, onPick }: { inputRef: RefObject<HT
       input.removeEventListener("input", onInput);
       input.removeEventListener("blur", onBlur);
     };
-  }, [inputRef]);
+  }, [inputRef, categoryId]);
 
   const visible = open && suggestions.length > 0;
   useEffect(() => {

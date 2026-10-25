@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-const MAXIMUM_WAIT_MS = 9_000;
 // Intro on the first visit of a session: the unlit candle (0.7 s), a spark and the flame catching
 // (~0.9 s), then the light settles and welcomes the reader before the page opens (3.6 s at least,
 // so it is felt even on fast connections), and finally the light swells from the flame over the
@@ -13,6 +12,8 @@ const SESSION_KEY = "library-loader-seen-v4";
 type Phase = "unlit" | "lit" | "hidden" | "removed";
 
 const styles = `
+html[data-intro-seen] .candle-loader{display:none}
+html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overflow:hidden}
 .candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .8s ease 1.1s}
 .candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
 .candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}
@@ -48,6 +49,10 @@ const styles = `
  * navigations in the same session skip it.
  */
 export function CandleLoader() {
+  // Drawn in the server HTML too, so it covers the page from the first paint instead of the page
+  // showing and the intro jumping over it after hydration. The boot script in root.tsx marks
+  // <html data-intro-seen> before paint for visitors who saw it this session (it stays hidden), and
+  // readers without JavaScript never see it (<noscript> below).
   const [phase, setPhase] = useState<Phase>("unlit");
 
   useEffect(() => {
@@ -61,30 +66,22 @@ export function CandleLoader() {
       setPhase("removed");
       return () => { active = false; timers.forEach(clearTimeout); };
     }
-    const startedAt = performance.now();
+    setPhase("unlit");
     later(() => setPhase("lit"), LIGHT_AT_MS);
-    // Reveal the page only once fonts and every image are loaded, so nothing pops in afterwards.
-    const pageLoaded = document.readyState === "complete"
-      ? Promise.resolve()
-      : new Promise<void>((resolve) => window.addEventListener("load", () => resolve(), { once: true }));
-    const ready = Promise.race([
-      Promise.all([document.fonts?.ready ?? Promise.resolve(), pageLoaded]),
-      new Promise<void>((resolve) => window.setTimeout(resolve, MAXIMUM_WAIT_MS)),
-    ]);
-    void ready.then(() => {
-      later(() => {
-        try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* Storage may be blocked. */ }
-        setPhase("hidden");
-        later(() => setPhase("removed"), EXIT_MS);
-      }, Math.max(0, MINIMUM_VISIBLE_MS - (performance.now() - startedAt)));
-    });
+    // Intro only: fonts, images and network requests never prolong it.
+    later(() => {
+      try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* Storage may be blocked. */ }
+      setPhase("hidden");
+      later(() => setPhase("removed"), EXIT_MS);
+    }, MINIMUM_VISIBLE_MS);
     return () => { active = false; timers.forEach(clearTimeout); };
   }, []);
 
   if (phase === "removed") return null;
   return (
-    <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label="Գրադարանը բեռնվում է" aria-hidden={phase === "hidden"}>
+    <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label="Բարի գալուստ գրադարան" aria-hidden={phase === "hidden"}>
       <style>{styles}</style>
+      <noscript><style>{".candle-loader{display:none!important}"}</style></noscript>
       <div className="candle-loader__scene" aria-hidden="true">
         <span className="candle-loader__light" />
         <span className="candle-loader__glow" />

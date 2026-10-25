@@ -1,3 +1,4 @@
+import { searchValidation } from "../utils/search-validation";
 import {env} from "cloudflare:workers";
 import { ArrowRight, LoaderCircle, Search } from "lucide-react";
 import {memo, useRef, useState} from "react";
@@ -110,20 +111,23 @@ function HomeSearch() {
     const navigate = useNavigate();
     const inputRef = useRef<HTMLInputElement>(null);
     const [value, setValue] = useState("");
+    const [error, setError] = useState<string | null>(null);
     // Searching starts with the button, Enter or a suggestion (every search costs the server).
     const go = (query: string) => {
         const trimmed = query.trim();
-        if (Array.from(trimmed).length >= 2) navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+        const message = searchValidation(trimmed);
+        setError(message);
+        if (!message) navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     };
-    return (<Form className="hero-rise hero-rise-delay-2 relative z-30 mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control pr-[6px] pl-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search" onSubmit={(event) => { event.preventDefault(); go(value); }}>
+    return (<div><Form className="hero-rise hero-rise-delay-2 relative z-30 mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control pr-[6px] pl-[14px] text-faint shadow-card focus-within:border-[rgb(217_181_111/45%)]" action="/search" method="get" role="search" onSubmit={(event) => { event.preventDefault(); go(value); }}>
         <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
         <SearchSuggestions inputRef={inputRef} onPick={go}/>
-        <input ref={inputRef} className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" minLength={2} enterKeyHint="search"
+        <input ref={inputRef} className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" maxLength={120} enterKeyHint="search"
             value={value} onChange={(event) => setValue(event.target.value)}/>
-        <button className={`grid size-10 shrink-0 cursor-pointer place-items-center rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] transition-[opacity,transform] duration-200 ${value.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"}`} type="submit" aria-label="Որոնել">
+        <button className={`grid size-10 shrink-0 cursor-pointer place-items-center rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] transition-[opacity,transform,translate,scale] duration-200 ${value.trim() ? "scale-100 opacity-100" : "pointer-events-none scale-90 opacity-0"}`} type="submit" aria-label="Որոնել">
             <ArrowRight aria-hidden="true" size={18}/>
         </button>
-    </Form>);
+    </Form>{error ? <p role="alert" className="mt-2 text-sm search-validation-error">{error}</p> : null}</div>);
 }
 
 export default function Home({loaderData}: Route.ComponentProps) {

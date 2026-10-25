@@ -41,7 +41,7 @@ export default function Contact() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Կապ" />
+      <PageHeader showSearch={false} backTo="/" backLabel="Գրադարան" title="Կապ" />
       <div className="mt-4 grid gap-2.5">
         {emails.map(({ address, title, note, Icon }) => (
           <a key={address} className={row} href={`mailto:${address}`} onClick={() => copy(address)}>

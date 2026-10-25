@@ -19,7 +19,7 @@ export default function About() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Մեր մասին" />
+      <PageHeader showSearch={false} backTo="/" backLabel="Գրադարան" title="Մեր մասին" />
       <article className="mt-4 grid gap-4">
         <section className={panel}>
           <h2 className={heading}>Ինչ է «Հոգևոր ժառանգություն»-ը</h2>

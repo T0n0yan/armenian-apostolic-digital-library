@@ -1,3 +1,4 @@
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 /**
  * Searching titles on the phone. The site sends the title index once per content version
  * (/api/search-index: every material's title, section, number and picture, a few dozen KB); the
@@ -42,7 +43,7 @@ async function fetchIndex(version: string): Promise<SearchIndex | null> {
   const kept = await storage?.match(url).catch(() => undefined);
   const response = kept ?? await fetch(url).catch(() => null);
   if (!response?.ok) return null;
-  if (!kept && storage) {
+  if (!kept && storage && !response.redirected && !response.headers.get("Cache-Control")?.includes("no-store")) {
     await storage.put(url, response.clone()).catch(() => undefined);
     for (const request of await storage.keys().catch(() => [] as Request[])) {
       if (!request.url.endsWith(url)) await storage.delete(request).catch(() => false);
@@ -167,7 +168,8 @@ export function searchTitles(index: Loaded, query: string, categoryId = ""): Sea
   const number = parsed.messageIdIntent?.messageId;
   if (number) {
     // A bare number: a psalm's number, or a post's own Telegram number.
-    return candidates.filter((entry) => entry.item[4] === number || entry.messageId === number)
+    const psalms = resolveContentCategoryId(categoryId, index.index.categories[categoryId]?.[0]) === "category_psalms";
+    return candidates.filter((entry) => entry.item[4] === number || (!psalms && entry.messageId === number))
       .slice(0, MAX_RESULTS).map((entry) => toMaterial(index.index, entry.item, "message-id"));
   }
   return candidates.flatMap((entry) => {

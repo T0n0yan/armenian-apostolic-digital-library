@@ -243,6 +243,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                   Մուտք Telegram-ով
               </a>
               {!loaderData.googleAvailable ? <span className="text-[11.5px] text-faint">Google-ով մուտքը շուտով կմիանա։</span> : null}
+              <Link className="min-h-11 inline-flex items-center justify-center text-sm text-gold-bright" to="/">Չեղարկել և վերադառնալ գրադարան</Link>
               <Link className="mt-1 justify-self-center text-[11.5px] text-faint underline" to="/privacy">Գաղտնիության քաղաքականություն</Link>
             </div>
           ) : null}
