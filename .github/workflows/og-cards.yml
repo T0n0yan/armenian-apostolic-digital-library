@@ -46,18 +46,18 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
-        # A deployment draws its own environment; sync/manual runs draw both.
-        if: github.event_name != 'workflow_run' || github.event.workflow_run.name != 'Deploy' || (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')
+        # A deployment draws its own environment; a sync (production only now) draws production; a manual run both.
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
       - uses: pnpm/action-setup@v4
-        if: github.event_name != 'workflow_run' || github.event.workflow_run.name != 'Deploy' || (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
       - uses: actions/setup-node@v4
-        if: github.event_name != 'workflow_run' || github.event.workflow_run.name != 'Deploy' || (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
         with:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
-        if: github.event_name != 'workflow_run' || github.event.workflow_run.name != 'Deploy' || (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Draw cards
-        if: github.event_name != 'workflow_run' || github.event.workflow_run.name != 'Deploy' || (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')
+        if: github.event_name != 'workflow_run' || (github.event.workflow_run.name == 'Deploy' && (github.event.workflow_run.head_branch == 'staging') == (matrix.environment == 'staging')) || (github.event.workflow_run.name != 'Deploy' && matrix.environment == 'production')
         run: node --import tsx scripts/og-cards.ts ${{ inputs.force && '--force' || '' }}

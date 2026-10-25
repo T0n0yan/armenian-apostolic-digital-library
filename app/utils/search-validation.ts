@@ -13,7 +13,7 @@ export function searchValidation(value: string, allowPsalmNumber = false): strin
   // Mostly letters, with a word of two letters or more: «Սաղմոս 23», «Ղուկաս 4.31» pass, «2223ee» doesn't.
   const visible = Array.from(query.replace(/\s+/gu, ""));
   const letters = visible.filter((character) => /\p{L}/u.test(character)).length;
-  if (!/\p{L}{2,}/u.test(query)) return "Բառը շատ կարճ է։";
+  if (!/\p{L}{2,}/u.test(query)) return "Ձեր հարցումը շատ կարճ է որոնում կատարելու համար։";
   if (letters * 2 < visible.length) return "Ստուգեք որոնվող բառը։";
   return null;
 }

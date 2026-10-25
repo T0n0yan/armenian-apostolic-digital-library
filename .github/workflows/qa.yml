@@ -2,8 +2,6 @@ name: QA review
 on:
   pull_request:
     branches: [main, staging]
-  push:
-    branches: [fix/gpt-qa-review]
 permissions:
   contents: read
 concurrency:
