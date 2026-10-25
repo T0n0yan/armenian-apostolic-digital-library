@@ -1,5 +1,8 @@
 import { searchValidation } from "../utils/search-validation";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { listCloudLibraryCategories } from "../data/cloud-library.server";
+import { materialPath } from "../utils/material-path";
+import { findPsalmByNumber } from "../data/psalm-neighbors.server";
 import { env } from "cloudflare:workers";
 import {
   ArrowRight,
@@ -18,7 +21,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { Form, Link, useNavigate, useNavigation } from "react-router";
+import { Form, Link, redirect, useNavigate, useNavigation } from "react-router";
 
 import type { Route } from "./+types/search";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
@@ -131,6 +134,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     dateFrom: readDate(url.searchParams.get("from")),
     dateTo: readDate(url.searchParams.get("to")),
   };
+  // A psalm's number searched in the psalms section opens that psalm.
+  if (categoryId && /^\d{1,3}$/u.test(query)) {
+    const section = (await listCloudLibraryCategories(env.DB)).find((item) => item.id === categoryId);
+    const psalmId = resolveContentCategoryId(section?.id, section?.name) === "category_psalms" ? await findPsalmByNumber(env.DB, Number(query)) : null;
+    if (psalmId) throw redirect(materialPath(psalmId, "category_psalms", { psalm: Number(query) }));
+  }
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const hasSearchQuery = Boolean(query) && !searchValidation(query, true);
   const hasCriteria = Boolean(hasSearchQuery || categoryId || scope === "saved");

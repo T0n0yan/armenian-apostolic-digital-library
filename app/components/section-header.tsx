@@ -67,7 +67,8 @@ export const SectionHeader = memo(function SectionHeader({
   title,
   description,
 }: SectionHeaderProps) {
-  const formAction = searchCategoryId ? "/search" : searchAction;
+  // A section searches on its own page (/psalms?q=…); the whole library is offered when nothing is found.
+  const formAction = searchAction;
   const { validateSubmit, formRef, clearError, submitImmediately, error } =
     useSearchSubmit(resolveContentCategoryId(searchCategoryId, title) === "category_psalms");
   const inputRef = useSyncedQueryInput(query);
@@ -120,7 +121,6 @@ export const SectionHeader = memo(function SectionHeader({
               onSubmit={validateSubmit}
               aria-busy={isSearching || undefined}
             >
-              {searchCategoryId ? <input type="hidden" name="category" value={searchCategoryId} /> : null}
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
               <SearchSuggestions categoryId={searchCategoryId} inputRef={inputRef} onPick={submitImmediately} />
               <input

@@ -197,8 +197,9 @@ export const DailyReadingCard = memo(function DailyReadingCard({ material }: { m
   const daily = material.preview.daily;
   const image = material.preview.imageUrl ?? material.preview.thumbnailUrl;
   return (
-    <li>
-      <Link className={`frosted-card grid overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath}>
+    // Cards with a picture fill their row, so neighbours end level; a card still without one keeps its height.
+    <li className={image ? "flex" : "self-start"}>
+      <Link className={`frosted-card grid w-full content-start overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath}>
         {image ? (
           // The picture's top (the day's verse) matters most, so crop from the bottom.
           <span className="relative block aspect-[16/9] overflow-hidden" aria-hidden="true">
