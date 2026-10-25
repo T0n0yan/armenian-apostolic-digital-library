@@ -129,7 +129,8 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
   // Saving, a reminder, signing in or out: the kept page data may no longer be right.
-  if (url.origin === self.location.origin && (request.method !== "GET" || /^\/(auth|telegram)\//u.test(url.pathname))) {
+  // The presence ping (every few minutes) changes nothing on the pages, so it doesn't count.
+  if (url.origin === self.location.origin && url.pathname !== "/api/presence" && (request.method !== "GET" || /^\/(auth|telegram)\//u.test(url.pathname))) {
     lastWrite = Date.now();
     event.waitUntil(Promise.all([markWrite(lastWrite), caches.delete(PAGES)]));
   }
