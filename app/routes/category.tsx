@@ -1,6 +1,6 @@
 import { searchValidation } from "../utils/search-validation";
 import { env } from "cloudflare:workers";
-import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, LoaderCircle, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link, redirect, useNavigation } from "react-router";
 
@@ -534,31 +534,39 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         const hit = currentId ? found?.hits[currentId] : null;
         const step = (delta: number) => found && setFound({ ...found, index: found.index + delta });
         const label = current ? (isPsalms && psalmNumber(current) ? `Սաղմոս ${psalmNumber(current)}` : current.title) : "";
-        // Floats at the bottom of the screen, so the matches stay one tap away however far the page scrolls.
+        const target = current ? hrefOf(current) : null;
+        // A quiet bar at the bottom: it rises in, stays one tap away however far the page scrolls,
+        // steps through the matches, and opens the match when tapped. It hides while the menu is open.
         return (
-          <div className="fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto grid max-w-[560px] gap-1.5 rounded-[18px] border border-[rgb(217_181_111/40%)] bg-[var(--page-bg)] p-3 text-[13px] shadow-[0_18px_44px_rgb(20_10_5/40%)]" role="status" aria-live="polite">
-            <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-bold text-ink">
-                {finding ? "Փնտրում եմ այս բաժնում…" : count ? `«${found!.query}»՝ ${position + 1} / ${count}` : `«${found?.query}» այս բաժնում չգտնվեց`}
+          <div className="find-bar fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto flex max-w-[520px] items-center gap-1.5 rounded-[18px] border border-[rgb(217_181_111/32%)] bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] py-2 pr-2 pl-3 shadow-[0_14px_36px_rgb(20_10_5/32%)] backdrop-blur-md" role="status" aria-live="polite">
+            {finding ? (
+              <span className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[13px] text-muted"><LoaderCircle className="animate-search-spin shrink-0 text-gold" aria-hidden="true" size={15} /> Փնտրում եմ այս բաժնում…</span>
+            ) : target ? (
+              <Link className="group grid min-w-0 flex-1 gap-0.5 rounded-[12px] px-1 py-1 text-inherit no-underline" to={target} aria-label={`Բացել՝ ${label}`}>
+                <span className="flex items-center gap-1.5 text-[13px]">
+                  <strong className="truncate font-semibold text-gold-bright">{label}</strong>
+                  {count > 1 ? <span className="shrink-0 text-[11.5px] text-faint tabular-nums">{position + 1} / {count}</span> : null}
+                  <ChevronRight className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5" aria-hidden="true" size={15} />
+                </span>
+                {hit?.searchHit || hit?.excerpt ? (
+                  <span className="truncate text-[12px] leading-[1.45] text-muted">
+                    <SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt?.replace(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*`, "u"), "")} />
+                  </span>
+                ) : null}
+              </Link>
+            ) : (
+              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 px-1 py-1 text-[13px]">
+                <span className="text-ink">«{found?.query}» այս բաժնում չկա</span>
+                <Link className="font-semibold text-gold-bright no-underline hover:underline" to={`/search?q=${encodeURIComponent(found?.query ?? "")}`}>Որոնել ամբողջ կայքում</Link>
               </span>
-              {!finding && count > 1 ? (
-                <>
-                  <button type="button" className="grid size-9 cursor-pointer place-items-center rounded-[10px] border border-glass-border bg-transparent text-gold-bright" onClick={() => step(-1)} aria-label="Նախորդը"><ChevronUp aria-hidden="true" size={18} /></button>
-                  <button type="button" className="grid size-9 cursor-pointer place-items-center rounded-[10px] border border-glass-border bg-transparent text-gold-bright" onClick={() => step(1)} aria-label="Հաջորդը"><ChevronDown aria-hidden="true" size={18} /></button>
-                </>
-              ) : null}
-              {!finding ? <button type="button" className="grid size-9 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-muted" onClick={() => setFound(null)} aria-label="Փակել որոնումը"><X aria-hidden="true" size={18} /></button> : null}
-            </div>
-            {!finding && current ? (
-              // What was found: the item and the words in their sentence.
-              <p className="m-0 line-clamp-3 text-[12.5px] leading-[1.5] text-muted">
-                <strong className="text-gold-bright">{label}</strong>
-                {hit?.searchHit || hit?.excerpt ? <>{" — "}<SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt?.replace(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*`, "u"), "")} /></> : null}
-              </p>
+            )}
+            {!finding && count > 1 ? (
+              <>
+                <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright hover:bg-subtle" onClick={() => step(-1)} aria-label="Նախորդը"><ChevronUp aria-hidden="true" size={17} /></button>
+                <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright hover:bg-subtle" onClick={() => step(1)} aria-label="Հաջորդը"><ChevronDown aria-hidden="true" size={17} /></button>
+              </>
             ) : null}
-            {!finding && found && !count ? (
-              <Link className="inline-flex min-h-9 w-fit items-center rounded-[10px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 font-bold text-[#2a1708] no-underline" to={`/search?q=${encodeURIComponent(found.query)}`}>Որոնել ամբողջ կայքում</Link>
-            ) : null}
+            {!finding ? <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:bg-subtle hover:text-ink" onClick={() => setFound(null)} aria-label="Փակել որոնումը"><X aria-hidden="true" size={16} /></button> : null}
           </div>
         );
       })() : null}

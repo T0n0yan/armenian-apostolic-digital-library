@@ -13,6 +13,7 @@ type Phase = "unlit" | "lit" | "hidden" | "removed";
 
 const styles = `
 html[data-intro-seen] .candle-loader{display:none}
+html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overflow:hidden}
 .candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .8s ease 1.1s}
 .candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
 .candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}

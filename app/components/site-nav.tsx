@@ -113,9 +113,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             </button>
           </div>
           {view === "settings" ? (
-            <div className="menu-view max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
+            <div className="menu-view no-scrollbar max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
           ) : (
-          <div className="menu-view grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
+          <div className="menu-view no-scrollbar grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
             <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
