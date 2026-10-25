@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import leafletCss from "leaflet/dist/leaflet.css?url";
+import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { MapPin, Send } from "lucide-react";
 import { Link } from "react-router";
 
@@ -11,7 +11,7 @@ import { listPlaces } from "../data/places.server";
 import { PLACE_KINDS, placeMediaUrl } from "../utils/places";
 import { seoMeta } from "../utils/seo";
 
-export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: leafletCss }];
+export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return seoMeta({

@@ -1,8 +1,9 @@
-import { ChevronRight, MapPin, Navigation, X } from "lucide-react";
+import { ChevronRight, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
+import { MAP_ATTRIBUTION, MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
 import { directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
 export type MapPlace = {
@@ -10,14 +11,12 @@ export type MapPlace = {
   summary: string; icon: string | null; cover: string | null; verified: boolean;
 };
 
-/** The marker: the church's drawing when there is one, else its cover photo in a gold ring. */
-function markerHtml(place: MapPlace) {
-  if (place.icon) return `<img class="place-pin-drawing" src="${placeMediaUrl(place.icon)}" alt="" draggable="false">`;
-  if (place.cover) return `<span class="place-pin-photo"><img src="${placeMediaUrl(place.cover)}" alt="" draggable="false"></span>`;
-  return `<span class="place-pin-dot">✠</span>`;
-}
+type MapLibre = typeof import("maplibre-gl");
+type MapInstance = import("maplibre-gl").Map;
 
-/** The card that slides up inside the map when a church is tapped: never cut by the map's edge. */
+const currentTheme = (): MapTheme => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+
+/** The card that slides up over the map when a church is tapped. */
 function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void }) {
   const picture = place.cover ? placeMediaUrl(place.cover) : place.icon ? placeMediaUrl(place.icon) : null;
   return (
@@ -47,74 +46,209 @@ function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void })
   );
 }
 
+/** A gold disc with a cross: the marker of a place that has no drawing or photo yet. */
+function crossImage(ratio: number) {
+  const size = Math.round(34 * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  const gradient = context.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, "#e2c27e");
+  gradient.addColorStop(1, "#a8752a");
+  context.beginPath();
+  context.arc(size / 2, size / 2, size / 2 - 2 * ratio, 0, Math.PI * 2);
+  context.fillStyle = gradient;
+  context.fill();
+  context.lineWidth = 2 * ratio;
+  context.strokeStyle = "#fbf4e4";
+  context.stroke();
+  // A cross drawn with lines, so no font is needed.
+  context.strokeStyle = "#2a1708";
+  context.lineWidth = 2.4 * ratio;
+  context.lineCap = "round";
+  const c = size / 2;
+  const arm = 7 * ratio;
+  context.beginPath();
+  context.moveTo(c, c - arm); context.lineTo(c, c + arm);
+  context.moveTo(c - arm * 0.75, c - arm * 0.25); context.lineTo(c + arm * 0.75, c - arm * 0.25);
+  context.stroke();
+  return context.getImageData(0, 0, size, size);
+}
+
+/** A cover photo cut into a gold-ringed circle, the marker of a place with photos but no drawing. */
+async function photoImage(url: string, ratio: number) {
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.src = url;
+  await image.decode();
+  const size = Math.round(46 * ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const context = canvas.getContext("2d")!;
+  context.save();
+  context.beginPath();
+  context.arc(size / 2, size / 2, size / 2 - 3 * ratio, 0, Math.PI * 2);
+  context.clip();
+  const side = Math.min(image.width, image.height);
+  context.drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, size, size);
+  context.restore();
+  context.beginPath();
+  context.arc(size / 2, size / 2, size / 2 - 1.5 * ratio, 0, Math.PI * 2);
+  context.lineWidth = 3 * ratio;
+  context.strokeStyle = "#c9a052";
+  context.stroke();
+  return context.getImageData(0, 0, size, size);
+}
+
+/** Recolours the map for the site's light or dark theme. */
+function applyPalette(map: MapInstance, theme: MapTheme) {
+  const colors = MAP_PALETTES[theme];
+  const set = (layer: string, property: string, value: string) => { if (map.getLayer(layer)) map.setPaintProperty(layer, property as never, value as never); };
+  set("land", "background-color", colors.land);
+  set("water", "fill-color", colors.water);
+  set("waterway", "line-color", colors.waterLine);
+  set("roads-minor", "line-color", colors.minor);
+  set("roads-secondary", "line-color", colors.major);
+  set("roads-primary", "line-color", colors.major);
+  set("roads-motorway", "line-color", colors.motorway);
+  set("road-names", "text-color", colors.label);
+  set("road-names", "text-halo-color", colors.halo);
+  set("armenia-border", "line-color", colors.border);
+}
+
 /**
- * Armenia alone (Leaflet over OpenStreetMap, toned to the site's parchment; the rest of the world
- * covered), with every published place drawn on it. Tapping a church opens its card. Leaflet needs a
- * browser, so it is loaded once the page is on screen. With `focus`, the map shows that one place
- * up close (a place's own page) and its marker opens nothing.
+ * Armenia alone, as its own shape on the page (no frame, nothing of the countries around): land,
+ * water, roads and road names from OpenFreeMap's vector tiles in the site's light or dark colours,
+ * with every published place on it. Nearby places gather into gold counts; tapping a church opens
+ * its card. With `focus`, a small framed map of that one place (a place's own page).
  */
 export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: string }) {
   const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapInstance | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+
   useEffect(() => {
-    let map: import("leaflet").Map | null = null;
+    let map: MapInstance | null = null;
     let cancelled = false;
-    void import("leaflet").then(async ({ default: L }) => {
-      // The clustering plugin attaches itself to the global L.
-      (window as unknown as { L: typeof L }).L = L;
-      await import("leaflet.markercluster");
+    let observer: MutationObserver | null = null;
+    void (async () => {
+      const [module, { default: workerUrl }] = await Promise.all([
+        import("maplibre-gl"),
+        import("maplibre-gl/dist/maplibre-gl-worker.mjs?url") as Promise<{ default: string }>,
+      ]);
+      // Named exports in the ES build; some bundlers also add a default.
+      const maplibre = ((module as unknown as { default?: MapLibre }).default ?? module) as MapLibre;
       if (cancelled || !container.current) return;
-      const armenia = L.latLngBounds(ARMENIA_BOUNDS);
-      map = L.map(container.current, {
-        zoomControl: true, attributionControl: false, maxZoom: 18, zoomSnap: 0.25,
-        maxBounds: armenia.pad(0.08), maxBoundsViscosity: 1,
+      maplibre.setWorkerUrl(workerUrl);
+      const ratio = Math.min(window.devicePixelRatio || 1, 3);
+      const armenia = new maplibre.LngLatBounds([ARMENIA_BOUNDS[0][1], ARMENIA_BOUNDS[0][0]], [ARMENIA_BOUNDS[1][1], ARMENIA_BOUNDS[1][0]]);
+      const focused = focus ? places.find((place) => place.id === focus) : undefined;
+      map = new maplibre.Map({
+        container: container.current,
+        style: mapStyle(currentTheme()),
+        attributionControl: false,
+        dragRotate: false, pitchWithRotate: false, touchPitch: false, maxZoom: 17,
+        ...(focused ? { center: [focused.longitude, focused.latitude] as [number, number], zoom: 13.5 } : { bounds: armenia, fitBoundsOptions: { padding: 14 } }),
       });
-      map.fitBounds(armenia, { padding: [8, 8] });
-      // Never further out than all of Armenia.
-      map.setMinZoom(map.getBoundsZoom(armenia, false, L.point(16, 16)));
-      L.control.attribution({ position: "bottomleft", prefix: false }).addTo(map);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19, className: "parchment-tiles",
-        attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
-      }).addTo(map);
-      // Only Armenia: the rest of the world is covered with plain parchment, the border drawn in gold.
-      L.polygon([[[-85, -180], [85, -180], [85, 180], [-85, 180]], ...ARMENIA_BORDER], {
-        stroke: false, fillColor: "#efe3c8", fillOpacity: 1, interactive: false,
-      }).addTo(map);
-      L.polygon(ARMENIA_BORDER, { color: "#b07d2e", weight: 2, opacity: 0.85, fill: false, interactive: false }).addTo(map);
-      // Nearby places gather into one gold count until the map comes close (hundreds from OSM).
-      const layer = focus ? L.layerGroup() : L.markerClusterGroup({
-        maxClusterRadius: 48, disableClusteringAtZoom: 13, showCoverageOnHover: false, spiderfyOnMaxZoom: true,
-        iconCreateFunction: (cluster) => {
-          const count = cluster.getChildCount();
-          const size = count < 10 ? 38 : count < 50 ? 46 : 54;
-          return L.divIcon({ className: "place-cluster", html: `<span>${count}</span>`, iconSize: [size, size] });
-        },
-      });
-      layer.addTo(map);
-      for (const place of places) {
-        const marker = L.marker([place.latitude, place.longitude], {
-          title: place.name, alt: place.name, riseOnHover: true, keyboard: !focus, interactive: !focus,
-          icon: L.divIcon({ className: "place-pin", html: markerHtml(place), iconSize: place.icon ? [64, 64] : [46, 46], iconAnchor: place.icon ? [32, 60] : [23, 23] }),
+      map.touchZoomRotate.disableRotation();
+      mapRef.current = map;
+      const m = map;
+      if (import.meta.env.DEV) (window as unknown as { placesMap?: MapInstance }).placesMap = m;
+      m.on("error", (event) => console.error("places map", event.error));
+
+      // The whole page is the frame: everything outside Armenia's border is cut away.
+      const clip = () => {
+        if (focus || !container.current) return;
+        const d = ARMENIA_BORDER.map((ring) => `M${ring.map(([lat, lng]) => { const p = m.project([lng, lat]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join("L")}Z`).join("");
+        container.current.style.clipPath = `path('${d}')`;
+      };
+
+      m.on("load", () => {
+        if (!focus) {
+          m.setMinZoom(m.getZoom() - 0.1);
+          m.setMaxBounds([[armenia.getWest() - 0.6, armenia.getSouth() - 0.4], [armenia.getEast() + 0.6, armenia.getNorth() + 0.4]]);
+        }
+        m.addSource("armenia", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: ARMENIA_BORDER.map((ring) => ring.map(([lat, lng]) => [lng, lat])) } } });
+        m.addLayer({ id: "armenia-border", type: "line", source: "armenia", paint: { "line-color": MAP_PALETTES[currentTheme()].border, "line-width": 3, "line-opacity": 0.9 } });
+
+        m.addImage("cross", crossImage(ratio), { pixelRatio: ratio });
+        m.addSource("places", {
+          type: "geojson", cluster: !focus, clusterRadius: 44, clusterMaxZoom: 12,
+          data: {
+            type: "FeatureCollection",
+            features: places.map((place) => ({
+              type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [place.longitude, place.latitude] },
+              properties: { id: place.id, image: place.icon ? `icon-${place.id}` : place.cover ? `photo-${place.id}` : "cross", drawing: Boolean(place.icon) },
+            })),
+          },
         });
-        layer.addLayer(marker);
-        if (!focus) marker.on("click", () => setSelected(place.id));
-      }
-      if (!focus) map.on("click", () => setSelected(null));
-      // Bigger drawings as the map comes closer.
-      const scale = () => container.current?.style.setProperty("--pin-scale", String(Math.min(1.6, Math.max(0.7, 0.7 + ((map?.getZoom() ?? 8) - 7) * 0.18))));
-      map.on("zoomend", scale);
-      const place = focus ? places.find((item) => item.id === focus) : null;
-      if (place) map.setView([place.latitude, place.longitude], 13);
-      scale();
-    });
-    return () => { cancelled = true; map?.remove(); };
+        m.addLayer({
+          id: "clusters", type: "circle", source: "places", filter: ["has", "point_count"],
+          paint: {
+            "circle-color": "#c39448", "circle-stroke-color": "#fbf4e4", "circle-stroke-width": 3,
+            "circle-radius": ["step", ["get", "point_count"], 17, 10, 21, 50, 26],
+          },
+        });
+        m.addLayer({
+          id: "cluster-count", type: "symbol", source: "places", filter: ["has", "point_count"],
+          layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 13, "text-allow-overlap": true },
+          paint: { "text-color": "#2a1708" },
+        });
+        m.addLayer({
+          id: "places", type: "symbol", source: "places", filter: ["!", ["has", "point_count"]],
+          layout: {
+            "icon-image": ["get", "image"], "icon-allow-overlap": true, "icon-anchor": ["case", ["get", "drawing"], "bottom", "center"],
+            // Drawings grow as the map comes closer.
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 8, ["case", ["get", "drawing"], 0.45, 1], 14, ["case", ["get", "drawing"], 0.9, 1]],
+          },
+        });
+
+        // Drawings and cover photos arrive one by one; each shows as soon as it is loaded.
+        for (const place of places) {
+          if (place.icon) {
+            void m.loadImage(placeMediaUrl(place.icon)).then(({ data }) => { if (!m.hasImage(`icon-${place.id}`)) m.addImage(`icon-${place.id}`, data, { pixelRatio: 2 }); }).catch(() => undefined);
+          } else if (place.cover) {
+            void photoImage(placeMediaUrl(place.cover), ratio).then((data) => { if (!m.hasImage(`photo-${place.id}`)) m.addImage(`photo-${place.id}`, data, { pixelRatio: ratio }); }).catch(() => undefined);
+          }
+        }
+
+        if (!focus) {
+          m.on("click", "clusters", async (event) => {
+            const feature = event.features?.[0];
+            const source = m.getSource("places") as import("maplibre-gl").GeoJSONSource;
+            if (!feature) return;
+            const zoom = await source.getClusterExpansionZoom(feature.properties.cluster_id as number);
+            m.easeTo({ center: (feature.geometry as { coordinates: [number, number] }).coordinates, zoom: zoom + 0.3 });
+          });
+          m.on("click", "places", (event) => { const id = event.features?.[0]?.properties.id; if (typeof id === "string") setSelected(id); });
+          m.on("click", (event) => { if (!m.queryRenderedFeatures(event.point, { layers: ["places", "clusters"] }).length) setSelected(null); });
+          for (const layer of ["places", "clusters"]) {
+            m.on("mouseenter", layer, () => { m.getCanvas().style.cursor = "pointer"; });
+            m.on("mouseleave", layer, () => { m.getCanvas().style.cursor = ""; });
+          }
+        }
+        clip();
+      });
+      m.on("move", clip);
+      m.on("resize", clip);
+      // The site's theme can change while the map is open (settings, sunset).
+      observer = new MutationObserver(() => applyPalette(m, currentTheme()));
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    })();
+    return () => { cancelled = true; observer?.disconnect(); map?.remove(); mapRef.current = null; };
   }, [places, focus]);
+
   const current = places.find((place) => place.id === selected);
+  const zoom = (by: number) => mapRef.current?.easeTo({ zoom: mapRef.current.getZoom() + by });
   return (
-    <div className={`places-map-frame ${focus ? "places-map-frame--small" : ""}`}>
+    <div className={focus ? "places-map-small" : "places-map-free"}>
       <div ref={container} className="places-map" role="region" aria-label="Սրբավայրերի քարտեզ" />
+      <div className="places-map-zoom">
+        <button type="button" onClick={() => zoom(1)} aria-label="Մոտեցնել"><Plus aria-hidden="true" size={17} /></button>
+        <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>
+      </div>
       {current ? <PlaceCard key={current.id} place={current} onClose={() => setSelected(null)} /> : null}
+      <p className="places-map-credit">{MAP_ATTRIBUTION}</p>
     </div>
   );
 }
