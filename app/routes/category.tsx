@@ -22,7 +22,8 @@ import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles
 import { getActiveCategoryBySlug, listActiveCategories } from "../data/categories.server";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath } from "../data/material-page.server";
-import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, sectionPath } from "../utils/material-path";
+import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, materialPath, sectionPath } from "../utils/material-path";
+import { findPsalmByNumber } from "../data/psalm-neighbors.server";
 import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
@@ -149,6 +150,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const canonical = sectionPath(category);
   if (url.pathname.replace(/\.data$/u, "") !== canonical) throw redirect(`${canonical}${search}`, 301);
 
+  // A psalm's number in the psalms section opens that psalm.
+  if (resolveContentCategoryId(category.id, category.name) === "category_psalms" && /^\d{1,3}$/u.test(query)) {
+    const psalmId = await findPsalmByNumber(env.DB, Number(query));
+    if (psalmId) throw redirect(materialPath(psalmId, "category_psalms", { psalm: Number(query) }));
+  }
   const resolvedQuery = query ? await resolveSearchQuery(env.DB, query) : null;
   const filters: SearchFilters = {
     query,
@@ -476,13 +482,21 @@ export default function Category({ loaderData }: Route.ComponentProps) {
               icon={<Search aria-hidden="true" size={28} strokeWidth={1.6} />}
               title={`«${loaderData.query}» բառով նյութ չկա`}
             >
-              <p>Փորձիր մեկ այլ բառ կամ մաքրիր որոնումը։</p>
-              <Link
-                className="mt-[7px] inline-flex text-[12px] font-bold text-gold-bright no-underline"
-                to={sectionPath(category)}
-              >
-                Ցույց տալ բոլոր նյութերը
-              </Link>
+              <p>Այս բաժնում չգտնվեց։ Որոնե՞լ ամբողջ կայքում։</p>
+              <span className="mt-[9px] flex flex-wrap gap-2">
+                <Link
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-[12px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[12.5px] font-bold text-[#2a1708] no-underline"
+                  to={`/search?q=${encodeURIComponent(loaderData.query)}`}
+                >
+                  Որոնել ամբողջ կայքում
+                </Link>
+                <Link
+                  className="inline-flex min-h-10 items-center rounded-[12px] border border-glass-border px-4 text-[12.5px] font-bold text-gold-bright no-underline"
+                  to={sectionPath(category)}
+                >
+                  Ցույց տալ բաժնի բոլոր նյութերը
+                </Link>
+              </span>
             </EmptyState>
           ) : (
             <EmptyState><p>Այս բաժնում դեռ հրապարակված նյութ չկա։</p></EmptyState>

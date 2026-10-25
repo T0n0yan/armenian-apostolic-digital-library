@@ -7,7 +7,7 @@ import {
   type BridgeRichContent,
 } from "../../shared/telegram-bridge-contract";
 import { getCloudLibraryPost } from "./cloud-library.server";
-import { mediaFallbackUrl, mediaUrl } from "./media-url.server";
+import { gospelVideoCover, mediaFallbackUrl, mediaUrl } from "./media-url.server";
 
 export type MaterialMedia = {
   id: string;
@@ -87,9 +87,9 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
       attached: asset.index >= 100,
       url: mediaUrl(post, asset),
       fallbackUrl: mediaFallbackUrl(post, asset),
-      thumbnailUrl: asset.hasThumbnail
+      thumbnailUrl: (asset.kind === "video" ? gospelVideoCover(post) : null) ?? (asset.hasThumbnail
         ? mediaUrl(post, asset, true)
-        : null,
+        : null),
       thumbnailFallbackUrl: asset.hasThumbnail ? mediaFallbackUrl(post, asset, true) : null,
     })),
   };

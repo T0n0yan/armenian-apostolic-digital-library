@@ -1,5 +1,9 @@
 import { env } from "cloudflare:workers";
 
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { materialPath } from "../utils/material-path";
+import { cardImage } from "../utils/seo";
+
 type MediaEnv = { MEDIA_BASE_URL?: string; MEDIA_DIRECT_FROM?: string };
 
 /**
@@ -42,4 +46,14 @@ export function mediaFallbackUrl(
   const primary = mediaUrl(post, asset, thumbnail);
   const viaWorker = mediaUrl(post, asset, thumbnail, false);
   return primary === viaWorker ? null : viaWorker;
+}
+
+/**
+ * A gospel teaching video's cover: its drawn preview card (title and the clergy member), the same
+ * picture its shared link shows. Telegram's own video covers are often black (a fade-in first frame),
+ * and taking a frame from the video on the phone cost a large download, so the card stands in.
+ */
+export function gospelVideoCover(post: { id: string; categoryId?: string | null; categoryName?: string | null }) {
+  if (resolveContentCategoryId(post.categoryId, post.categoryName) !== "category_gospel_teachings") return null;
+  return cardImage("", materialPath(post.id, "category_gospel_teachings"));
 }
