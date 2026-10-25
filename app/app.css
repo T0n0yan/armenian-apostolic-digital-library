@@ -603,3 +603,9 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 /* Inline validation follows the chosen theme, not only the device setting. */
 .search-validation-error { color: #a53222; }
 :root[data-theme="dark"] .search-validation-error { color: #ffaaa0; }
+
+/* A section's search lights up what it found; the current match glows a little more. */
+a[data-found] { outline: 2px solid rgb(217 181 111 / 55%); outline-offset: 3px; transition: outline-color .3s ease, box-shadow .3s ease; }
+a[data-found="current"] { outline-color: rgb(240 211 151 / 95%); box-shadow: 0 0 0 7px rgb(217 181 111 / 18%), 0 18px 40px rgb(40 20 10 / 25%); animation: found-glow 1.4s ease-out 2; }
+@keyframes found-glow { 0% { box-shadow: 0 0 0 0 rgb(240 211 151 / 55%); } 100% { box-shadow: 0 0 0 14px rgb(240 211 151 / 0%); } }
+@media (prefers-reduced-motion: reduce) { a[data-found="current"] { animation: none; } }

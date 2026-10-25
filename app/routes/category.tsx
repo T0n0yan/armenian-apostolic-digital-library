@@ -23,7 +23,6 @@ import { getActiveCategoryBySlug, listActiveCategories } from "../data/categorie
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath } from "../data/material-page.server";
 import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, materialPath, sectionPath } from "../utils/material-path";
-import { findPsalmByNumber } from "../data/psalm-neighbors.server";
 import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
@@ -112,7 +111,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const query = (url.searchParams.get("q") ?? "")
     .trim()
     .slice(0, 120);
-  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response("Գրեք բառ կամ սաղմոսի համար՝ 1–150։", { status: 400 });
+  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const search = (() => { const kept = new URLSearchParams(url.search); kept.delete("_routes"); const value = kept.toString(); return value ? `?${value}` : ""; })();
   let slug = params.slug;
@@ -145,16 +144,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       statusText: "Not Found",
     });
   }
-  if (query && searchValidation(query, resolveContentCategoryId(category.id, category.name) === "category_psalms")) throw new Response("Գրեք բառ կամ սաղմոսների բաժնում՝ սաղմոսի համար։", { status: 400 });
+  if (query && searchValidation(query, resolveContentCategoryId(category.id, category.name) === "category_psalms")) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
   // /categories/<topic> of a known section moves permanently to its readable address (/psalms).
   const canonical = sectionPath(category);
   if (url.pathname.replace(/\.data$/u, "") !== canonical) throw redirect(`${canonical}${search}`, 301);
 
-  // A psalm's number in the psalms section opens that psalm.
-  if (resolveContentCategoryId(category.id, category.name) === "category_psalms" && /^\d{1,3}$/u.test(query)) {
-    const psalmId = await findPsalmByNumber(env.DB, Number(query));
-    if (psalmId) throw redirect(materialPath(psalmId, "category_psalms", { psalm: Number(query) }));
-  }
   const resolvedQuery = query ? await resolveSearchQuery(env.DB, query) : null;
   const filters: SearchFilters = {
     query,
@@ -447,6 +441,68 @@ export default function Category({ loaderData }: Route.ComponentProps) {
       });
   }, [category.slug, isLoadingMore, loaderData.query, nextCursor, stateKey]);
 
+  // Searching inside a section finds among the section's own items: the page scrolls to the first
+  // match and lights it up (psalms by their number on the phone, words through the library's search),
+  // and only when nothing here matches offers the whole library.
+  const [found, setFound] = useState<{ query: string; ids: string[]; index: number } | null>(null);
+  const [finding, setFinding] = useState(false);
+  const isPsalms = contentCategory === "category_psalms";
+  const hrefOf = useCallback((material: CategoryMaterial) =>
+    materialPath(material.id, contentCategory, { psalm: isPsalms ? psalmNumber(material) : null, title: material.title }), [contentCategory, isPsalms]);
+  const findInSection = useCallback(async (query: string) => {
+    if (!query) { setFound(null); return; }
+    setFinding(true);
+    // Every item of the section on the page first (sections are a few dozen to a few hundred posts).
+    let pool = materials;
+    let cursor = nextCursor;
+    for (let page = 0; cursor && page < 25; page += 1) {
+      const response = await fetch(`/api/categories/${category.slug}/posts?cursor=${encodeURIComponent(cursor)}`).catch(() => null);
+      if (!response?.ok) break;
+      const data = await response.json() as { materials: CategoryMaterial[]; nextCursor: string | null };
+      const byId = new Map(pool.map((material) => [material.id, material]));
+      for (const material of data.materials) if (material.id !== loaderData.intro?.id) byId.set(material.id, material);
+      pool = [...byId.values()];
+      cursor = data.nextCursor;
+    }
+    if (pool !== materials) { setMaterials(pool); setNextCursor(cursor); }
+    let ids: string[] = [];
+    if (isPsalms && /^\d{1,3}$/u.test(query)) {
+      ids = pool.filter((material) => psalmNumber(material) === Number(query)).map((material) => material.id);
+    } else {
+      const response = await fetch(`/api/search-page?category=${encodeURIComponent(category.id)}&q=${encodeURIComponent(query)}`).catch(() => null);
+      const data = response?.ok ? await response.json() as { materials: Array<{ id: string }> } : { materials: [] };
+      const here = new Set(pool.map((material) => material.id));
+      ids = data.materials.map((material) => material.id).filter((id) => here.has(id));
+    }
+    setFound({ query, ids, index: 0 });
+    setFinding(false);
+  }, [category.id, category.slug, isPsalms, loaderData.intro?.id, materials, nextCursor]);
+
+  // A link from elsewhere (/psalms?find=5) finds on arrival.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("find");
+    if (wanted && !searchValidation(wanted, isPsalms)) void findInSection(wanted);
+    // Once per arrival on the section.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category.id]);
+
+  // Light up the matches and bring the current one to the middle of the screen.
+  useEffect(() => {
+    const list = document.querySelector('[aria-labelledby="category-materials-title"]');
+    list?.querySelectorAll("[data-found]").forEach((element) => element.removeAttribute("data-found"));
+    if (!found?.ids.length) return;
+    const wanted = new Set(found.ids.map((id) => materials.find((material) => material.id === id)).filter(Boolean).map((material) => hrefOf(material as CategoryMaterial)));
+    const links = [...(list?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [])].filter((link) => wanted.has(new URL(link.href).pathname));
+    links.forEach((link) => link.setAttribute("data-found", "true"));
+    const currentId = found.ids[found.index % found.ids.length];
+    const currentMaterial = materials.find((material) => material.id === currentId);
+    const current = links.find((link) => currentMaterial && new URL(link.href).pathname === hrefOf(currentMaterial)) ?? links[0];
+    if (!current) return;
+    current.setAttribute("data-found", "current");
+    current.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    current.focus({ preventScroll: true });
+  }, [found, hrefOf, materials]);
+
   return (
     <PageShell>
       <SiteNav />
@@ -460,7 +516,25 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         searchCategoryId={category.id}
         searchLabel={`${category.name} բաժնում որոնում`}
         searchPlaceholder={searchPlaceholder}
+        onSearch={(query) => void findInSection(query)}
       />
+
+      {finding || found ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[16px] border border-glass-border bg-subtle px-4 py-3 text-[13px]" role="status" aria-live="polite">
+          <span className="text-ink">
+            {finding ? "Փնտրում եմ այս բաժնում…"
+              : found?.ids.length ? `«${found.query}»՝ ${found.ids.length > 1 ? `գտնվեց ${found.ids.length} նյութ (${(found.index % found.ids.length) + 1}-րդը)` : "գտնվեց"}`
+                : `«${found?.query}» այս բաժնում չգտնվեց։`}
+          </span>
+          {!finding && found ? (
+            <span className="flex flex-wrap gap-2">
+              {found.ids.length > 1 ? <button type="button" className="min-h-9 cursor-pointer rounded-[10px] border border-glass-border bg-transparent px-3 font-bold text-gold-bright" onClick={() => setFound({ ...found, index: found.index + 1 })}>Հաջորդը</button> : null}
+              {!found.ids.length ? <Link className="inline-flex min-h-9 items-center rounded-[10px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 font-bold text-[#2a1708] no-underline" to={`/search?q=${encodeURIComponent(found.query)}`}>Որոնել ամբողջ կայքում</Link> : null}
+              <button type="button" className="min-h-9 cursor-pointer rounded-[10px] border-0 bg-transparent px-2 text-muted" onClick={() => setFound(null)}>Փակել</button>
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {loaderData.query ? null : SECTION_INTROS[contentCategory]
         ? <div className="mb-4"><SectionIntro {...SECTION_INTROS[contentCategory]} /></div>

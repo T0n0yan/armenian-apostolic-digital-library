@@ -1,8 +1,7 @@
 import { searchValidation } from "../utils/search-validation";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { listCloudLibraryCategories } from "../data/cloud-library.server";
-import { materialPath } from "../utils/material-path";
-import { findPsalmByNumber } from "../data/psalm-neighbors.server";
+import { materialPath, sectionPath } from "../utils/material-path";
 import { env } from "cloudflare:workers";
 import {
   ArrowRight,
@@ -124,7 +123,7 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
-  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response("Գրեք բառ կամ սաղմոսի համար՝ 1–150։", { status: 400 });
+  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
   const categoryId = (url.searchParams.get("category") ?? "").slice(0, 80);
   const scope = url.searchParams.get("scope") === "saved" ? "saved" : "library";
   const filters: SearchFilters = {
@@ -134,11 +133,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     dateFrom: readDate(url.searchParams.get("from")),
     dateTo: readDate(url.searchParams.get("to")),
   };
-  // A psalm's number searched in the psalms section opens that psalm.
+  // A psalm's number searched in the psalms section is shown on the psalms page, highlighted.
   if (categoryId && /^\d{1,3}$/u.test(query)) {
     const section = (await listCloudLibraryCategories(env.DB)).find((item) => item.id === categoryId);
-    const psalmId = resolveContentCategoryId(section?.id, section?.name) === "category_psalms" ? await findPsalmByNumber(env.DB, Number(query)) : null;
-    if (psalmId) throw redirect(materialPath(psalmId, "category_psalms", { psalm: Number(query) }));
+    if (section && resolveContentCategoryId(section.id, section.name) === "category_psalms") throw redirect(`${sectionPath(section)}?find=${query}`);
   }
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const hasSearchQuery = Boolean(query) && !searchValidation(query, true);
@@ -150,7 +148,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     getOptionalTelegramUser(request),
     resolveSearchQuery(env.DB, query),
   ]);
-  if (query && searchValidation(query, resolveContentCategoryId(categoryId, categories.find((item) => item.id === categoryId)?.name) === "category_psalms")) throw new Response("Գրեք բառ կամ սաղմոսների բաժնում՝ սաղմոսի համար։", { status: 400 });
+  if (query && searchValidation(query, resolveContentCategoryId(categoryId, categories.find((item) => item.id === categoryId)?.name) === "category_psalms")) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
   const [libraryPage, allSavedMatches, personalNoteMatches, savedMaterialIds] = await Promise.all([
     hasCriteria && scope === "library"
       ? searchMaterials(env.DB, effectiveFilters, cursor, 20, resolvedQuery, request.signal)

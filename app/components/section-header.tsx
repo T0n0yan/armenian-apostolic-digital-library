@@ -43,6 +43,8 @@ type SectionHeaderProps = {
   searchLabel: string;
   searchPlaceholder: string;
   showSearch?: boolean;
+  /** The page finds the search among its own items (scrolls to and highlights them) instead of loading results. */
+  onSearch?: (query: string) => void;
   title: string;
   description?: string;
 };
@@ -64,6 +66,7 @@ export const SectionHeader = memo(function SectionHeader({
   searchLabel,
   searchPlaceholder,
   showSearch = true,
+  onSearch,
   title,
   description,
 }: SectionHeaderProps) {
@@ -118,7 +121,12 @@ export const SectionHeader = memo(function SectionHeader({
               action={formAction}
               method="get"
               role="search"
-              onSubmit={validateSubmit}
+              onSubmit={(event) => {
+                validateSubmit(event);
+                if (event.defaultPrevented || !onSearch) return;
+                event.preventDefault();
+                onSearch((inputRef.current?.value ?? "").trim());
+              }}
               aria-busy={isSearching || undefined}
             >
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />

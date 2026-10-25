@@ -80,13 +80,13 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
         return (
           <li key={material.id}>
             <Link
-              className="group relative block aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
+              className="group relative block aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,translate,scale,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
               to={targetPath}
               aria-busy={isOpening || undefined}
             >
               {image ? (
                 <img
-                  className="absolute inset-0 h-full w-full object-cover object-top opacity-80 transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(.2,.8,.2,1)] will-change-transform group-hover:scale-[1.04] group-hover:opacity-90"
+                  className="absolute inset-0 h-full w-full object-cover object-top opacity-80 transition-[transform,translate,scale,opacity] duration-[900ms] ease-[cubic-bezier(.2,.8,.2,1)] will-change-transform group-hover:scale-[1.04] group-hover:opacity-90"
                   src={image}
                   alt=""
                   loading={index < 4 ? "eager" : "lazy"}
