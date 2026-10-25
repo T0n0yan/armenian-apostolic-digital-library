@@ -6,5 +6,5 @@ export function searchValidation(value: string, allowPsalmNumber = false): strin
   const visible = Array.from(query.replace(/\s+/gu, ""));
   const letters = visible.filter((character) => /\p{L}/u.test(character)).length;
   if (/\p{L}{2,}/u.test(query) && letters * 2 >= visible.length && query.length <= 120) return null;
-  return allowPsalmNumber ? "Գրեք բառ կամ սաղմոսի համար՝ 1–150։" : "Գրեք առնվազն երկու նիշ պարունակող բառ կամ արտահայտություն։";
+  return allowPsalmNumber ? "Գրեք բառ կամ սաղմոսի համար՝ 1–150։" : "Գրեք բառ կամ արտահայտություն տառերով։";
 }
