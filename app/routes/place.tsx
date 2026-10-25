@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import leafletCss from "leaflet/dist/leaflet.css?url";
+import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { Navigation } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router";
@@ -13,7 +13,7 @@ import { getPlace } from "../data/places.server";
 import { directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 import { seoMeta } from "../utils/seo";
 
-export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: leafletCss }];
+export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const place = await getPlace(env.DB, params.id);

@@ -538,48 +538,28 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 @keyframes install-arrow { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 10px); } }
 @media (prefers-reduced-motion: reduce) { .install-arrow { animation: none; } }
 
-/* Sacred places map (/places): OpenStreetMap toned to parchment, Armenia only, church drawings as
-   markers, and a card that slides up inside the map when one is tapped. */
-.places-map-frame {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgb(217 181 111 / 40%);
-  border-radius: 22px;
-  background: #efe3c8;
-  box-shadow: 0 14px 40px rgb(40 20 10 / 18%);
-}
-.places-map {
-  /* Armenia is about as wide as it is tall on the map: a near-square frame wastes no space on phones. */
+/* Sacred places map (/places): Armenia alone, cut to its border and standing free on the page (no
+   frame), in the site's light or dark colours; a card slides up when a church is tapped. */
+.places-map-free, .places-map-small { position: relative; }
+.places-map-free .places-map {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  max-height: min(74svh, 680px);
+  aspect-ratio: 1 / 0.92;
+  max-height: min(78svh, 720px);
   min-height: 320px;
-  background: #efe3c8;
-  --pin-scale: 1;
+  /* The cut-out shape casts a soft shadow, like a paper map laid on the page. */
+  filter: drop-shadow(0 10px 22px rgb(40 20 10 / 22%));
 }
-.places-map-frame--small .places-map { aspect-ratio: 16 / 10; min-height: 220px; max-height: 360px; }
-.places-map .parchment-tiles { filter: sepia(0.42) saturate(0.78) hue-rotate(-6deg) brightness(1.03) contrast(0.94); }
-.places-map .leaflet-control-attribution { background: rgb(245 236 214 / 85%); color: #6b4f2e; font-size: 10px; }
-.places-map .leaflet-control-zoom a { background: #fbf4e4; color: #6b3f12; border-color: rgb(176 125 46 / 35%); }
-.places-map .leaflet-control-zoom a.leaflet-disabled { color: #c9b48f; background: #f3e9d2; }
-.place-pin { background: none; border: 0; }
-.place-pin-drawing {
-  width: 64px; height: 64px; object-fit: contain;
-  transform: scale(var(--pin-scale)); transform-origin: 50% 94%;
-  filter: drop-shadow(0 2px 2px rgb(60 40 20 / 35%));
-  transition: transform 160ms ease;
+.places-map-small .places-map {
+  width: 100%; aspect-ratio: 16 / 10; min-height: 220px; max-height: 360px;
+  overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: 18px;
 }
-.place-pin:hover .place-pin-drawing { transform: scale(calc(var(--pin-scale) * 1.12)); }
-.place-pin-photo {
-  display: block; width: 46px; height: 46px; overflow: hidden; border-radius: 50%;
-  border: 3px solid #c9a052; box-shadow: 0 3px 10px rgb(40 20 10 / 35%); background: #efe3c8;
-  transform: scale(var(--pin-scale)); transition: transform 160ms ease;
+.places-map-zoom { position: absolute; top: 8px; left: 0; display: grid; gap: 6px; }
+.places-map-zoom button {
+  display: grid; width: 34px; height: 34px; place-items: center; cursor: pointer;
+  border: 1px solid rgb(217 181 111 / 40%); border-radius: 11px; background: var(--page-bg); color: var(--gold-bright);
+  box-shadow: 0 4px 12px rgb(40 20 10 / 18%);
 }
-.place-pin-photo img { width: 100%; height: 100%; object-fit: cover; }
-.place-pin-dot {
-  display: grid; width: 34px; height: 34px; margin: 6px; place-items: center; border-radius: 50%;
-  background: #b07d2e; color: #fff8e8; font-size: 16px; box-shadow: 0 3px 10px rgb(40 20 10 / 35%);
-}
+.places-map-credit { margin: 4px 0 0; text-align: right; font-size: 9.5px; color: var(--faint); opacity: 0.7; }
 .place-card {
   position: absolute; z-index: 1000; right: 10px; bottom: 10px; left: 10px;
   max-width: 420px; margin: 0 auto; padding: 10px;
@@ -593,13 +573,6 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 }
 @keyframes place-card-in { from { opacity: 0; transform: translateY(14px); } }
 @media (prefers-reduced-motion: reduce) { .place-card { animation: none; } }
-/* A group of nearby places on the map, before it comes close enough to show them one by one. */
-.place-cluster { display: grid; place-items: center; }
-.place-cluster span {
-  display: grid; width: 100%; height: 100%; place-items: center; border-radius: 50%;
-  border: 3px solid #fbf4e4; background: linear-gradient(135deg, #d9b56f, #a8752a); color: #2a1708;
-  font: 700 13px/1 system-ui, sans-serif; box-shadow: 0 4px 12px rgb(40 20 10 / 35%);
-}
 /* Inline validation follows the chosen theme, not only the device setting. */
 .search-validation-error { color: #a53222; }
 :root[data-theme="dark"] .search-validation-error { color: #ffaaa0; }
