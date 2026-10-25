@@ -553,7 +553,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
               // What was found: the item and the words in their sentence.
               <p className="m-0 line-clamp-3 text-[12.5px] leading-[1.5] text-muted">
                 <strong className="text-gold-bright">{label}</strong>
-                {hit?.searchHit || hit?.excerpt ? <>{" — "}<SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt} /></> : null}
+                {hit?.searchHit || hit?.excerpt ? <>{" — "}<SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt?.replace(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*`, "u"), "")} /></> : null}
               </p>
             ) : null}
             {!finding && found && !count ? (
