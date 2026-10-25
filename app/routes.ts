@@ -5,6 +5,7 @@ export default [
   route("search", "routes/search.tsx"),
   route("api/search-page", "routes/search-page.ts"),
   route("api/search-suggestions", "routes/search-suggestions.ts"),
+  route("api/content-version", "routes/content-version.ts"),
   route("api/search-index", "routes/search-index.ts"),
   route("saved", "routes/saved.tsx"),
   route("privacy", "routes/privacy.tsx"),

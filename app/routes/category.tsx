@@ -1,3 +1,4 @@
+import { searchValidation } from "../utils/search-validation";
 import { env } from "cloudflare:workers";
 import { Search } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
@@ -110,6 +111,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const query = (url.searchParams.get("q") ?? "")
     .trim()
     .slice(0, 120);
+  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response("Գրեք բառ կամ սաղմոսի համար՝ 1–150։", { status: 400 });
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
   const search = (() => { const kept = new URLSearchParams(url.search); kept.delete("_routes"); const value = kept.toString(); return value ? `?${value}` : ""; })();
   let slug = params.slug;
@@ -142,6 +144,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       statusText: "Not Found",
     });
   }
+  if (query && searchValidation(query, resolveContentCategoryId(category.id, category.name) === "category_psalms")) throw new Response("Գրեք բառ կամ սաղմոսների բաժնում՝ սաղմոսի համար։", { status: 400 });
   // /categories/<topic> of a known section moves permanently to its readable address (/psalms).
   const canonical = sectionPath(category);
   if (url.pathname.replace(/\.data$/u, "") !== canonical) throw redirect(`${canonical}${search}`, 301);
@@ -242,7 +245,7 @@ const MaterialsList = memo(function MaterialsList({
   const typicalType = layout === "text" && polls > 0 && polls >= materials.length / 2 ? "poll" : undefined;
 
   const list = listItems.length > 0 ? (
-    <ol className={`m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2 ${typicalType === "poll" ? "min-[860px]:auto-rows-fr" : ""}`}>
+    <ol className={`m-0 grid list-none gap-2.5 p-0 min-[860px]:grid-cols-2 min-[860px]:auto-rows-fr`}>
       {listItems.map((material) =>
           <MaterialResultCard
             key={material.id}

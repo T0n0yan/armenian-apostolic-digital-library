@@ -214,25 +214,27 @@ telegram_message_count=excluded.telegram_message_count,last_synced_at=excluded.l
 
   isCurrent(material: SyncMaterial) {
     const key = `${material.post.chatId}:${material.post.messageId}`;
-    return !this.metadataOnly && !material.post.deleted
-      && this.hashes.get(key) === material.contentHash
+    const storedHash = this.hashes.get(key);
+    const unchanged = storedHash === material.contentHash || storedHash === material.legacyContentHash;
+    const exists = (media: SyncMaterial["post"]["media"][number], thumbnail: boolean) =>
+      this.objectKeys.has(cloudMediaObjectKey(material, media, thumbnail)) ||
+      (unchanged && Boolean(storedHash) && this.objectKeys.has(cloudMediaObjectKey({ ...material, contentHash: storedHash! }, { ...media, sourceFileId: null }, thumbnail)));
+    return !this.metadataOnly && !material.post.deleted && unchanged
       && this.published.has(key) && this.published.get(key) === (material.post.authorId ?? null)
-      && material.post.media.every((media) => this.objectKeys.has(cloudMediaObjectKey(material, media, false))
-        && (!media.hasThumbnail || this.objectKeys.has(cloudMediaObjectKey(material, media, true))));
+      && material.post.media.every((media) => exists(media, false) && (!media.hasThumbnail || exists(media, true)));
   }
 
   async getCheckpoint(chatId: string, topicId: number) { return this.checkpoints.get(`${chatId}:${topicId}`) ?? null; }
 
   async stageMaterial(material: SyncMaterial, dryRun: boolean) {
     const key = `${material.post.chatId}:${material.post.messageId}`;
-    const unchanged = this.hashes.get(key) === material.contentHash;
     const mediaToUpload = dryRun || this.metadataOnly ? [] : material.post.media.flatMap((media) => {
       const result: Array<{ mediaIndex: number; thumbnail: boolean }> = [];
       const original = cloudMediaObjectKey(material, media, false);
-      if (!unchanged || !this.objectKeys.has(original)) result.push({ mediaIndex: media.index, thumbnail: false });
+      if (!this.objectKeys.has(original)) result.push({ mediaIndex: media.index, thumbnail: false });
       if (media.hasThumbnail) {
         const thumbnail = cloudMediaObjectKey(material, media, true);
-        if (!unchanged || !this.objectKeys.has(thumbnail)) result.push({ mediaIndex: media.index, thumbnail: true });
+        if (!this.objectKeys.has(thumbnail)) result.push({ mediaIndex: media.index, thumbnail: true });
       }
       return result;
     });

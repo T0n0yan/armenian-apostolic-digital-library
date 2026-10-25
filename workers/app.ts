@@ -185,6 +185,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     // carries its version, so it is kept for good, everywhere.
     const versioned = url.pathname === "/api/search-index" && response.headers.get("Cache-Control")?.includes("immutable");
     if (url.pathname === "/api/search-index" && !versioned) return response;
+    if (!import.meta.env.DEV && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))) cacheResponse.headers.set("X-Offline-Public", "1");
     cacheResponse.headers.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "public, max-age=30, s-maxage=300");
     context.waitUntil(cache.put(cacheKey, cacheResponse.clone()));
     return cacheResponse;

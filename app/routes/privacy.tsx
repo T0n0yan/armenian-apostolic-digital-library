@@ -133,7 +133,7 @@ export default function Privacy() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Գաղտնիության քաղաքականություն" />
+      <PageHeader showSearch={false} backTo="/" backLabel="Գրադարան" title="Գաղտնիության քաղաքականություն" />
       <article className="mt-4 grid gap-4">
         <section className={panel}>
           <h2 className={heading}>Ձեր գաղտնիությունը</h2>

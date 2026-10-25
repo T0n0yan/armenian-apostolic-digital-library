@@ -25,7 +25,7 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
           >
             {option.sample ?? option.icon}
             {/* One line in every option, so the rows keep one height. */}
-            <span className="max-w-full truncate whitespace-nowrap tracking-[-0.01em]">{option.label}</span>
+            <span className="max-w-full whitespace-normal text-center leading-tight tracking-[-0.01em]">{option.label}</span>
           </button>
         );
       })}

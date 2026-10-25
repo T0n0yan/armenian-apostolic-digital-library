@@ -29,7 +29,10 @@ export class Clock extends DurableObject<ClockEnv> {
   /** Starts the sync 15 minutes after the latest call. */
   async syncSoon() {
     await this.ctx.storage.put("job", "sync");
-    await this.ctx.storage.setAlarm(Date.now() + SYNC_DELAY_MS);
+    const first = await this.ctx.storage.get<number>("syncFirst") ?? Date.now();
+    await this.ctx.storage.put("syncFirst", first);
+    await this.ctx.storage.put("syncAttempts", 0);
+    await this.ctx.storage.setAlarm(Math.min(Date.now() + SYNC_DELAY_MS, first + 30 * 60_000));
   }
 
   /** Sets the alarm to the next reminder's time (after a reminder is set, moved or snoozed). */
@@ -46,9 +49,17 @@ export class Clock extends DurableObject<ClockEnv> {
   async alarm() {
     const job = await this.ctx.storage.get<string>("job");
     if (job === "sync") {
-      const started = await dispatchCloudSync(this.env);
-      // GitHub unreachable or refusing: try again in a minute rather than lose the new posts.
-      if (!started && this.env.GITHUB_SYNC_TOKEN?.trim()) await this.ctx.storage.setAlarm(Date.now() + RETRY_MS);
+      const started = await dispatchCloudSync(this.env).catch(() => false);
+      // Bounded retry: 1, 2, 4, 8, 16 minutes. Nightly reconciliation remains the fallback.
+      const attempts = (await this.ctx.storage.get<number>("syncAttempts") ?? 0) + 1;
+      if (!started && this.env.GITHUB_SYNC_TOKEN?.trim() && attempts <= 5) {
+        await this.ctx.storage.put("syncAttempts", attempts);
+        await this.ctx.storage.setAlarm(Date.now() + RETRY_MS * 2 ** (attempts - 1));
+      } else {
+        await this.ctx.storage.delete("syncFirst");
+        await this.ctx.storage.delete("syncAttempts");
+        if (!started) console.error("Cloud sync not started; retry budget exhausted or token missing");
+      }
       return;
     }
     if (job !== "reminders" || !this.env.PUBLIC_URL) return;

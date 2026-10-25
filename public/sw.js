@@ -11,13 +11,13 @@
 //   newer deploy has replaced);
 // - pictures from /media: cache first, so thumbnails and saints' icons stay available.
 // Personal and sign-in requests, writes, and audio/video streams are never cached.
-const VERSION = "v5";
+const VERSION = "v6";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const MEDIA = `media-${VERSION}`;
 const STATE = "sw-state";
 const NETWORK_TIMEOUT_MS = 4_000;
-const LIMITS = { [PAGES]: 250, [MEDIA]: 400 };
+const LIMITS = { [STATIC]: 160, [PAGES]: 250, [MEDIA]: 400 };
 
 // The content version and the time of the last write, kept across restarts of the worker. A write
 // is also noted at once in memory: the page reloads its data right after saving.
@@ -69,7 +69,7 @@ async function pageData(request) {
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(PAGES).then((cache) => cache.add("/").catch(() => undefined)));
+  // No precache of HTML: the initial request may carry a signed-in session.
   self.skipWaiting();
 });
 self.addEventListener("activate", (event) => {
@@ -100,8 +100,9 @@ async function cacheFirst(request, name) {
 
 async function networkFirst(request, version = "") {
   const cache = await caches.open(PAGES);
+  const writeAtStart = lastWrite;
   const network = fetch(request).then(async (response) => {
-    if (response.ok) { await cache.put(request, version ? await stamped(response, version) : response.clone()); void trim(PAGES); }
+    if (writeAtStart === lastWrite && response.ok && response.headers.get("X-Offline-Public") === "1" && !/private|no-store/i.test(response.headers.get("Cache-Control") || "")) { await cache.put(request, version ? await stamped(response, version) : response.clone()); void trim(PAGES); }
     return response;
   });
   // A page (HTML) is only ever answered from the cache when offline: an old copy may point at
@@ -130,7 +131,7 @@ self.addEventListener("fetch", (event) => {
   // Saving, a reminder, signing in or out: the kept page data may no longer be right.
   if (url.origin === self.location.origin && (request.method !== "GET" || /^\/(auth|telegram)\//u.test(url.pathname))) {
     lastWrite = Date.now();
-    event.waitUntil(markWrite(lastWrite));
+    event.waitUntil(Promise.all([markWrite(lastWrite), caches.delete(PAGES)]));
   }
   if (request.method !== "GET" || request.headers.has("range")) return;
   // Pictures from the media address (media.apostolic.am, served from R2) are kept like /media ones.

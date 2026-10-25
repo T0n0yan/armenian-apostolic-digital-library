@@ -537,3 +537,7 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 .install-arrow { animation: install-arrow 1.1s ease-in-out infinite; }
 @keyframes install-arrow { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 10px); } }
 @media (prefers-reduced-motion: reduce) { .install-arrow { animation: none; } }
+
+/* Inline validation follows the chosen theme, not only the device setting. */
+.search-validation-error { color: #a53222; }
+:root[data-theme="dark"] .search-validation-error { color: #ffaaa0; }
