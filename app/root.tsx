@@ -13,6 +13,7 @@ import {
 import type { Route } from "./+types/root";
 import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
 import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
+import { ReminderError } from "./components/reminder-error";
 import { CandleLoader } from "./components/candle-loader";
 import { PageShell } from "./components/page-layout";
 import { RouteErrorPage } from "./components/error-page";
@@ -32,6 +33,7 @@ import "./app.css";
 const initialThemeScript = `(() => {
   try {
     const root = document.documentElement;
+    try { if (sessionStorage.getItem("library-loader-seen-v4") === "1") root.dataset.introSeen = "true"; } catch {}
     let telegramTheme = null;
     try {
       const params = new URLSearchParams(location.hash.slice(1));
@@ -360,6 +362,24 @@ export default function App({ loaderData }: Route.ComponentProps) {
     return () => { window.removeEventListener("vite:preloadError", reload); window.removeEventListener("unhandledrejection", onRejection); window.clearTimeout(clear); };
   }, []);
 
+  // Check freshness on return to an open tab; never wake a background tab to poll.
+  useEffect(() => {
+    let lastChecked = Date.now();
+    let active = true;
+    const check = async () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastChecked < 300_000) return;
+      lastChecked = Date.now();
+      const response = await fetch("/api/content-version").catch(() => null);
+      const data = response?.ok ? await response.json().catch(() => null) as { version?: string } | null : null;
+      if (active && data?.version && data.version !== loaderData.contentVersion) {
+        clearNavigationCache();
+        void revalidator.revalidate();
+      }
+    };
+    document.addEventListener("visibilitychange", check);
+    return () => { active = false; document.removeEventListener("visibilitychange", check); };
+  }, [loaderData.contentVersion, revalidator]);
+
   // The service worker answers page data it already has while the content version stays the same.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -441,6 +461,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <CandleLoader />
     <InstallPrompt />
     <ReminderAlarm />
+    <ReminderError />
     <NavigationProgress />
   </>;
 }

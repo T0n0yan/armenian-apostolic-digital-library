@@ -1,7 +1,7 @@
 # Բագեր
 
 ## Հիմա
-- (դատարկ)
+- GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 ## Հերթ
 - Telegram-ում Ղուկաս 4.31–41 գրառման տառասխալը ուղղում է տերը ինքը Telegram-ում (կայքը կթարմանա ինքնաբերաբար)։

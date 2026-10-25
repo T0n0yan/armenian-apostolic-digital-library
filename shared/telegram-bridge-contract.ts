@@ -29,6 +29,8 @@ export type BridgeCategory = {
 export type BridgeMediaKind = "photo" | "video" | "audio" | "voice" | "animation" | "document";
 
 export type BridgeMedia = {
+  /** Stable Telegram file identity; never an access hash or credential. */
+  sourceFileId?: string | null;
   index: number;
   kind: BridgeMediaKind;
   mimeType: string | null;

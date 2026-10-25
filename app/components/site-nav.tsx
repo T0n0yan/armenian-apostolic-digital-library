@@ -19,7 +19,7 @@ const quickItems = [
   { to: "/saved", label: "Իմ անկյունը", icon: Bookmark, end: false },
 ] as const;
 
-const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-[13px] font-semibold text-muted no-underline outline-none transition-[background,color,transform] duration-150 hover:bg-subtle hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] active:scale-[.985]";
+const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-[13px] font-semibold text-muted no-underline outline-none transition-[background,color,transform,translate,scale] duration-150 hover:bg-subtle hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] active:scale-[.985]";
 
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
@@ -53,7 +53,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusable = () => Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled])') ?? [],
+      dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled])') ?? [],
     );
     focusable()[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
@@ -113,9 +113,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             </button>
           </div>
           {view === "settings" ? (
-            <div className="menu-view max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
+            <div className="menu-view no-scrollbar max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
           ) : (
-          <div className="menu-view grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
+          <div className="menu-view no-scrollbar grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
             <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>

@@ -1,3 +1,4 @@
+import { safeReturnPath } from "../utils/return-path";
 import { env } from "cloudflare:workers";
 
 const STATE_COOKIE = "library_google_oauth";
@@ -27,9 +28,7 @@ function redirectUri(request: Request) {
 }
 
 /** Only paths on this site, so the return address can't send the reader elsewhere. */
-export function safeReturnPath(value: string | null) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/saved";
-}
+export { safeReturnPath } from "../utils/return-path";
 
 function readCookie(request: Request, name: string) {
   const header = request.headers.get("cookie") ?? "";
@@ -78,6 +77,7 @@ export async function finishGoogleSignIn(request: Request) {
   let saved: { state?: string; verifier?: string; returnTo?: string } = {};
   try { saved = raw ? JSON.parse(decodeURIComponent(raw)) : {}; } catch { saved = {}; }
   const code = url.searchParams.get("code");
+  if (url.searchParams.get("error") === "access_denied" && saved.state && saved.state === url.searchParams.get("state")) return { profile: null, returnTo: safeReturnPath(saved.returnTo ?? null), clearState, cancelled: true };
   if (!config || !code || !saved.state || saved.state !== url.searchParams.get("state") || !saved.verifier) {
     return { profile: null, returnTo: safeReturnPath(saved.returnTo ?? null), clearState };
   }

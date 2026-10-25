@@ -15,9 +15,9 @@ import prayersImage from "../assets/prayers.webp";
 import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
-import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
+import { useSearchSubmit, useSyncedQueryInput } from "../hooks/use-search-submit";
 import { SearchSuggestions } from "./search-suggestions";
-import { HeaderSearchLink, PageTitle } from "./page-layout";
+import { PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
 import divider2 from "../assets/divider2.webp";
@@ -43,6 +43,8 @@ type SectionHeaderProps = {
   searchLabel: string;
   searchPlaceholder: string;
   showSearch?: boolean;
+  /** The page finds the search among its own items (scrolls to and highlights them) instead of loading results. */
+  onSearch?: (query: string) => void;
   title: string;
   description?: string;
 };
@@ -52,27 +54,6 @@ export const MY_CORNER_IMAGE = myCornerImage;
 export function getCategoryImage(categoryId: string, categoryName?: string | null) {
   const resolved = resolveContentCategoryId(categoryId, categoryName);
   return (resolved && CATEGORY_IMAGES[resolved]) || saintsLivesImage;
-}
-
-function BotanicalDivider() {
-  return (
-    <svg
-      className="h-[18px] w-full max-w-[420px] text-gold"
-      viewBox="0 0 420 18"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path d="M0 9H188" stroke="currentColor" strokeOpacity="0.45" />
-      <path d="M232 9H420" stroke="currentColor" strokeOpacity="0.45" />
-      <path
-        d="M210 9c-8-7-15-5-17-1 7 1 12 5 17 10V9Zm0 0c8-7 15-5 17-1-7 1-12 5-17 10V9Zm0 0V1"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
 }
 
 export const SectionHeader = memo(function SectionHeader({
@@ -85,12 +66,14 @@ export const SectionHeader = memo(function SectionHeader({
   searchLabel,
   searchPlaceholder,
   showSearch = true,
+  onSearch,
   title,
   description,
 }: SectionHeaderProps) {
-  const formAction = searchCategoryId ? "/search" : searchAction;
-  const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
-    useDebouncedFormSubmit(320, 2);
+  // A section searches on its own page (/psalms?q=…); the whole library is offered when nothing is found.
+  const formAction = searchAction;
+  const { validateSubmit, formRef, clearError, submitImmediately, error } =
+    useSearchSubmit(resolveContentCategoryId(searchCategoryId, title) === "category_psalms");
   const inputRef = useSyncedQueryInput(query);
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === formAction;
@@ -105,7 +88,7 @@ export const SectionHeader = memo(function SectionHeader({
           <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
           {backLabel}
         </Link>
-        <HeaderSearchLink />
+
       </div>
       {/*min-[768px]:grid-cols-[minmax(0,0.92fr)_minmax(320px,1.08fr)] min-[768px]:gap-[28px]*/}
       <div className="grid items-center gap-[10px] ">
@@ -138,12 +121,18 @@ export const SectionHeader = memo(function SectionHeader({
               action={formAction}
               method="get"
               role="search"
-              onSubmit={cancelPending}
+              onSubmit={(event) => {
+                validateSubmit(event);
+                if (!onSearch) return;
+                // A refused search also clears what the previous one found.
+                if (event.defaultPrevented) { onSearch(""); return; }
+                event.preventDefault();
+                onSearch((inputRef.current?.value ?? "").trim());
+              }}
               aria-busy={isSearching || undefined}
             >
-              {searchCategoryId ? <input type="hidden" name="category" value={searchCategoryId} /> : null}
               <Search aria-hidden="true" size={19} strokeWidth={1.9} />
-              <SearchSuggestions inputRef={inputRef} onPick={submitImmediately} />
+              <SearchSuggestions categoryId={searchCategoryId} inputRef={inputRef} onPick={submitImmediately} />
               <input
                 className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
                 type="search"
@@ -153,8 +142,10 @@ export const SectionHeader = memo(function SectionHeader({
                 placeholder={searchPlaceholder}
                 aria-label={searchLabel}
                 autoComplete="off"
-                minLength={2}
-                onInput={scheduleSubmit}
+                maxLength={120}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "section-search-error" : undefined}
+                onInput={clearError}
               />
               {query ? (
                 <Link
@@ -166,6 +157,7 @@ export const SectionHeader = memo(function SectionHeader({
                   <X aria-hidden="true" size={17} strokeWidth={2} />
                 </Link>
               ) : null}
+              <button type="submit" aria-label="Որոնել այս բաժնում" className="grid size-11 shrink-0 place-items-center rounded-xl bg-subtle text-gold-bright"><Search size={19} /></button>
               {isSearching ? (
                 <LoaderCircle
                   className="animate-search-spin shrink-0 text-gold"
@@ -175,6 +167,7 @@ export const SectionHeader = memo(function SectionHeader({
               ) : null}
             </Form>
           ) : null}
+          {error ? <p id="section-search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
         </div>
       </div>
     </header>

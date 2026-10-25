@@ -1,3 +1,4 @@
+import { safeReturnPath } from "../utils/return-path";
 import { env } from "cloudflare:workers";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -46,11 +47,11 @@ export default function TelegramSignIn() {
   useEffect(() => {
     // Only a path on this site (as google.server's safeReturnPath, which the page can't import).
     const requested = new URLSearchParams(window.location.search).get("return");
-    const returnTo = requested?.startsWith("/") && !requested.startsWith("//") ? requested : "/saved";
+    const returnTo = safeReturnPath(requested);
     const result = decodeResult(window.location.hash);
     // The signed result should not stay in the address or the history.
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    if (!result) { setFailed(true); return; }
+    if (!result) { window.location.replace(returnTo); return; }
     void fetch("/auth/telegram", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ result }) })
       .then((response) => { if (response.ok) window.location.replace(returnTo); else setFailed(true); })
       .catch(() => setFailed(true));

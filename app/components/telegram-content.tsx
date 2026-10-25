@@ -277,7 +277,7 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
           return (
             <li key={`${index}-${option.text.text}`}>
               {canAnswer ? (
-                <button className={`w-full cursor-pointer rounded-[13px] border p-3.5 text-left transition-[background,transform,border-color] duration-200 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending} onClick={() => vote(index)}>{content}</button>
+                <button className={`w-full cursor-pointer rounded-[13px] border p-3.5 text-left transition-[background,transform,translate,scale,border-color] duration-200 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending} onClick={() => vote(index)}>{content}</button>
               ) : (
                 <div className={`rounded-[13px] border p-3.5 transition-[background,border-color] duration-500 ${tone}`}>{content}</div>
               )}

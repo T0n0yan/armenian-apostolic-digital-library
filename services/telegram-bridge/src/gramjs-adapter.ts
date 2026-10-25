@@ -223,6 +223,7 @@ function mediaFor(source: MediaSource, index: number, title: string) {
   return {
     index,
     kind,
+    sourceFileId: document ? `document-${document.id}` : sourcePhoto(source) ? `photo-${sourcePhoto(source)!.id}` : null,
     mimeType: document?.mimeType ?? (photo ? "image/jpeg" : null),
     fileName: fileNameAttribute(source)?.fileName ?? null,
     sizeBytes: fileSize(document?.size) ?? photo?.size ?? null,

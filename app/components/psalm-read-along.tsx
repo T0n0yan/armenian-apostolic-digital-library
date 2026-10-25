@@ -326,6 +326,7 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
     copiedTimer.current = setTimeout(onClose, 900);
   };
   const share = async () => {
+    onClose();
     if (await shareLink(url()) === "copied") onNotice("Հղումը պատճենվեց");
   };
   if (typeof document === "undefined") return null;
