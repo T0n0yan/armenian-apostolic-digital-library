@@ -123,7 +123,9 @@ export const SectionHeader = memo(function SectionHeader({
               role="search"
               onSubmit={(event) => {
                 validateSubmit(event);
-                if (event.defaultPrevented || !onSearch) return;
+                if (!onSearch) return;
+                // A refused search also clears what the previous one found.
+                if (event.defaultPrevented) { onSearch(""); return; }
                 event.preventDefault();
                 onSearch((inputRef.current?.value ?? "").trim());
               }}
