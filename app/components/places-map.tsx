@@ -132,14 +132,10 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
     let cancelled = false;
     let observer: MutationObserver | null = null;
     void (async () => {
-      const [module, { default: workerUrl }] = await Promise.all([
-        import("maplibre-gl"),
-        import("maplibre-gl/dist/maplibre-gl-worker.mjs?url") as Promise<{ default: string }>,
-      ]);
-      // Named exports in the ES build; some bundlers also add a default.
+      const module = await import("maplibre-gl");
+      // The UMD build arrives as a default export; keep either shape working.
       const maplibre = ((module as unknown as { default?: MapLibre }).default ?? module) as MapLibre;
       if (cancelled || !container.current) return;
-      maplibre.setWorkerUrl(workerUrl);
       const ratio = Math.min(window.devicePixelRatio || 1, 3);
       const armenia = new maplibre.LngLatBounds([ARMENIA_BOUNDS[0][1], ARMENIA_BOUNDS[0][0]], [ARMENIA_BOUNDS[1][1], ARMENIA_BOUNDS[1][0]]);
       const focused = focus ? places.find((place) => place.id === focus) : undefined;
