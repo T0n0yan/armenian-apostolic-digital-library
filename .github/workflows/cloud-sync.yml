@@ -1,4 +1,6 @@
-# Telegram → Cloudflare sync for both sites. Reconciles the content forum into each environment's
+# Telegram → Cloudflare sync. Automatic runs (the Worker's dispatch, the nightly schedule) sync
+# production only; staging is synced by hand (environment: staging) when something needs trying.
+# Reconciles the content forum into the environment's
 # D1/R2: new and edited posts appear, deleted ones are taken down. Started by production's Worker
 # 15 minutes after the last new or edited post in the group (the bot's webhook and its Clock,
 # workers/clock.ts) and once a night by its cron, for deletions; GitHub's own schedule below is
@@ -12,10 +14,10 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Which site to sync (a manual test of new sync code can stay on staging)"
+        description: "Which site to sync. Staging is only synced by hand, to keep its data and load small."
         type: choice
-        options: [both, staging, production]
-        default: both
+        options: [production, staging, both]
+        default: production
       mode:
         description: "reconcile changes the site; dry-run only reports what it would do"
         type: choice
@@ -53,17 +55,17 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
-        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
+        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
       - uses: pnpm/action-setup@v4
-        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
+        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
       - uses: actions/setup-node@v4
-        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
+        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
         with:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
-        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
+        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Reconcile Telegram into Cloudflare
-        if: github.event_name != 'workflow_dispatch' || inputs.environment == '' || inputs.environment == 'both' || inputs.environment == matrix.environment
+        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
         run: node --import tsx services/telegram-bridge/src/cloud-import.ts ${{ inputs.mode == 'dry-run' && 'dry-run' || 'reconcile' }}
