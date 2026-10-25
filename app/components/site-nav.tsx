@@ -54,7 +54,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusable = () => Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled])') ?? [],
+      dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled])') ?? [],
     );
     focusable()[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {

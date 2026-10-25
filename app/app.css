@@ -600,3 +600,6 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
   border: 3px solid #fbf4e4; background: linear-gradient(135deg, #d9b56f, #a8752a); color: #2a1708;
   font: 700 13px/1 system-ui, sans-serif; box-shadow: 0 4px 12px rgb(40 20 10 / 35%);
 }
+/* Inline validation follows the chosen theme, not only the device setting. */
+.search-validation-error { color: #a53222; }
+:root[data-theme="dark"] .search-validation-error { color: #ffaaa0; }

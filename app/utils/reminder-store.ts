@@ -1,5 +1,17 @@
 import { useSyncExternalStore } from "react";
 
+export const REMINDER_ERROR_EVENT = "library:reminder-error";
+async function sendChange(url: string, init: RequestInit): Promise<Response | null> {
+  try {
+    const response = await fetch(url, init);
+    if (!response.ok) throw new Error("Reminder update failed");
+    return response;
+  } catch {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(REMINDER_ERROR_EVENT));
+    return null;
+  }
+}
+
 export type ActiveReminder = { materialId: string; at: string; repeat: string; title: string; categoryName: string | null };
 export type MissedReminder = { materialId: string; rangAt: string; title: string; categoryName: string | null };
 
@@ -69,7 +81,7 @@ function closeSystemNotification(materialId: string) {
 
 /** Tells the server the in-app alarm rang, so the bot and the phone don't announce it again. */
 export function markReminderRung(materialId: string) {
-  const posted = fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, rang: true }) })
+  const posted = sendChange("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, rang: true }) })
     .catch(() => null)
     .finally(() => { if (rungPosts.get(materialId) === posted) rungPosts.delete(materialId); });
   rungPosts.set(materialId, posted);
@@ -96,10 +108,11 @@ export function useMissedReminders() {
 export async function markReminderRead(materialId: string, { quiet = false } = {}) {
   const listed = missed.some((item) => item.materialId === materialId);
   if (quiet && !listed && !rungPosts.has(materialId)) return;
+  await rungPosts.get(materialId);
+  const response = await sendChange("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, read: true }) });
+  if (!response) return;
   changeLocally(reminders, missed.filter((item) => item.materialId !== materialId));
   closeSystemNotification(materialId);
-  await rungPosts.get(materialId);
-  await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, read: true }) }).catch(() => null);
   void loadReminders({ fresh: true });
 }
 
@@ -109,7 +122,7 @@ export async function markReminderDone(materialId: string) {
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   await Promise.all([
     markReminderRead(materialId),
-    fetch("/api/reading-log", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, day, kind: "read" }) }).catch(() => null),
+    sendChange("/api/reading-log", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, day, kind: "read" }) }),
   ]);
 }
 
@@ -118,19 +131,22 @@ export const dismissReminder = (materialId: string) => markReminderRead(material
 
 /** "1 / 5 րոպեից": rings again in a few minutes; until then it leaves the bell's list. */
 export async function snoozeReminder(materialId: string, minutes: 1 | 5) {
+  await rungPosts.get(materialId);
+  const response = await sendChange("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, snooze: minutes }) });
+  if (!response) return;
   changeLocally(reminders, missed.filter((item) => item.materialId !== materialId));
   closeSystemNotification(materialId);
-  await rungPosts.get(materialId);
-  await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, snooze: minutes }) }).catch(() => null);
   void loadReminders({ fresh: true });
 }
 
 /** Cancels a reminder (and its repeats) right away, everywhere it is shown. */
 export async function cancelReminder(materialId: string) {
-  changeLocally(reminders.filter((item) => item.materialId !== materialId), missed.filter((item) => item.materialId !== materialId));
-  closeSystemNotification(materialId);
   await rungPosts.get(materialId);
-  const post = (body: Record<string, unknown>) => fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, ...body }) }).catch(() => null);
-  await Promise.all([post({ remove: true }), post({ read: true })]);
+  const post = (body: Record<string, unknown>) => sendChange("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, ...body }) });
+  const results = await Promise.all([post({ remove: true }), post({ read: true })]);
+  if (results.every(Boolean)) {
+    changeLocally(reminders.filter((item) => item.materialId !== materialId), missed.filter((item) => item.materialId !== materialId));
+    closeSystemNotification(materialId);
+  }
   void loadReminders({ fresh: true });
 }

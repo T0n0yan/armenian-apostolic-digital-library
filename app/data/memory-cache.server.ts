@@ -8,7 +8,7 @@ import { cacheEpoch } from "./site-refresh.server";
  * Only public data goes here, never a reader's own.
  */
 const MAX_ENTRIES = 400;
-const entries = new Map<string, { expiresAt: number; value: Promise<unknown> }>();
+const entries = new Map<string, { expiresAt: number; value: unknown }>();
 
 export async function remember<T>(database: D1Database, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   const fullKey = `${await cacheEpoch(database)}:${key}`;
@@ -18,12 +18,10 @@ export async function remember<T>(database: D1Database, key: string, ttlMs: numb
     // Most recently used last, so the oldest is dropped first.
     entries.delete(fullKey);
     entries.set(fullKey, hit);
-    return hit.value as Promise<T>;
+    return hit.value as T;
   }
-  const value = load();
+  const value = await load();
   entries.set(fullKey, { expiresAt: now + ttlMs, value });
-  // A failed load is not kept.
-  value.catch(() => { if (entries.get(fullKey)?.value === value) entries.delete(fullKey); });
   while (entries.size > MAX_ENTRIES) entries.delete(entries.keys().next().value as string);
   return value;
 }

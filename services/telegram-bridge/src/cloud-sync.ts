@@ -8,6 +8,7 @@ export type SyncMaterial = {
   post: TelegramPost;
   topic: BridgeCategory;
   contentHash: string;
+  legacyContentHash?: string;
   sourceRevision: string;
 };
 
@@ -91,7 +92,7 @@ function stable(value: unknown): unknown {
   return value;
 }
 
-export async function telegramMaterialContentHash(post: TelegramPost) {
+export async function telegramMaterialContentHash(post: TelegramPost, legacy = false) {
   const payload = JSON.stringify(stable({
     ...post,
     searchMatch: undefined,
@@ -99,7 +100,7 @@ export async function telegramMaterialContentHash(post: TelegramPost) {
     // immutable R2 keys derived from them) stay valid.
     authorId: undefined,
     authorName: undefined,
-    media: post.media.map(({ hasThumbnail: _hasThumbnail, ...media }) => media),
+    media: post.media.map(({ hasThumbnail: _hasThumbnail, ...media }) => legacy ? { ...media, sourceFileId: undefined } : media),
   }));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -120,7 +121,8 @@ export function cloudMediaObjectKey(
   media: BridgeMedia,
   thumbnail = false,
 ) {
-  return `v1/${material.post.chatId}/${material.post.messageId}/${material.contentHash}/${media.index}/${thumbnail ? "thumbnail.jpg" : `original.${safeExtension(media)}`}`;
+  const version = media.sourceFileId && /^(document|photo)-[0-9]+$/u.test(media.sourceFileId) ? `file-${media.sourceFileId}` : material.contentHash;
+  return `v1/${material.post.chatId}/${material.post.messageId}/${version}/${media.index}/${thumbnail ? "thumbnail.jpg" : `original.${safeExtension(media)}`}`;
 }
 
 function failureCode(error: unknown) {
@@ -176,7 +178,7 @@ async function syncPost(context: SyncContext, post: TelegramPost, topic: BridgeC
   let ok = true;
   const contentHash = await telegramMaterialContentHash(post);
   const material: SyncMaterial = {
-    post, topic, contentHash,
+    post, topic, contentHash, legacyContentHash: await telegramMaterialContentHash(post, true),
     sourceRevision: post.editedAt ?? post.publishedAt ?? `${post.messageId}`,
   };
   if (target.isCurrent?.(material)) return true;

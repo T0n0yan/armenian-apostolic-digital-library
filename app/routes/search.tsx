@@ -1,3 +1,5 @@
+import { searchValidation } from "../utils/search-validation";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { env } from "cloudflare:workers";
 import {
   ArrowRight,
@@ -16,7 +18,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { Form, Link, useNavigation } from "react-router";
+import { Form, Link, useNavigate, useNavigation } from "react-router";
 
 import type { Route } from "./+types/search";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
@@ -48,7 +50,7 @@ import {
 import { recordSearchAggregate } from "../data/search-analytics.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { useDebouncedFormSubmit, useSyncedQueryInput } from "../hooks/use-debounced-form-submit";
+import { useSearchSubmit, useSyncedQueryInput } from "../hooks/use-search-submit";
 import { SearchSuggestions } from "../components/search-suggestions";
 import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
 import { psalmNumber } from "../utils/psalm-number";
@@ -119,6 +121,7 @@ export function meta({}: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
+  if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response("Գրեք բառ կամ սաղմոսի համար՝ 1–150։", { status: 400 });
   const categoryId = (url.searchParams.get("category") ?? "").slice(0, 80);
   const scope = url.searchParams.get("scope") === "saved" ? "saved" : "library";
   const filters: SearchFilters = {
@@ -129,7 +132,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     dateTo: readDate(url.searchParams.get("to")),
   };
   const cursor = (url.searchParams.get("cursor") ?? "").slice(0, 2_000) || null;
-  const hasSearchQuery = Array.from(query).length >= 2;
+  const hasSearchQuery = Boolean(query) && !searchValidation(query, true);
   const hasCriteria = Boolean(hasSearchQuery || categoryId || scope === "saved");
   const effectiveFilters = hasSearchQuery ? filters : { ...filters, query: "" };
 
@@ -138,6 +141,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     getOptionalTelegramUser(request),
     resolveSearchQuery(env.DB, query),
   ]);
+  if (query && searchValidation(query, resolveContentCategoryId(categoryId, categories.find((item) => item.id === categoryId)?.name) === "category_psalms")) throw new Response("Գրեք բառ կամ սաղմոսների բաժնում՝ սաղմոսի համար։", { status: 400 });
   const [libraryPage, allSavedMatches, personalNoteMatches, savedMaterialIds] = await Promise.all([
     hasCriteria && scope === "library"
       ? searchMaterials(env.DB, effectiveFilters, cursor, 20, resolvedQuery, request.signal)
@@ -268,7 +272,7 @@ async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   const categoryId = (url.searchParams.get("category") ?? "").slice(0, 80);
   if (url.searchParams.get("scope") === "saved" || url.searchParams.get("text") === "1" || url.searchParams.get("from") || url.searchParams.get("to")) return null;
-  if (Array.from(query).length < 2) return null;
+  if (searchValidation(query, true)) return null;
   const index = await loadSearchIndex();
   if (!index) return null;
   const materials = searchTitles(index, query, categoryId);
@@ -312,9 +316,20 @@ const SearchForm = memo(function SearchForm({
   categories: Route.ComponentProps["loaderData"]["categories"];
   filters: SearchFilters;
 }) {
-  const { cancelPending, formRef, scheduleSubmit, submitImmediately } =
-    useDebouncedFormSubmit(320, 2);
+  const { validateSubmit, formRef, clearError, submitImmediately, error } =
+    useSearchSubmit((form) => {
+      const selected = String(new FormData(form).get("category") ?? "");
+      return resolveContentCategoryId(selected, categories.find((category) => category.id === selected)?.name) === "category_psalms";
+    });
   const inputRef = useSyncedQueryInput(filters.query);
+  const navigate = useNavigate();
+  const submitFilters = () => {
+    if (!formRef.current) return;
+    if (inputRef.current?.value.trim()) { submitImmediately(); return; }
+    const params = new URLSearchParams();
+    new FormData(formRef.current).forEach((value, key) => { if (typeof value === "string" && value && key !== "q") params.set(key, value); });
+    void navigate(`/search?${params}`, { preventScrollReset: true });
+  };
   // Arriving from the home search box: keep typing where you left off.
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("focus") !== "1") return;
@@ -327,9 +342,9 @@ const SearchForm = memo(function SearchForm({
   const isSearching = navigation.state !== "idle" && navigation.location?.pathname === "/search";
 
   const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    cancelPending();
+    validateSubmit(event);
     if (!event.currentTarget.checkValidity()) event.preventDefault();
-  }, [cancelPending]);
+  }, [validateSubmit]);
 
   return (
     <Form
@@ -344,7 +359,7 @@ const SearchForm = memo(function SearchForm({
         <input type="hidden" name="scope" value="saved" />
       ) : null}
       <div className="relative flex min-h-[52px] w-full min-w-0 items-center gap-2.5 rounded-2xl border border-glass-border bg-control pl-[13px] text-faint">
-        <SearchSuggestions inputRef={inputRef} onPick={submitImmediately} />
+        <SearchSuggestions categoryId={filters.categoryId} inputRef={inputRef} onPick={submitImmediately} />
         <SearchIcon aria-hidden="true" size={20} strokeWidth={1.9} />
         <input
           className="min-w-0 flex-1 border-0 bg-transparent text-ink outline-none placeholder:text-faint"
@@ -355,8 +370,10 @@ const SearchForm = memo(function SearchForm({
           placeholder="Օրինակ՝ առակ, Սուրբ Մարիամ, աղոթք…"
           aria-label="Որոնման բառեր"
           autoComplete="off"
-          minLength={2}
-          onInput={scheduleSubmit}
+          maxLength={120}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "search-error" : undefined}
+          onInput={clearError}
         />
         {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
         <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 font-[750] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
@@ -368,6 +385,7 @@ const SearchForm = memo(function SearchForm({
         </button>
       </div>
 
+      {error ? <p id="search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
       <details
         className="group w-full min-w-0 overflow-hidden rounded-2xl border border-glass-border bg-subtle"
         open={Boolean(
@@ -392,7 +410,7 @@ const SearchForm = memo(function SearchForm({
               className={`${fieldControl} pr-[42px]`}
               name="category"
               defaultValue={filters.categoryId}
-              onChange={submitImmediately}
+              onChange={submitFilters}
             >
               <option value="">Բոլոր բաժինները</option>
               {categories.map((category) => (
@@ -407,7 +425,7 @@ const SearchForm = memo(function SearchForm({
             {/* Side by side; a tap anywhere on a field opens its calendar. */}
             <div className="grid grid-cols-2 gap-2">
               {([["from", "Սկսած", filters.dateFrom], ["to", "Մինչև", filters.dateTo]] as const).map(([name, label, value]) => (
-                <DateField key={name} name={name} label={label} value={value} onChange={submitImmediately} />
+                <DateField key={name} name={name} label={label} value={value} onChange={submitFilters} />
               ))}
             </div>
           </div>

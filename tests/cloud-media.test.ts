@@ -17,7 +17,7 @@ function fixtures(objects: Record<string, Uint8Array>) {
       const bytes = objects[key];
       if (!bytes) return null;
       const body = options?.range ? bytes.slice(options.range.offset, options.range.offset + options.range.length) : bytes;
-      return { size: bytes.byteLength, body: new Blob([body]).stream() };
+      return { size: bytes.byteLength, body: new Blob([Uint8Array.from(body)]).stream() };
     },
   } as unknown as R2Bucket;
   return { database, bucket };

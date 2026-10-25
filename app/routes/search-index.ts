@@ -1,3 +1,4 @@
+import { remember } from "../data/memory-cache.server";
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/search-index";
@@ -12,6 +13,6 @@ export async function loader({ request }: Route.LoaderArgs) {
   const version = await contentVersion(env.DB);
   const asked = new URL(request.url).searchParams.get("v");
   // An old version asked for: send the current one, but don't let it be kept under the old address.
-  const cache = asked === version ? "public, max-age=31536000, immutable" : "no-store";
-  return Response.json(await buildSearchIndex(env.DB, version), { headers: { "Cache-Control": cache } });
+  if (asked !== version) return new Response(null, { status: 302, headers: { Location: `/api/search-index?v=${encodeURIComponent(version)}`, "Cache-Control": "no-store" } });
+  return Response.json(await remember(env.DB, `title-index:${version}`, 60_000, () => buildSearchIndex(env.DB, version)), { headers: { "Cache-Control": "public, max-age=31536000, immutable", "X-Offline-Public": "1" } });
 }

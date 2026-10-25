@@ -127,7 +127,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader
+      <PageHeader showSearch={false}
         backTo={sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug })}
         backLabel={material.categoryName}
         title={material.title}
