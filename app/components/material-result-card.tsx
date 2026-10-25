@@ -201,6 +201,12 @@ function highlightHit(hit: BridgeSearchHit) {
   return <>{hit.snippet.slice(0, start)}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{hit.snippet.slice(start, end)}</mark>{hit.snippet.slice(end)}</>;
 }
 
+/** The found words in their sentence, as the search results show them (used by a section's find bar). */
+export function SearchSnippet({ hit, excerpt }: { hit?: BridgeSearchHit | null; excerpt?: string | null }) {
+  if (hit?.snippet) return highlightHit(hit);
+  return excerpt ? <>{excerpt}</> : null;
+}
+
 type TelegramWindow = Window & {
   Telegram?: {
     WebApp?: {

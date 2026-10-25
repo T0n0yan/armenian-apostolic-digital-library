@@ -1,6 +1,6 @@
 import { searchValidation } from "../utils/search-validation";
 import { env } from "cloudflare:workers";
-import { Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link, redirect, useNavigation } from "react-router";
 
@@ -31,6 +31,7 @@ import type { PublicMaterial } from "../data/materials.server";
 import { getTopicIntro, listPublicMaterialPageByCategory } from "../data/materials.server";
 import { listSavedMaterialIds } from "../data/saved-materials.server";
 import type { SearchFilters, SearchMaterial } from "../data/search-materials";
+import { SearchSnippet } from "../components/material-result-card";
 import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
@@ -444,7 +445,8 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   // Searching inside a section finds among the section's own items: the page scrolls to the first
   // match and lights it up (psalms by their number on the phone, words through the library's search),
   // and only when nothing here matches offers the whole library.
-  const [found, setFound] = useState<{ query: string; ids: string[]; index: number } | null>(null);
+  type Hit = { id: string; title: string; excerpt?: string | null; searchHit?: SearchMaterial["searchHit"] };
+  const [found, setFound] = useState<{ query: string; ids: string[]; hits: Record<string, Hit>; index: number } | null>(null);
   const [finding, setFinding] = useState(false);
   const isPsalms = contentCategory === "category_psalms";
   const hrefOf = useCallback((material: CategoryMaterial) =>
@@ -466,17 +468,21 @@ export default function Category({ loaderData }: Route.ComponentProps) {
     }
     if (pool !== materials) { setMaterials(pool); setNextCursor(cursor); }
     let ids: string[] = [];
+    const hits: Record<string, Hit> = {};
     if (isPsalms && /^\d{1,3}$/u.test(query)) {
       ids = pool.filter((material) => psalmNumber(material) === Number(query)).map((material) => material.id);
     } else {
       const response = await fetch(`/api/search-page?category=${encodeURIComponent(category.id)}&q=${encodeURIComponent(query)}`).catch(() => null);
-      const data = response?.ok ? await response.json() as { materials: Array<{ id: string }> } : { materials: [] };
+      const data = response?.ok ? await response.json() as { materials: Hit[] } : { materials: [] };
       const here = new Set(pool.map((material) => material.id));
-      ids = data.materials.map((material) => material.id).filter((id) => here.has(id));
+      for (const material of data.materials) if (here.has(material.id)) { ids.push(material.id); hits[material.id] = material; }
     }
-    setFound({ query, ids, index: 0 });
+    setFound({ query, ids, hits, index: 0 });
     setFinding(false);
   }, [category.id, category.slug, isPsalms, loaderData.intro?.id, materials, nextCursor]);
+
+  // Another section starts clean: no earlier search in its field, nothing found yet.
+  useEffect(() => { setFound(null); setFinding(false); }, [category.id]);
 
   // A link from elsewhere (/psalms?find=5) finds on arrival.
   useEffect(() => {
@@ -507,6 +513,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       <SectionHeader
+        key={category.id}
         backTo="/"
         backLabel="Բաժիններ"
         imageSrc={getCategoryImage(category.id, category.name)}
@@ -519,22 +526,42 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         onSearch={(query) => void findInSection(query)}
       />
 
-      {finding || found ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-[16px] border border-glass-border bg-subtle px-4 py-3 text-[13px]" role="status" aria-live="polite">
-          <span className="text-ink">
-            {finding ? "Փնտրում եմ այս բաժնում…"
-              : found?.ids.length ? `«${found.query}»՝ ${found.ids.length > 1 ? `գտնվեց ${found.ids.length} նյութ (${(found.index % found.ids.length) + 1}-րդը)` : "գտնվեց"}`
-                : `«${found?.query}» այս բաժնում չգտնվեց։`}
-          </span>
-          {!finding && found ? (
-            <span className="flex flex-wrap gap-2">
-              {found.ids.length > 1 ? <button type="button" className="min-h-9 cursor-pointer rounded-[10px] border border-glass-border bg-transparent px-3 font-bold text-gold-bright" onClick={() => setFound({ ...found, index: found.index + 1 })}>Հաջորդը</button> : null}
-              {!found.ids.length ? <Link className="inline-flex min-h-9 items-center rounded-[10px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 font-bold text-[#2a1708] no-underline" to={`/search?q=${encodeURIComponent(found.query)}`}>Որոնել ամբողջ կայքում</Link> : null}
-              <button type="button" className="min-h-9 cursor-pointer rounded-[10px] border-0 bg-transparent px-2 text-muted" onClick={() => setFound(null)}>Փակել</button>
-            </span>
-          ) : null}
-        </div>
-      ) : null}
+      {finding || found ? (() => {
+        const count = found?.ids.length ?? 0;
+        const position = count ? (found!.index % count + count) % count : 0;
+        const currentId = count ? found!.ids[position] : null;
+        const current = currentId ? materials.find((material) => material.id === currentId) : null;
+        const hit = currentId ? found?.hits[currentId] : null;
+        const step = (delta: number) => found && setFound({ ...found, index: found.index + delta });
+        const label = current ? (isPsalms && psalmNumber(current) ? `Սաղմոս ${psalmNumber(current)}` : current.title) : "";
+        // Floats at the bottom of the screen, so the matches stay one tap away however far the page scrolls.
+        return (
+          <div className="fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto grid max-w-[560px] gap-1.5 rounded-[18px] border border-[rgb(217_181_111/40%)] bg-[var(--page-bg)] p-3 text-[13px] shadow-[0_18px_44px_rgb(20_10_5/40%)]" role="status" aria-live="polite">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate font-bold text-ink">
+                {finding ? "Փնտրում եմ այս բաժնում…" : count ? `«${found!.query}»՝ ${position + 1} / ${count}` : `«${found?.query}» այս բաժնում չգտնվեց`}
+              </span>
+              {!finding && count > 1 ? (
+                <>
+                  <button type="button" className="grid size-9 cursor-pointer place-items-center rounded-[10px] border border-glass-border bg-transparent text-gold-bright" onClick={() => step(-1)} aria-label="Նախորդը"><ChevronUp aria-hidden="true" size={18} /></button>
+                  <button type="button" className="grid size-9 cursor-pointer place-items-center rounded-[10px] border border-glass-border bg-transparent text-gold-bright" onClick={() => step(1)} aria-label="Հաջորդը"><ChevronDown aria-hidden="true" size={18} /></button>
+                </>
+              ) : null}
+              {!finding ? <button type="button" className="grid size-9 cursor-pointer place-items-center rounded-[10px] border-0 bg-transparent text-muted" onClick={() => setFound(null)} aria-label="Փակել որոնումը"><X aria-hidden="true" size={18} /></button> : null}
+            </div>
+            {!finding && current ? (
+              // What was found: the item and the words in their sentence.
+              <p className="m-0 line-clamp-3 text-[12.5px] leading-[1.5] text-muted">
+                <strong className="text-gold-bright">{label}</strong>
+                {hit?.searchHit || hit?.excerpt ? <>{" — "}<SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt} /></> : null}
+              </p>
+            ) : null}
+            {!finding && found && !count ? (
+              <Link className="inline-flex min-h-9 w-fit items-center rounded-[10px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 font-bold text-[#2a1708] no-underline" to={`/search?q=${encodeURIComponent(found.query)}`}>Որոնել ամբողջ կայքում</Link>
+            ) : null}
+          </div>
+        );
+      })() : null}
 
       {loaderData.query ? null : SECTION_INTROS[contentCategory]
         ? <div className="mb-4"><SectionIntro {...SECTION_INTROS[contentCategory]} /></div>
