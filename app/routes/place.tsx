@@ -72,6 +72,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         {place.description ? <section className={panel}><h2 className={heading}>Պատմություն</h2><p className="m-0 whitespace-pre-line">{place.description}</p></section> : null}
         {place.clergy ? <section className={panel}><h2 className={heading}>Հոգևորականներ</h2><p className="m-0 whitespace-pre-line">{place.clergy}</p></section> : null}
         {place.services ? <section className={panel}><h2 className={heading}>Ժամերգություններ և այցելություն</h2><p className="m-0 whitespace-pre-line">{place.services}</p></section> : null}
+        {place.accessibility ? <section className={panel}><h2 className={heading}>Հասանելիություն</h2><p className="m-0">{place.accessibility}</p></section> : null}
         {video ? <video className="w-full rounded-[18px] bg-black" src={video} controls preload="metadata" playsInline /> : null}
         {embed ? <iframe className="aspect-video w-full rounded-[18px] border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}
         {!video && !embed && place.videoUrl ? <a className="text-gold-bright" href={place.videoUrl} target="_blank" rel="noreferrer">Դիտել տեսանյութը →</a> : null}

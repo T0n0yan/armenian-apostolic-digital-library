@@ -81,7 +81,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <strong className="text-[15px] text-ink">{submission.placeName ? `«${submission.placeName}» · ` : ""}{submission.senderName}</strong>
                 <span className="text-[12px] text-faint">
-                  {formatArmenianDate(submission.createdAt)} · {submission.credit === null ? "անունը նշելու մասին չի պատասխանել" : submission.credit ? "համաձայն է, որ անունը նշվի" : "անանուն"}
+                  {formatArmenianDate(submission.createdAt)} · {submission.credit === null ? "անունը նշելու մասին չի պատասխանել" : submission.credit ? `կայքում նշել «${submission.creditName || submission.senderName}»` : "անանուն"}
                 </span>
               </div>
               {submission.photos.length ? (
@@ -90,7 +90,9 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                 </div>
               ) : <p className="m-0 flex items-center gap-1.5 text-[13px] text-faint"><ImageOff aria-hidden="true" size={15} /> Նկար չկա</p>}
               {submission.videos.length ? <p className="m-0 text-[13px] text-muted">🎬 Տեսանյութ՝ {submission.videos.length}</p> : null}
-              {submission.notes ? <p className="m-0 whitespace-pre-line text-[14px] leading-relaxed text-ink">{submission.notes}</p> : null}
+              {([["Պատմությունը", submission.notes], ["Ով է ծառայում", submission.clergy], ["Ժամերգությունները", submission.services], ["Հասանելիությունը", submission.accessibility]] as const).map(([label, value]) => value ? (
+                <p key={label} className="m-0 whitespace-pre-line text-[14px] leading-relaxed text-ink"><span className="font-semibold text-muted">{label}՝ </span>{value}</p>
+              ) : null)}
               {submission.latitude !== null && submission.longitude !== null ? (
                 <a className="flex w-fit items-center gap-1.5 text-[13px] text-gold-bright" href={`https://www.google.com/maps?q=${submission.latitude},${submission.longitude}`} target="_blank" rel="noreferrer">
                   <MapPin aria-hidden="true" size={15} /> {submission.latitude.toFixed(5)}, {submission.longitude.toFixed(5)}
