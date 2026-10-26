@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import { MapPin, Send } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Check, MapPin, Send, SlidersHorizontal } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/places";
@@ -81,18 +81,43 @@ function ProvincePlaces({ items }: { items: MapPlace[] }) {
 export default function Places({ loaderData }: Route.ComponentProps) {
   const { places } = loaderData;
   const { visited, toggle } = usePlaceVisits();
-  const been = places.filter((place) => visited.has(place.id)).length;
   const [show, setShow] = useState<PlacesShown>("all");
+  // Filters: provinces and kinds ticked (none ticked: all of them).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [provinces, setProvinces] = useState<Set<string>>(() => new Set());
+  const [kinds, setKinds] = useState<Set<string>>(() => new Set());
+  const provinceOf = (place: MapPlace) => place.region.split(", ")[0] || OTHER;
+  const allProvinces = useMemo(() => byProvince(places).map(([name]) => name), [places]);
+  const allKinds = useMemo(() => Object.keys(PLACE_KINDS).filter((kind) => places.some((place) => place.kind === kind)) as Array<keyof typeof PLACE_KINDS>, [places]);
+  const filtered = places.filter((place) => (!provinces.size || provinces.has(provinceOf(place))) && (!kinds.size || kinds.has(place.kind)));
+  const shown = filtered.filter((place) => show === "all" || visited.has(place.id) === (show === "visited"));
+  // A new Set only when what is shown changes, so the map redraws its markers only then.
+  const shownKey = shown.length === places.length ? "" : shown.map((place) => place.id).join(",");
+  const only = useMemo(() => (shownKey ? new Set(shownKey.split(",")) : shown.length ? undefined : new Set<string>()), [shownKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggleIn = (set: Set<string>, value: string, update: (next: Set<string>) => void) => {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value); else next.add(value);
+    update(next);
+  };
+  const chip = (active: boolean, label: string, onClick: () => void) => (
+    <button key={label} type="button" aria-pressed={active} onClick={onClick}
+      className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold transition-colors ${active ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
+      <span className={`grid size-4 place-items-center rounded-[5px] border ${active ? "border-gold-bright bg-gold-bright text-[#2a1708]" : "border-current"}`}>{active ? <Check aria-hidden="true" size={11} strokeWidth={3} /> : null}</span>
+      {label}
+    </button>
+  );
+  const filterCount = provinces.size + kinds.size;
   // One province open at a time; opening another closes it.
   const [open, setOpen] = useState<string | null>(null);
   // Rows of the province list: Yerevan and the rest («Այլ») alone, the provinces two by two.
   const rows: Array<Array<[string, MapPlace[]]>> = [];
-  for (const group of byProvince(places)) {
+  for (const group of byProvince(filtered)) {
     const last = rows.at(-1);
     const alone = group[0] === YEREVAN || group[0] === OTHER;
     if (!alone && last && last.length === 1 && last[0][0] !== YEREVAN && last[0][0] !== OTHER) last.push(group);
     else rows.push([group]);
   }
+  const been = filtered.filter((place) => visited.has(place.id)).length;
   const tile = (value: PlacesShown, count: number, label: string, color: string) => (
     <button type="button" aria-pressed={show === value} onClick={() => setShow(show === value && value !== "all" ? "all" : value)}
       className={`frosted-card cursor-pointer px-2 py-2.5 text-center transition-shadow ${show === value ? "ring-2 ring-[rgb(217_181_111/70%)]" : ""}`}>
@@ -106,13 +131,39 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       <p className="mx-auto mt-2 mb-4 max-w-[620px] text-center text-[14px] leading-relaxed text-muted">
         Հայաստանի վանքերն ու եկեղեցիները քարտեզի վրա։ Հպեք եկեղեցուն՝ տեղեկության և ճանապարհի համար։
       </p>
-      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} show={show} />
+      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|")} />
       {places.length ? (
         // How much of the map the reader has walked; each count shows just those places on the map.
         <div className="mx-auto mt-3 grid w-full max-w-[480px] grid-cols-3 gap-2" role="group" aria-label="Ցույց տալ քարտեզում">
-          {tile("all", places.length, "բոլորը", "text-gold-bright")}
+          {tile("all", filtered.length, "բոլորը", "text-gold-bright")}
           {tile("visited", been, "եղել եմ", "text-[#3f8f5a]")}
-          {tile("unvisited", places.length - been, "դեռ չեմ եղել", "text-[#b8483e]")}
+          {tile("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]")}
+        </div>
+      ) : null}
+      {places.length ? (
+        <div className="mx-auto mt-2 grid w-full max-w-[480px] gap-2">
+          <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}
+            className="mx-auto inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-gold-bright">
+            <SlidersHorizontal aria-hidden="true" size={15} /> Ֆիլտր{filterCount ? ` · ${filterCount}` : ""}
+          </button>
+          {filtersOpen ? (
+            <div className="frosted-card grid gap-3 p-3.5">
+              <div className="grid gap-2">
+                <span className="text-[12px] font-semibold text-faint">Մարզ</span>
+                <div className="flex flex-wrap gap-1.5">{allProvinces.map((name) => chip(provinces.has(name), name, () => toggleIn(provinces, name, setProvinces)))}</div>
+              </div>
+              {allKinds.length > 1 ? (
+                <div className="grid gap-2">
+                  <span className="text-[12px] font-semibold text-faint">Տեսակ</span>
+                  <div className="flex flex-wrap gap-1.5">{allKinds.map((kind) => chip(kinds.has(kind), PLACE_KINDS[kind], () => toggleIn(kinds, kind, setKinds)))}</div>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted">
+                <span>Ցույց է տրված՝ {shown.length} / {places.length}</span>
+                {filterCount ? <button type="button" className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-gold-bright underline" onClick={() => { setProvinces(new Set()); setKinds(new Set()); }}>Մաքրել</button> : null}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
       <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
