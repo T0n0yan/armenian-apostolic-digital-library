@@ -110,6 +110,27 @@ async function photoImage(url: string, ratio: number) {
   return context.getImageData(0, 0, size, size);
 }
 
+/** Drawings appear only this close (about half a kilometre across a phone screen); farther, the disc. */
+const DRAWING_ZOOM = 15.5;
+/** A drawing's largest side on the map, in CSS pixels, whatever size the uploaded file is. */
+const DRAWING_SIZE = 70;
+
+/** A church's drawing scaled down to fit DRAWING_SIZE, sharp on the phone's screen. */
+async function drawingImage(url: string, ratio: number) {
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  image.src = url;
+  await image.decode();
+  const scale = (DRAWING_SIZE * ratio) / Math.max(image.width, image.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const context = canvas.getContext("2d")!;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
 /** Recolours the map for the site's light or dark theme. */
 function applyPalette(map: MapInstance, theme: MapTheme) {
   const colors = MAP_PALETTES[theme];
@@ -145,8 +166,10 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
     features: places.map((place) => ({
       type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [place.longitude, place.latitude] },
       properties: {
-        id: place.id, visited: seen.has(place.id), drawing: Boolean(place.icon), pictured: Boolean(place.icon || place.cover),
-        image: place.icon ? `icon-${place.id}` : place.cover ? `photo-${place.id}` : seen.has(place.id) ? "cross-visited" : "cross-unvisited",
+        id: place.id, visited: seen.has(place.id), drawing: Boolean(place.icon), photo: Boolean(place.cover), pictured: Boolean(place.icon || place.cover),
+        // Far away every place is a small disc (or its round photo); close up, its drawing.
+        far: place.cover ? `photo-${place.id}` : seen.has(place.id) ? "cross-visited" : "cross-unvisited",
+        near: place.icon ? `icon-${place.id}` : place.cover ? `photo-${place.id}` : seen.has(place.id) ? "cross-visited" : "cross-unvisited",
       },
     })),
   });
@@ -171,8 +194,8 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
         container: container.current,
         style: mapStyle(currentTheme()),
         attributionControl: false,
-        dragRotate: false, pitchWithRotate: false, touchPitch: false, maxZoom: 17,
-        ...(focused ? { center: [focused.longitude, focused.latitude] as [number, number], zoom: 13.5 } : { bounds: armenia, fitBoundsOptions: { padding: 14 } }),
+        dragRotate: false, pitchWithRotate: false, touchPitch: false, maxZoom: 18,
+        ...(focused ? { center: [focused.longitude, focused.latitude] as [number, number], zoom: DRAWING_ZOOM + 0.5 } : { bounds: armenia, fitBoundsOptions: { padding: 14 } }),
       });
       map.touchZoomRotate.disableRotation();
       mapRef.current = map;
@@ -211,23 +234,28 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
         m.addLayer({
           id: "places", type: "symbol", source: "places", filter: ["!", ["has", "point_count"]],
           layout: {
-            "icon-image": ["get", "image"], "icon-allow-overlap": true, "icon-anchor": ["case", ["get", "drawing"], "bottom", "center"],
-            // Drawings grow as the map comes closer.
-            "icon-size": ["interpolate", ["linear"], ["zoom"], 8, ["case", ["get", "drawing"], 0.45, 1], 14, ["case", ["get", "drawing"], 0.9, 1]],
+            "icon-image": ["step", ["zoom"], ["get", "far"], DRAWING_ZOOM, ["get", "near"]], "icon-allow-overlap": true,
+            "icon-anchor": ["step", ["zoom"], "center", DRAWING_ZOOM, ["case", ["get", "drawing"], "bottom", "center"]],
           },
         });
 
         // A drawing or photo marker carries its visited colour as a small dot at its foot.
         m.addLayer({
           id: "place-status", type: "circle", source: "places", filter: ["all", ["!", ["has", "point_count"]], ["get", "pictured"]],
-          paint: { "circle-radius": 5, "circle-color": ["case", ["get", "visited"], VISIT_COLORS.visited, VISIT_COLORS.unvisited], "circle-stroke-color": "#fbf4e4", "circle-stroke-width": 1.5 },
+          paint: {
+            "circle-radius": 5, "circle-color": ["case", ["get", "visited"], VISIT_COLORS.visited, VISIT_COLORS.unvisited], "circle-stroke-color": "#fbf4e4", "circle-stroke-width": 1.5,
+            // A far-away drawing place is already a coloured disc: its dot shows only with the drawing.
+            "circle-opacity": ["step", ["zoom"], ["case", ["get", "photo"], 1, 0], DRAWING_ZOOM, 1],
+            "circle-stroke-opacity": ["step", ["zoom"], ["case", ["get", "photo"], 1, 0], DRAWING_ZOOM, 1],
+          },
         });
 
         // Drawings and cover photos arrive one by one; each shows as soon as it is loaded.
         for (const place of places) {
           if (place.icon) {
-            void m.loadImage(placeMediaUrl(place.icon)).then(({ data }) => { if (!m.hasImage(`icon-${place.id}`)) m.addImage(`icon-${place.id}`, data, { pixelRatio: 2 }); }).catch(() => undefined);
-          } else if (place.cover) {
+            void drawingImage(placeMediaUrl(place.icon), ratio).then((data) => { if (!m.hasImage(`icon-${place.id}`)) m.addImage(`icon-${place.id}`, data, { pixelRatio: ratio }); }).catch(() => undefined);
+          }
+          if (place.cover) {
             void photoImage(placeMediaUrl(place.cover), ratio).then((data) => { if (!m.hasImage(`photo-${place.id}`)) m.addImage(`photo-${place.id}`, data, { pixelRatio: ratio }); }).catch(() => undefined);
           }
         }
