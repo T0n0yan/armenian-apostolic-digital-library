@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Info, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
+import { Check, ChevronRight, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -17,10 +17,10 @@ type MapInstance = import("maplibre-gl").Map;
 const currentTheme = (): MapTheme => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 
 /** The card that slides up over the map when a church is tapped. */
-function PlaceCard({ place, onClose, visited, onToggleVisit }: { place: MapPlace; onClose: () => void; visited: boolean; onToggleVisit: () => void }) {
+function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place: MapPlace; onClose: () => void; visited: boolean; onToggleVisit: () => void; closing: boolean }) {
   const picture = place.cover ? placeMediaUrl(place.cover) : place.icon ? placeMediaUrl(place.icon) : null;
   return (
-    <div className="place-card" role="dialog" aria-label={place.name}>
+    <div className={`place-card${closing ? " place-card-closing" : ""}`} role="dialog" aria-label={place.name}>
       <button className="place-card-close" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={16} /></button>
       <div className="flex gap-3">
         <span className={`grid size-[60px] shrink-0 place-items-center overflow-hidden rounded-[14px] ${place.cover ? "" : "bg-[#efe3c8]"}`}>
@@ -49,10 +49,12 @@ function PlaceCard({ place, onClose, visited, onToggleVisit }: { place: MapPlace
 
 /** «Եղել եմ»: green when the reader has been there, an invitation in red when not yet. */
 export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle: () => void }) {
+  // A quiet checkbox: an empty ring until the reader marks it, then a green tick.
   return (
     <button type="button" onClick={onToggle} aria-pressed={visited}
-      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[11px] border text-[13px] font-semibold ${visited ? "border-[rgb(63_143_90/55%)] bg-[rgb(63_143_90/14%)] text-[#3f8f5a]" : "border-[rgb(184_72_62/45%)] bg-[rgb(184_72_62/8%)] text-[#b8483e]"}`}>
-      {visited ? <><Check aria-hidden="true" size={15} /> Եղել եմ այստեղ</> : "Դեռ չեմ եղել · նշել, որ եղել եմ"}
+      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] border text-[13px] font-semibold transition-colors ${visited ? "border-[rgb(63_143_90/45%)] bg-[rgb(63_143_90/12%)] text-[#3f8f5a]" : "border-glass-border bg-subtle text-muted"}`}>
+      <span className={`grid size-[18px] place-items-center rounded-full border-[1.5px] ${visited ? "border-[#3f8f5a] bg-[#3f8f5a] text-white" : "border-current"}`}>{visited ? <Check aria-hidden="true" size={12} strokeWidth={3} /> : null}</span>
+      {visited ? "Եղել եմ այստեղ" : "Նշել, որ եղել եմ"}
     </button>
   );
 }
@@ -173,21 +175,28 @@ function saveView(view: SavedView) {
   try { sessionStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch { /* Private mode: the map just starts over. */ }
 }
 
-export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit, show = "all" }: { places: MapPlace[]; focus?: string; visited?: Set<string>; onToggleVisit?: (id: string) => void; show?: PlacesShown }) {
+export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit, only, fitKey = "" }: {
+  places: MapPlace[]; focus?: string; visited?: Set<string>; onToggleVisit?: (id: string) => void;
+  /** The places the filters leave (all when absent). */
+  only?: Set<string>;
+  /** Changes when the province filter does: the map then frames the places left. */
+  fitKey?: string;
+}) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
-  const [creditOpen, setCreditOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const frame = useRef<HTMLDivElement>(null);
   // The map is built once per list of places; the visited marks and the filter repaint it without rebuilding.
   const visitedRef = useRef(visited);
   visitedRef.current = visited;
-  const showRef = useRef(show);
-  showRef.current = show;
+  const onlyRef = useRef(only);
+  onlyRef.current = only;
   const features = (seen: Set<string>) => ({
     type: "FeatureCollection" as const,
-    features: places.filter((place) => showRef.current === "all" || seen.has(place.id) === (showRef.current === "visited")).map((place) => ({
+    features: places.filter((place) => !onlyRef.current || onlyRef.current.has(place.id)).map((place) => ({
       type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [place.longitude, place.latitude] },
       properties: {
         id: place.id, visited: seen.has(place.id), drawing: Boolean(place.icon), photo: Boolean(place.cover), pictured: Boolean(place.icon || place.cover),
@@ -200,7 +209,35 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   useEffect(() => {
     const source = mapRef.current?.getSource("places") as import("maplibre-gl").GeoJSONSource | undefined;
     source?.setData(features(visited));
-  }, [visited, show]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visited, only]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A province picked in the filters: the map frames its places (not on the first draw, which keeps
+  // where the reader left it).
+  const firstFit = useRef(true);
+  useEffect(() => {
+    if (firstFit.current) { firstFit.current = false; return; }
+    const map = mapRef.current;
+    const shown = places.filter((place) => !only || only.has(place.id));
+    if (!map || !fitKey || !shown.length) return;
+    const lngs = shown.map((place) => place.longitude);
+    const lats = shown.map((place) => place.latitude);
+    map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 50, maxZoom: 13, duration: 700 });
+  }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The card closes with a short fade: by its ✕, a tap on the map, or a tap anywhere else on the page.
+  const close = () => {
+    if (!selectedRef.current) return;
+    setClosing(true);
+    window.setTimeout(() => { setSelected(null); setClosing(false); }, 160);
+  };
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (!selected) return;
+    const outside = (event: PointerEvent) => { if (frame.current && !frame.current.contains(event.target as Node)) closeRef.current(); };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [selected]);
 
   // Back from a place's page: its card opens again where it was.
   useEffect(() => {
@@ -308,7 +345,7 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
             m.easeTo({ center: (feature.geometry as { coordinates: [number, number] }).coordinates, zoom: zoom + 0.3 });
           });
           m.on("click", "places", (event) => { const id = event.features?.[0]?.properties.id; if (typeof id === "string") setSelected(id); });
-          m.on("click", (event) => { if (!m.queryRenderedFeatures(event.point, { layers: ["places", "clusters"] }).length) setSelected(null); });
+          m.on("click", (event) => { if (!m.queryRenderedFeatures(event.point, { layers: ["places", "clusters"] }).length) closeRef.current(); });
           for (const layer of ["places", "clusters"]) {
             m.on("mouseenter", layer, () => { m.getCanvas().style.cursor = "pointer"; });
             m.on("mouseleave", layer, () => { m.getCanvas().style.cursor = ""; });
@@ -329,18 +366,15 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   const current = places.find((place) => place.id === selected);
   const zoom = (by: number) => mapRef.current?.easeTo({ zoom: mapRef.current.getZoom() + by });
   return (
-    <div className={focus ? "places-map-small" : "places-map-free"}>
+    <div ref={frame} className={focus ? "places-map-small" : "places-map-free"}>
       <div ref={container} className="places-map" role="region" aria-label="Սրբավայրերի քարտեզ" />
       <div className="places-map-zoom">
         <button type="button" onClick={() => zoom(1)} aria-label="Մոտեցնել"><Plus aria-hidden="true" size={17} /></button>
         <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>
       </div>
-      {current ? <PlaceCard key={current.id} place={current} onClose={() => setSelected(null)} visited={visited.has(current.id)} onToggleVisit={() => onToggleVisit?.(current.id)} /> : null}
-      {/* The map's sources must be credited; a small ⓘ keeps the map itself clean. */}
-      <button className="places-map-credit-toggle" type="button" onClick={() => setCreditOpen((open) => !open)} aria-expanded={creditOpen} aria-label="Քարտեզի աղբյուրը">
-        <Info aria-hidden="true" size={13} />
-      </button>
-      {creditOpen ? <p className="places-map-credit">{MAP_ATTRIBUTION}</p> : null}
+      {current ? <PlaceCard key={current.id} place={current} onClose={close} closing={closing} visited={visited.has(current.id)} onToggleVisit={() => onToggleVisit?.(current.id)} /> : null}
+      {/* The map's sources must be credited (OpenStreetMap's licence): a quiet line under it, not on it. */}
+      <p className="places-map-credit">{MAP_ATTRIBUTION}</p>
     </div>
   );
 }
