@@ -46,6 +46,8 @@
 			},
 			"vars": {
 				"PUBLIC_URL": "https://staging.apostolic.am",
+				// Test data (places sent, «Եղել եմ», visits) is removed after this many days.
+				"TEST_DATA_DAYS": "3",
 				// Pictures and recordings straight from R2 behind the CDN (app/data/media-url.server.ts).
 				"MEDIA_BASE_URL": "https://media-staging.apostolic.am",
 				// Web Push public key; the private half is the VAPID_PRIVATE_JWK secret.

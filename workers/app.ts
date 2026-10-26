@@ -2,6 +2,7 @@ import { createRequestHandler } from "react-router";
 
 import { cacheEpoch, dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
+import { removeOldData } from "../app/data/retention.server";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -77,12 +78,15 @@ function secure(response: Response) {
 export default {
   async scheduled(_controller, env, context) {
     // Once a night: posts deleted in Telegram send no update, so a full sync takes them down;
-    // the reminders' clock is set again in case it was lost; the webhook asks for every update.
+    // the reminders' clock is set again in case it was lost; the webhook asks for every update; old
+    // data is removed (app/data/retention.server.ts).
     const sync = env as unknown as SyncEnv;
     if (sync.SYNC_ON_POSTS === "1") context.waitUntil(dispatchCloudSync(sync));
     const clock = (env as unknown as ClockEnv).CLOCK;
     if (clock) context.waitUntil(clock.get(clock.idFromName("reminders")).scheduleReminders().catch((error: unknown) => console.error("reminder clock", error)));
     context.waitUntil(ensureWebhookUpdates().catch((error: unknown) => console.error("webhook", error)));
+    const data = env as unknown as { DB: D1Database; TEST_DATA_DAYS?: string };
+    context.waitUntil(removeOldData(data.DB, data.TEST_DATA_DAYS).catch((error: unknown) => console.error("clean-up", error)));
   },
   async fetch(request, env, context) {
     // A failure outside the app's own error pages (the database or the platform) still gets a

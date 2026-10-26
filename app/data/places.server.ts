@@ -9,7 +9,7 @@ export type Place = {
 };
 
 export type PlaceSubmission = {
-  id: number; senderName: string; credit: boolean | null; latitude: number | null; longitude: number | null;
+  id: number; senderName: string; placeName: string; credit: boolean | null; latitude: number | null; longitude: number | null;
   notes: string; photos: string[]; videos: string[]; createdAt: string;
 };
 
@@ -44,17 +44,17 @@ export async function getPlace(db: D1Database, id: string) {
 
 export async function listOpenSubmissions(db: D1Database): Promise<PlaceSubmission[]> {
   const { results } = await db.prepare("SELECT * FROM place_submissions WHERE status = 'open' ORDER BY created_at DESC LIMIT 50").all<{
-    id: number; sender_name: string; credit: number | null; latitude: number | null; longitude: number | null; notes: string;
+    id: number; sender_name: string; place_name: string; credit: number | null; latitude: number | null; longitude: number | null; notes: string;
     photos_json: string; videos_json: string; created_at: string;
   }>();
   return results.map((row) => ({
-    id: row.id, senderName: row.sender_name, credit: row.credit === null ? null : Boolean(row.credit), latitude: row.latitude,
+    id: row.id, senderName: row.sender_name, placeName: row.place_name ?? "", credit: row.credit === null ? null : Boolean(row.credit), latitude: row.latitude,
     longitude: row.longitude, notes: row.notes, photos: list(row.photos_json), videos: list(row.videos_json), createdAt: row.created_at,
   }));
 }
 
 export function dismissSubmission(db: D1Database, id: number) {
-  return db.prepare("UPDATE place_submissions SET status = 'dismissed' WHERE id = ?").bind(id).run();
+  return db.prepare("UPDATE place_submissions SET status = 'dismissed', handled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(id).run();
 }
 
 /** A free address for a new place: its slug, or the slug with -2, -3… */
@@ -147,6 +147,6 @@ export async function placeFromSubmission(db: D1Database, bucket: R2Bucket, toke
     if (file) video = await storePlaceFile(bucket, id, "video", file.body, "video/mp4");
   }
   await setPlacePictures(db, id, { photos, ...(video ? { videoUrl: video } : {}) });
-  await db.prepare("UPDATE place_submissions SET status = 'used', place_id = ? WHERE id = ?").bind(id, submissionId).run();
+  await db.prepare("UPDATE place_submissions SET status = 'used', place_id = ?, handled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(id, submissionId).run();
   return id;
 }
