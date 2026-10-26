@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { CONTACT_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
-import { answerPlaceName, continuePlace, startPlace } from "./place-intake.server";
+import { answerPlaceCallback, continuePlace, startPlace } from "./place-intake.server";
 import { isLibraryPath } from "../utils/material-path";
 import { readerIdFrom, relayedText, SUPPORT_PROMPTS, supportHeader, supportKindFor, type SupportKind } from "../utils/support-relay";
 
@@ -66,7 +66,7 @@ export async function answerUpdate(update: Update) {
   const call = (method: string, body: unknown) => callTelegram(token ?? "", method, body);
   const places = relay ? { chat_id: relay.chat, message_thread_id: relay.places } : null;
   if (token && places && db && update.callback_query?.data?.startsWith("place:")) {
-    await answerPlaceName(call, db, places, update.callback_query);
+    await answerPlaceCallback(call, db, places, update.callback_query);
     return;
   }
   const message = update.message;
@@ -80,7 +80,7 @@ export async function answerUpdate(update: Update) {
   // /place: a reader sends a church or shrine for the map; their messages go to the places topic
   // until they press «Ավարտել».
   if (places && db && message.from && (command === "/place" || (command === "/start" && payload === "place"))) {
-    await startPlace(call, db, message.chat.id, message.from.id);
+    await startPlace(call, db, message.chat.id, message.from);
     return;
   }
   if (places && db && message.from && !text.startsWith("/") && await continuePlace(call, db, places, { ...message, from: message.from })) return;

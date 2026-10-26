@@ -48,7 +48,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!text("name") || !point || !isPlaceKind(kind)) return data({ error: "Ստուգեք անունը, տեսակը և կոորդինատները։" }, { status: 400 });
     await updatePlace(DB, place.id, {
       name: text("name"), kind, ...point, region: text("region"), description: text("description"), clergy: text("clergy"),
-      services: text("services"), videoUrl: text("videoUrl"), creditName: text("creditName"),
+      services: text("services"), accessibility: text("accessibility"), videoUrl: text("videoUrl"), creditName: text("creditName"),
       verified: form.get("verified") === "on", published: form.get("published") === "on",
     });
     return redirect(`/admin/places/${place.id}?saved=1`);
@@ -140,6 +140,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           <label className={fieldLabel}>Պատմություն և տեղեկություն<textarea className={textarea} name="description" defaultValue={place.description} rows={6} /></label>
           <label className={fieldLabel}>Հոգևորականներ<textarea className={textarea} name="clergy" defaultValue={place.clergy} rows={3} placeholder="Տեր Հովհաննես քահանա Աբրահամյան — հոգևոր հովիվ" /></label>
           <label className={fieldLabel}>Ժամերգություններ և այցելություն<textarea className={textarea} name="services" defaultValue={place.services} rows={3} placeholder="Կիրակի՝ Սուրբ Պատարագ 11:00" /></label>
+          <label className={fieldLabel}>Հասանելիություն (սայլակով, քայլելու դժվարությամբ)<input className={fieldControl} name="accessibility" defaultValue={place.accessibility} placeholder="Մասամբ (կան աստիճաններ)" /></label>
           <label className={fieldLabel}>Տեսանյութ
             <input className={fieldControl} name="videoUrl" defaultValue={place.videoUrl} placeholder="YouTube-ի հղում (կամ բոտով ուղարկված տեսանյութը)" />
           </label>

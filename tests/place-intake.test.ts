@@ -3,16 +3,16 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { answerPlaceName, continuePlace, pointFromText, startPlace } from "../app/data/place-intake.server";
+import { answerPlaceCallback, continuePlace, pointFromText, startPlace } from "../app/data/place-intake.server";
 import { insideArmenia, parseCoordinates } from "../app/utils/places";
-import { PLACE_TEXT } from "../app/utils/support-relay";
+import { ACCESS_OPTIONS, PLACE_TEXT } from "../app/utils/support-relay";
 import { removeOldData } from "../app/data/retention.server";
 
 /** Enough of D1 over node:sqlite to run the /place conversation against the real migrations. */
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("CREATE TABLE app_users (id TEXT PRIMARY KEY); CREATE TABLE site_presence (visitor_id TEXT PRIMARY KEY, last_seen TEXT);");
-  for (const file of ["0028_place_drafts", "0029_places", "0033_place_visits", "0034_place_steps"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
+  for (const file of ["0028_place_drafts", "0029_places", "0033_place_visits", "0034_place_steps", "0035_place_details"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
   const statement = (sql: string, values: unknown[] = []) => ({
     bind: (...next: unknown[]) => statement(sql, next),
     run: async () => { sqlite.prepare(sql).run(...(values as never[])); return { success: true }; },
@@ -49,64 +49,131 @@ test("a short Google Maps link is followed to its coordinates", async () => {
   assert.equal(await pointFromText("Հաղպատ", fetcher), null);
 });
 
-test("/place walks the reader through name, location, photos and notes", async () => {
+const name = (text: string) => message({ text });
+const press = (data: string) => ({ id: `q${messageId++}`, data, from: reader, message: { chat: { id: 7 }, message_id: 900 } });
+const toTeam = (tg: ReturnType<typeof telegram>) => tg.calls.filter((item) => item.body.chat_id === -100);
+
+async function upToReview(tg: ReturnType<typeof telegram>, db: D1Database) {
+  await startPlace(tg.call, db, 7, reader);
+  await continuePlace(tg.call, db, topic, name("Սուրբ Գայանե"));
+  await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.2989 } }));
+  await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: "small" }, { file_id: "big" }] }));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  await continuePlace(tg.call, db, topic, name("Կառուցվել է 630 թվականին"));
+  await continuePlace(tg.call, db, topic, name("Հռիփսիմյան կույսերի անունով"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.skip));
+  await continuePlace(tg.call, db, topic, name("Երկուշաբթիից շաբաթ՝ 09:30–10:00, 17:00–17:30"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  await continuePlace(tg.call, db, topic, name(ACCESS_OPTIONS[1]));
+  await continuePlace(tg.call, db, topic, name("Այո՝ «Անի»"));
+}
+
+test("/place asks one thing at a time and sends nothing until the reader confirms", async () => {
   const { db, sqlite } = database();
   const tg = telegram();
-  await startPlace(tg.call, db, 7, 42);
+  await startPlace(tg.call, db, 7, reader);
   assert.equal(tg.texts().at(-1), PLACE_TEXT.askName);
-
-  await continuePlace(tg.call, db, topic, message({ text: "Սուրբ Գայանե" }));
+  await continuePlace(tg.call, db, topic, name("Սուրբ Գայանե"));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.askLocation);
   const keyboard = tg.calls.at(-1)?.body.reply_markup as { keyboard: Array<Array<{ request_location?: boolean }>> };
   assert.equal(keyboard.keyboard[0][0].request_location, true);
-
-  await continuePlace(tg.call, db, topic, message({ text: "չգիտեմ" }));
+  await continuePlace(tg.call, db, topic, name("չգիտեմ"));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.locationHelp);
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 41.7151, longitude: 44.8271 } }));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.outside);
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.2989 } }));
   assert.ok(tg.texts().at(-1)?.endsWith(PLACE_TEXT.askPhotos));
-
   for (let index = 0; index < 12; index += 1) await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: `small${index}` }, { file_id: `big${index}` }] }));
   assert.equal(tg.texts().filter((text) => text === PLACE_TEXT.photoReceived).length, 1);
   assert.equal(tg.texts().filter((text) => text === PLACE_TEXT.tooMany).length, 1);
-  await continuePlace(tg.call, db, topic, message({ text: PLACE_TEXT.next }));
-  assert.equal(tg.texts().at(-1), PLACE_TEXT.askNotes);
-  await continuePlace(tg.call, db, topic, message({ text: "Կառուցվել է 630 թվականին ⚑" }));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.askHistory);
+  // More than one message for the same question: both are kept.
+  await continuePlace(tg.call, db, topic, name("Կառուցվել է 630 թվականին"));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.textAdded);
+  await continuePlace(tg.call, db, topic, name("Հռիփսիմյան կույսերի անունով"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.askClergy);
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.skip));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.askServices);
+  await continuePlace(tg.call, db, topic, name("Կիրակի՝ Սուրբ Պատարագ 11:00"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.askAccess);
+  await continuePlace(tg.call, db, topic, name(ACCESS_OPTIONS[0]));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.askCredit);
+  await continuePlace(tg.call, db, topic, name("Այո՝ «Անի»"));
+  assert.ok(tg.texts().at(-1)?.startsWith(PLACE_TEXT.reviewTitle));
+  assert.equal(toTeam(tg).length, 0);
 
-  await answerPlaceName(tg.call, db, topic, { id: "q", data: "place:named", from: reader, message: { chat: { id: 7 }, message_id: 1 } });
+  await answerPlaceCallback(tg.call, db, topic, press("place:send"));
   const row = sqlite.prepare("SELECT * FROM place_submissions").get() as Record<string, unknown>;
   assert.equal(row.place_name, "Սուրբ Գայանե");
-  assert.equal(row.latitude, 40.1585);
+  assert.equal(row.notes, "Կառուցվել է 630 թվականին\nՀռիփսիմյան կույսերի անունով");
+  assert.equal(row.clergy, "");
+  assert.equal(row.services, "Կիրակի՝ Սուրբ Պատարագ 11:00");
+  assert.equal(row.accessibility, ACCESS_OPTIONS[0]);
+  assert.equal(row.credit_name, "Անի");
   assert.equal(JSON.parse(String(row.photos_json)).length, 10);
-  assert.equal(row.notes, "Կառուցվել է 630 թվականին ⚑");
-  assert.equal(row.credit, 1);
-  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM bot_place_drafts").get()?.n, 0);
-  // The team sees the name, the pin, the photos and the notes under one header.
-  assert.ok(tg.calls.some((item) => item.method === "sendLocation" && item.body.chat_id === -100));
-  assert.equal(tg.calls.filter((item) => item.method === "copyMessage").length, 11);
-  // Once finished, the bot no longer treats the reader's messages as part of the place.
-  assert.equal(await continuePlace(tg.call, db, topic, message({ text: "Բարև" })), false);
+  assert.ok(row.submitted_at);
+  assert.deepEqual(toTeam(tg).map((item) => item.method), ["sendMessage", "sendLocation", "sendMediaGroup"]);
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.sent);
+  assert.equal(await continuePlace(tg.call, db, topic, name("Բարև")), false);
 });
 
-test("«Չեղարկել» ends the conversation at any step", async () => {
+test("from the review any answer can be added to, rewritten or left as it was", async () => {
   const { db, sqlite } = database();
   const tg = telegram();
-  await startPlace(tg.call, db, 7, 42);
-  await continuePlace(tg.call, db, topic, message({ text: "Հաղպատ" }));
-  await continuePlace(tg.call, db, topic, message({ text: PLACE_TEXT.cancel }));
-  assert.equal(tg.texts().at(-1), PLACE_TEXT.cancelled);
-  assert.equal(sqlite.prepare("SELECT status FROM place_submissions").get()?.status, "dismissed");
-  assert.equal(await continuePlace(tg.call, db, topic, message({ text: "x" })), false);
+  await upToReview(tg, db);
+  await answerPlaceCallback(tg.call, db, topic, press("place:edit"));
+  await answerPlaceCallback(tg.call, db, topic, press("place:field:services"));
+  await answerPlaceCallback(tg.call, db, topic, press("place:text:append"));
+  await continuePlace(tg.call, db, topic, name("Կիրակի՝ Սուրբ Պատարագ 11:00"));
+  assert.equal(sqlite.prepare("SELECT services FROM place_submissions").get()?.services, "Երկուշաբթիից շաբաթ՝ 09:30–10:00, 17:00–17:30\nԿիրակի՝ Սուրբ Պատարագ 11:00");
+  assert.ok(tg.texts().at(-1)?.startsWith(PLACE_TEXT.reviewTitle));
+  await answerPlaceCallback(tg.call, db, topic, press("place:field:name"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.back));
+  assert.equal(sqlite.prepare("SELECT place_name FROM place_submissions").get()?.place_name, "Սուրբ Գայանե");
+  await answerPlaceCallback(tg.call, db, topic, press("place:field:history"));
+  await answerPlaceCallback(tg.call, db, topic, press("place:text:replace"));
+  await continuePlace(tg.call, db, topic, name("Կառուցվել է 630 թ."));
+  assert.equal(sqlite.prepare("SELECT notes FROM place_submissions").get()?.notes, "Կառուցվել է 630 թ.");
+  await answerPlaceCallback(tg.call, db, topic, press("place:field:credit"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.anonymous));
+  assert.equal(sqlite.prepare("SELECT credit FROM place_submissions").get()?.credit, 0);
+  assert.equal(toTeam(tg).length, 0);
 });
 
-test("old data is removed: handled submissions after 30 days, staging test data after its days", async () => {
+test("«Չեղարկել» removes everything and tells the team nothing; leftover buttons never reach the team", async () => {
   const { db, sqlite } = database();
-  sqlite.exec(`INSERT INTO place_submissions (telegram_id, sender_name, created_at, handled_at) VALUES
-    (1, 'old handled', '2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'),
-    (2, 'old open', '2020-01-01T00:00:00.000Z', NULL),
-    (3, 'new', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NULL);
+  const tg = telegram();
+  await startPlace(tg.call, db, 7, reader);
+  await continuePlace(tg.call, db, topic, name("Հաղպատ"));
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.cancel));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.cancelled);
+  assert.deepEqual(tg.calls.at(-1)?.body.reply_markup, { remove_keyboard: true });
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM place_submissions").get()?.n, 0);
+  // The old keyboard's buttons pressed later: answered, the keyboard removed, nothing relayed.
+  for (const button of [PLACE_TEXT.cancel, "✅ Ավարտել"]) {
+    assert.equal(await continuePlace(tg.call, db, topic, name(button)), true);
+    assert.equal(tg.texts().at(-1), PLACE_TEXT.stale);
+  }
+  await upToReview(tg, db);
+  await answerPlaceCallback(tg.call, db, topic, press("place:cancel"));
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM place_submissions").get()?.n, 0);
+  assert.equal(toTeam(tg).length, 0);
+  // A press on an old review after cancelling sends nothing either.
+  await answerPlaceCallback(tg.call, db, topic, press("place:send"));
+  assert.equal(toTeam(tg).length, 0);
+});
+
+test("old data is removed: unsent drafts after a day, handled submissions after 30 days, staging test data after its days", async () => {
+  const { db, sqlite } = database();
+  sqlite.exec(`INSERT INTO place_submissions (telegram_id, sender_name, created_at, submitted_at, handled_at) VALUES
+    (1, 'old handled', '2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z', '2020-01-02T00:00:00.000Z'),
+    (2, 'old open', '2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z', NULL),
+    (4, 'old never sent', '2020-01-01T00:00:00.000Z', NULL, NULL),
+    (3, 'new', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), NULL);
     INSERT INTO site_presence VALUES ('a', '2020-01-01T00:00:00.000Z'), ('b', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));`);
   await removeOldData(db);
   assert.deepEqual(sqlite.prepare("SELECT sender_name FROM place_submissions ORDER BY id").all().map((row) => row.sender_name), ["old open", "new"]);
