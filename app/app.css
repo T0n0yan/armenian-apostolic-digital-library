@@ -543,8 +543,6 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 /* Sacred places map (/places): Armenia alone, cut to its border and standing free on the page (no
    frame), in the site's light or dark colours; a card slides up when a church is tapped. */
 .places-map-free, .places-map-small { position: relative; }
-/* On a wide screen the map stays a comfortable size in the middle, not the whole width. */
-@media (min-width: 860px) { .places-map-free { max-width: 720px; margin-inline: auto; } .places-map-free .places-map { max-height: min(64svh, 600px); } }
 .places-map-free .places-map {
   width: 100%;
   aspect-ratio: 1 / 0.92;
@@ -553,6 +551,8 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
   /* The cut-out shape casts a soft shadow, like a paper map laid on the page. */
   filter: drop-shadow(0 10px 22px rgb(40 20 10 / 22%));
 }
+/* On a wide screen the map stays a comfortable size in the middle, not the whole width. */
+@media (min-width: 860px) { .places-map-free { width: 100%; max-width: 1040px; margin-inline: auto; } .places-map-free .places-map { min-height: 560px; max-height: min(72svh, 780px); } }
 .places-map-small .places-map {
   width: 100%; aspect-ratio: 16 / 10; min-height: 220px; max-height: 360px;
   overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: 18px;
