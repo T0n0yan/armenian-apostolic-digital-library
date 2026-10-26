@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { Check, MapPin, Send, SlidersHorizontal } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/places";
@@ -85,6 +85,14 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   const [show, setShow] = useState<PlacesShown>("all");
   // Filters: provinces and kinds ticked (none ticked: all of them).
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterBox = useRef<HTMLDivElement>(null);
+  // A tap anywhere outside the bar and its panel closes the filters.
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const outside = (event: PointerEvent) => { if (filterBox.current && !filterBox.current.contains(event.target as Node)) setFiltersOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [filtersOpen]);
   const [provinces, setProvinces] = useState<Set<string>>(() => new Set());
   const [kinds, setKinds] = useState<Set<string>>(() => new Set());
   const provinceOf = (place: MapPlace) => place.region.split(", ")[0] || OTHER;
@@ -136,7 +144,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       </p>
       {places.length ? (
         // One bar above the map: all / visited / not yet (each shows just those), and the filters.
-        <div className="mx-auto mb-3 grid w-full max-w-[560px] gap-2">
+        <div ref={filterBox} className="relative z-[1100] mx-auto mb-3 grid w-full max-w-[560px] gap-2">
           <div className="flex items-stretch gap-2">
             <div className="frosted-card flex flex-1 gap-1 p-1" role="group" aria-label="Ցույց տալ քարտեզում">
               {segment("all", filtered.length, "բոլորը", "text-gold-bright")}
@@ -149,8 +157,8 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               {filterCount ? <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-gold-bright text-[11px] font-bold text-[#2a1708]">{filterCount}</span> : null}
             </button>
           </div>
-          {filtersOpen ? (
-            <div className="frosted-card grid gap-3 p-3.5">
+          {/* Opens over the map (the page doesn't move), fading and sliding in and out. */}
+          <div className="places-filters absolute rounded-[20px] top-full right-0 left-0 mt-2 grid gap-3 p-3.5" data-open={filtersOpen} aria-hidden={!filtersOpen} inert={!filtersOpen}>
               <div className="grid gap-2">
                 <span className="text-[12px] font-semibold text-faint">Մարզ</span>
                 <div className="flex flex-wrap gap-1.5">{allProvinces.map((name) => chip(provinces.has(name), name, () => toggleIn(provinces, name, setProvinces)))}</div>
@@ -163,10 +171,10 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               ) : null}
               <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted">
                 <span>Ցույց է տրված՝ {shown.length} / {places.length}</span>
-                {filterCount ? <button type="button" className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-gold-bright underline" onClick={() => { setProvinces(new Set()); setKinds(new Set()); }}>Մաքրել</button> : null}
+                {filterCount ? <button type="button" className="cursor-pointer border-0 bg-transparent text-[12.5px] font-semibold text-gold-bright underline" onClick={() => { setProvinces(new Set()); setKinds(new Set()); }}>Մաքրել</button> : <span />}
+                <button type="button" className="inline-flex min-h-8 cursor-pointer items-center rounded-full border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3.5 text-[12.5px] font-bold text-[#2a1708]" onClick={() => setFiltersOpen(false)}>Պատրաստ է</button>
               </div>
             </div>
-          ) : null}
         </div>
       ) : null}
       <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|")} />
