@@ -74,6 +74,8 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   const tg = telegram();
   await startPlace(tg.call, db, 7, reader);
   assert.equal(tg.texts().at(-1), PLACE_TEXT.askName);
+  await continuePlace(tg.call, db, topic, name("Surb Gayane"));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.armenianOnly);
   await continuePlace(tg.call, db, topic, name("Սուրբ Գայանե"));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.askLocation);
   const keyboard = tg.calls.at(-1)?.body.reply_markup as { keyboard: Array<Array<{ request_location?: boolean }>> };
@@ -89,6 +91,8 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(tg.texts().filter((text) => text === PLACE_TEXT.tooMany).length, 1);
   await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.askHistory);
+  await continuePlace(tg.call, db, topic, name("Построена в 630 году"));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.armenianOnly);
   // More than one message for the same question: both are kept.
   await continuePlace(tg.call, db, topic, name("Կառուցվել է 630 թվականին"));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.textAdded);

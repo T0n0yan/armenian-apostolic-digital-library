@@ -141,6 +141,9 @@ async function advance(call: Call, db: D1Database, chat: number, reader: Reader,
   await ask(call, db, chat, reader, next, next.step === "review" ? undefined : prefix);
 }
 
+/** Letters, but none of them Armenian: «Surb Gayane», «Сурб Гаяне». */
+export const notArmenian = (text: string) => /\p{L}/u.test(text) && !/\p{Script=Armenian}/u.test(text);
+
 const short = (text: string, limit: number) => (text.length > limit ? `${text.slice(0, limit - 1)}…` : text);
 
 /** The whole submission as text: for the reader's review and for the team. */
@@ -222,6 +225,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
   switch (draft.step) {
     case "name": {
       if (!text || BUTTONS.has(text)) return ask(call, db, chat, reader, draft).then(() => true);
+      if (notArmenian(text)) return again(PLACE_TEXT.armenianOnly);
       await update("place_name = ?", text.slice(0, 120));
       await advance(call, db, chat, reader, draft);
       return true;
@@ -274,6 +278,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       }
       const words = (message.text ?? message.caption ?? "").trim();
       if (!words || BUTTONS.has(words)) return again(PLACE_TEXT.textHelp);
+      if (notArmenian(words)) return again(PLACE_TEXT.armenianOnly);
       if (draft.mode === "replace") await update(`${column} = substr(?, 1, ${MAX_TEXT})`, words);
       else await update(`${column} = substr(CASE WHEN ${column} = '' THEN ? ELSE ${column} || char(10) || ? END, 1, ${MAX_TEXT})`, words, words);
       // Changing from the review: one message, then back to it. In order: more can follow.
@@ -288,6 +293,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
     case "access": {
       const words = (message.text ?? "").trim();
       if (!words) return again(PLACE_TEXT.textHelp);
+      if (notArmenian(words)) return again(PLACE_TEXT.armenianOnly);
       await update("accessibility = ?", words === "Չգիտեմ" ? "" : words.slice(0, 300));
       await advance(call, db, chat, reader, draft);
       return true;
