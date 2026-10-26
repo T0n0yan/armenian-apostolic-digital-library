@@ -9,6 +9,7 @@ import { PlacesMap, type MapPlace } from "../components/places-map";
 import { SiteNav } from "../components/site-nav";
 import { listPlaces } from "../data/places.server";
 import { PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { usePlaceVisits } from "../utils/place-visits";
 import { seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
@@ -53,6 +54,8 @@ function byProvince(places: MapPlace[]) {
 /** The map of sacred places, and the same places as a list under it. */
 export default function Places({ loaderData }: Route.ComponentProps) {
   const { places } = loaderData;
+  const { visited, toggle } = usePlaceVisits();
+  const been = places.filter((place) => visited.has(place.id)).length;
   return (
     <PageShell>
       <SiteNav />
@@ -60,7 +63,14 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       <p className="mx-auto mt-2 mb-4 max-w-[620px] text-center text-[14px] leading-relaxed text-muted">
         Հայաստանի վանքերն ու եկեղեցիները քարտեզի վրա։ Հպեք եկեղեցուն՝ տեղեկության և ճանապարհի համար։
       </p>
-      <PlacesMap places={places} />
+      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} />
+      {places.length ? (
+        // How much of the map the reader has walked: all places, and those they marked «Եղել եմ».
+        <div className="mx-auto mt-3 grid max-w-[420px] grid-cols-2 gap-2 text-center">
+          <div className="frosted-card px-3 py-2.5"><strong className="block font-noto text-[22px] text-gold-bright">{places.length}</strong><span className="text-[12px] text-muted">սրբավայր քարտեզում</span></div>
+          <div className="frosted-card px-3 py-2.5"><strong className="block font-noto text-[22px] text-[#3f8f5a]">{been}</strong><span className="text-[12px] text-muted">{been ? "որտեղ եղել եք" : "դեռ չեք նշել"}</span></div>
+        </div>
+      ) : null}
       <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
         <Send aria-hidden="true" size={16} /> Ուղարկել սրբավայր (բոտով, անանուն)
       </a>
