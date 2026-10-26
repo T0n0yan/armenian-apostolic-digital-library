@@ -69,6 +69,20 @@ export async function answerUpdate(update: Update) {
     await answerPlaceCallback(call, db, places, update.callback_query);
     return;
   }
+  // The buttons under /start and /help: the same as /contact, /support and /place.
+  const pressed = update.callback_query;
+  if (token && relay && pressed?.data?.startsWith("menu:")) {
+    await call("answerCallbackQuery", { callback_query_id: pressed.id });
+    const chat = pressed.message?.chat.id ?? pressed.from.id;
+    if (pressed.data === "menu:place" && places && db) await startPlace(call, db, chat, pressed.from);
+    else if (pressed.data === "menu:contact" || pressed.data === "menu:support") {
+      await call("sendMessage", {
+        chat_id: chat, text: SUPPORT_PROMPTS[pressed.data === "menu:support" ? "support" : "contact"],
+        reply_markup: { force_reply: true, input_field_placeholder: "Ձեր հաղորդագրությունը…" },
+      });
+    }
+    return;
+  }
   const message = update.message;
   if (!token || !message) return;
   if (message.chat.type === "group" || message.chat.type === "supergroup") return answerGroup(token, relay, message);
@@ -133,7 +147,7 @@ export async function answerUpdate(update: Update) {
         "",
         "Սեղմեք ներքևի կոճակը՝ գրադարանը բացելու համար։ Կարող եք պահել նյութեր, դնել հիշեցումներ և նշել կարդացածը։",
       ].join("\n"),
-      reply_markup: { inline_keyboard: [[{ text: path === "/" ? "📖 Բացել գրադարանը" : "📖 Բացել նյութը", web_app: { url: `${site}${path}` } }]] },
+      reply_markup: { inline_keyboard: [[{ text: path === "/" ? "📖 Բացել գրադարանը" : "📖 Բացել նյութը", web_app: { url: `${site}${path}` } }], ...(relay ? MENU_ROWS : [])] },
     });
     return;
   }
@@ -152,9 +166,15 @@ export async function answerUpdate(update: Update) {
         : [support ? `Հարցերի և առաջարկների համար՝ ${support}` : `Հարցերի և առաջարկների համար՝ ${CONTACT_EMAIL}`, `Տեխնիկական խնդիրների համար՝ ${SUPPORT_EMAIL}`]),
     ].join("\n"),
     link_preview_options: { is_disabled: true },
-    reply_markup: { inline_keyboard: [[{ text: "📖 Բացել գրադարանը", web_app: { url: `${site}/` } }]] },
+    reply_markup: { inline_keyboard: [[{ text: "📖 Բացել գրադարանը", web_app: { url: `${site}/` } }], ...(relay ? MENU_ROWS : [])] },
   });
 }
+
+/** Buttons for writing to the team, under /start and /help (answered in answerUpdate). */
+const MENU_ROWS = [
+  [{ text: "✉️ Հարց կամ առաջարկ", callback_data: "menu:contact" }, { text: "🛠 Տեխնիկական խնդիր", callback_data: "menu:support" }],
+  [{ text: "📍 Ուղարկել սրբավայր", callback_data: "menu:place" }],
+];
 
 /**
  * In groups the bot answers only two things: /chatid (so the owner can find the support group's
