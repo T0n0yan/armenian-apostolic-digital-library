@@ -84,9 +84,9 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   ends(tg, PLACE_TEXT.askName);
   await continuePlace(tg.call, db, topic, name("Չգիտեմ"));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.nameUnknown);
-  // Latin letters are kept, with a reminder that Armenian ones are wished for.
+  // Latin letters are kept as they are (Armenian ones are asked for once, at the start).
   await continuePlace(tg.call, db, topic, name("Surb Grigor"));
-  assert.ok(tg.texts().at(-1)?.startsWith(PLACE_TEXT.armenianTip));
+  assert.ok(tg.texts().at(-1)?.startsWith("2 · "));
   ends(tg, PLACE_TEXT.askKind);
   await answerPlaceCallback(tg.call, db, topic, press("place:cancel"));
   await startPlace(tg.call, db, 7, reader);
