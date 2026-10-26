@@ -179,7 +179,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       ) : null}
       <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|")} />
       <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
-        <Send aria-hidden="true" size={16} /> Ուղարկել սրբավայր բոտով
+        <Send aria-hidden="true" size={16} /> Լրացնել քարտեզը բոտի միջոցով
       </a>
       {places.length ? (
         // Provinces two by two; the open one's places fill the row under it.
