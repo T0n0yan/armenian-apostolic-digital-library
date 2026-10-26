@@ -5,9 +5,13 @@ export const PLACE_KINDS = {
   monastery: "Վանք",
   church: "Եկեղեցի",
   chapel: "Մատուռ",
+  complex: "Համալիր",
   shrine: "Սրբավայր",
 } as const;
 export type PlaceKind = keyof typeof PLACE_KINDS;
+
+/** How the site words whether a church is working (places.active; '' is not known). */
+export const ACTIVE_LABELS: Record<string, string> = { yes: "Գործող է", no: "Չի գործում", renovation: "Վերանորոգվում է" };
 
 export function isPlaceKind(value: unknown): value is PlaceKind {
   return typeof value === "string" && value in PLACE_KINDS;

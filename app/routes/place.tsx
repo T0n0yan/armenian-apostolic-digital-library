@@ -11,7 +11,7 @@ import { PlacesMap, VisitButton } from "../components/places-map";
 import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
 import { getPlace } from "../data/places.server";
-import { directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 import { seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
@@ -56,7 +56,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={place.name} />
-      <p className="mt-1 mb-4 text-center text-[13px] text-muted">{PLACE_KINDS[place.kind]}{place.region ? ` · ${place.region}` : ""}</p>
+      <p className="mt-1 mb-4 text-center text-[13px] text-muted">{PLACE_KINDS[place.kind]}{ACTIVE_LABELS[place.active] ? ` · ${ACTIVE_LABELS[place.active]}` : ""}{place.region ? ` · ${place.region}` : ""}</p>
       <article className="grid gap-4">
         {place.photos.length ? (
           <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-1">
@@ -70,9 +70,21 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13px] text-muted">⚑ Ճշտել. տեղեկությունը ուղարկել են մեր ընթերցողները, և այն դեռ ստուգվում է հոգևորականների կողմից։</p>
         ) : null}
         {place.description ? <section className={panel}><h2 className={heading}>Պատմություն</h2><p className="m-0 whitespace-pre-line">{place.description}</p></section> : null}
-        {place.clergy ? <section className={panel}><h2 className={heading}>Հոգևորականներ</h2><p className="m-0 whitespace-pre-line">{place.clergy}</p></section> : null}
-        {place.services ? <section className={panel}><h2 className={heading}>Ժամերգություններ և այցելություն</h2><p className="m-0 whitespace-pre-line">{place.services}</p></section> : null}
-        {place.accessibility ? <section className={panel}><h2 className={heading}>Հասանելիություն</h2><p className="m-0">{place.accessibility}</p></section> : null}
+        {place.liturgy || place.services ? (
+          <section className={panel}>
+            <h2 className={heading}>Արարողություններ</h2>
+            {place.liturgy ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Սուրբ Պատարագ՝ </strong>{place.liturgy}</p> : null}
+            {place.services ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Ժամերգություններ՝ </strong>{place.services}</p> : null}
+          </section>
+        ) : null}
+        {place.clergy ? <section className={panel}><h2 className={heading}>Ծառայողներ</h2><p className="m-0 whitespace-pre-line">{place.clergy}</p></section> : null}
+        {place.openHours || place.accessibility ? (
+          <section className={panel}>
+            <h2 className={heading}>Այցելություն</h2>
+            {place.openHours ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Բաց է՝ </strong>{place.openHours}</p> : null}
+            {place.accessibility ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Ճանապարհը և մուտքը՝ </strong>{place.accessibility}</p> : null}
+          </section>
+        ) : null}
         {video ? <video className="w-full rounded-[18px] bg-black" src={video} controls preload="metadata" playsInline /> : null}
         {embed ? <iframe className="aspect-video w-full rounded-[18px] border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}
         {!video && !embed && place.videoUrl ? <a className="text-gold-bright" href={place.videoUrl} target="_blank" rel="noreferrer">Դիտել տեսանյութը →</a> : null}
@@ -88,7 +100,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           <PlacesMap places={pin} focus={place.id} visited={visited} />
         </section>
         {place.fromOsm ? <p className="m-0 text-center text-[12px] text-faint">Տեղը և անունը՝ <a className="text-faint underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>-ի մասնակիցներ։</p> : null}
-        {place.creditName ? <p className="m-0 text-center text-[12.5px] text-faint">Նկարներն ու տեղեկությունը ուղարկեց՝ {place.creditName}։ Շնորհակալություն 🙏</p> : null}
+        {place.creditName.trim() ? <p className="m-0 text-center text-[12.5px] text-faint">Նկարներն ու տեղեկությունը ուղարկեց՝ {place.creditName.trim()}։ Շնորհակալություն 🙏</p> : null}
         <Link className="mx-auto text-[13.5px] text-gold-bright" to="/places">← Բոլոր սրբավայրերը քարտեզում</Link>
       </article>
     </PageShell>

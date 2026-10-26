@@ -10,7 +10,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, fieldLabel, panelSection, primaryButton } from "../components/ui-styles";
 import { deletePlace, getPlace, PLACE_UPLOAD_TYPES, setPlacePictures, storePlaceFile, updatePlace } from "../data/places.server";
-import { isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
 
@@ -48,7 +48,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (!text("name") || !point || !isPlaceKind(kind)) return data({ error: "Ստուգեք անունը, տեսակը և կոորդինատները։" }, { status: 400 });
     await updatePlace(DB, place.id, {
       name: text("name"), kind, ...point, region: text("region"), description: text("description"), clergy: text("clergy"),
-      services: text("services"), accessibility: text("accessibility"), videoUrl: text("videoUrl"), creditName: text("creditName"),
+      services: text("services"), accessibility: text("accessibility"),
+      active: ["yes", "no", "renovation"].includes(text("active")) ? text("active") : "", liturgy: text("liturgy"), openHours: text("openHours"), videoUrl: text("videoUrl"), creditName: text("creditName"),
       verified: form.get("verified") === "on", published: form.get("published") === "on",
     });
     return redirect(`/admin/places/${place.id}?saved=1`);
@@ -138,9 +139,17 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
             <span className={fieldHint}>«40.1617, 44.2913» կամ Google Maps-ի հղումը։ <a className="text-gold-bright" href={`https://www.google.com/maps?q=${place.latitude},${place.longitude}`} target="_blank" rel="noreferrer">Ստուգել քարտեզում</a></span>
           </label>
           <label className={fieldLabel}>Պատմություն և տեղեկություն<textarea className={textarea} name="description" defaultValue={place.description} rows={6} /></label>
-          <label className={fieldLabel}>Հոգևորականներ<textarea className={textarea} name="clergy" defaultValue={place.clergy} rows={3} placeholder="Տեր Հովհաննես քահանա Աբրահամյան — հոգևոր հովիվ" /></label>
-          <label className={fieldLabel}>Ժամերգություններ և այցելություն<textarea className={textarea} name="services" defaultValue={place.services} rows={3} placeholder="Կիրակի՝ Սուրբ Պատարագ 11:00" /></label>
-          <label className={fieldLabel}>Հասանելիություն (սայլակով, քայլելու դժվարությամբ)<input className={fieldControl} name="accessibility" defaultValue={place.accessibility} placeholder="Մասամբ (կան աստիճաններ)" /></label>
+          <label className={fieldLabel}>Գործո՞ղ է
+            <select className={fieldControl} name="active" defaultValue={place.active}>
+              <option value="">Հայտնի չէ</option>
+              {Object.entries(ACTIVE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className={fieldLabel}>Սուրբ Պատարագ<input className={fieldControl} name="liturgy" defaultValue={place.liturgy} placeholder="Կիրակի 11:00" /></label>
+          <label className={fieldLabel}>Ժամերգություններ<textarea className={textarea} name="services" defaultValue={place.services} rows={2} placeholder="Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30" /></label>
+          <label className={fieldLabel}>Ծառայողներ (մեկ դեր՝ մեկ տող)<textarea className={textarea} name="clergy" defaultValue={place.clergy} rows={3} placeholder={"Թեմի Առաջնորդ՝ Տեր … Սրբազան\nՔահանա՝ Տեր …, Տեր …\nՍարկավագ՝ …"} /></label>
+          <label className={fieldLabel}>Բաց է<input className={fieldControl} name="openHours" defaultValue={place.openHours} placeholder="Ամեն օր 09:00–18:00" /></label>
+          <label className={fieldLabel}>Ճանապարհը և մուտքը<input className={fieldControl} name="accessibility" defaultValue={place.accessibility} placeholder="Կան աստիճաններ" /></label>
           <label className={fieldLabel}>Տեսանյութ
             <input className={fieldControl} name="videoUrl" defaultValue={place.videoUrl} placeholder="YouTube-ի հղում (կամ բոտով ուղարկված տեսանյութը)" />
           </label>
