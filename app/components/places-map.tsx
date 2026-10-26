@@ -153,17 +153,41 @@ function applyPalette(map: MapInstance, theme: MapTheme) {
  * with every published place on it. Nearby places gather into gold counts; tapping a church opens
  * its card. With `focus`, a small framed map of that one place (a place's own page).
  */
-export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit }: { places: MapPlace[]; focus?: string; visited?: Set<string>; onToggleVisit?: (id: string) => void }) {
+/** Which places the big map shows: all, those marked «Եղել եմ», or the rest. */
+export type PlacesShown = "all" | "visited" | "unvisited";
+
+type SavedView = { lng: number; lat: number; zoom: number; selected: string | null };
+const VIEW_KEY = "library-places-view";
+
+/** Where the reader left the big map (this tab only), so coming back from a place doesn't start over. */
+function savedView(): SavedView | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(VIEW_KEY) ?? "null") as SavedView | null;
+    return value && Number.isFinite(value.lng) && Number.isFinite(value.lat) && Number.isFinite(value.zoom) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveView(view: SavedView) {
+  try { sessionStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch { /* Private mode: the map just starts over. */ }
+}
+
+export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit, show = "all" }: { places: MapPlace[]; focus?: string; visited?: Set<string>; onToggleVisit?: (id: string) => void; show?: PlacesShown }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
   const [creditOpen, setCreditOpen] = useState(false);
-  // The map is built once per list of places; the visited marks repaint it without rebuilding.
+  // The map is built once per list of places; the visited marks and the filter repaint it without rebuilding.
   const visitedRef = useRef(visited);
   visitedRef.current = visited;
+  const showRef = useRef(show);
+  showRef.current = show;
   const features = (seen: Set<string>) => ({
     type: "FeatureCollection" as const,
-    features: places.map((place) => ({
+    features: places.filter((place) => showRef.current === "all" || seen.has(place.id) === (showRef.current === "visited")).map((place) => ({
       type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [place.longitude, place.latitude] },
       properties: {
         id: place.id, visited: seen.has(place.id), drawing: Boolean(place.icon), photo: Boolean(place.cover), pictured: Boolean(place.icon || place.cover),
@@ -176,7 +200,18 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   useEffect(() => {
     const source = mapRef.current?.getSource("places") as import("maplibre-gl").GeoJSONSource | undefined;
     source?.setData(features(visited));
-  }, [visited]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visited, show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Back from a place's page: its card opens again where it was.
+  useEffect(() => {
+    if (!focus) setSelected(savedView()?.selected ?? null);
+  }, [focus]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (focus || !map) return;
+    const center = map.getCenter();
+    saveView({ lng: center.lng, lat: center.lat, zoom: map.getZoom(), selected });
+  }, [selected, focus]);
 
   useEffect(() => {
     let map: MapInstance | null = null;
@@ -190,12 +225,15 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       const ratio = Math.min(window.devicePixelRatio || 1, 3);
       const armenia = new maplibre.LngLatBounds([ARMENIA_BOUNDS[0][1], ARMENIA_BOUNDS[0][0]], [ARMENIA_BOUNDS[1][1], ARMENIA_BOUNDS[1][0]]);
       const focused = focus ? places.find((place) => place.id === focus) : undefined;
+      const left = focus ? null : savedView();
       map = new maplibre.Map({
         container: container.current,
         style: mapStyle(currentTheme()),
         attributionControl: false,
         dragRotate: false, pitchWithRotate: false, touchPitch: false, maxZoom: 18,
-        ...(focused ? { center: [focused.longitude, focused.latitude] as [number, number], zoom: DRAWING_ZOOM + 0.5 } : { bounds: armenia, fitBoundsOptions: { padding: 14 } }),
+        ...(focused ? { center: [focused.longitude, focused.latitude] as [number, number], zoom: DRAWING_ZOOM + 0.5 }
+          : left ? { center: [left.lng, left.lat] as [number, number], zoom: left.zoom }
+          : { bounds: armenia, fitBoundsOptions: { padding: 14 } }),
       });
       map.touchZoomRotate.disableRotation();
       mapRef.current = map;
@@ -210,7 +248,8 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
 
       m.on("load", () => {
         if (!focus) {
-          m.setMinZoom(m.getZoom() - 0.1);
+          // No farther out than all of Armenia, also when the map opened where the reader left it.
+          m.setMinZoom((m.cameraForBounds(armenia, { padding: 14 })?.zoom ?? m.getZoom()) - 0.1);
           m.setMaxBounds([[armenia.getWest() - 0.6, armenia.getSouth() - 0.4], [armenia.getEast() + 0.6, armenia.getNorth() + 0.4]]);
         }
         m.addSource("armenia", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: ARMENIA_BORDER.map((ring) => ring.map(([lat, lng]) => [lng, lat])) } } });
@@ -278,6 +317,7 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
         clip();
       });
       m.on("move", clip);
+      if (!focus) m.on("moveend", () => { const center = m.getCenter(); saveView({ lng: center.lng, lat: center.lat, zoom: m.getZoom(), selected: selectedRef.current }); });
       m.on("resize", clip);
       // The site's theme can change while the map is open (settings, sunset).
       observer = new MutationObserver(() => applyPalette(m, currentTheme()));
