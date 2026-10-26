@@ -47,6 +47,7 @@ export default [
   route("places", "routes/places.tsx"),
   route("places/:id", "routes/place.tsx"),
   route("place-media/:placeId/:file", "routes/place-media.ts"),
+  route("api/place-visits", "routes/place-visits.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),

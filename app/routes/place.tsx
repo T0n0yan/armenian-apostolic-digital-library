@@ -7,7 +7,8 @@ import { Link } from "react-router";
 import type { Route } from "./+types/place";
 import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
-import { PlacesMap } from "../components/places-map";
+import { PlacesMap, VisitButton } from "../components/places-map";
+import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
 import { getPlace } from "../data/places.server";
 import { directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
@@ -48,6 +49,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
   const { place } = loaderData;
   const video = place.videoUrl.startsWith("places/") ? placeMediaUrl(place.videoUrl) : null;
   const embed = video ? null : youtubeEmbed(place.videoUrl);
+  const { visited, toggle } = usePlaceVisits();
   // One array per place, so the small map is drawn once and not again on every render.
   const pin = useMemo(() => [{ id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region, summary: "", icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified }], [place]);
   return (
@@ -63,6 +65,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             ))}
           </div>
         ) : null}
+        <div className="mx-auto w-full max-w-[420px]"><VisitButton visited={visited.has(place.id)} onToggle={() => toggle(place.id)} /></div>
         {!place.verified ? (
           <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13px] text-muted">⚑ Ճշտել. տեղեկությունը ուղարկել են մեր ընթերցողները, և այն դեռ ստուգվում է հոգևորականների կողմից։</p>
         ) : null}
@@ -81,7 +84,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
               </a>
             ))}
           </div>
-          <PlacesMap places={pin} focus={place.id} />
+          <PlacesMap places={pin} focus={place.id} visited={visited} />
         </section>
         {place.fromOsm ? <p className="m-0 text-center text-[12px] text-faint">Տեղը և անունը՝ <a className="text-faint underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>-ի մասնակիցներ։</p> : null}
         {place.creditName ? <p className="m-0 text-center text-[12.5px] text-faint">Նկարներն ու տեղեկությունը ուղարկեց՝ {place.creditName}։ Շնորհակալություն 🙏</p> : null}

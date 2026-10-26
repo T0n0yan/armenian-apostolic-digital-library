@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
+import { Check, ChevronRight, Info, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -17,7 +17,7 @@ type MapInstance = import("maplibre-gl").Map;
 const currentTheme = (): MapTheme => (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 
 /** The card that slides up over the map when a church is tapped. */
-function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void }) {
+function PlaceCard({ place, onClose, visited, onToggleVisit }: { place: MapPlace; onClose: () => void; visited: boolean; onToggleVisit: () => void }) {
   const picture = place.cover ? placeMediaUrl(place.cover) : place.icon ? placeMediaUrl(place.icon) : null;
   return (
     <div className="place-card" role="dialog" aria-label={place.name}>
@@ -32,7 +32,8 @@ function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void })
           {place.summary ? <p className="m-0 mt-0.5 line-clamp-1 text-[12.5px] leading-snug text-muted">{place.summary}</p> : null}
         </div>
       </div>
-      <div className="mt-2.5 flex items-center gap-1.5">
+      <VisitButton visited={visited} onToggle={onToggleVisit} />
+      <div className="mt-2 flex items-center gap-1.5">
         <Link className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-[11px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
           Մանրամասն <ChevronRight aria-hidden="true" size={15} />
         </Link>
@@ -46,24 +47,33 @@ function PlaceCard({ place, onClose }: { place: MapPlace; onClose: () => void })
   );
 }
 
-/** A gold disc with a cross: the marker of a place that has no drawing or photo yet. */
-function crossImage(ratio: number) {
+/** «Եղել եմ»: green when the reader has been there, an invitation in red when not yet. */
+export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle} aria-pressed={visited}
+      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[11px] border text-[13px] font-semibold ${visited ? "border-[rgb(63_143_90/55%)] bg-[rgb(63_143_90/14%)] text-[#3f8f5a]" : "border-[rgb(184_72_62/45%)] bg-[rgb(184_72_62/8%)] text-[#b8483e]"}`}>
+      {visited ? <><Check aria-hidden="true" size={15} /> Եղել եմ այստեղ</> : "Դեռ չեմ եղել · նշել, որ եղել եմ"}
+    </button>
+  );
+}
+
+const VISIT_COLORS = { visited: "#3f8f5a", unvisited: "#b8483e" } as const;
+
+/** A disc with a cross: the marker of a place with no drawing or photo; green once visited, red until then. */
+function crossImage(ratio: number, color: string) {
   const size = Math.round(34 * ratio);
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const context = canvas.getContext("2d")!;
-  const gradient = context.createLinearGradient(0, 0, size, size);
-  gradient.addColorStop(0, "#e2c27e");
-  gradient.addColorStop(1, "#a8752a");
   context.beginPath();
   context.arc(size / 2, size / 2, size / 2 - 2 * ratio, 0, Math.PI * 2);
-  context.fillStyle = gradient;
+  context.fillStyle = color;
   context.fill();
   context.lineWidth = 2 * ratio;
   context.strokeStyle = "#fbf4e4";
   context.stroke();
   // A cross drawn with lines, so no font is needed.
-  context.strokeStyle = "#2a1708";
+  context.strokeStyle = "#fff8e8";
   context.lineWidth = 2.4 * ratio;
   context.lineCap = "round";
   const c = size / 2;
@@ -122,10 +132,28 @@ function applyPalette(map: MapInstance, theme: MapTheme) {
  * with every published place on it. Nearby places gather into gold counts; tapping a church opens
  * its card. With `focus`, a small framed map of that one place (a place's own page).
  */
-export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: string }) {
+export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit }: { places: MapPlace[]; focus?: string; visited?: Set<string>; onToggleVisit?: (id: string) => void }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const [creditOpen, setCreditOpen] = useState(false);
+  // The map is built once per list of places; the visited marks repaint it without rebuilding.
+  const visitedRef = useRef(visited);
+  visitedRef.current = visited;
+  const features = (seen: Set<string>) => ({
+    type: "FeatureCollection" as const,
+    features: places.map((place) => ({
+      type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [place.longitude, place.latitude] },
+      properties: {
+        id: place.id, visited: seen.has(place.id), drawing: Boolean(place.icon), pictured: Boolean(place.icon || place.cover),
+        image: place.icon ? `icon-${place.id}` : place.cover ? `photo-${place.id}` : seen.has(place.id) ? "cross-visited" : "cross-unvisited",
+      },
+    })),
+  });
+  useEffect(() => {
+    const source = mapRef.current?.getSource("places") as import("maplibre-gl").GeoJSONSource | undefined;
+    source?.setData(features(visited));
+  }, [visited]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let map: MapInstance | null = null;
@@ -149,8 +177,6 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
       map.touchZoomRotate.disableRotation();
       mapRef.current = map;
       const m = map;
-      if (import.meta.env.DEV) (window as unknown as { placesMap?: MapInstance }).placesMap = m;
-      m.on("error", (event) => console.error("places map", event.error));
 
       // The whole page is the frame: everything outside Armenia's border is cut away.
       const clip = () => {
@@ -167,27 +193,19 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
         m.addSource("armenia", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: ARMENIA_BORDER.map((ring) => ring.map(([lat, lng]) => [lng, lat])) } } });
         m.addLayer({ id: "armenia-border", type: "line", source: "armenia", paint: { "line-color": MAP_PALETTES[currentTheme()].border, "line-width": 3, "line-opacity": 0.9 } });
 
-        m.addImage("cross", crossImage(ratio), { pixelRatio: ratio });
-        m.addSource("places", {
-          type: "geojson", cluster: !focus, clusterRadius: 44, clusterMaxZoom: 12,
-          data: {
-            type: "FeatureCollection",
-            features: places.map((place) => ({
-              type: "Feature" as const, geometry: { type: "Point" as const, coordinates: [place.longitude, place.latitude] },
-              properties: { id: place.id, image: place.icon ? `icon-${place.id}` : place.cover ? `photo-${place.id}` : "cross", drawing: Boolean(place.icon) },
-            })),
-          },
-        });
+        m.addImage("cross-visited", crossImage(ratio, VISIT_COLORS.visited), { pixelRatio: ratio });
+        m.addImage("cross-unvisited", crossImage(ratio, VISIT_COLORS.unvisited), { pixelRatio: ratio });
+        m.addSource("places", { type: "geojson", cluster: !focus, clusterRadius: 40, clusterMaxZoom: 12, data: features(visitedRef.current) });
         m.addLayer({
           id: "clusters", type: "circle", source: "places", filter: ["has", "point_count"],
           paint: {
             "circle-color": "#c39448", "circle-stroke-color": "#fbf4e4", "circle-stroke-width": 3,
-            "circle-radius": ["step", ["get", "point_count"], 17, 10, 21, 50, 26],
+            "circle-radius": ["step", ["get", "point_count"], 14, 10, 17, 50, 21], "circle-opacity": 0.95,
           },
         });
         m.addLayer({
           id: "cluster-count", type: "symbol", source: "places", filter: ["has", "point_count"],
-          layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 13, "text-allow-overlap": true },
+          layout: { "text-field": ["get", "point_count_abbreviated"], "text-font": ["Noto Sans Bold"], "text-size": 12, "text-allow-overlap": true },
           paint: { "text-color": "#2a1708" },
         });
         m.addLayer({
@@ -197,6 +215,12 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
             // Drawings grow as the map comes closer.
             "icon-size": ["interpolate", ["linear"], ["zoom"], 8, ["case", ["get", "drawing"], 0.45, 1], 14, ["case", ["get", "drawing"], 0.9, 1]],
           },
+        });
+
+        // A drawing or photo marker carries its visited colour as a small dot at its foot.
+        m.addLayer({
+          id: "place-status", type: "circle", source: "places", filter: ["all", ["!", ["has", "point_count"]], ["get", "pictured"]],
+          paint: { "circle-radius": 5, "circle-color": ["case", ["get", "visited"], VISIT_COLORS.visited, VISIT_COLORS.unvisited], "circle-stroke-color": "#fbf4e4", "circle-stroke-width": 1.5 },
         });
 
         // Drawings and cover photos arrive one by one; each shows as soon as it is loaded.
@@ -243,8 +267,12 @@ export function PlacesMap({ places, focus }: { places: MapPlace[]; focus?: strin
         <button type="button" onClick={() => zoom(1)} aria-label="Մոտեցնել"><Plus aria-hidden="true" size={17} /></button>
         <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>
       </div>
-      {current ? <PlaceCard key={current.id} place={current} onClose={() => setSelected(null)} /> : null}
-      <p className="places-map-credit">{MAP_ATTRIBUTION}</p>
+      {current ? <PlaceCard key={current.id} place={current} onClose={() => setSelected(null)} visited={visited.has(current.id)} onToggleVisit={() => onToggleVisit?.(current.id)} /> : null}
+      {/* The map's sources must be credited; a small ⓘ keeps the map itself clean. */}
+      <button className="places-map-credit-toggle" type="button" onClick={() => setCreditOpen((open) => !open)} aria-expanded={creditOpen} aria-label="Քարտեզի աղբյուրը">
+        <Info aria-hidden="true" size={13} />
+      </button>
+      {creditOpen ? <p className="places-map-credit">{MAP_ATTRIBUTION}</p> : null}
     </div>
   );
 }

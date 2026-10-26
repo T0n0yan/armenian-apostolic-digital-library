@@ -16,6 +16,11 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   );
 }
 
+/** Sacred places: a map pin with a small church inside; it lands, bounces once and settles, now and then. */
+export function PlacesIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-pin" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 21.5c-4-4.2-6.75-7.6-6.75-11a6.75 6.75 0 0 1 13.5 0c0 3.4-2.75 6.8-6.75 11z\"/><path d=\"M9.25 13.25v-2.6L12 8.75l2.75 1.9v2.6z\"/><path d=\"M12 5.25v2.5M10.9 6.2h2.2\"/></g>"} />;
+}
+
 /** Gospel teaching: the open Gospel, its lines following the curve of the pages, with a cross. */
 export function GospelIcon(props: IconProps) {
   return <Icon {...props} motion="ti-gospel" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13\"/><path d=\"M5.2 8.7c1.4 0 2.8.35 4.1 1M5.2 11.7c1.4 0 2.8.35 4.1 1M5.2 14.7c.9 0 1.8.15 2.7.45\"/><path d=\"M16.75 8.5v7.2M14.75 10.9c1.3-.35 2.7-.45 4-.3\"/></g>"} />;

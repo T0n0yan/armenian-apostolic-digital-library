@@ -6,6 +6,7 @@ import {Form, Link, useNavigate, useNavigation} from "react-router";
 
 import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
+import {PlacesIcon} from "../components/topic-icons";
 import { PageShell } from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
 import {DailyVerseCard} from "../components/daily-verse";
@@ -33,7 +34,12 @@ export function meta({}: Route.MetaArgs) {
 }
 export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";
-    return {categories: await listActiveCategories(env.DB, refresh, request.signal)};
+    const [categories, places] = await Promise.all([
+        listActiveCategories(env.DB, refresh, request.signal),
+        // The sacred places map is a section of its own, next to prayers and psalms.
+        env.DB.prepare("SELECT COUNT(*) AS count FROM places WHERE published = 1").first<{ count: number }>().then((row) => row?.count ?? 0).catch(() => null),
+    ]);
+    return {categories, places};
 }
 const CategoryCard = memo(function CategoryCard({category, index}: { category: CategorySummary; index: number }) {
     const navigation = useNavigation();
@@ -75,9 +81,37 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
     </li>);
 });
 
-const CategoryGrid = memo(function CategoryGrid({categories}: { categories: CategorySummary[]; }) {
+/** «Սրբավայրեր»: the map of churches, shaped like the sections around it. */
+function PlacesCard({count, index}: { count: number | null; index: number }) {
+    const navigation = useNavigation();
+    const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, "/places");
+    return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
+        <Link className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
+            to="/places" aria-busy={isOpening || undefined} onClick={(event) => { if (isOpening) event.preventDefault(); }}>
+            <span className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"
+                style={{"--ti-delay": `${index * 0.45}s`} as React.CSSProperties} aria-hidden="true">
+                <PlacesIcon size={24}/>
+            </span>
+            <span className="relative z-1 grid min-w-0 flex-1 gap-0.5">
+                <strong className="font-noto text-[16px] leading-[22px] font-semibold min-[960px]:text-[17px] min-[960px]:leading-[23px]">Սրբավայրեր</strong>
+                <span className="text-[12.5px] text-faint">{count ? `${count} սրբավայր քարտեզում` : "Եկեղեցիներ և վանքեր քարտեզում"}</span>
+            </span>
+            <span className="relative z-1 mr-2 text-gold" aria-hidden="true">
+                {isOpening ? <LoaderCircle className="animate-search-spin" size={19} strokeWidth={1.8}/> : <ArrowRight size={18} strokeWidth={1.8}/>}
+            </span>
+        </Link>
+    </li>);
+}
+
+const CategoryGrid = memo(function CategoryGrid({categories, places}: { categories: CategorySummary[]; places: number | null }) {
+    // Right after prayers and psalms (whichever comes later), or last when neither is there.
+    const kinds = categories.map((category) => resolveContentCategoryId(category.id, category.name));
+    const after = Math.max(kinds.indexOf("category_prayers"), kinds.indexOf("category_psalms"));
+    const at = after < 0 ? categories.length : after + 1;
     return (<ol className="m-0 grid list-none gap-2.5 p-0 min-[560px]:grid-cols-2 min-[960px]:grid-cols-3">
-        {categories.map((category, index) => (<CategoryCard key={category.id} category={category} index={index}/>))}
+        {categories.slice(0, at).map((category, index) => (<CategoryCard key={category.id} category={category} index={index}/>))}
+        <PlacesCard count={places} index={at}/>
+        {categories.slice(at).map((category, index) => (<CategoryCard key={category.id} category={category} index={at + 1 + index}/>))}
     </ol>);
 });
 
@@ -158,7 +192,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
                 Բաժիններ
                 <span className="h-px flex-1 bg-[linear-gradient(90deg,rgb(217_181_111/45%),transparent)]" aria-hidden="true"/>
             </h2>
-            <CategoryGrid categories={loaderData.categories}/>
+            <CategoryGrid categories={loaderData.categories} places={loaderData.places}/>
         </section>
         <SiteNav/>
     </PageShell>);
