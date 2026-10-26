@@ -228,9 +228,6 @@ async function advance(call: Call, db: D1Database, chat: number, reader: Reader,
   await ask(call, db, chat, reader, next, step === "review" ? undefined : prefix);
 }
 
-/** Letters, but none of them Armenian: «Surb Gayane», «Сурб Гаяне». */
-export const notArmenian = (text: string) => /\p{L}/u.test(text) && !/\p{Script=Armenian}/u.test(text);
-
 const short = (text: string, limit: number) => (text.length > limit ? `${text.slice(0, limit - 1)}…` : text);
 
 /** The whole submission as text: for the reader's review and for the team. */
@@ -315,15 +312,13 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
   const update = (sql: string, ...values: unknown[]) => db.prepare(`UPDATE place_submissions SET ${sql} WHERE id = ?`).bind(...values, draft.submission).run();
   const again = (reply: string) => call("sendMessage", { chat_id: chat, text: reply }).then(() => true);
   const next = (prefix?: string) => advance(call, db, chat, reader, draft, prefix).then(() => true);
-  // Armenian letters are asked for, not required: an answer in other letters is kept, with a reminder.
-  const tip = (answer: string) => (notArmenian(answer) ? PLACE_TEXT.armenianTip : undefined);
 
   switch (draft.step) {
     case "name": {
       if (isUnknown(text)) return again(PLACE_TEXT.nameUnknown);
       if (!text || BUTTONS.has(text)) return ask(call, db, chat, reader, draft).then(() => true);
       await update("place_name = ?", text.slice(0, 120));
-      return next(tip(text));
+      return next();
     }
     case "kind": {
       // A button, «Չգիտեմ», or the reader's own words («Հեթանոսական տաճար») for the team to sort out.
@@ -331,7 +326,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       if (!kind && !text) return again(PLACE_TEXT.kindHelp);
       const note = kind || isUnknown(text) ? "" : text.slice(0, 120);
       await update("kind = ?, kind_note = ?", kind ?? "", note);
-      return next(tip(note));
+      return next();
     }
     case "location": {
       let point = message.location ?? (text ? await pointFromText(text, fetcher) : null);
@@ -348,7 +343,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       const words = text.slice(0, 120);
       if (!words || BUTTONS.has(words)) return again(PLACE_TEXT.textHelp);
       await update("region = ?", words);
-      return next(tip(words));
+      return next();
     }
     case "photos": {
       if (text === PLACE_TEXT.next || text === PLACE_TEXT.noPhotos || text === PLACE_TEXT.ready) return next();
@@ -399,7 +394,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       await update("clergy = ?", clergy.slice(0, MAX_TEXT));
       const added: Draft = { ...draft, pending: null };
       await writeDraft(db, reader.id, added);
-      await ask(call, db, chat, reader, added, [tip(words), `✅ Ավելացվեց։\n\n${clergy}`].filter(Boolean).join("\n\n"));
+      await ask(call, db, chat, reader, added, `✅ Ավելացվեց։\n\n${clergy}`);
       return true;
     }
     case "access": {
@@ -407,7 +402,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       const words = (message.text ?? "").trim();
       if (!words) return again(PLACE_TEXT.textHelp);
       await update("accessibility = ?", words.slice(0, 300));
-      return next(tip(words));
+      return next();
     }
     case "credit": {
       const words = text.slice(0, 60);
@@ -437,8 +432,8 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       if (draft.mode === "replace") await update(`${column} = substr(?, 1, ${MAX_TEXT})`, words);
       else await update(`${column} = substr(CASE WHEN ${column} = '' THEN ? ELSE ${column} || char(10) || ? END, 1, ${MAX_TEXT})`, words, words);
       // Changing from the review: one message, then back to it. In order: more can follow.
-      if (draft.mode) return next(tip(words) ?? "✍️ Պահպանված է։");
-      await call("sendMessage", { chat_id: chat, text: [tip(words), PLACE_TEXT.textAdded].filter(Boolean).join("\n\n"), reply_markup: replyKeyboard([[PLACE_TEXT.next]]) });
+      if (draft.mode) return next("✍️ Պահպանված է։");
+      await call("sendMessage", { chat_id: chat, text: PLACE_TEXT.textAdded, reply_markup: replyKeyboard([[PLACE_TEXT.next]]) });
       await writeDraft(db, reader.id, draft);
       return true;
     }
