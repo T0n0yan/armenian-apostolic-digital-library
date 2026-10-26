@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
-import { MAP_ATTRIBUTION, MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
+import { MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
 import { directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
 export type MapPlace = {
@@ -373,8 +373,7 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
         <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>
       </div>
       {current ? <PlaceCard key={current.id} place={current} onClose={close} closing={closing} visited={visited.has(current.id)} onToggleVisit={() => onToggleVisit?.(current.id)} /> : null}
-      {/* The map's sources must be credited (OpenStreetMap's licence): a quiet line under it, not on it. */}
-      <p className="places-map-credit">{MAP_ATTRIBUTION}</p>
+
     </div>
   );
 }

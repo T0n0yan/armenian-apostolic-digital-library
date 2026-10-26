@@ -7,6 +7,7 @@ import { Link } from "react-router";
 import type { Route } from "./+types/places";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { PlacesMap, type MapPlace, type PlacesShown } from "../components/places-map";
+import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { SiteNav } from "../components/site-nav";
 import { listPlaces } from "../data/places.server";
 import { PLACE_KINDS, placeMediaUrl } from "../utils/places";
@@ -118,10 +119,12 @@ export default function Places({ loaderData }: Route.ComponentProps) {
     else rows.push([group]);
   }
   const been = filtered.filter((place) => visited.has(place.id)).length;
-  const tile = (value: PlacesShown, count: number, label: string, color: string) => (
-    <button type="button" aria-pressed={show === value} onClick={() => setShow(show === value && value !== "all" ? "all" : value)}
-      className={`frosted-card cursor-pointer px-2 py-2.5 text-center transition-shadow ${show === value ? "ring-2 ring-[rgb(217_181_111/70%)]" : ""}`}>
-      <strong className={`block font-noto text-[22px] ${color}`}>{count}</strong><span className="text-[12px] text-muted">{label}</span>
+  // One segment of the bar above the map: its count and what it shows.
+  const segment = (value: PlacesShown, count: number, label: string, color: string) => (
+    <button type="button" aria-pressed={show === value} onClick={() => setShow(value)}
+      className={`grid min-w-0 flex-1 cursor-pointer place-items-center gap-0 rounded-[12px] border-0 px-1 py-1.5 transition-colors ${show === value ? "bg-[rgb(217_181_111/18%)] shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : "bg-transparent"}`}>
+      <strong className={`font-noto text-[17px] leading-tight ${color}`}>{count}</strong>
+      <span className="truncate text-[11px] leading-tight text-muted">{label}</span>
     </button>
   );
   return (
@@ -131,21 +134,21 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       <p className="mx-auto mt-2 mb-4 max-w-[620px] text-center text-[14px] leading-relaxed text-muted">
         Հայաստանի վանքերն ու եկեղեցիները քարտեզի վրա։ Հպեք եկեղեցուն՝ տեղեկության և ճանապարհի համար։
       </p>
-      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|")} />
       {places.length ? (
-        // How much of the map the reader has walked; each count shows just those places on the map.
-        <div className="mx-auto mt-3 grid w-full max-w-[480px] grid-cols-3 gap-2" role="group" aria-label="Ցույց տալ քարտեզում">
-          {tile("all", filtered.length, "բոլորը", "text-gold-bright")}
-          {tile("visited", been, "եղել եմ", "text-[#3f8f5a]")}
-          {tile("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]")}
-        </div>
-      ) : null}
-      {places.length ? (
-        <div className="mx-auto mt-2 grid w-full max-w-[480px] gap-2">
-          <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}
-            className="mx-auto inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-gold-bright">
-            <SlidersHorizontal aria-hidden="true" size={15} /> Ֆիլտր{filterCount ? ` · ${filterCount}` : ""}
-          </button>
+        // One bar above the map: all / visited / not yet (each shows just those), and the filters.
+        <div className="mx-auto mb-3 grid w-full max-w-[560px] gap-2">
+          <div className="flex items-stretch gap-2">
+            <div className="frosted-card flex flex-1 gap-1 p-1" role="group" aria-label="Ցույց տալ քարտեզում">
+              {segment("all", filtered.length, "բոլորը", "text-gold-bright")}
+              {segment("visited", been, "եղել եմ", "text-[#3f8f5a]")}
+              {segment("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]")}
+            </div>
+            <button type="button" aria-expanded={filtersOpen} aria-label="Ֆիլտր" onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`frosted-card relative grid w-14 shrink-0 cursor-pointer place-items-center text-gold-bright ${filtersOpen ? "shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : ""}`}>
+              <SlidersHorizontal aria-hidden="true" size={19} />
+              {filterCount ? <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-gold-bright text-[11px] font-bold text-[#2a1708]">{filterCount}</span> : null}
+            </button>
+          </div>
           {filtersOpen ? (
             <div className="frosted-card grid gap-3 p-3.5">
               <div className="grid gap-2">
@@ -166,6 +169,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
           ) : null}
         </div>
       ) : null}
+      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|")} />
       <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
         <Send aria-hidden="true" size={16} /> Ուղարկել սրբավայր բոտով
       </a>
@@ -186,6 +190,8 @@ export default function Places({ loaderData }: Route.ComponentProps) {
           ))}
         </div>
       ) : <p className="mt-5 text-center text-[13px] text-faint">Քարտեզը դեռ լրացվում է։</p>}
+      {/* OpenStreetMap's licence asks for its credit: one quiet line at the end of the page. */}
+      <p className="mt-6 mb-0 text-center text-[10px] text-faint opacity-60">Քարտեզ՝ {MAP_ATTRIBUTION}</p>
     </PageShell>
   );
 }

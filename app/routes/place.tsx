@@ -12,6 +12,7 @@ import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
 import { getPlace } from "../data/places.server";
 import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
@@ -102,6 +103,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         {place.fromOsm ? <p className="m-0 text-center text-[12px] text-faint">Տեղը և անունը՝ <a className="text-faint underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>-ի մասնակիցներ։</p> : null}
         {place.creditName.trim() ? <p className="m-0 text-center text-[12.5px] text-faint">Նկարներն ու տեղեկությունը ուղարկեց՝ {place.creditName.trim()}։ Շնորհակալություն 🙏</p> : null}
         <Link className="mx-auto text-[13.5px] text-gold-bright" to="/places">← Բոլոր սրբավայրերը քարտեզում</Link>
+        <p className="m-0 text-center text-[10px] text-faint opacity-60">Քարտեզ՝ {MAP_ATTRIBUTION}</p>
       </article>
     </PageShell>
   );
