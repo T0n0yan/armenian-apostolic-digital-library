@@ -23,13 +23,13 @@ type Point = { latitude: number; longitude: number };
 type Query = { id: string; data?: string; from: Reader; message?: { chat: { id: number }; message_id: number } };
 
 type TextStep = "liturgy" | "services" | "hours" | "history";
-type Step = "name" | "kind" | "location" | "photos" | "active" | TextStep | "clergy" | "access" | "credit" | "review";
+type Step = "name" | "kind" | "location" | "region" | "photos" | "active" | TextStep | "clergy" | "access" | "credit" | "review";
 /** null: the questions in order; otherwise one answer changed from the review, then back to it. */
 type Mode = null | "edit" | "append" | "replace";
 type Draft = { step: Step; mode: Mode; submission: number; pending: string | null };
 
 type Submission = {
-  id: number; place_name: string; kind: string; latitude: number | null; longitude: number | null; active: string; liturgy: string;
+  id: number; place_name: string; kind: string; kind_note: string; region: string; latitude: number | null; longitude: number | null; active: string; liturgy: string;
   services: string; clergy: string; open_hours: string; accessibility: string; notes: string; credit: number | null; credit_name: string;
   photos_json: string; videos_json: string;
 };
@@ -39,19 +39,19 @@ const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PICTURES = 10;
 const MAX_TEXT = 2000;
 
-const ORDER: Step[] = ["name", "kind", "location", "photos", "active", "liturgy", "services", "clergy", "hours", "access", "history", "credit", "review"];
+const ORDER: Step[] = ["name", "kind", "location", "region", "photos", "active", "liturgy", "services", "clergy", "hours", "access", "history", "credit", "review"];
 
 /** Free-text questions: their column, question, ready answers and the hint in the input field. */
 const TEXTS: Record<TextStep, { column: keyof Submission; ask: string; quick: string[]; placeholder: string }> = {
   liturgy: { column: "liturgy", ask: PLACE_TEXT.askLiturgy, quick: ["Ամեն կիրակի"], placeholder: "Օրը և ժամը…" },
   services: { column: "services", ask: PLACE_TEXT.askServices, quick: [], placeholder: "Օրերը և ժամերը…" },
-  hours: { column: "open_hours", ask: PLACE_TEXT.askHours, quick: ["Միշտ բաց է"], placeholder: "Օրերը և ժամերը…" },
+  hours: { column: "open_hours", ask: PLACE_TEXT.askHours, quick: ["Ամեն օր 09:00–18:00", "Միշտ բաց է"], placeholder: "Օրերը և ժամերը…" },
   history: { column: "notes", ask: PLACE_TEXT.askHistory, quick: [], placeholder: "Ինչ գիտեք այս տեղի մասին…" },
 };
 const isTextStep = (step: Step): step is TextStep => step in TEXTS;
 
 const FIELD_LABELS: Array<[Step, string]> = [
-  ["name", "Անունը"], ["kind", "Տեսակը"], ["location", "Տեղը"], ["photos", "Լուսանկարները"], ["active", "Գործո՞ղ է"],
+  ["name", "Անունը"], ["kind", "Տեսակը"], ["location", "Տեղը"], ["region", "Մարզը"], ["photos", "Լուսանկարները"], ["active", "Գործո՞ղ է"],
   ["liturgy", "Սուրբ Պատարագ"], ["services", "Ժամերգություններ"], ["clergy", "Ծառայողներ"], ["hours", "Բաց ժամերը"],
   ["access", "Ճանապարհը"], ["history", "Պատմությունը"], ["credit", "Իմ անունը"],
 ];
@@ -68,6 +68,9 @@ const OTHER_ROLE = PLACE_CHOICES.clergy[PLACE_CHOICES.clergy.length - 1];
 function applies(step: Step, row: Submission): boolean {
   if (step === "active") return ["church", "monastery", "complex"].includes(row.kind);
   if (step === "liturgy" || step === "services" || step === "clergy") return applies("active", row) && row.active === "yes";
+  // A place under renovation is closed to visitors; the region is asked only when the map didn't find it.
+  if (step === "hours") return !(applies("active", row) && row.active === "renovation");
+  if (step === "region") return !row.region;
   return true;
 }
 
@@ -119,7 +122,7 @@ async function discard(db: D1Database, reader: number, draft: Draft | null) {
 export async function pointFromText(text: string, fetcher: typeof fetch = fetch): Promise<Point | null> {
   const direct = parseCoordinates(text);
   if (direct) return direct;
-  let url = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs)\/[^\s]+/u.exec(text)?.[0];
+  let url = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs|maps\.apple(?:\.com)?\/p|yandex\.(?:ru|com|am)\/maps\/-)\/[^\s]+/u.exec(text)?.[0];
   for (let hop = 0; url && hop < 3; hop += 1) {
     const response = await fetcher(url, { redirect: "manual" }).catch(() => null);
     const next = response?.headers.get("location");
@@ -129,6 +132,21 @@ export async function pointFromText(text: string, fetcher: typeof fetch = fetch)
     url = new URL(next, url).toString();
   }
   return null;
+}
+
+/**
+ * «Արմավիրի մարզ, Վաղարշապատ» for a point, from OpenStreetMap's Nominatim (one request per place sent,
+ * well within its policy); empty when it can't be found, and the reader is asked instead.
+ */
+export async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
+  const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=hy&lat=${point.latitude}&lon=${point.longitude}`;
+  const answer = await fetcher(url, { headers: { "user-agent": "apostolic.am places map (info@apostolic.am)" } })
+    .then((response) => (response.ok ? response.json() as Promise<{ address?: Record<string, string> }> : null)).catch(() => null);
+  const address = answer?.address ?? {};
+  const province = address.state ?? address.province ?? "";
+  const settlement = address.city ?? address.town ?? address.village ?? address.hamlet ?? address.suburb ?? "";
+  // Yerevan is both: «Երևան», not «Երևան, Երևան».
+  return [...new Set([province, settlement].filter(Boolean))].join(", ").slice(0, 120);
 }
 
 /** «Քահանա՝ Տեր Ա, Տեր Բ»: one line per role, people of the same role on one line. */
@@ -162,12 +180,13 @@ async function ask(call: Call, db: D1Database, chat: number, reader: Reader, dra
     case "name": return say(PLACE_TEXT.askName, replyKeyboard(back, "Անունը…"));
     case "kind": {
       const [church, monastery, chapel, complex, shrine] = PLACE_CHOICES.kind.map(([label]) => label);
-      return say(PLACE_TEXT.askKind, replyKeyboard([[church, monastery], [chapel, complex], [shrine], ...back]));
+      return say(PLACE_TEXT.askKind, replyKeyboard([[church, monastery], [chapel, complex], [shrine, PLACE_TEXT.unknown], ...back], "Կամ գրեք ձեր բառերով…"));
     }
     case "location": return say(PLACE_TEXT.askLocation, {
       keyboard: [[{ text: PLACE_TEXT.shareLocation, request_location: true }], ...back.map((line) => line.map((text) => ({ text }))), cancelRow],
       resize_keyboard: true, is_persistent: true,
     });
+    case "region": return say(PLACE_TEXT.askRegion, replyKeyboard(editing ? back : [[PLACE_TEXT.unknown]], "Մարզը, բնակավայրը…"));
     case "photos": return editing
       ? say(PLACE_TEXT.editPhotos, replyKeyboard([[PLACE_TEXT.ready], [PLACE_TEXT.clearPhotos]]))
       : say(PLACE_TEXT.askPhotos, replyKeyboard([[PLACE_TEXT.next], [PLACE_TEXT.noPhotos]]));
@@ -221,14 +240,15 @@ export function describeSubmission(row: Submission, limit = 700, forTeam = false
   const value = (text: string) => (text ? short(text, limit) : "—");
   const lines = [
     `📍 «${row.place_name}»`,
-    `🏛 Տեսակը՝ ${isPlaceKind(row.kind) ? PLACE_KINDS[row.kind] : "—"}`,
+    `🏛 Տեսակը՝ ${isPlaceKind(row.kind) ? PLACE_KINDS[row.kind] : row.kind_note || "—"}`,
     row.latitude === null || row.longitude === null ? "🗺 Տեղը՝ նշված չէ" : forTeam ? `🗺 Տեղը՝ ${row.latitude.toFixed(5)}, ${row.longitude.toFixed(5)}` : "🗺 Տեղը՝ նշված է ✓",
+    `🏞 Մարզը՝ ${row.region || "—"}`,
     `📷 Լուսանկարներ՝ ${photos}${videos ? `, տեսանյութ՝ ${videos}` : ""}`,
     applies("active", row) ? `✝️ Կարգավիճակը՝ ${ACTIVE_LABELS[row.active] ?? "—"}` : "",
     applies("liturgy", row) ? `🕊 Սուրբ Պատարագ՝ ${value(row.liturgy)}` : "",
     applies("services", row) ? `🕯 Ժամերգություններ՝ ${value(row.services)}` : "",
     applies("clergy", row) ? `🙏 Ծառայողներ՝${row.clergy ? `\n${short(row.clergy, limit)}` : " —"}` : "",
-    `🕘 Բաց է՝ ${value(row.open_hours)}`,
+    applies("hours", row) ? `🕘 Բաց է՝ ${value(row.open_hours)}` : "",
     `♿ Ճանապարհը և մուտքը՝ ${value(row.accessibility)}`,
     `📜 Պատմությունը՝ ${value(row.notes)}`,
     `👤 Անունը կայքում՝ ${row.credit ? `«${row.credit_name}»` : "չի նշվի (անանուն)"}`,
@@ -295,26 +315,40 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
   const update = (sql: string, ...values: unknown[]) => db.prepare(`UPDATE place_submissions SET ${sql} WHERE id = ?`).bind(...values, draft.submission).run();
   const again = (reply: string) => call("sendMessage", { chat_id: chat, text: reply }).then(() => true);
   const next = (prefix?: string) => advance(call, db, chat, reader, draft, prefix).then(() => true);
+  // Armenian letters are asked for, not required: an answer in other letters is kept, with a reminder.
+  const tip = (answer: string) => (notArmenian(answer) ? PLACE_TEXT.armenianTip : undefined);
 
   switch (draft.step) {
     case "name": {
+      if (isUnknown(text)) return again(PLACE_TEXT.nameUnknown);
       if (!text || BUTTONS.has(text)) return ask(call, db, chat, reader, draft).then(() => true);
-      if (notArmenian(text)) return again(PLACE_TEXT.armenianOnly);
       await update("place_name = ?", text.slice(0, 120));
-      return next();
+      return next(tip(text));
     }
     case "kind": {
+      // A button, «Չգիտեմ», or the reader's own words («Հեթանոսական տաճար») for the team to sort out.
       const kind = PLACE_CHOICES.kind.find(([label]) => label === text)?.[1];
-      if (!kind) return again(PLACE_TEXT.kindHelp);
-      await update("kind = ?", kind);
-      return next();
+      if (!kind && !text) return again(PLACE_TEXT.kindHelp);
+      const note = kind || isUnknown(text) ? "" : text.slice(0, 120);
+      await update("kind = ?, kind_note = ?", kind ?? "", note);
+      return next(tip(note));
     }
     case "location": {
-      const point = message.location ?? (text ? await pointFromText(text, fetcher) : null);
+      let point = message.location ?? (text ? await pointFromText(text, fetcher) : null);
       if (!point) return again(PLACE_TEXT.locationHelp);
+      // Coordinates typed the other way round («44.29, 40.16»).
+      if (!insideArmenia(point.latitude, point.longitude) && insideArmenia(point.longitude, point.latitude)) point = { latitude: point.longitude, longitude: point.latitude };
       if (!insideArmenia(point.latitude, point.longitude)) return again(PLACE_TEXT.outside);
-      await update("latitude = ?, longitude = ?", point.latitude, point.longitude);
-      return next(PLACE_TEXT.locationDone);
+      const region = await regionFor(point, fetcher);
+      await update("latitude = ?, longitude = ?, region = CASE WHEN ? = '' THEN region ELSE ? END", point.latitude, point.longitude, region, region);
+      return next(region ? `${PLACE_TEXT.locationDone} ${region}` : PLACE_TEXT.locationDone);
+    }
+    case "region": {
+      if (isUnknown(text)) return next();
+      const words = text.slice(0, 120);
+      if (!words || BUTTONS.has(words)) return again(PLACE_TEXT.textHelp);
+      await update("region = ?", words);
+      return next(tip(words));
     }
     case "photos": {
       if (text === PLACE_TEXT.next || text === PLACE_TEXT.noPhotos || text === PLACE_TEXT.ready) return next();
@@ -360,22 +394,20 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       }
       const words = (message.text ?? "").trim();
       if (!words || BUTTONS.has(words)) return again(PLACE_TEXT.clergyHelp);
-      if (notArmenian(words)) return again(PLACE_TEXT.armenianOnly);
       const row = await readSubmission(db, draft.submission);
       const clergy = addServant(row?.clergy ?? "", draft.pending, words.slice(0, 160));
       await update("clergy = ?", clergy.slice(0, MAX_TEXT));
       const added: Draft = { ...draft, pending: null };
       await writeDraft(db, reader.id, added);
-      await ask(call, db, chat, reader, added, `✅ Ավելացվեց։\n\n${clergy}`);
+      await ask(call, db, chat, reader, added, [tip(words), `✅ Ավելացվեց։\n\n${clergy}`].filter(Boolean).join("\n\n"));
       return true;
     }
     case "access": {
       if (isUnknown(text)) return next();
       const words = (message.text ?? "").trim();
       if (!words) return again(PLACE_TEXT.textHelp);
-      if (notArmenian(words)) return again(PLACE_TEXT.armenianOnly);
       await update("accessibility = ?", words.slice(0, 300));
-      return next();
+      return next(tip(words));
     }
     case "credit": {
       const words = text.slice(0, 60);
@@ -402,12 +434,11 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       }
       const words = (message.text ?? message.caption ?? "").trim();
       if (!words || BUTTONS.has(words)) return again(PLACE_TEXT.textHelp);
-      if (notArmenian(words)) return again(PLACE_TEXT.armenianOnly);
       if (draft.mode === "replace") await update(`${column} = substr(?, 1, ${MAX_TEXT})`, words);
       else await update(`${column} = substr(CASE WHEN ${column} = '' THEN ? ELSE ${column} || char(10) || ? END, 1, ${MAX_TEXT})`, words, words);
       // Changing from the review: one message, then back to it. In order: more can follow.
-      if (draft.mode) return next("✍️ Պահպանված է։");
-      await call("sendMessage", { chat_id: chat, text: PLACE_TEXT.textAdded, reply_markup: replyKeyboard([[PLACE_TEXT.next]]) });
+      if (draft.mode) return next(tip(words) ?? "✍️ Պահպանված է։");
+      await call("sendMessage", { chat_id: chat, text: [tip(words), PLACE_TEXT.textAdded].filter(Boolean).join("\n\n"), reply_markup: replyKeyboard([[PLACE_TEXT.next]]) });
       await writeDraft(db, reader.id, draft);
       return true;
     }
@@ -417,7 +448,13 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
 /** Posts a sent submission in the team's places topic: the details, the pin, then the pictures. */
 async function deliver(call: Call, target: Target, row: Submission, from: Reader) {
   const header = relayHeader("📍 Սրբավայր", from);
-  const posted = await call("sendMessage", { ...target, text: short(`${header}\n\n${describeSubmission(row, 600, true)}\n\nԱռաջարկը՝ /admin/places`, 4096) });
+  const text = short(`${header}\n\n${describeSubmission(row, 600, true)}\n\n↩️ Պատասխանելու համար՝ Reply արեք այս հաղորդագրությանը։\nԱռաջարկը՝ /admin/places`, 4096);
+  let posted = await call("sendMessage", { ...target, text });
+  // The places topic may be missing (deleted, or not made yet): then the group's General topic.
+  if (!posted.ok && target.message_thread_id) {
+    target = { chat_id: target.chat_id };
+    posted = await call("sendMessage", { ...target, text });
+  }
   const reply = posted.ok ? { reply_parameters: { message_id: (posted.result as { message_id: number }).message_id } } : {};
   if (row.latitude !== null && row.longitude !== null) await call("sendLocation", { ...target, latitude: row.latitude, longitude: row.longitude, ...reply });
   const media = [...list(row.photos_json).map((media) => ({ type: "photo", media })), ...list(row.videos_json).map((media) => ({ type: "video", media }))];
@@ -459,7 +496,7 @@ export async function answerPlaceCallback(call: Call, db: D1Database, target: Ta
     return;
   }
   if (data === "place:edit") {
-    const fields = FIELD_LABELS.filter(([step]) => applies(step, row));
+    const fields = FIELD_LABELS.filter(([step]) => step === "region" || applies(step, row));
     const rows = [];
     for (let index = 0; index < fields.length; index += 2) {
       rows.push(fields.slice(index, index + 2).map(([step, label]) => ({ text: label, callback_data: `place:field:${step}` })));
@@ -473,7 +510,7 @@ export async function answerPlaceCallback(call: Call, db: D1Database, target: Ta
     return;
   }
   const field = /^place:field:([a-z]+)$/u.exec(data)?.[1] as Step | undefined;
-  if (field && FIELD_LABELS.some(([step]) => step === field) && applies(field, row)) {
+  if (field && FIELD_LABELS.some(([step]) => step === field) && (field === "region" || applies(field, row))) {
     await edit(`✏️ ${FIELD_LABELS.find(([step]) => step === field)?.[1]}`);
     const current = isTextStep(field) ? String(row[TEXTS[field].column] ?? "") : field === "clergy" ? row.clergy : "";
     if ((isTextStep(field) || field === "clergy") && current) {
