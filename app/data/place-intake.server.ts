@@ -1,5 +1,5 @@
 import { ACTIVE_LABELS, insideArmenia, isPlaceKind, parseCoordinates, PLACE_KINDS } from "../utils/places";
-import { PLACE_CHOICES, PLACE_TEXT, relayHeader } from "../utils/support-relay";
+import { PLACE_CHOICES, PLACE_TEXT, readerName, relayHeader } from "../utils/support-relay";
 
 /**
  * /place: a reader sends a church or shrine for the map, one question at a time — name, kind,
@@ -87,7 +87,7 @@ function list(json: string): string[] {
 }
 
 function senderName(reader: Reader) {
-  return [reader.first_name, reader.last_name].filter(Boolean).join(" ").trim() || reader.username || "";
+  return readerName(reader) || reader.username || "";
 }
 
 async function readDraft(db: D1Database, reader: number): Promise<Draft | null> {
@@ -207,6 +207,10 @@ async function ask(call: Call, db: D1Database, chat: number, reader: Reader, dra
     }
     case "review": return showReview(call, chat, row);
     default: {
+      // Services: first whether there are any, then (if so) when.
+      if (draft.step === "services" && !editing && !draft.pending) {
+        return say(PLACE_TEXT.askServicesHeld, replyKeyboard([[PLACE_TEXT.yes, PLACE_TEXT.no], [PLACE_TEXT.unknown]]));
+      }
       const question = TEXTS[draft.step];
       const finish = draft.step === "history" ? PLACE_TEXT.skip : PLACE_TEXT.unknown;
       return say(question.ask, replyKeyboard(editing ? back : [...question.quick.map((answer) => [answer]), [finish]], question.placeholder));
@@ -235,6 +239,7 @@ export function describeSubmission(row: Submission, limit = 700, forTeam = false
   const photos = list(row.photos_json).length;
   const videos = list(row.videos_json).length;
   const value = (text: string) => (text ? short(text, limit) : "—");
+  if (forTeam) return teamSummary(row, limit);
   const lines = [
     `📍 «${row.place_name}»`,
     `🏛 Տեսակը՝ ${isPlaceKind(row.kind) ? PLACE_KINDS[row.kind] : row.kind_note || "—"}`,
@@ -248,7 +253,7 @@ export function describeSubmission(row: Submission, limit = 700, forTeam = false
     applies("hours", row) ? `🕘 Բաց է՝ ${value(row.open_hours)}` : "",
     `♿ Ճանապարհը և մուտքը՝ ${value(row.accessibility)}`,
     `📜 Պատմությունը՝ ${value(row.notes)}`,
-    `👤 Անունը կայքում՝ ${row.credit ? `«${row.credit_name}»` : "չի նշվի (անանուն)"}`,
+    `👤 Անունը կայքում՝ ${row.credit && row.credit_name ? `«${row.credit_name}»` : "չի նշվի (անանուն)"}`,
   ];
   return lines.filter(Boolean).join("\n\n");
 }
@@ -422,6 +427,18 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       const question = TEXTS[draft.step];
       const column = question.column;
       if (text === PLACE_TEXT.skip || text === PLACE_TEXT.next || isUnknown(text)) return next();
+      if (draft.step === "services" && !draft.mode && !draft.pending) {
+        if (text === PLACE_TEXT.no) {
+          await update("services = ?", PLACE_TEXT.noServices);
+          return next();
+        }
+        if (text === PLACE_TEXT.yes) {
+          const when: Draft = { ...draft, pending: "when" };
+          await writeDraft(db, reader.id, when);
+          await ask(call, db, chat, reader, when);
+          return true;
+        }
+      }
       // A ready answer («Ամեն կիրակի») is the whole answer.
       if (question.quick.includes(text)) {
         await update(`${column} = ?`, text);
@@ -431,30 +448,52 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       if (!words || BUTTONS.has(words)) return again(PLACE_TEXT.textHelp);
       if (draft.mode === "replace") await update(`${column} = substr(?, 1, ${MAX_TEXT})`, words);
       else await update(`${column} = substr(CASE WHEN ${column} = '' THEN ? ELSE ${column} || char(10) || ? END, 1, ${MAX_TEXT})`, words, words);
-      // Changing from the review: one message, then back to it. In order: more can follow.
-      if (draft.mode) return next("✍️ Պահպանված է։");
-      await call("sendMessage", { chat_id: chat, text: PLACE_TEXT.textAdded, reply_markup: replyKeyboard([[PLACE_TEXT.next]]) });
-      await writeDraft(db, reader.id, draft);
-      return true;
+      // One message answers the question (more can be added from the review).
+      return next(draft.mode ? "✍️ Պահպանված է։" : undefined);
     }
   }
 }
 
 /** Posts a sent submission in the team's places topic: the details, the pin, then the pictures. */
+/** The team's copy: only what was answered, one line each, the place as a map link. */
+function teamSummary(row: Submission, limit: number) {
+  const field = (label: string, text: string) => (text ? `${label}՝ ${short(text, limit)}` : "");
+  return [
+    `📍 «${row.place_name}»`,
+    field("🏛 Տեսակը", isPlaceKind(row.kind) ? PLACE_KINDS[row.kind] : row.kind_note),
+    field("🏞 Մարզը", row.region),
+    row.latitude !== null && row.longitude !== null ? `🗺 https://maps.google.com/?q=${row.latitude.toFixed(5)},${row.longitude.toFixed(5)}` : "",
+    applies("active", row) ? field("✝️ Կարգավիճակը", ACTIVE_LABELS[row.active] ?? "") : "",
+    applies("liturgy", row) ? field("🕊 Սուրբ Պատարագ", row.liturgy) : "",
+    applies("services", row) ? field("🕯 Ժամերգություններ", row.services) : "",
+    applies("clergy", row) && row.clergy ? `🙏 Ծառայողներ՝\n${short(row.clergy, limit)}` : "",
+    applies("hours", row) ? field("🕘 Բաց է", row.open_hours) : "",
+    field("♿ Ճանապարհը", row.accessibility),
+    field("📜 Պատմությունը", row.notes),
+    `👤 Կայքում՝ ${row.credit && row.credit_name ? `«${row.credit_name}»` : "անանուն"}`,
+  ].filter(Boolean).join("\n");
+}
+
+// A photo's caption may hold 1024 characters.
+const CAPTION_LIMIT = 1024;
+
+/**
+ * Posts a sent submission in the team's places topic as one message: the photos as an album whose
+ * caption is the summary (or the summary alone when there are none). An admin's reply to it reaches
+ * the sender (#u… in the text).
+ */
 async function deliver(call: Call, target: Target, row: Submission, from: Reader) {
-  const header = relayHeader("📍 Սրբավայր", from);
-  const text = short(`${header}\n\n${describeSubmission(row, 600, true)}\n\n↩️ Պատասխանելու համար՝ Reply արեք այս հաղորդագրությանը։\nԱռաջարկը՝ /admin/places`, 4096);
-  let posted = await call("sendMessage", { ...target, text });
+  const hint = "↩️ Պատասխանելու համար՝ Reply արեք այս հաղորդագրությանը։";
+  const full = `${relayHeader("📍 Սրբավայր", from)}\n\n${teamSummary(row, 400)}\n\n${hint}`;
+  const media = [...list(row.photos_json).map((media) => ({ type: "photo", media })), ...list(row.videos_json).map((media) => ({ type: "video", media }))].slice(0, MAX_PICTURES);
+  const caption = full.length <= CAPTION_LIMIT ? full
+    : `${relayHeader("📍 Սրբավայր", from)}\n\n${short(teamSummary(row, 120), CAPTION_LIMIT - hint.length - 40)}\n\nԱմբողջը՝ /admin/places\n${hint}`;
+  const send = (to: Target) => media.length === 0 ? call("sendMessage", { ...to, text: short(full, 4096), link_preview_options: { is_disabled: true } })
+    : media.length === 1 ? call(media[0].type === "photo" ? "sendPhoto" : "sendVideo", { ...to, [media[0].type]: media[0].media, caption })
+    : call("sendMediaGroup", { ...to, media: media.map((item, index) => (index === 0 ? { ...item, caption } : item)) });
+  const posted = await send(target);
   // The places topic may be missing (deleted, or not made yet): then the group's General topic.
-  if (!posted.ok && target.message_thread_id) {
-    target = { chat_id: target.chat_id };
-    posted = await call("sendMessage", { ...target, text });
-  }
-  const reply = posted.ok ? { reply_parameters: { message_id: (posted.result as { message_id: number }).message_id } } : {};
-  if (row.latitude !== null && row.longitude !== null) await call("sendLocation", { ...target, latitude: row.latitude, longitude: row.longitude, ...reply });
-  const media = [...list(row.photos_json).map((media) => ({ type: "photo", media })), ...list(row.videos_json).map((media) => ({ type: "video", media }))];
-  if (media.length === 1) await call(media[0].type === "photo" ? "sendPhoto" : "sendVideo", { ...target, [media[0].type]: media[0].media, ...reply });
-  else if (media.length > 1) await call("sendMediaGroup", { ...target, media: media.slice(0, MAX_PICTURES), ...reply });
+  if (!posted.ok && target.message_thread_id) await send({ chat_id: target.chat_id });
 }
 
 /** The review's buttons (place:send, place:edit, place:cancel, place:back, place:field:<step>, place:text:<mode>). */

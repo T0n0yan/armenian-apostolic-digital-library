@@ -64,9 +64,9 @@ async function upToReview(tg: ReturnType<typeof telegram>, db: D1Database) {
   for (const text of ["Սուրբ Գրիգոր Լուսավորիչ եկեղեցի", "⛪ Եկեղեցի"]) await continuePlace(tg.call, db, topic, name(text));
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.0389 } }));
   await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: "small" }, { file_id: "big" }] }));
-  for (const text of [PLACE_TEXT.next, "Այո, գործող է", "Ամեն կիրակի", "Ամեն օր 09:30 և 17:00", PLACE_TEXT.next,
+  for (const text of [PLACE_TEXT.next, "Այո, գործող է", "Ամեն կիրակի", PLACE_TEXT.yes, "Ամեն օր 09:30 և 17:00",
     "Թեմի Առաջնորդ", "Տեր Սիոն Սրբազան", "Քահանա", "Տեր Ա", "Քահանա", "Տեր Բ", PLACE_TEXT.done,
-    "Ամեն օր 09:00–18:00", PLACE_TEXT.next, "Կան աստիճաններ", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
+    "Ամեն օր 09:00–18:00", "Կան աստիճաններ", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
 }
 
 test("people serving are kept one role to a line", () => {
@@ -112,12 +112,11 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   await continuePlace(tg.call, db, topic, name("Այո, գործող է"));
   ends(tg, PLACE_TEXT.askLiturgy);
   await continuePlace(tg.call, db, topic, name("Ամեն կիրակի"));
+  ends(tg, PLACE_TEXT.askServicesHeld);
+  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.yes));
   ends(tg, PLACE_TEXT.askServices);
-  // More than one message for the same question: both are kept.
-  await continuePlace(tg.call, db, topic, name("Երկուշաբթիից շաբաթ 09:30–10:00"));
-  assert.equal(tg.texts().at(-1), PLACE_TEXT.textAdded);
-  await continuePlace(tg.call, db, topic, name("և 17:00–17:30"));
-  await continuePlace(tg.call, db, topic, name(PLACE_TEXT.next));
+  // One message answers a question; the next one follows at once.
+  await continuePlace(tg.call, db, topic, name("Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30"));
   ends(tg, PLACE_TEXT.askClergy);
   await continuePlace(tg.call, db, topic, name("Թեմի Առաջնորդ"));
   assert.ok(tg.texts().at(-1)?.includes(PLACE_TEXT.askClergyName));
@@ -144,7 +143,7 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(row.region, "Արմավիրի մարզ, Վաղարշապատ");
   assert.equal(row.active, "yes");
   assert.equal(row.liturgy, "Ամեն կիրակի");
-  assert.equal(row.services, "Երկուշաբթիից շաբաթ 09:30–10:00\nև 17:00–17:30");
+  assert.equal(row.services, "Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30");
   assert.equal(row.clergy, "Թեմի Առաջնորդ՝ Տեր Սիոն Սրբազան\nՔահանա՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Ա սարկավագ");
   assert.equal(row.open_hours, "Միշտ բաց է");
   assert.equal(row.accessibility, "Քարքարոտ արահետ, 200 մ");
@@ -152,7 +151,12 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(row.credit_name, "Անի");
   assert.equal(JSON.parse(String(row.photos_json)).length, 10);
   assert.ok(row.submitted_at);
-  assert.deepEqual(toTeam(tg).map((item) => item.method), ["sendMessage", "sendLocation", "sendMediaGroup"]);
+  // The team gets one message: the album, its caption the summary with the map link and the sender.
+  assert.deepEqual(toTeam(tg).map((item) => item.method), ["sendMediaGroup"]);
+  const album = toTeam(tg)[0].body.media as Array<{ caption?: string }>;
+  assert.match(String(album[0].caption), /#u42/u);
+  assert.match(String(album[0].caption), /maps\.google\.com\/\?q=40\.15850,44\.03890/u);
+  assert.equal(album.filter((item) => item.caption).length, 1);
   assert.equal(tg.texts().at(-1), PLACE_TEXT.sent);
   assert.equal(await continuePlace(tg.call, db, topic, name("Բարև")), false);
 });
