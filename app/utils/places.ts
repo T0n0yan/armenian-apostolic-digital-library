@@ -1,4 +1,5 @@
 /** Sacred places on the map: kinds, addresses and the small parsing the admin form needs. */
+import { ARMENIA_BORDER } from "./armenia-border";
 
 export const PLACE_KINDS = {
   monastery: "Վանք",
@@ -31,8 +32,10 @@ export function placeSlug(name: string) {
  * or they fall outside the Earth.
  */
 export function parseCoordinates(text: string): { latitude: number; longitude: number } | null {
+  // A Google place link carries the pin itself (!3d<lat>!4d<lon>); its @… is only the view's centre.
+  const pin = /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/u.exec(text);
   const yandex = /[?&]ll=(-?\d{1,3}\.\d+)(?:,|%2C)(-?\d{1,3}\.\d+)/u.exec(text);
-  const match = yandex ? [yandex[0], yandex[2], yandex[1]] : /(-?\d{1,3}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})/u.exec(text);
+  const match = pin ?? (yandex ? [yandex[0], yandex[2], yandex[1]] : /(-?\d{1,3}\.\d{3,})\s*(?:,|%2C|;|\s)\s*\+?(-?\d{1,3}\.\d{3,})/u.exec(text));
   if (!match) return null;
   const latitude = Number(match[1]);
   const longitude = Number(match[2]);
@@ -52,4 +55,17 @@ export function directionLinks(latitude: number, longitude: number) {
 /** A picture of a place, kept in R2 under places/<id>/ and served by /place-media. */
 export function placeMediaUrl(key: string) {
   return `/place-media/${key.replace(/^places\//u, "")}`;
+}
+
+/** Whether a point lies in Armenia (the map shows only Armenia): ray casting over the border rings. */
+export function insideArmenia(latitude: number, longitude: number) {
+  let inside = false;
+  for (const ring of ARMENIA_BORDER) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [yi, xi] = ring[i];
+      const [yj, xj] = ring[j];
+      if ((yi > latitude) !== (yj > latitude) && longitude < ((xj - xi) * (latitude - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+  }
+  return inside;
 }

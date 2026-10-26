@@ -79,7 +79,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
           {submissions.map((submission) => (
             <article key={submission.id} className={card}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <strong className="text-[15px] text-ink">{submission.senderName}</strong>
+                <strong className="text-[15px] text-ink">{submission.placeName ? `«${submission.placeName}» · ` : ""}{submission.senderName}</strong>
                 <span className="text-[12px] text-faint">
                   {formatArmenianDate(submission.createdAt)} · {submission.credit === null ? "անունը նշելու մասին չի պատասխանել" : submission.credit ? "համաձայն է, որ անունը նշվի" : "անանուն"}
                 </span>
@@ -99,7 +99,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               <Form method="post" className="grid gap-2 min-[560px]:grid-cols-[1fr_auto]">
                 <input type="hidden" name="submissionId" value={submission.id} />
                 <div className="grid gap-2">
-                  <input className={fieldControl} name="name" placeholder="Տեղի անունը, օր.՝ Սուրբ Գրիգոր Լուսավորիչ" defaultValue={submission.notes.split("\n")[0].replace(/^\d+\.\s*/u, "").slice(0, 80)} required />
+                  <input className={fieldControl} name="name" placeholder="Տեղի անունը, օր.՝ Սուրբ Գրիգոր Լուսավորիչ" defaultValue={submission.placeName || submission.notes.split("\n")[0].replace(/^\d+\.\s*/u, "").slice(0, 80)} required />
                   {submission.latitude === null ? <input className={fieldControl} name="coordinates" placeholder="40.1617, 44.2913 կամ Google Maps-ի հղում" /> : null}
                 </div>
                 <div className="flex flex-wrap items-start gap-2">

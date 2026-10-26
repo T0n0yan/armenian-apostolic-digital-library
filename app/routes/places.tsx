@@ -72,7 +72,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
         </div>
       ) : null}
       <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
-        <Send aria-hidden="true" size={16} /> Ուղարկել սրբավայր (բոտով, անանուն)
+        <Send aria-hidden="true" size={16} /> Ուղարկել սրբավայր բոտով
       </a>
       {places.length ? (
         // Grouped by province, each folded, so hundreds of places don't make an endless page.
