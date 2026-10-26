@@ -8,11 +8,15 @@ import { insideArmenia, parseCoordinates } from "../app/utils/places";
 import { PLACE_CHOICES, PLACE_TEXT } from "../app/utils/support-relay";
 import { removeOldData } from "../app/data/retention.server";
 
+// The map's region lookup (Nominatim) answers from here; a test may swap in its own.
+const nominatim = (address: Record<string, string>) => (async () => Response.json({ address })) as unknown as typeof fetch;
+globalThis.fetch = nominatim({ state: "Արմավիրի մարզ", city: "Վաղարշապատ" });
+
 /** Enough of D1 over node:sqlite to run the /place conversation against the real migrations. */
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("CREATE TABLE app_users (id TEXT PRIMARY KEY); CREATE TABLE site_presence (visitor_id TEXT PRIMARY KEY, last_seen TEXT);");
-  for (const file of ["0028_place_drafts", "0029_places", "0032_places_osm", "0033_place_visits", "0034_place_steps", "0035_place_details", "0036_place_questions"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
+  for (const file of ["0028_place_drafts", "0029_places", "0032_places_osm", "0033_place_visits", "0034_place_steps", "0035_place_details", "0036_place_questions", "0037_place_region"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
   const statement = (sql: string, values: unknown[] = []) => ({
     bind: (...next: unknown[]) => statement(sql, next),
     run: async () => { sqlite.prepare(sql).run(...(values as never[])); return { success: true }; },
@@ -78,12 +82,16 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   const tg = telegram();
   await startPlace(tg.call, db, 7, reader);
   ends(tg, PLACE_TEXT.askName);
+  await continuePlace(tg.call, db, topic, name("Չգիտեմ"));
+  assert.equal(tg.texts().at(-1), PLACE_TEXT.nameUnknown);
+  // Latin letters are kept, with a reminder that Armenian ones are wished for.
   await continuePlace(tg.call, db, topic, name("Surb Grigor"));
-  assert.equal(tg.texts().at(-1), PLACE_TEXT.armenianOnly);
+  assert.ok(tg.texts().at(-1)?.startsWith(PLACE_TEXT.armenianTip));
+  ends(tg, PLACE_TEXT.askKind);
+  await answerPlaceCallback(tg.call, db, topic, press("place:cancel"));
+  await startPlace(tg.call, db, 7, reader);
   await continuePlace(tg.call, db, topic, name("Սուրբ Գրիգոր Լուսավորիչ եկեղեցի"));
   ends(tg, PLACE_TEXT.askKind);
-  await continuePlace(tg.call, db, topic, name("եկեղեցի"));
-  assert.equal(tg.texts().at(-1), PLACE_TEXT.kindHelp);
   await continuePlace(tg.call, db, topic, name("⛪ Եկեղեցի"));
   ends(tg, PLACE_TEXT.askLocation);
   assert.ok(tg.texts().at(-1)?.startsWith("3 · "));
@@ -95,6 +103,7 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(tg.texts().at(-1), PLACE_TEXT.outside);
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.0389 } }));
   ends(tg, PLACE_TEXT.askPhotos);
+  assert.ok(tg.texts().at(-1)?.startsWith(`${PLACE_TEXT.locationDone} Արմավիրի մարզ, Վաղարշապատ`));
   for (let index = 0; index < 12; index += 1) await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: `small${index}` }, { file_id: `big${index}` }] }));
   assert.equal(tg.texts().filter((text) => text === PLACE_TEXT.photoReceived).length, 1);
   assert.equal(tg.texts().filter((text) => text === PLACE_TEXT.tooMany).length, 1);
@@ -104,8 +113,6 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   ends(tg, PLACE_TEXT.askLiturgy);
   await continuePlace(tg.call, db, topic, name("Ամեն կիրակի"));
   ends(tg, PLACE_TEXT.askServices);
-  await continuePlace(tg.call, db, topic, name("Построена"));
-  assert.equal(tg.texts().at(-1), PLACE_TEXT.armenianOnly);
   // More than one message for the same question: both are kept.
   await continuePlace(tg.call, db, topic, name("Երկուշաբթիից շաբաթ 09:30–10:00"));
   assert.equal(tg.texts().at(-1), PLACE_TEXT.textAdded);
@@ -134,6 +141,7 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   const row = sqlite.prepare("SELECT * FROM place_submissions").get() as Record<string, unknown>;
   assert.equal(row.place_name, "Սուրբ Գրիգոր Լուսավորիչ եկեղեցի");
   assert.equal(row.kind, "church");
+  assert.equal(row.region, "Արմավիրի մարզ, Վաղարշապատ");
   assert.equal(row.active, "yes");
   assert.equal(row.liturgy, "Ամեն կիրակի");
   assert.equal(row.services, "Երկուշաբթիից շաբաթ 09:30–10:00\nև 17:00–17:30");
@@ -189,6 +197,48 @@ test("from the review any answer can be added to, rewritten or left as it was", 
   await continuePlace(tg.call, db, topic, name(PLACE_TEXT.anonymous));
   assert.equal(sqlite.prepare("SELECT credit FROM place_submissions").get()?.credit, 0);
   assert.equal(toTeam(tg).length, 0);
+});
+
+test("the kind can be the reader's own words; the region is asked when the map can't find it", async () => {
+  const { db, sqlite } = database();
+  const tg = telegram();
+  const saved = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(null, { status: 503 })) as unknown as typeof fetch;
+  try {
+    await startPlace(tg.call, db, 7, reader);
+    for (const text of ["Զվարթնոց", "Հեթանոսական տաճար"]) await continuePlace(tg.call, db, topic, name(text));
+    ends(tg, PLACE_TEXT.askLocation);
+    // Coordinates typed longitude first are turned round.
+    await continuePlace(tg.call, db, topic, name("44.3365, 40.1600"));
+    ends(tg, PLACE_TEXT.askRegion);
+    await continuePlace(tg.call, db, topic, name("Արմավիրի մարզ, Զվարթնոց"));
+    ends(tg, PLACE_TEXT.askPhotos);
+    const row = sqlite.prepare("SELECT kind, kind_note, latitude, region FROM place_submissions").get() as Record<string, unknown>;
+    assert.deepEqual({ ...row }, { kind: "", kind_note: "Հեթանոսական տաճար", latitude: 40.16, region: "Արմավիրի մարզ, Զվարթնոց" });
+  } finally {
+    globalThis.fetch = saved;
+  }
+});
+
+test("a place under renovation isn't asked for opening hours; the team gets it in General when the topic is gone", async () => {
+  const { db } = database();
+  const tg = telegram();
+  await startPlace(tg.call, db, 7, reader);
+  for (const text of ["Սուրբ Նարեկ", "⛪ Եկեղեցի"]) await continuePlace(tg.call, db, topic, name(text));
+  await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.0389 } }));
+  for (const text of [PLACE_TEXT.noPhotos, "Վերանորոգվում է"]) await continuePlace(tg.call, db, topic, name(text));
+  ends(tg, PLACE_TEXT.askAccess);
+  for (const text of [PLACE_TEXT.unknown, PLACE_TEXT.skip, PLACE_TEXT.anonymous]) await continuePlace(tg.call, db, topic, name(text));
+  // The places topic refuses (it doesn't exist): the summary goes to the group itself.
+  const refusing = async (method: string, body: unknown) => {
+    const thread = (body as { message_thread_id?: number }).message_thread_id;
+    return thread ? { ok: false } : tg.call(method, body);
+  };
+  await answerPlaceCallback(refusing, db, topic, press("place:send"));
+  const summary = tg.calls.find((item) => item.body.chat_id === -100 && item.method === "sendMessage");
+  assert.equal(summary?.body.message_thread_id, undefined);
+  assert.match(String(summary?.body.text), /#u42/u);
+  assert.match(String(summary?.body.text), /Reply/u);
 });
 
 test("«Չեղարկել» removes everything and tells the team nothing; leftover buttons never reach the team", async () => {

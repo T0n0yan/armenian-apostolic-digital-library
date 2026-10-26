@@ -32,13 +32,14 @@ export function placeSlug(name: string) {
 
 /**
  * Coordinates from what people paste: «40.161795, 44.291395», a Google Maps link (…/@40.16,44.29,15z
- * or ?q=40.16,44.29) or a Yandex one (?ll=44.29,40.16, longitude first). Null when there are none
- * or they fall outside the Earth.
+ * or ?q=40.16,44.29), an Apple Maps one (?ll=40.16,44.29) or a Yandex one (?ll=44.29,40.16, longitude
+ * first). Null when there are none or they fall outside the Earth.
  */
 export function parseCoordinates(text: string): { latitude: number; longitude: number } | null {
   // A Google place link carries the pin itself (!3d<lat>!4d<lon>); its @… is only the view's centre.
   const pin = /!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/u.exec(text);
-  const yandex = /[?&]ll=(-?\d{1,3}\.\d+)(?:,|%2C)(-?\d{1,3}\.\d+)/u.exec(text);
+  // Yandex puts the longitude first (ll=, pt=, whatshere[point]=); Apple's ll= is latitude first.
+  const yandex = /yandex\./u.test(text) ? /(?:[?&]ll|[?&]pt|whatshere(?:%5B|\[)point(?:%5D|\]))=(-?\d{1,3}\.\d+)(?:,|%2C)(-?\d{1,3}\.\d+)/u.exec(text) : null;
   const match = pin ?? (yandex ? [yandex[0], yandex[2], yandex[1]] : /(-?\d{1,3}\.\d{3,})\s*(?:,|%2C|;|\s)\s*\+?(-?\d{1,3}\.\d{3,})/u.exec(text));
   if (!match) return null;
   const latitude = Number(match[1]);
