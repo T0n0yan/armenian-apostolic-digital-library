@@ -2,7 +2,8 @@ import { isPlaceKind, placeSlug, type PlaceKind } from "../utils/places";
 
 export type Place = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
-  description: string; clergy: string; services: string; accessibility: string; videoUrl: string; icon: string | null;
+  description: string; clergy: string; services: string; accessibility: string; active: string; liturgy: string; openHours: string;
+  videoUrl: string; icon: string | null;
   photos: string[]; creditName: string; verified: boolean; published: boolean; updatedAt: string;
   /** Brought in from OpenStreetMap (scripts/import-osm-places.py). */
   fromOsm: boolean;
@@ -10,12 +11,12 @@ export type Place = {
 
 export type PlaceSubmission = {
   id: number; senderName: string; placeName: string; credit: boolean | null; creditName: string; latitude: number | null; longitude: number | null;
-  notes: string; clergy: string; services: string; accessibility: string; photos: string[]; videos: string[]; createdAt: string;
+  notes: string; clergy: string; services: string; accessibility: string; kind: string; active: string; liturgy: string; openHours: string; photos: string[]; videos: string[]; createdAt: string;
 };
 
 type PlaceRow = {
   id: string; name: string; kind: string; latitude: number; longitude: number; region: string; description: string;
-  clergy: string; services: string; accessibility?: string; video_url: string; icon: string | null; photos_json: string; credit_name: string;
+  clergy: string; services: string; accessibility?: string; active?: string; liturgy?: string; open_hours?: string; video_url: string; icon: string | null; photos_json: string; credit_name: string;
   verified: number; published: number; updated_at: string; osm_id?: string | null;
 };
 
@@ -26,7 +27,8 @@ const list = (json: string) => {
 function toPlace(row: PlaceRow): Place {
   return {
     id: row.id, name: row.name, kind: isPlaceKind(row.kind) ? row.kind : "church", latitude: row.latitude, longitude: row.longitude,
-    region: row.region, description: row.description, clergy: row.clergy, services: row.services, accessibility: row.accessibility ?? "", videoUrl: row.video_url,
+    region: row.region, description: row.description, clergy: row.clergy, services: row.services, accessibility: row.accessibility ?? "",
+    active: row.active ?? "", liturgy: row.liturgy ?? "", openHours: row.open_hours ?? "", videoUrl: row.video_url,
     icon: row.icon, photos: list(row.photos_json), creditName: row.credit_name, verified: Boolean(row.verified),
     published: Boolean(row.published), updatedAt: row.updated_at, fromOsm: Boolean(row.osm_id),
   };
@@ -45,12 +47,13 @@ export async function getPlace(db: D1Database, id: string) {
 export async function listOpenSubmissions(db: D1Database): Promise<PlaceSubmission[]> {
   const { results } = await db.prepare("SELECT * FROM place_submissions WHERE status = 'open' AND submitted_at IS NOT NULL ORDER BY submitted_at DESC LIMIT 50").all<{
     id: number; sender_name: string; place_name: string; credit: number | null; credit_name: string; latitude: number | null; longitude: number | null; notes: string;
-    clergy: string; services: string; accessibility: string;
+    clergy: string; services: string; accessibility: string; kind: string; active: string; liturgy: string; open_hours: string;
     photos_json: string; videos_json: string; created_at: string;
   }>();
   return results.map((row) => ({
     id: row.id, senderName: row.sender_name, placeName: row.place_name ?? "", credit: row.credit === null ? null : Boolean(row.credit),
-    creditName: row.credit_name ?? "", clergy: row.clergy ?? "", services: row.services ?? "", accessibility: row.accessibility ?? "", latitude: row.latitude,
+    creditName: row.credit_name ?? "", clergy: row.clergy ?? "", services: row.services ?? "", accessibility: row.accessibility ?? "",
+    kind: row.kind ?? "", active: row.active ?? "", liturgy: row.liturgy ?? "", openHours: row.open_hours ?? "", latitude: row.latitude,
     longitude: row.longitude, notes: row.notes, photos: list(row.photos_json), videos: list(row.videos_json), createdAt: row.created_at,
   }));
 }
@@ -69,20 +72,28 @@ async function freeId(db: D1Database, name: string) {
   return `${base}-${Date.now()}`;
 }
 
-export async function createPlace(db: D1Database, fields: { name: string; latitude: number; longitude: number; creditName?: string; notes?: string; clergy?: string; services?: string; accessibility?: string }) {
+type NewPlace = {
+  name: string; latitude: number; longitude: number; kind?: string; creditName?: string; notes?: string; clergy?: string; services?: string;
+  accessibility?: string; active?: string; liturgy?: string; openHours?: string;
+};
+
+export async function createPlace(db: D1Database, fields: NewPlace) {
   const id = await freeId(db, fields.name);
-  await db.prepare("INSERT INTO places (id, name, latitude, longitude, credit_name, description, clergy, services, accessibility) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(id, fields.name, fields.latitude, fields.longitude, fields.creditName ?? "", fields.notes ?? "", fields.clergy ?? "", fields.services ?? "", fields.accessibility ?? "").run();
+  await db.prepare(
+    `INSERT INTO places (id, name, kind, latitude, longitude, credit_name, description, clergy, services, accessibility, active, liturgy, open_hours)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(id, fields.name, isPlaceKind(fields.kind) ? fields.kind : "church", fields.latitude, fields.longitude, fields.creditName ?? "", fields.notes ?? "",
+    fields.clergy ?? "", fields.services ?? "", fields.accessibility ?? "", fields.active ?? "", fields.liturgy ?? "", fields.openHours ?? "").run();
   return id;
 }
 
-export type PlaceFields = Pick<Place, "name" | "kind" | "latitude" | "longitude" | "region" | "description" | "clergy" | "services" | "accessibility" | "videoUrl" | "creditName" | "verified" | "published">;
+export type PlaceFields = Pick<Place, "name" | "kind" | "latitude" | "longitude" | "region" | "description" | "clergy" | "services" | "accessibility" | "active" | "liturgy" | "openHours" | "videoUrl" | "creditName" | "verified" | "published">;
 
 export function updatePlace(db: D1Database, id: string, fields: PlaceFields) {
   return db.prepare(
-    `UPDATE places SET name = ?, kind = ?, latitude = ?, longitude = ?, region = ?, description = ?, clergy = ?, services = ?, accessibility = ?,
+    `UPDATE places SET name = ?, kind = ?, latitude = ?, longitude = ?, region = ?, description = ?, clergy = ?, services = ?, accessibility = ?, active = ?, liturgy = ?, open_hours = ?,
        video_url = ?, credit_name = ?, verified = ?, published = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`,
-  ).bind(fields.name, fields.kind, fields.latitude, fields.longitude, fields.region, fields.description, fields.clergy, fields.services, fields.accessibility,
+  ).bind(fields.name, fields.kind, fields.latitude, fields.longitude, fields.region, fields.description, fields.clergy, fields.services, fields.accessibility, fields.active, fields.liturgy, fields.openHours,
     fields.videoUrl, fields.creditName, fields.verified ? 1 : 0, fields.published ? 1 : 0, id).run();
 }
 
@@ -136,7 +147,8 @@ export async function placeFromSubmission(db: D1Database, bucket: R2Bucket, toke
   const id = await createPlace(db, {
     name, latitude: submission.latitude, longitude: submission.longitude,
     creditName: submission.credit ? submission.creditName || submission.senderName : "", notes: submission.notes,
-    clergy: submission.clergy, services: submission.services, accessibility: submission.accessibility,
+    clergy: submission.clergy, services: submission.services, accessibility: submission.accessibility, kind: submission.kind,
+    active: submission.active, liturgy: submission.liturgy, openHours: submission.openHours,
   });
   const photos: string[] = [];
   for (const fileId of submission.photos.slice(0, 12)) {

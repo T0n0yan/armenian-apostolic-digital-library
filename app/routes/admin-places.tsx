@@ -11,7 +11,7 @@ import { SiteNav } from "../components/site-nav";
 import { fieldControl, panelSection, primaryButton } from "../components/ui-styles";
 import { createPlace, dismissSubmission, listOpenSubmissions, listPlaces, placeFromSubmission } from "../data/places.server";
 import { formatArmenianDate } from "../utils/armenian-date";
-import { parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket; TELEGRAM_BOT_TOKEN?: string };
 
@@ -90,7 +90,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                 </div>
               ) : <p className="m-0 flex items-center gap-1.5 text-[13px] text-faint"><ImageOff aria-hidden="true" size={15} /> Նկար չկա</p>}
               {submission.videos.length ? <p className="m-0 text-[13px] text-muted">🎬 Տեսանյութ՝ {submission.videos.length}</p> : null}
-              {([["Պատմությունը", submission.notes], ["Ով է ծառայում", submission.clergy], ["Ժամերգությունները", submission.services], ["Հասանելիությունը", submission.accessibility]] as const).map(([label, value]) => value ? (
+              {([["Տեսակը", isPlaceKind(submission.kind) ? PLACE_KINDS[submission.kind] : ""], ["Գործո՞ղ է", ACTIVE_LABELS[submission.active] ?? ""], ["Սուրբ Պատարագ", submission.liturgy], ["Ժամերգություններ", submission.services], ["Ծառայողներ", submission.clergy], ["Բաց է", submission.openHours], ["Ճանապարհը և մուտքը", submission.accessibility], ["Պատմությունը", submission.notes]] as const).map(([label, value]) => value ? (
                 <p key={label} className="m-0 whitespace-pre-line text-[14px] leading-relaxed text-ink"><span className="font-semibold text-muted">{label}՝ </span>{value}</p>
               ) : null)}
               {submission.latitude !== null && submission.longitude !== null ? (
