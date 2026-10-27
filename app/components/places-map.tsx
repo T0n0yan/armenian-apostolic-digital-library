@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
 import { ArmeniaOutline } from "./armenia-outline";
 import { MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
-import { directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+import { circleRing, directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
 export type MapPlace = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
@@ -176,12 +176,28 @@ function saveView(view: SavedView) {
   try { sessionStorage.setItem(VIEW_KEY, JSON.stringify(view)); } catch { /* Private mode: the map just starts over. */ }
 }
 
-export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit, only, fitKey = "" }: {
+/** «Իմ մոտակայքում»: the reader's position and the radius around it, in kilometres. */
+export type NearView = { latitude: number; longitude: number; radiusKm: number };
+
+function nearData(near: NearView | null | undefined) {
+  if (!near) return { type: "FeatureCollection" as const, features: [] };
+  return {
+    type: "FeatureCollection" as const,
+    features: [
+      { type: "Feature" as const, properties: { part: "area" }, geometry: { type: "Polygon" as const, coordinates: [circleRing(near, near.radiusKm)] } },
+      { type: "Feature" as const, properties: { part: "me" }, geometry: { type: "Point" as const, coordinates: [near.longitude, near.latitude] } },
+    ],
+  };
+}
+
+export function PlacesMap({ places, focus, visited = new Set<string>(), onToggleVisit, only, fitKey = "", near }: {
   places: MapPlace[]; focus?: string; visited?: Set<string>; onToggleVisit?: (id: string) => void;
   /** The places the filters leave (all when absent). */
   only?: Set<string>;
   /** Changes when the province filter does: the map then frames the places left. */
   fitKey?: string;
+  /** The reader's position and radius: drawn as a dot in a ring, and the map frames the ring. */
+  near?: NearView | null;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapInstance | null>(null);
@@ -197,6 +213,8 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   visitedRef.current = visited;
   const onlyRef = useRef(only);
   onlyRef.current = only;
+  const nearRef = useRef(near);
+  nearRef.current = near;
   const features = (seen: Set<string>) => ({
     type: "FeatureCollection" as const,
     features: places.filter((place) => !onlyRef.current || onlyRef.current.has(place.id)).map((place) => ({
@@ -226,6 +244,20 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
     const lats = shown.map((place) => place.latitude);
     map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 50, maxZoom: 13, duration: 700 });
   }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // «Իմ մոտակայքում» on: the ring and the dot are drawn and the map frames the ring; off: they go.
+  const nearKey = near ? `${near.latitude},${near.longitude},${near.radiusKm}` : "";
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map?.getSource("near") as import("maplibre-gl").GeoJSONSource | undefined;
+    if (!map || !source) return;
+    source.setData(nearData(near));
+    if (!near) return;
+    const ring = circleRing(near, near.radiusKm);
+    const lngs = ring.map(([lng]) => lng);
+    const lats = ring.map(([, lat]) => lat);
+    map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 24, duration: 800 });
+  }, [nearKey, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The card closes with a short fade: by its ✕, a tap on the map, or a tap anywhere else on the page.
   const close = () => {
@@ -295,6 +327,13 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
         }
         m.addSource("armenia", { type: "geojson", data: { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: ARMENIA_BORDER.map((ring) => ring.map(([lat, lng]) => [lng, lat])) } } });
         m.addLayer({ id: "armenia-border", type: "line", source: "armenia", paint: { "line-color": MAP_PALETTES[currentTheme()].border, "line-width": 3, "line-opacity": 0.9 } });
+
+        // «Իմ մոտակայքում»: the ring around the reader and their dot, under the places.
+        m.addSource("near", { type: "geojson", data: nearData(nearRef.current) });
+        m.addLayer({ id: "near-area", type: "fill", source: "near", filter: ["==", ["get", "part"], "area"], paint: { "fill-color": "#d9b56f", "fill-opacity": 0.13 } });
+        m.addLayer({ id: "near-edge", type: "line", source: "near", filter: ["==", ["get", "part"], "area"], paint: { "line-color": "#b07d2e", "line-width": 1.6, "line-dasharray": [3, 2], "line-opacity": 0.85 } });
+        m.addLayer({ id: "near-halo", type: "circle", source: "near", filter: ["==", ["get", "part"], "me"], paint: { "circle-radius": 17, "circle-color": "#2f7fd8", "circle-opacity": 0.18 } });
+        m.addLayer({ id: "near-me", type: "circle", source: "near", filter: ["==", ["get", "part"], "me"], paint: { "circle-radius": 7, "circle-color": "#2f7fd8", "circle-stroke-color": "#ffffff", "circle-stroke-width": 2.5 } });
 
         m.addImage("cross-visited", crossImage(ratio, VISIT_COLORS.visited), { pixelRatio: ratio });
         m.addImage("cross-unvisited", crossImage(ratio, VISIT_COLORS.unvisited), { pixelRatio: ratio });

@@ -1,0 +1,37 @@
+# Fills staging's places map with Armenian Apostolic churches from OpenStreetMap
+# (scripts/import-osm-places.py, all marked «⚑ Ճշտել»), for trying the map with real places.
+# Staging only: production's map starts empty and is filled by readers through the bot.
+name: Staging OSM places
+
+on:
+  push:
+    branches: [staging]
+    paths: [".github/workflows/staging-osm-places.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WRANGLER_SEND_METRICS: "false"
+      DB: armenian-apostolic-digital-library-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Read the places from OpenStreetMap
+        run: python3 scripts/import-osm-places.py > osm-places.sql
+      - name: Add them to staging
+        run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --file osm-places.sql
+      - name: Count
+        run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --command "SELECT COUNT(*) AS places FROM places"
