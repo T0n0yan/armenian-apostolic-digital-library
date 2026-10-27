@@ -74,3 +74,45 @@ export function insideArmenia(latitude: number, longitude: number) {
   }
   return inside;
 }
+
+/** The distance between two points on the Earth, in kilometres (haversine). */
+export function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {
+  const rad = Math.PI / 180;
+  const dLat = (b.latitude - a.latitude) * rad;
+  const dLon = (b.longitude - a.longitude) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** The radii the reader can pick for «Իմ մոտակայքում», in kilometres. */
+export const NEARBY_RADII = [10, 30, 50] as const;
+
+/** The places within `radiusKm` of a point, nearest first, each with its distance. */
+export function nearbyPlaces<T extends { latitude: number; longitude: number }>(places: T[], point: { latitude: number; longitude: number }, radiusKm: number) {
+  return places
+    .map((place) => ({ place, km: distanceKm(point, place) }))
+    .filter(({ km }) => km <= radiusKm)
+    .sort((a, b) => a.km - b.km);
+}
+
+/** «850 մ», «3.2 կմ», «27 կմ». */
+export function formatDistance(km: number) {
+  if (km < 1) return `${Math.max(10, Math.round((km * 1000) / 10) * 10)} մ`;
+  return km < 10 ? `${km.toFixed(1)} կմ` : `${Math.round(km)} կմ`;
+}
+
+/** A circle on the map as a polygon ring of [longitude, latitude] points. */
+export function circleRing(center: { latitude: number; longitude: number }, radiusKm: number, steps = 72): Array<[number, number]> {
+  const rad = Math.PI / 180;
+  const lat = center.latitude * rad;
+  const lon = center.longitude * rad;
+  const angular = radiusKm / 6371;
+  const ring: Array<[number, number]> = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const bearing = (step / steps) * 2 * Math.PI;
+    const pointLat = Math.asin(Math.sin(lat) * Math.cos(angular) + Math.cos(lat) * Math.sin(angular) * Math.cos(bearing));
+    const pointLon = lon + Math.atan2(Math.sin(bearing) * Math.sin(angular) * Math.cos(lat), Math.cos(angular) - Math.sin(lat) * Math.sin(pointLat));
+    ring.push([pointLon / rad, pointLat / rad]);
+  }
+  return ring;
+}
