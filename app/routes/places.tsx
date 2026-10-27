@@ -203,7 +203,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       </p>
       {places.length ? (
         // One bar above the map: all / visited / not yet (each shows just those), and the filters.
-        <div ref={filterBox} className="relative z-[1100] mx-auto mb-3 grid w-full max-w-[560px] gap-2">
+        <div ref={filterBox} className="relative z-30 mx-auto mb-3 grid w-full max-w-[560px] gap-2">
           <div className="flex items-stretch gap-2">
             <div className="frosted-card flex flex-1 gap-1 p-1" role="group" aria-label="Ցույց տալ քարտեզում">
               {segment("all", filtered.length, "բոլորը", "text-gold-bright")}
