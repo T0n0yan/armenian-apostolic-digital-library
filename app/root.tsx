@@ -54,6 +54,10 @@ const initialThemeScript = `(() => {
         || sessionStorage.getItem("library-in-telegram") === "1";
       if (inTelegram) { root.dataset.inTelegram = "true"; sessionStorage.setItem("library-in-telegram", "1"); }
     } catch {}
+    // Pictures marked to appear whole (.reveal-img, app.css) are shown once fully loaded.
+    const mark = (name) => (event) => { const target = event.target; if (target && target.classList && target.classList.contains("reveal-img")) target.setAttribute(name, ""); };
+    document.addEventListener("load", mark("data-loaded"), true);
+    document.addEventListener("error", mark("data-failed"), true);
     let preference = "system";
     let textSize = 16;
     try {

@@ -333,6 +333,8 @@
 .ti-question { animation-name: ti-question; animation-duration: 3.4s; transform-origin: 30% 90%; }
 @keyframes ti-question { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-10deg); } 55% { transform: rotate(8deg); } 75% { transform: rotate(-3deg); } }
 .ti-cross { animation-name: ti-pray; }
+.ti-church { animation-name: ti-church; transform-origin: 50% 100%; }
+@keyframes ti-church { 0%, 70%, 100% { transform: none; } 78% { transform: translateY(-5%); } 86% { transform: translateY(0) scaleY(.97); } 92% { transform: none; } }
 .ti-pin { animation-name: ti-pin; transform-origin: 50% 95%; }
 @keyframes ti-pin { 0%, 62%, 100% { transform: none; } 68% { transform: translateY(-14%); } 74% { transform: translateY(0) scaleY(.9); } 79% { transform: translateY(-5%); } 84% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ti, .ti .ti-stroke { animation: none; } }
@@ -619,6 +621,22 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 @media (prefers-reduced-motion: reduce) { .places-filters { transition: none; } }
 
 /* The outline of a page that is loading: the page's own background, soft gold shapes that shimmer. */
+/*
+ * Pictures appear whole, with a short fade, instead of drawing strip by strip on a slow connection.
+ * Until then the frame they sit in shimmers softly (a frame with an artwork, as a soft oval).
+ * The load is noted by a listener in root.tsx, so it also counts before the page is hydrated.
+ */
+@layer components {
+  .reveal-img { opacity: 0; transition: opacity .5s ease; }
+  .reveal-img[data-loaded] { opacity: 1; }
+}
+.reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed])) {
+  background: linear-gradient(100deg, rgb(217 181 111 / 10%) 30%, rgb(240 211 151 / 22%) 50%, rgb(217 181 111 / 10%) 70%) 0 0 / 300% 100%;
+  animation: page-bone-shine 1.5s ease-in-out infinite;
+}
+:root:not([data-theme="dark"]) .reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed])) { background-image: linear-gradient(100deg, rgb(176 128 70 / 10%) 30%, rgb(176 128 70 / 22%) 50%, rgb(176 128 70 / 10%) 70%); }
+.reveal-art:has(.reveal-img:not([data-loaded]):not([data-failed])) { -webkit-mask: radial-gradient(closest-side, #000 55%, transparent); mask: radial-gradient(closest-side, #000 55%, transparent); }
+@media (prefers-reduced-motion: reduce) { .reveal-img { transition: none; } .reveal-frame:has(.reveal-img) { animation: none; } }
 .page-skeleton { background: var(--body-background); animation: page-skeleton-in .25s ease both; }
 @keyframes page-skeleton-in { from { opacity: 0; } }
 .page-bone {
