@@ -19,8 +19,8 @@ import { seoMeta } from "../utils/seo";
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const place = await getPlace(env.DB, params.id);
-  if (!place?.published) throw new Response("Not found", { status: 404 });
+  const place = await getPlace(env.DB, params.id, { publishedOnly: true });
+  if (!place) throw new Response("Not found", { status: 404 });
   return { place, origin: new URL(request.url).origin };
 }
 

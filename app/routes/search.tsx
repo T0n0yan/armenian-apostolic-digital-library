@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Filter,
   LoaderCircle,
+  MapPin,
   RotateCcw,
   Search as SearchIcon,
   X,
@@ -59,6 +60,9 @@ import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
+import { PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+
+const PLACES_SECTION = "places";
 
 function readDate(value: string | null) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
@@ -120,7 +124,16 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
+/** «Սրբավայրեր» in the section list: the places page searches its own map. */
+function placesSectionRedirect(href: string) {
+  const url = new URL(href);
+  if (url.searchParams.get("category") !== PLACES_SECTION) return;
+  const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
+  throw redirect(query ? `/places?q=${encodeURIComponent(query)}` : "/places");
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
+  placesSectionRedirect(request.url);
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   if (url.searchParams.has("q") && searchValidation(query, true)) throw new Response(searchValidation(query, true) ?? "", { status: 400 });
@@ -310,6 +323,7 @@ async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
 let hydrating = typeof document !== "undefined" && document.location.pathname === "/search";
 
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
+  placesSectionRedirect(request.url);
   const first = hydrating;
   hydrating = false;
   const local = first ? null : await searchOnPhone(request.url);
@@ -427,6 +441,7 @@ const SearchForm = memo(function SearchForm({
                   {category.name}
                 </option>
               ))}
+              <option value={PLACES_SECTION}>Սրբավայրեր</option>
             </select>
           </label>
           <div className="grid gap-1.5">
@@ -643,6 +658,8 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         </p>
       ) : null}
 
+      {filters.query && !filters.categoryId && filters.scope === "library" ? <PlaceMatches query={filters.query} /> : null}
+
       <section className="mt-4 grid gap-3" aria-live="polite" aria-busy={isRefreshing || undefined}>
         {hasCriteria ? (
           <div className={sectionHeader}>
@@ -732,6 +749,48 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ) : null}
       </section>
     </PageShell>
+  );
+}
+
+type FoundPlace = { id: string; name: string; kind: PlaceKind; region: string; icon: string | null; cover: string | null };
+
+/** Sacred places whose name matches the search, above the library's results (nothing when none). */
+function PlaceMatches({ query }: { query: string }) {
+  const [found, setFound] = useState<{ query: string; total: number; places: FoundPlace[] } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/places-search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ total: number; places: FoundPlace[] }> : null))
+      .then((data) => { if (data) setFound({ query, ...data }); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [query]);
+  if (!found || found.query !== query || !found.total) return null;
+  return (
+    <section className="mt-4 grid gap-2" aria-labelledby="place-search-results">
+      <div className={sectionHeader}>
+        <h2 className={sectionTitle} id="place-search-results">Սրբավայրեր</h2>
+        <span className={countBadge}>{found.total}</span>
+      </div>
+      <ul className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2">
+        {found.places.map((place) => (
+          <li key={place.id}>
+            <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
+              <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
+                {place.icon ? <img className="size-10 object-contain" src={placeMediaUrl(place.icon)} alt="" loading="lazy" /> : place.cover ? <img className="size-full object-cover" src={placeMediaUrl(place.cover)} alt="" loading="lazy" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
+              </span>
+              <span className="grid min-w-0 gap-0.5">
+                <strong className="truncate font-noto text-[14px] text-ink">{place.name}</strong>
+                <span className="truncate text-[12px] text-muted">{PLACE_KINDS[place.kind]}{place.region ? ` · ${place.region}` : ""}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {found.total > found.places.length ? (
+        <Link className="w-fit text-[13px] font-semibold text-gold-bright" to={`/places?q=${encodeURIComponent(query)}`}>Բոլոր {found.total}-ը քարտեզում →</Link>
+      ) : null}
+    </section>
   );
 }
 

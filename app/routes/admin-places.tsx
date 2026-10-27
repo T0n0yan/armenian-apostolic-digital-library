@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
-import { Check, Eye, EyeOff, ImageOff, MapPin, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { Ban, Check, ClipboardCopy, Download, Eye, EyeOff, Footprints, ImageOff, MapPin, Plus, Trash2, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin-places";
@@ -9,9 +9,13 @@ import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, panelSection, primaryButton } from "../components/ui-styles";
-import { createPlace, dismissSubmission, listOpenSubmissions, listPlaces, placeFromSubmission, setPlacesPublished } from "../data/places.server";
+import { getOptionalTelegramUser, upsertAppUser } from "../auth/telegram-user.server";
+import {
+  addBlocklistWord, createPlace, deletePlace, dismissSubmission, listBlocklist, listOpenSubmissions, listPlaces, listVisitedIds, placeFromSubmission,
+  removeBlocklistWord, setPlacesPublished, setVisited, type Place,
+} from "../data/places.server";
 import { formatArmenianDate } from "../utils/armenian-date";
-import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+import { ACTIVE_LABELS, blockedWords, isPlaceKind, parseCoordinates, placeMatches, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket; TELEGRAM_BOT_TOKEN?: string };
 
@@ -24,8 +28,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     if (error instanceof Response && (error.status === 401 || error.status === 403)) throw redirect("/");
     throw error;
   });
-  const [submissions, places] = await Promise.all([listOpenSubmissions(env.DB), listPlaces(env.DB, { publishedOnly: false })]);
-  return { submissions, places };
+  const user = await getOptionalTelegramUser(request);
+  const [submissions, places, blocklist, visited] = await Promise.all([
+    listOpenSubmissions(env.DB), listPlaces(env.DB, { publishedOnly: false }), listBlocklist(env.DB), user ? listVisitedIds(env.DB, user.id) : [],
+  ]);
+  return { submissions, places, blocklist, visited, canVisit: Boolean(user) };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -44,6 +51,34 @@ export async function action({ request }: Route.ActionArgs) {
     if (id) await setPlacesPublished(DB, intent === "show", { id });
     else if (isPlaceKind(kind)) await setPlacesPublished(DB, intent === "show", { kind });
     return redirect(`/admin/places${new URL(request.url).search}`);
+  }
+  const back = redirect(`/admin/places${new URL(request.url).search}`);
+  if (intent === "block-add") {
+    const word = String(form.get("word") ?? "").trim();
+    if (word.length < 2) return data({ error: "Գրեք առնվազն 2 տառ։", submissionId: -1 }, { status: 400 });
+    await addBlocklistWord(DB, word);
+    return back;
+  }
+  if (intent === "block-remove") {
+    await removeBlocklistWord(DB, String(form.get("word") ?? ""));
+    return back;
+  }
+  // Deletes every place the blocklist catches (they are remembered, so an import won't bring them back).
+  if (intent === "delete-blocked") {
+    const words = await listBlocklist(DB);
+    for (const place of await listPlaces(DB, { publishedOnly: false })) if (blockedWords(place.name, words).length) await deletePlace(DB, MEDIA, place.id);
+    return back;
+  }
+  if (intent === "delete") {
+    await deletePlace(DB, MEDIA, String(form.get("placeId") ?? ""));
+    return back;
+  }
+  if (intent === "visit" || intent === "unvisit") {
+    const user = await getOptionalTelegramUser(request);
+    if (!user) return data({ error: "«Եղել եմ»-ը պահվում է Telegram-ով մուտք գործած հաշվում։", submissionId: -1 }, { status: 400 });
+    await upsertAppUser(DB, user);
+    await setVisited(DB, user.id, String(form.get("placeId") ?? ""), intent === "visit");
+    return back;
   }
   if (intent === "dismiss") {
     await dismissSubmission(DB, Number(form.get("submissionId")));
@@ -66,23 +101,58 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 const card = "frosted-card grid gap-3 p-4";
+const tab = (active: boolean) => `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold ${active ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`;
 const smallButton = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
 
 /** Readers' /place submissions waiting for a decision, and every place on the map. */
+const OSM_TYPES: Record<string, string> = { n: "node", w: "way", r: "relation" };
+const osmLink = (id: string) => (OSM_TYPES[id[0]] ? `https://www.openstreetmap.org/${OSM_TYPES[id[0]]}/${id.slice(1)}` : "");
+const provinceOf = (place: Pick<Place, "region">) => place.region.split(", ")[0] || "Առանց մարզի";
+const CHUNK = 50;
+
+/** One line per place, numbered, for pasting into a chat with an assistant that checks the list. */
+function listText(places: Place[], from: number) {
+  return places.map((place, index) => [
+    `${from + index + 1}. ${place.name}`,
+    place.region ? ` — ${place.region}` : "",
+    ` (${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)})`,
+    place.osmId ? ` OSM: ${osmLink(place.osmId)}` : "",
+    place.wikidata ? ` Wikidata: ${place.wikidata}` : "",
+  ].join("")).join("\n");
+}
+
+/** The filtered places as a spreadsheet (Excel opens it; the BOM keeps the Armenian letters right). */
+function downloadCsv(places: Place[], visited: Set<string>) {
+  const cell = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+  const rows = [["#", "Անուն", "Տեսակ", "Մարզ", "Բնակավայր", "Լայնություն", "Երկայնություն", "Ցուցադրված", "Եղել եմ", "OSM", "Wikidata", "Կայքի հասցե"],
+    ...places.map((place, index) => [index + 1, place.name, PLACE_KINDS[place.kind], provinceOf(place), place.region.split(", ").slice(1).join(", "),
+      place.latitude.toFixed(6), place.longitude.toFixed(6), place.published ? "այո" : "ոչ", visited.has(place.id) ? "այո" : "", place.osmId ? osmLink(place.osmId) : "",
+      place.wikidata, `/admin/places/${place.id}`])];
+  const blob = new Blob(["\uFEFF" + rows.map((row) => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `srbavayrer-${new Date().toISOString().slice(0, 10)}.csv` });
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 export default function AdminPlaces({ loaderData, actionData }: Route.ComponentProps) {
-  const { submissions, places } = loaderData;
+  const { submissions, places, blocklist, canVisit } = loaderData;
+  const visitedSet = new Set(loaderData.visited);
   const busy = useNavigation().state === "submitting";
   const [filter, setFilter] = useState("");
-  const [status, setStatus] = useState<"all" | "shown" | "hidden">("all");
+  const [status, setStatus] = useState<"all" | "shown" | "hidden" | "blocked">("all");
   const [kind, setKind] = useState<PlaceKind | "">("");
-  const query = filter.trim().toLocaleLowerCase("hy");
+  const [province, setProvince] = useState("");
+  const [been, setBeen] = useState<"all" | "visited" | "unvisited">("all");
   const shown = places.filter((place) =>
-    (!query || `${place.name} ${place.region}`.toLocaleLowerCase("hy").includes(query))
-    && (status === "all" || place.published === (status === "shown"))
-    && (!kind || place.kind === kind));
+    placeMatches(place, filter)
+    && (status === "all" || (status === "blocked" ? blockedWords(place.name, blocklist).length > 0 : place.published === (status === "shown")))
+    && (!kind || place.kind === kind)
+    && (!province || provinceOf(place) === province)
+    && (been === "all" || visitedSet.has(place.id) === (been === "visited")));
   const visibleCount = places.filter((place) => place.published).length;
   const kinds = (Object.keys(PLACE_KINDS) as PlaceKind[]).map((id) => ({ id, total: places.filter((place) => place.kind === id).length, visible: places.filter((place) => place.kind === id && place.published).length })).filter((entry) => entry.total > 0);
-  const tab = (active: boolean) => `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold ${active ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`;
+  const provinces = [...places.reduce((counts, place) => counts.set(provinceOf(place), (counts.get(provinceOf(place)) ?? 0) + 1), new Map<string, number>())]
+    .sort(([a], [b]) => (a === "Երևան" ? -1 : b === "Երևան" ? 1 : a.localeCompare(b, "hy")));
   return (
     <PageShell width="admin">
       <SiteNav />
@@ -130,6 +200,8 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
           ))}
         </section>
 
+        <BlocklistSection blocklist={blocklist} places={places} busy={busy} error={actionData?.submissionId === -1 ? actionData.error : ""} />
+
         <section className={`${panelSection} grid gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="m-0 text-[17px] font-bold text-ink">Տեղեր ({visibleCount} ցուցադրված · {places.length - visibleCount} թաքցված)</h2>
@@ -150,17 +222,32 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               ))}
             </div>
           ) : null}
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Ցույց տալ">
-            {([["all", "Բոլորը"], ["shown", "Ցուցադրված"], ["hidden", "Թաքցված"]] as const).map(([value, label]) => <button key={value} type="button" className={tab(status === value)} aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>)}
-            <span className="mx-1 w-px self-stretch bg-glass-border" aria-hidden="true" />
-            <button type="button" className={tab(kind === "")} aria-pressed={kind === ""} onClick={() => setKind("")}>Բոլոր տեսակները</button>
-            {kinds.map((entry) => <button key={entry.id} type="button" className={tab(kind === entry.id)} aria-pressed={kind === entry.id} onClick={() => setKind(entry.id)}>{PLACE_KINDS[entry.id]}</button>)}
+          <div className="grid gap-2 rounded-[16px] border border-glass-border p-3">
+            <FilterRow label="Կարգավիճակ">
+              {([["all", "Բոլորը"], ["shown", "Ցուցադրված"], ["hidden", "Թաքցված"], ["blocked", "Սև ցուցակով"]] as const).map(([value, label]) => <button key={value} type="button" className={tab(status === value)} aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>)}
+            </FilterRow>
+            <FilterRow label="Տեսակ">
+              <button type="button" className={tab(kind === "")} aria-pressed={kind === ""} onClick={() => setKind("")}>Բոլորը</button>
+              {kinds.map((entry) => <button key={entry.id} type="button" className={tab(kind === entry.id)} aria-pressed={kind === entry.id} onClick={() => setKind(entry.id)}>{PLACE_KINDS[entry.id]} · {entry.total}</button>)}
+            </FilterRow>
+            <FilterRow label="Մարզ">
+              <button type="button" className={tab(province === "")} aria-pressed={province === ""} onClick={() => setProvince("")}>Բոլորը</button>
+              {provinces.map(([name, count]) => <button key={name} type="button" className={tab(province === name)} aria-pressed={province === name} onClick={() => setProvince(name)}>{name} · {count}</button>)}
+            </FilterRow>
+            {canVisit ? (
+              <FilterRow label="Ես">
+                {([["all", "Բոլորը"], ["visited", `Եղել եմ · ${visitedSet.size}`], ["unvisited", "Դեռ չեմ եղել"]] as const).map(([value, label]) => <button key={value} type="button" className={tab(been === value)} aria-pressed={been === value} onClick={() => setBeen(value)}>{label}</button>)}
+              </FilterRow>
+            ) : null}
+            <input className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել անունով կամ մարզով (նաև լատինատառ)…" aria-label="Փնտրել տեղերը" />
           </div>
-          <input className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել անունով կամ մարզով…" aria-label="Փնտրել տեղերը" />
+          <ExportPanel places={shown} visited={visitedSet} />
           <div className="grid gap-2">
-            {shown.slice(0, 150).map((place) => (
-              <div key={place.id} className="frosted-card flex items-center gap-2 p-3">
-              <Link className="flex min-w-0 flex-1 items-center gap-3 text-inherit no-underline" to={`/admin/places/${place.id}`}>
+            {shown.slice(0, 150).map((place) => {
+              const blocked = blockedWords(place.name, blocklist);
+              return (
+              <div key={place.id} className={`frosted-card flex flex-wrap items-center gap-2 p-3 ${blocked.length ? "shadow-[inset_0_0_0_1.5px_rgb(184_72_62/70%)]" : ""}`}>
+              <Link className="flex min-w-0 flex-1 basis-[220px] items-center gap-3 text-inherit no-underline" to={`/admin/places/${place.id}`}>
                 <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-[#efe3c8]">
                   {place.icon ? <img className="size-full object-contain" src={placeMediaUrl(place.icon)} alt="" /> : place.photos[0] ? <img className="size-full object-cover" src={placeMediaUrl(place.photos[0])} alt="" /> : <MapPin aria-hidden="true" size={20} className="text-faint" />}
                 </span>
@@ -169,17 +256,27 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                   <span className="text-[12px] text-muted">
                     {PLACE_KINDS[place.kind]}{place.region ? ` · ${place.region}` : ""}{place.verified ? "" : " · ⚑ Ճշտել"}{place.icon ? "" : " · գծանկար չկա"}
                   </span>
+                  {blocked.length ? <span className="text-[12px] font-semibold text-danger">Սև ցուցակ՝ «{blocked.join("», «")}». կայքում չի երևում</span> : null}
                 </span>
               </Link>
-              <Form method="post" className="shrink-0">
+              <Form method="post" className="flex shrink-0 flex-wrap gap-1.5" onSubmit={(event) => {
+                const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+                if (submitter?.value === "delete" && !confirm(`Ջնջե՞լ «${place.name}»-ը։ Հետագա ներմուծումը այն այլևս չի բերի։`)) event.preventDefault();
+              }}>
                 <input type="hidden" name="placeId" value={place.id} />
+                {canVisit ? (visitedSet.has(place.id)
+                  ? <button className={`${smallButton} text-[#3f8f5a]`} type="submit" name="intent" value="unvisit" disabled={busy} title="Հանել «Եղել եմ»-ը"><Footprints aria-hidden="true" size={15} /> Եղել եմ</button>
+                  : <button className={`${smallButton} text-faint`} type="submit" name="intent" value="visit" disabled={busy} title="Նշել «Եղել եմ»"><Footprints aria-hidden="true" size={15} /> Չեմ եղել</button>) : null}
                 {place.published
                   ? <button className={`${smallButton} text-[#3f8f5a]`} type="submit" name="intent" value="hide" disabled={busy} title="Թաքցնել քարտեզից"><Eye aria-hidden="true" size={15} /> Ցուցադրված</button>
                   : <button className={`${smallButton} text-faint`} type="submit" name="intent" value="show" disabled={busy} title="Ցուցադրել քարտեզում"><EyeOff aria-hidden="true" size={15} /> Թաքցված</button>}
+                <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete" disabled={busy} title="Ջնջել" aria-label={`Ջնջել «${place.name}»-ը`}><Trash2 aria-hidden="true" size={15} /></button>
               </Form>
               </div>
-            ))}
-            {shown.length > 150 ? <p className="m-0 text-center text-[12.5px] text-faint">Ցույց է տրված 150-ը {shown.length}-ից. գրեք անունը՝ գտնելու համար։</p> : null}
+              );
+            })}
+            {shown.length === 0 ? <p className="m-0 text-center text-[13px] text-faint">Այս ֆիլտրով տեղ չկա։</p> : null}
+            {shown.length > 150 ? <p className="m-0 text-center text-[12.5px] text-faint">Ցույց է տրված 150-ը {shown.length}-ից. նեղացրեք ֆիլտրը կամ գրեք անունը։ Ներբեռնումը և պատճենումը ներառում են բոլոր {shown.length}-ը։</p> : null}
           </div>
           <Form method="post" className="grid gap-2 border-t border-glass-border pt-3 min-[560px]:grid-cols-[1fr_1fr_auto]">
             <input className={fieldControl} name="name" placeholder="Նոր տեղի անունը" required />
@@ -190,6 +287,82 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
         </section>
       </div>
     </PageShell>
+  );
+}
+
+function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid gap-1.5 min-[700px]:grid-cols-[96px_1fr] min-[700px]:items-start">
+      <span className="pt-2 text-[12px] font-semibold text-faint">{label}</span>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>{children}</div>
+    </div>
+  );
+}
+
+/** The filtered list out of the site: a spreadsheet, or numbered lines copied 50 at a time for a chat with GPT. */
+function ExportPanel({ places, visited }: { places: Place[]; visited: Set<string> }) {
+  const [copied, setCopied] = useState(-1);
+  const copy = async (from: number) => {
+    try { await navigator.clipboard.writeText(listText(places.slice(from, from + CHUNK), from)); setCopied(from); window.setTimeout(() => setCopied(-1), 2000); } catch { /* not allowed */ }
+  };
+  const chunks = Array.from({ length: Math.ceil(places.length / CHUNK) }, (_, index) => index * CHUNK);
+  return (
+    <div className="grid gap-2 rounded-[16px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/7%)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <strong className="text-[14px] text-ink">Ցանկը դուրս բերել՝ {places.length} տեղ</strong>
+        <button className={smallButton} type="button" disabled={!places.length} onClick={() => downloadCsv(places, visited)}><Download aria-hidden="true" size={15} /> Ներբեռնել (Excel)</button>
+      </div>
+      {chunks.length ? (
+        <>
+          <p className="m-0 text-[12.5px] text-muted">GPT-ին տալու համար պատճենեք {CHUNK}-ական. ամեն մասը առանձին հաղորդագրությամբ։</p>
+          <div className="flex flex-wrap gap-1.5">
+            {chunks.map((from) => (
+              <button key={from} className={smallButton} type="button" onClick={() => void copy(from)}>
+                {copied === from ? <Check aria-hidden="true" size={15} className="text-[#3f8f5a]" /> : <ClipboardCopy aria-hidden="true" size={15} />}
+                {from + 1}–{Math.min(from + CHUNK, places.length)}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** Words that mark another denomination's church: such places never show on the site, and an import skips them. */
+function BlocklistSection({ blocklist, places, busy, error }: { blocklist: string[]; places: Place[]; busy: boolean; error: string }) {
+  const caught = places.filter((place) => blockedWords(place.name, blocklist).length);
+  const countFor = (word: string) => places.filter((place) => blockedWords(place.name, [word]).length).length;
+  return (
+    <section className={`${panelSection} grid gap-3`}>
+      <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold text-ink"><Ban aria-hidden="true" size={18} className="text-danger" /> Սև ցուցակ</h2>
+      <p className="m-0 text-[13px] text-muted">
+        Եթե տեղի անվան մեջ կա այս բառերից մեկը (օր.՝ «Բեթել», «ավետարանական»), այն կայքում չի երևում, նույնիսկ եթե ցուցադրված է, և նոր ներմուծումը այն չի բերի։
+        Մեծատառ-փոքրատառը նշանակություն չունի։ Մի ավելացրեք «Կաթողիկե» բառը առանձին. Առաքելական Մայր տաճարներն էլ են այդպես կոչվում։
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {blocklist.map((word) => (
+          <Form key={word} method="post" className="inline-flex items-center gap-1 rounded-full border border-glass-border bg-subtle py-1 pr-1 pl-3 text-[13px] text-ink">
+            <input type="hidden" name="word" value={word} />
+            {word}{countFor(word) ? <span className="text-[11.5px] font-semibold text-danger">· {countFor(word)}</span> : null}
+            <button className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-danger" type="submit" name="intent" value="block-remove" disabled={busy} aria-label={`Հանել «${word}»-ը`}><X aria-hidden="true" size={14} /></button>
+          </Form>
+        ))}
+        {blocklist.length === 0 ? <span className="text-[13px] text-faint">Ցուցակը դատարկ է։</span> : null}
+      </div>
+      <Form method="post" className="flex flex-wrap gap-2">
+        <input className={`${fieldControl} min-w-0 flex-1`} name="word" placeholder="Նոր բառ կամ անուն, օր.՝ Բեթել" required minLength={2} maxLength={60} />
+        <button className={primaryButton} type="submit" name="intent" value="block-add" disabled={busy}><Plus aria-hidden="true" size={16} /> Ավելացնել</button>
+      </Form>
+      {error ? <p className="m-0 text-[13px] text-danger">{error}</p> : null}
+      {caught.length ? (
+        <Form method="post" className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[rgb(184_72_62/10%)] px-3 py-2.5"
+          onSubmit={(event) => { if (!confirm(`Ջնջե՞լ ${caught.length} տեղ, որոնց անունը սև ցուցակում է։\n\n${caught.slice(0, 20).map((place) => `• ${place.name}`).join("\n")}`)) event.preventDefault(); }}>
+          <span className="text-[13px] text-ink">Սև ցուցակով բռնված է {caught.length} տեղ (տե՛ս «Սև ցուցակով» ֆիլտրը ներքևում)։</span>
+          <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete-blocked" disabled={busy}><Trash2 aria-hidden="true" size={15} /> Ջնջել բոլորը</button>
+        </Form>
+      ) : null}
+    </section>
   );
 }
 

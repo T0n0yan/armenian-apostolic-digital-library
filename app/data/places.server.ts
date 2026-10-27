@@ -1,12 +1,12 @@
-import { isPlaceKind, placeSlug, type PlaceKind } from "../utils/places";
+import { blockedWords, isPlaceKind, placeSlug, type PlaceKind } from "../utils/places";
 
 export type Place = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
   description: string; clergy: string; services: string; accessibility: string; active: string; liturgy: string; openHours: string;
   videoUrl: string; icon: string | null;
   photos: string[]; creditName: string; verified: boolean; published: boolean; updatedAt: string;
-  /** Brought in from OpenStreetMap (scripts/import-osm-places.py). */
-  fromOsm: boolean;
+  /** Brought in from OpenStreetMap (scripts/import-osm-places.py): its id there (n123, w45, r6) and Wikidata item. */
+  fromOsm: boolean; osmId: string; wikidata: string;
 };
 
 export type PlaceSubmission = {
@@ -17,7 +17,7 @@ export type PlaceSubmission = {
 type PlaceRow = {
   id: string; name: string; kind: string; latitude: number; longitude: number; region: string; description: string;
   clergy: string; services: string; accessibility?: string; active?: string; liturgy?: string; open_hours?: string; video_url: string; icon: string | null; photos_json: string; credit_name: string;
-  verified: number; published: number; updated_at: string; osm_id?: string | null;
+  verified: number; published: number; updated_at: string; osm_id?: string | null; wikidata?: string;
 };
 
 const list = (json: string) => {
@@ -30,18 +30,50 @@ function toPlace(row: PlaceRow): Place {
     region: row.region, description: row.description, clergy: row.clergy, services: row.services, accessibility: row.accessibility ?? "",
     active: row.active ?? "", liturgy: row.liturgy ?? "", openHours: row.open_hours ?? "", videoUrl: row.video_url,
     icon: row.icon, photos: list(row.photos_json), creditName: row.credit_name, verified: Boolean(row.verified),
-    published: Boolean(row.published), updatedAt: row.updated_at, fromOsm: Boolean(row.osm_id),
+    published: Boolean(row.published), updatedAt: row.updated_at, fromOsm: Boolean(row.osm_id), osmId: row.osm_id ?? "", wikidata: row.wikidata ?? "",
   };
 }
 
+/** Published places never include one whose name has a blocklist word, even if it was shown by mistake. */
 export async function listPlaces(db: D1Database, { publishedOnly }: { publishedOnly: boolean }) {
   const { results } = await db.prepare(`SELECT * FROM places ${publishedOnly ? "WHERE published = 1" : ""} ORDER BY name`).all<PlaceRow>();
-  return results.map(toPlace);
+  const places = results.map(toPlace);
+  if (!publishedOnly) return places;
+  const words = await listBlocklist(db);
+  return places.filter((place) => !blockedWords(place.name, words).length);
 }
 
-export async function getPlace(db: D1Database, id: string) {
+export async function getPlace(db: D1Database, id: string, { publishedOnly = false } = {}) {
   const row = await db.prepare("SELECT * FROM places WHERE id = ?").bind(id).first<PlaceRow>();
-  return row ? toPlace(row) : null;
+  if (!row) return null;
+  if (publishedOnly && (!row.published || blockedWords(row.name, await listBlocklist(db)).length)) return null;
+  return toPlace(row);
+}
+
+/** The blocklist: words that mark a church of another denomination. */
+export async function listBlocklist(db: D1Database) {
+  const { results } = await db.prepare("SELECT word FROM place_blocklist ORDER BY word").all<{ word: string }>();
+  return results.map((row) => row.word);
+}
+
+export function addBlocklistWord(db: D1Database, word: string) {
+  return db.prepare("INSERT OR IGNORE INTO place_blocklist (word) VALUES (?)").bind(word.trim().replace(/\s+/gu, " ").toLocaleLowerCase("hy").slice(0, 60)).run();
+}
+
+export function removeBlocklistWord(db: D1Database, word: string) {
+  return db.prepare("DELETE FROM place_blocklist WHERE word = ?").bind(word).run();
+}
+
+/** The admin's own «Եղել եմ» marks, hidden places included. */
+export async function listVisitedIds(db: D1Database, userId: string) {
+  const { results } = await db.prepare("SELECT place_id FROM place_visits WHERE user_id = ?").bind(userId).all<{ place_id: string }>();
+  return results.map((row) => row.place_id);
+}
+
+export function setVisited(db: D1Database, userId: string, placeId: string, visited: boolean) {
+  return visited
+    ? db.prepare("INSERT OR IGNORE INTO place_visits (user_id, place_id) SELECT ?, id FROM places WHERE id = ?").bind(userId, placeId).run()
+    : db.prepare("DELETE FROM place_visits WHERE user_id = ? AND place_id = ?").bind(userId, placeId).run();
 }
 
 export async function listOpenSubmissions(db: D1Database): Promise<PlaceSubmission[]> {
@@ -117,7 +149,11 @@ export function setPlacePictures(db: D1Database, id: string, pictures: { photos?
 export async function deletePlace(db: D1Database, bucket: R2Bucket, id: string) {
   const objects = await bucket.list({ prefix: `places/${id}/` });
   if (objects.objects.length) await bucket.delete(objects.objects.map((object) => object.key));
-  await db.prepare("DELETE FROM places WHERE id = ?").bind(id).run();
+  // An OpenStreetMap place is remembered, so a later import doesn't bring it back.
+  await db.batch([
+    db.prepare("INSERT OR IGNORE INTO place_rejected (osm_id, name) SELECT osm_id, name FROM places WHERE id = ? AND osm_id IS NOT NULL AND osm_id <> ''").bind(id),
+    db.prepare("DELETE FROM places WHERE id = ?").bind(id),
+  ]);
 }
 
 const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "video/mp4": "mp4", "video/quicktime": "mov" };
