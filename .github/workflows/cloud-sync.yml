@@ -3,14 +3,15 @@
 # Reconciles the content forum into the environment's
 # D1/R2: new and edited posts appear, deleted ones are taken down. Started by production's Worker
 # 15 minutes after the last new or edited post in the group (the bot's webhook and its Clock,
-# workers/clock.ts) and once a night by its cron, for deletions; GitHub's own schedule below is
-# only a fallback. Free within GitHub's minutes.
+# workers/clock.ts) and once a night by its cron, for deletions; GitHub's own weekly schedule below
+# is only a fallback. Free within GitHub's minutes.
 name: Cloud sync
 
 on:
   schedule:
-    # Once a day, after the Worker's nightly run (00:17 UTC); minute 47 avoids the top-of-hour rush.
-    - cron: "47 1 * * *"
+    # Only a weekly fallback: the Worker already starts a full sync every night (00:17 UTC), and
+    # each run costs GitHub's free minutes. Sunday, minute 47 avoids the top-of-hour rush.
+    - cron: "47 1 * * 0"
   workflow_dispatch:
     inputs:
       environment:
@@ -36,14 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     # The first sync of an empty environment uploads all media and can take an hour.
     timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      # One after the other: both read the same Telegram account, which dislikes parallel logins.
-      max-parallel: 1
-      matrix:
-        environment: [production, staging]
     env:
-      CLOUD_SYNC_ENV: ${{ matrix.environment }}
+      # One job (each job counts at least a minute): production, staging or both one after the
+      # other, since both read the same Telegram account, which dislikes parallel logins.
+      TARGETS: ${{ inputs.environment == 'both' && 'production staging' || inputs.environment || 'production' }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
@@ -55,17 +52,17 @@ jobs:
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
-        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
       - uses: pnpm/action-setup@v4
-        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
       - uses: actions/setup-node@v4
-        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
         with:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
-        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Reconcile Telegram into Cloudflare
-        if: (github.event_name == 'workflow_dispatch' && (inputs.environment == 'both' || inputs.environment == matrix.environment)) || ((github.event_name != 'workflow_dispatch' || inputs.environment == '') && matrix.environment == 'production')
-        run: node --import tsx services/telegram-bridge/src/cloud-import.ts ${{ inputs.mode == 'dry-run' && 'dry-run' || 'reconcile' }}
+        run: |
+          for target in $TARGETS; do
+            echo "::group::$target"
+            CLOUD_SYNC_ENV=$target node --import tsx services/telegram-bridge/src/cloud-import.ts ${{ inputs.mode == 'dry-run' && 'dry-run' || 'reconcile' }}
+            echo "::endgroup::"
+          done
