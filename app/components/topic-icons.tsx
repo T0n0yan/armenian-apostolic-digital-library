@@ -16,9 +16,9 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   );
 }
 
-/** Sacred places: a map pin with a small church inside; it lands, bounces once and settles, now and then. */
+/** Sacred places: an Armenian church, its conical dome and cross over the drum, an arched door. */
 export function PlacesIcon(props: IconProps) {
-  return <Icon {...props} motion="ti-pin" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 21.5c-4-4.2-6.75-7.6-6.75-11a6.75 6.75 0 0 1 13.5 0c0 3.4-2.75 6.8-6.75 11z\"/><path d=\"M9.25 13.25v-2.6L12 8.75l2.75 1.9v2.6z\"/><path d=\"M12 5.25v2.5M10.9 6.2h2.2\"/></g>"} />;
+  return <Icon {...props} motion="ti-church" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 1.75v2.9M10.85 2.85h2.3\"/><path d=\"M8.6 9 12 4.9 15.4 9z\"/><path d=\"M9.35 9v3.6h5.3V9\"/><path d=\"M12 10.1v1.3\"/><path d=\"M5 21.25V15.4l2.6-2.8h8.8l2.6 2.8v5.85\"/><path d=\"M3.5 21.25h17\"/><path d=\"M10.5 21.25v-2.6a1.5 1.5 0 0 1 3 0v2.6\"/><path d=\"M7.6 16.6v1.6M16.4 16.6v1.6\"/></g>"} />;
 }
 
 /** Gospel teaching: the open Gospel, its lines following the curve of the pages, with a cross. */

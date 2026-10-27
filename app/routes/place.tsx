@@ -62,7 +62,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         {place.photos.length ? (
           <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-1">
             {place.photos.map((key, index) => (
-              <img key={key} className={`aspect-[4/3] shrink-0 snap-center rounded-[18px] object-cover shadow-card ${place.photos.length === 1 ? "mx-auto w-full max-w-[720px]" : "w-[86%] max-w-[560px] min-[560px]:w-[70%]"}`} src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
+              <img key={key} className={`reveal-img aspect-[4/3] shrink-0 snap-center rounded-[18px] object-cover shadow-card ${place.photos.length === 1 ? "mx-auto w-full max-w-[720px]" : "w-[86%] max-w-[560px] min-[560px]:w-[70%]"}`} src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
             ))}
           </div>
         ) : null}

@@ -357,9 +357,9 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   }
 
   return (
-    <figure className="relative m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
+    <figure className="reveal-frame relative m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
       <button className="relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => setViewing(true)} aria-label="Բացել նկարը ամբողջ էկրանով">
-        {preview ? <img className="absolute inset-0 size-full object-contain" src={preview} alt="" aria-hidden="true" decoding="async" /> : null}
+        {preview ? <img className="reveal-img absolute inset-0 size-full object-contain" src={preview} alt="" aria-hidden="true" decoding="async" /> : null}
         <img
           ref={imageRef}
           className={`relative block h-auto max-h-[74svh] w-full object-contain transition-opacity duration-300 ${preview ? "opacity-0" : "opacity-100"}`}

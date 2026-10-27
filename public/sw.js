@@ -117,10 +117,52 @@ async function networkFirst(request, version = "") {
     const cached = await cache.match(request);
     if (cached) return cached;
     if (request.mode === "navigate") {
-      return (await cache.match("/")) ?? new Response("<meta charset=utf-8><meta name=viewport content='width=device-width'><p style='font:16px sans-serif;padding:24px'>Ինտերնետ կապ չկա։ Այս էջը դեռ չի պահվել սարքում։</p>", { headers: { "content-type": "text/html; charset=utf-8" } });
+      return new Response(await offlinePage(cache), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     }
     throw new Error("offline");
   }
+}
+
+const escapeHtml = (value) => value.replace(/[&<>"]/gu, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
+
+/**
+ * The page shown offline for a page not kept on the phone: in the site's colours (light or dark,
+ * as the reader chose), with the pages that are kept, and it reloads by itself once back online.
+ */
+async function offlinePage(cache) {
+  const kept = [];
+  for (const request of await cache.keys()) {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith(".data") || url.pathname.startsWith("/api/") || url.search) continue;
+    const html = await (await cache.match(request))?.text().catch(() => "") ?? "";
+    const title = /<title>([^<]*)<\/title>/u.exec(html)?.[1]?.split(" — ")[0]?.trim();
+    if (title) kept.push({ path: url.pathname, title });
+  }
+  const links = kept.slice(-8).reverse().map(({ path, title }) => `<a href="${escapeHtml(path)}"><span>${title}</span><b>›</b></a>`).join("");
+  return `<!doctype html><html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Կապ չկա — Հոգևոր ժառանգություն</title>
+<script>try{var p=localStorage.getItem("library-theme-v1"),h=new Date().getHours();document.documentElement.dataset.theme=p==="dark"||p==="light"?p:p==="sun"?(h>=7&&h<19?"light":"dark"):(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
+<style>
+:root{--bg:linear-gradient(170deg,#f3e8cf,#ead9b8 55%,#e6d3ae);--ink:#2b1a10;--muted:#6f5b47;--gold:#9a6a26;--panel:rgb(255 250 238/62%);--line:rgb(176 128 70/26%);color-scheme:light}
+:root[data-theme=dark]{--bg:radial-gradient(circle at 10% -8%,rgb(124 74 143/30%),transparent 544px),linear-gradient(155deg,#12091a,#0b0610 58%,#140a19);--ink:#f3e9d8;--muted:#b9a990;--gold:#e2c27e;--panel:rgb(255 255 255/6%);--line:rgb(217 181 111/22%);color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%}body{min-height:100svh;background:var(--bg);background-attachment:fixed;color:var(--ink);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;place-items:center;padding:24px 16px}
+main{width:100%;max-width:420px;display:grid;justify-items:center;gap:14px;text-align:center}
+.mark{display:grid;place-items:center;width:84px;height:84px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--gold);animation:breathe 2.8s ease-in-out infinite}
+@keyframes breathe{50%{transform:scale(1.05);box-shadow:0 0 0 10px rgb(217 181 111/6%)}}
+h1{margin:6px 0 0;font:500 26px/1.25 Georgia,"Noto Serif Armenian",serif;letter-spacing:-.3px}
+p{margin:0;color:var(--muted);max-width:340px}
+button{margin-top:6px;min-height:48px;padding:0 26px;border:0;border-radius:14px;background:linear-gradient(135deg,#e2c27e,#b07d2e);color:#2a1708;font:700 15px system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgb(150 100 30/25%)}
+.kept{width:100%;margin-top:14px;display:grid;gap:8px;text-align:left}
+.kept h2{margin:0 4px;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold)}
+.kept a{display:flex;align-items:center;gap:10px;min-height:48px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);text-decoration:none;font-weight:600;font-size:14px}
+.kept a span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kept b{color:var(--gold);font-size:20px;font-weight:400}
+@media (prefers-reduced-motion:reduce){.mark{animation:none}}
+</style></head><body><main>
+<span class="mark" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M6 9h12"/><path d="M12 3c-1.2 0-1.8.8-1.8 1.6M12 3c1.2 0 1.8.8 1.8 1.6M6 9c0-1.2-.8-1.8-1.6-1.8M6 9c0 1.2-.8 1.8-1.6 1.8M18 9c0-1.2.8-1.8 1.6-1.8M18 9c0 1.2.8 1.8 1.6 1.8M12 21c-1.2 0-1.8-.8-1.8-1.6M12 21c1.2 0 1.8-.8 1.8-1.6"/></svg></span>
+<h1>Ինտերնետ կապ չկա</h1>
+<p>Այս էջը դեռ չի պահվել սարքում։ Միացեք ինտերնետին, և էջը կբացվի ինքնաբերաբար։</p>
+<button type="button" onclick="location.reload()">Փորձել կրկին</button>
+${links ? `<nav class="kept" aria-labelledby="kept"><h2 id="kept">Կարդալ առանց ինտերնետի</h2>${links}</nav>` : ""}
+</main><script>addEventListener("online",function(){location.reload()})</script></body></html>`;
 }
 
 const PRIVATE = /^\/(api\/(reminders|push|poll-vote|reading-log|share-prepare|psalm-timings)|auth\/|telegram\/|admin|saved)/u;

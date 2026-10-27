@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ImgHTMLAttributes } from "react";
+import type { ImgHTMLAttributes } from "react";
 
 import { responsiveImage } from "../assets/responsive";
 
 /**
- * Large artwork (880px on phones, full size on large screens). Until it has loaded, a tiny blurred
- * preview shows in its place, then fades away.
+ * Large artwork (880px on phones, full size on large screens). It appears whole once loaded, with
+ * a soft shimmering oval in its place until then (.reveal-img, app.css).
  */
 const DEFAULT_SIZES = "(max-width: 940px) 100vw, 940px";
 
@@ -27,21 +27,13 @@ export function preloadArt(src: string, timeoutMs = 1_500) {
 
 export function ArtImage({ src, className = "", sizes, ...props }: ImgHTMLAttributes<HTMLImageElement> & { src: string }) {
   const responsive = responsiveImage(src);
-  const ref = useRef<HTMLImageElement>(null);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => { if (ref.current?.complete && ref.current.naturalWidth) setLoaded(true); }, []);
   return (
-    <span className="relative block h-full w-full">
-      {responsive ? (
-        <img className={`pointer-events-none absolute inset-0 h-full w-full object-cover blur-[10px] transition-opacity duration-700 ${loaded ? "opacity-0" : "opacity-90"}`} src={responsive.placeholder} alt="" aria-hidden="true" />
-      ) : null}
+    <span className="reveal-frame reveal-art relative block h-full w-full">
       <img
-        ref={ref}
-        className={className}
+        className={`reveal-img ${className}`}
         src={src}
         srcSet={responsive?.srcSet}
         sizes={sizes ?? DEFAULT_SIZES}
-        onLoad={() => setLoaded(true)}
         {...props}
       />
     </span>
