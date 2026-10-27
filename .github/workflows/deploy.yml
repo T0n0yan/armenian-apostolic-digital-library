@@ -36,11 +36,12 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Test
-        run: pnpm test
-      - name: Apply database migrations
-        run: pnpm exec wrangler d1 migrations apply "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --remote
+      # Built once, for the target; the tests run against that same build (saves a second build).
       - name: Build
         run: CLOUDFLARE_ENV="$TARGET" pnpm run build
+      - name: Test
+        run: pnpm exec tsx --test tests/*.test.ts
+      - name: Apply database migrations
+        run: pnpm exec wrangler d1 migrations apply "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --remote
       - name: Deploy
         run: pnpm exec wrangler deploy --env "$TARGET"
