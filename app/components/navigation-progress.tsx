@@ -40,7 +40,7 @@ export function NavigationProgress() {
   return (
     <>
       {skeleton ? <PageSkeleton pathname={skeleton} /> : null}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[90] h-[3px]" aria-hidden="true" style={{ opacity: visible ? 1 : 0, transition: "opacity 300ms" }}>
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[2010] h-[3px]" aria-hidden="true" style={{ opacity: visible ? 1 : 0, transition: "opacity 300ms" }}>
         <div className="h-full bg-[linear-gradient(90deg,#b07d2e,#f0d397,#b07d2e)] shadow-[0_0_10px_rgb(240_211_151/80%)]" style={{ width: `${progress * 100}%`, transition: "width 250ms ease-out" }} />
       </div>
     </>
