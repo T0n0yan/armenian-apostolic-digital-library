@@ -43,5 +43,18 @@ jobs:
         run: pnpm exec tsx --test tests/*.test.ts
       - name: Apply database migrations
         run: pnpm exec wrangler d1 migrations apply "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --remote
+      # Once, while production has no OpenStreetMap places: bring them in hidden, so the map stays
+      # empty until the admin shows the ones wanted (/admin/places). Later deploys skip this.
+      - name: OpenStreetMap places, hidden (production, first time only)
+        if: env.TARGET == 'production'
+        # The import reads OpenStreetMap; if that is down, the deploy still goes ahead.
+        continue-on-error: true
+        run: |
+          count=$(pnpm exec wrangler d1 execute "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --remote --json --command "SELECT COUNT(*) AS n FROM places WHERE osm_id IS NOT NULL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)[0].results[0].n))')
+          echo "OpenStreetMap places already there: $count"
+          if [ "$count" = "0" ]; then
+            python3 scripts/import-osm-places.py --hidden > osm-places.sql
+            pnpm exec wrangler d1 execute "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --remote --file osm-places.sql
+          fi
       - name: Deploy
         run: pnpm exec wrangler deploy --env "$TARGET"

@@ -97,6 +97,13 @@ export function updatePlace(db: D1Database, id: string, fields: PlaceFields) {
     fields.videoUrl, fields.creditName, fields.verified ? 1 : 0, fields.published ? 1 : 0, id).run();
 }
 
+/** Shows or hides places on the public map: one place, or every place of a kind. Nothing else changes. */
+export function setPlacesPublished(db: D1Database, published: boolean, target: { id: string } | { kind: PlaceKind }) {
+  const [where, value] = "id" in target ? ["id = ?", target.id] : ["kind = ?", target.kind];
+  return db.prepare(`UPDATE places SET published = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE ${where} AND published <> ?`)
+    .bind(published ? 1 : 0, value, published ? 1 : 0).run();
+}
+
 export function setPlacePictures(db: D1Database, id: string, pictures: { photos?: string[]; icon?: string | null; videoUrl?: string }) {
   const sets: string[] = [];
   const values: unknown[] = [];

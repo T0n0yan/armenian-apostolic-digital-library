@@ -1,12 +1,13 @@
 """Armenian Apostolic churches, monasteries and chapels in Armenia from OpenStreetMap, as SQL for
 the places table (all «⚑ Ճշտել»: verified = 0).
 
-  python3 scripts/import-osm-places.py > /tmp/osm-places.sql
+  python3 scripts/import-osm-places.py [--hidden] > /tmp/osm-places.sql
   npx wrangler d1 execute <database> --env <env> --remote --file /tmp/osm-places.sql
 
 Only places of worship with an Armenian name and no other denomination are kept; a church drawn
 both as a point and as a building is kept once. Each gets its province and nearest settlement.
-A second run adds only places not imported before (by OSM id). Data © OpenStreetMap contributors (ODbL).
+A second run adds only places not imported before (by OSM id). With --hidden the places come in
+unpublished: the admin shows them one by one or a whole kind at once (/admin/places). Data © OpenStreetMap contributors (ODbL).
 """
 
 import json
@@ -17,6 +18,7 @@ import sys
 import time
 
 OVERPASS = "https://overpass-api.de/api/interpreter"
+HIDDEN = "--hidden" in sys.argv
 AREA = 'area["ISO3166-1"="AM"][admin_level=2]->.am;'
 ARMENIAN = re.compile(r"[Ա-և]")
 LATIN = {
@@ -130,7 +132,7 @@ def main():
         values = [place_id, place["name"], place["kind"], f"{lat:.6f}", f"{lng:.6f}", region, " ".join(notes), place["osm"], place["wikidata"]]
         quoted = [value if re.fullmatch(r"-?\d+\.\d+", value) else "'" + value.replace("'", "''") + "'" for value in values]
         print(f"INSERT INTO places (id, name, kind, latitude, longitude, region, description, osm_id, wikidata, published, verified) "
-              f"VALUES ({', '.join(quoted)}, 1, 0) ON CONFLICT DO NOTHING;")
+              f"VALUES ({', '.join(quoted)}, {0 if HIDDEN else 1}, 0) ON CONFLICT DO NOTHING;")
     print(f"-- {len(kept)} places", file=sys.stderr)
 
 
