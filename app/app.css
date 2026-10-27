@@ -557,6 +557,20 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
   width: 100%; aspect-ratio: 16 / 10; min-height: 220px; max-height: 360px;
   overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: 18px;
 }
+/* Shown in the map's place until its first tiles are drawn: Armenia's outline, shimmering. */
+.places-map-loading { position: absolute; inset: 0; z-index: 0; display: grid; padding: 14px; pointer-events: none; transition: opacity .45s ease, visibility 0s .45s; }
+.places-map-small .places-map-loading { padding: 0; overflow: hidden; border-radius: 18px; }
+.places-map-loading.is-ready { opacity: 0; visibility: hidden; }
+.places-map { transition: opacity .45s ease; }
+.places-map.is-loading { opacity: 0; }
+.armenia-outline { width: 100%; height: 100%; }
+.armenia-outline-base { stop-color: rgb(217 181 111 / 12%); }
+.armenia-outline-light { stop-color: rgb(240 211 151 / 32%); }
+.armenia-outline-shape { stroke: rgb(217 181 111 / 55%); }
+:root:not([data-theme="dark"]) .armenia-outline-base { stop-color: rgb(176 128 70 / 14%); }
+:root:not([data-theme="dark"]) .armenia-outline-light { stop-color: rgb(176 128 70 / 30%); }
+:root:not([data-theme="dark"]) .armenia-outline-shape { stroke: rgb(176 128 70 / 55%); }
+@media (prefers-reduced-motion: reduce) { .armenia-outline animateTransform { display: none; } }
 .places-map-zoom { position: absolute; top: 8px; left: 0; display: grid; gap: 6px; }
 /* Inside the framed small map the buttons keep clear of its rounded edge. */
 .places-map-small .places-map-zoom { top: 12px; left: 12px; }
