@@ -138,7 +138,7 @@ export async function pointFromText(text: string, fetcher: typeof fetch = fetch)
  * «Արմավիրի մարզ, Վաղարշապատ» for a point, from OpenStreetMap's Nominatim (one request per place sent,
  * well within its policy); empty when it can't be found, and the reader is asked instead.
  */
-export async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
+async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=hy&lat=${point.latitude}&lon=${point.longitude}`;
   const answer = await fetcher(url, { headers: { "user-agent": "apostolic.am places map (info@apostolic.am)" } })
     .then((response) => (response.ok ? response.json() as Promise<{ address?: Record<string, string> }> : null)).catch(() => null);
@@ -235,7 +235,7 @@ async function advance(call: Call, db: D1Database, chat: number, reader: Reader,
 const short = (text: string, limit: number) => (text.length > limit ? `${text.slice(0, limit - 1)}…` : text);
 
 /** The whole submission as text: for the reader's review and for the team. */
-export function describeSubmission(row: Submission, limit = 700, forTeam = false) {
+function describeSubmission(row: Submission, limit = 700, forTeam = false) {
   const photos = list(row.photos_json).length;
   const videos = list(row.videos_json).length;
   const value = (text: string) => (text ? short(text, limit) : "—");

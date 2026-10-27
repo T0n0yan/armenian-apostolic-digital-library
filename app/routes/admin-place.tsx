@@ -15,7 +15,7 @@ import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUr
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
 
 /** What the team gives ChatGPT with a church's photo, so every map drawing comes out alike. */
-export const DRAWING_PROMPT = "Using the attached photo, draw this church as an illustration for a vintage illustrated tourist map of Armenia: black ink pen drawing with fine hatching for shadows, three-quarter view showing the whole building, no people, no trees, no sky, no text, only a thin ground line. Transparent background, PNG, square 1024×1024, the building centered and filling about 85% of the canvas.";
+const DRAWING_PROMPT = "Using the attached photo, draw this church as an illustration for a vintage illustrated tourist map of Armenia: black ink pen drawing with fine hatching for shadows, three-quarter view showing the whole building, no people, no trees, no sky, no text, only a thin ground line. Transparent background, PNG, square 1024×1024, the building centered and filling about 85% of the canvas.";
 
 export function meta() {
   return [{ title: "Սրբավայր — Կառավարում" }, { name: "robots", content: "noindex, nofollow" }];
