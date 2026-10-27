@@ -24,12 +24,14 @@
 6. Ավելի ուշ՝ աուդիոյի օպտիմալացում, տառատեսակներ, դիզայն և պատկերներ։
 
 ## Արված
+- 2026-10-27 — Սրբավայրերի գործիքներ (`feat/places-tools`). ադմինում «Սև ցուցակ» (բառեր, որոնցով տեղը կայքում չի երևում և ներմուծումը բաց է թողնում), ֆիլտրեր ըստ մարզի/տեսակի/«Եղել եմ», ջնջում (OSM տեղը հիշվում է `place_rejected`-ում), ցանկի ներբեռնում Excel-ով և պատճենում 50-ական GPT-ի համար. քարտեզի էջում որոնումը տեղում (նաև լատինատառ/ռուսերեն), գլխավոր որոնման մեջ «Սրբավայրեր» բաժին և արդյունքներ։
 - 2026-10-27 — Թողարկվեց production. քարտեզ (OSM-ից 475 տեղ՝ թաքցված, ադմինը ցուցադրում է մեկ-մեկ կամ ամբողջ տեսակով՝ `/admin/places`), նոր «Խորհրդավոր ընթրիք», GitHub-ի րոպեների խնայողություն ([#52](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/52), [#53](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/53), [#54](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/54), [#55](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/55))։ Պահոցը այժմ հանրային է (GitHub Actions-ն անվճար)։
 - 2026-10-27 — Սրբավայրերի քարտեզ (`/places`, «Եղել եմ», ֆիլտրեր, «Իմ մոտակայքում» 10/30/50 կմ), բոտի `/place`, ադմին, էջերի սքելեթոններ, նկարների ամբողջական բացում, offline էջ ([#51](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/51))։
 - 2026-10-21 — Ընթեռնելի հասցեներ, «Մեր մասին», «Կապ» ([#20](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/20))։
 - 2026-10-22 — «Մեր մասին», «Կապ», «Գաղտնիություն» էջերի միատեսակ դիզայն ([#21](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/21))։
 
 ## Կարևոր մյուսների համար
+- Migration 0038՝ `place_blocklist` և `place_rejected`. հրապարակված տեղերի ցանկը (`listPlaces({ publishedOnly: true })`, `getPlace(..., { publishedOnly: true })`) միշտ բաց է թողնում սև ցուցակի անունները։ `/api/places-search?q=`՝ որոնման էջի համար։
 - Նոր հասցեներ՝ `/psalms`, `/pray`, `/saints`, `/gospel`, `/daily`, `/questions`, `/post` (`material-path.ts`). Հին հայերեն հասցեները (`/saghmosner/22`, `/aghotkner/71-…`) և `pray_71`, `/materials/…`, `/categories/…` տանում են նորերին 301-ով։ Բոտի deep link՝ `psalms_22` (հինները էլ են աշխատում)։
 - Հղման քարտերը (սաղմոս, համար, աղոթք, հարց) նկարվում են GitHub Actions-ում (`scripts/og-cards.ts`, `.github/workflows/og-cards.yml`) և պահվում R2-ում `og/v1/<հասցե>.jpg`. Worker-ը միայն տալիս է (`/og/card/...`), քանի որ մեկ քարտը ~1 վրկ CPU է։ «Կիսվել»-ը և «Պատճենել»-ը տալիս են միայն հղումը (`shareLink()`), պատկերը՝ նախադիտման քարտում։ og:url-ը էջի սեփական հասցեով է (staging-ը՝ staging)։
 - media.apostolic.am-ը CORS չի տալիս. նկարի պիքսելներ կարդալու կամ տեսանյութից կադր վերցնելու համար՝ կայքի `/media/...` (`sameOriginMedia()`)։

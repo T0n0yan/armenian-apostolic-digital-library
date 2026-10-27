@@ -140,8 +140,12 @@ def main():
             notes.append("Պահպանվել են ավերակները։")
         values = [place_id, place["name"], place["kind"], f"{lat:.6f}", f"{lng:.6f}", region, " ".join(notes), place["osm"], place["wikidata"]]
         quoted = [value if re.fullmatch(r"-?\d+\.\d+", value) else "'" + value.replace("'", "''") + "'" for value in values]
+        # Skipped: places the admin deleted before, and names with a word of the admin's blocklist.
+        lower = "'" + place["name"].lower().replace("'", "''") + "'"
         print(f"INSERT INTO places (id, name, kind, latitude, longitude, region, description, osm_id, wikidata, published, verified) "
-              f"VALUES ({', '.join(quoted)}, {0 if HIDDEN else 1}, 0) ON CONFLICT DO NOTHING;")
+              f"SELECT {', '.join(quoted)}, {0 if HIDDEN else 1}, 0 "
+              f"WHERE NOT EXISTS (SELECT 1 FROM place_rejected WHERE osm_id = {quoted[7]}) "
+              f"AND NOT EXISTS (SELECT 1 FROM place_blocklist WHERE instr({lower}, word) > 0) ON CONFLICT DO NOTHING;")
     print(f"-- {len(kept)} places", file=sys.stderr)
 
 

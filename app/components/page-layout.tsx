@@ -18,6 +18,8 @@ type PageHeaderProps = {
     ornate?: boolean;
     /** Show the search shortcut in the header row (off on the search page itself). */
     showSearch?: boolean;
+    /** The page searches by itself (the map's places): the search button calls this instead of opening /search. */
+    onSearch?: () => void;
     title: ReactNode;
     children?: ReactNode;
 };
@@ -85,7 +87,12 @@ export function PageTitle({title, ornate = false}: { title: ReactNode; ornate?: 
     </>);
 }
 
-export function HeaderSearchLink() {
+const headerSearchClass = "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]";
+
+export function HeaderSearchLink({onSearch}: { onSearch?: () => void }) {
+    if (onSearch) return (<span className="ml-auto flex items-center gap-2"><button type="button" className={headerSearchClass} onClick={onSearch} aria-label="Որոնում" title="Որոնում">
+        <Search aria-hidden="true" size={17} strokeWidth={2}/>
+    </button></span>);
     return (<span className="ml-auto flex items-center gap-2"><Link
         className="grid size-9 shrink-0 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
         to="/search"
@@ -104,7 +111,7 @@ function titleSize(title: ReactNode) {
     return "text-[22px] leading-[30px] tracking-[-0.4px] min-[560px]:text-[28px] min-[560px]:leading-[36px] min-[960px]:text-[34px] min-[960px]:leading-[42px]";
 }
 
-export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, ornate = false, showSearch = true, title}: PageHeaderProps) {
+export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, onSearch, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
             flex
@@ -134,7 +141,7 @@ export function PageHeader({backLabel, backTo, children, description, eyebrow, h
                 <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>
                 <span className="truncate">{backLabel}</span>
             </Link>) : null}
-            {showSearch && !home ? <HeaderSearchLink/> : null}
+            {showSearch && !home ? <HeaderSearchLink onSearch={onSearch}/> : null}
         </div>) : null}
 
         <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>
