@@ -104,7 +104,7 @@ async function executeSql(contents: string) {
   }
 }
 
-async function query<T>(command: string): Promise<T[]> {
+export async function query<T>(command: string): Promise<T[]> {
   const output = await wrangler([
     "d1", "execute", DATABASE, "--remote", "--env", CLOUD_ENV, "--command", command, "--json",
   ]);
