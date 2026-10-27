@@ -18,6 +18,7 @@ import sys
 import time
 
 OVERPASS = "https://overpass-api.de/api/interpreter"
+MIRRORS = ["https://overpass.kumi.systems/api/interpreter", "https://overpass.private.coffee/api/interpreter"]
 HIDDEN = "--hidden" in sys.argv
 AREA = 'area["ISO3166-1"="AM"][admin_level=2]->.am;'
 ARMENIAN = re.compile(r"[Ա-և]")
@@ -31,10 +32,18 @@ LATIN = {
 
 def overpass(query):
     # curl rather than urllib: macOS's bundled Python can't make a TLS connection to Overpass.
+    # A busy server answers with an HTML page instead of JSON: wait and try again, then a mirror.
     data = f"[out:json][timeout:180];{AREA}{query}"
-    result = subprocess.run(["curl", "-sS", "--max-time", "240", "-A", "apostolic.am places import", "--data-urlencode", f"data={data}", OVERPASS],
-                            capture_output=True, check=True)
-    return json.loads(result.stdout)["elements"]
+    for attempt, server in enumerate([OVERPASS, OVERPASS, *MIRRORS]):
+        if attempt:
+            time.sleep(20 * attempt)
+        result = subprocess.run(["curl", "-sS", "--max-time", "240", "-A", "apostolic.am places import", "--data-urlencode", f"data={data}", server],
+                                capture_output=True)
+        try:
+            return json.loads(result.stdout)["elements"]
+        except (ValueError, KeyError):
+            print(f"-- {server} answered without data, trying again", file=sys.stderr)
+    raise SystemExit("Overpass did not answer; nothing imported.")
 
 
 def slug(name):
