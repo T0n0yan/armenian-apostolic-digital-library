@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { addServant, answerPlaceCallback, continuePlace, pointFromText, startPlace } from "../app/data/place-intake.server";
+import { addServant, answerPlaceCallback, continuePlace, pointFromText, setAccessPart, startPlace } from "../app/data/place-intake.server";
 import { insideArmenia, parseCoordinates } from "../app/utils/places";
 import { PLACE_CHOICES, PLACE_TEXT } from "../app/utils/support-relay";
 import { removeOldData } from "../app/data/retention.server";
@@ -66,7 +66,7 @@ async function upToReview(tg: ReturnType<typeof telegram>, db: D1Database) {
   await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: "small" }, { file_id: "big" }] }));
   for (const text of [PLACE_TEXT.next, "Այո, գործող է", "Ամեն կիրակի", PLACE_TEXT.yes, "Ամեն օր 09:30 և 17:00",
     "Թեմի Առաջնորդ", "Տեր Սիոն Սրբազան", "Քահանա", "Տեր Ա", "Քահանա", "Տեր Բ", PLACE_TEXT.done,
-    "Ամեն օր 09:00–18:00", "Կան աստիճաններ", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
+    "Ամեն օր 09:00–18:00", "🚗 Մեքենայով՝ մինչև եկեղեցի", "Մի քանի աստիճան", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
 }
 
 test("people serving are kept one role to a line", () => {
@@ -128,6 +128,9 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   await continuePlace(tg.call, db, topic, name("Միշտ բաց է"));
   ends(tg, PLACE_TEXT.askAccess);
   await continuePlace(tg.call, db, topic, name("Քարքարոտ արահետ, 200 մ"));
+  // The entrance is its own question: a flat road can still end at steps.
+  ends(tg, PLACE_TEXT.askEntrance);
+  await continuePlace(tg.call, db, topic, name("Մի քանի աստիճան"));
   ends(tg, PLACE_TEXT.askHistory);
   // «Չգիտեմ» skips any question.
   await continuePlace(tg.call, db, topic, name("Չգիտեմ"));
@@ -146,7 +149,7 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(row.services, "Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30");
   assert.equal(row.clergy, "Թեմի Առաջնորդ՝ Տեր Սիոն Սրբազան\nՔահանա՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Ա սարկավագ");
   assert.equal(row.open_hours, "Միշտ բաց է");
-  assert.equal(row.accessibility, "Քարքարոտ արահետ, 200 մ");
+  assert.equal(row.accessibility, "Ճանապարհը՝ Քարքարոտ արահետ, 200 մ\nՄուտքը՝ Մի քանի աստիճան");
   assert.equal(row.notes, "");
   assert.equal(row.credit_name, "Անի");
   assert.equal(JSON.parse(String(row.photos_json)).length, 10);
@@ -232,7 +235,7 @@ test("a place under renovation isn't asked for opening hours; the team gets it i
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.0389 } }));
   for (const text of [PLACE_TEXT.noPhotos, "Վերանորոգվում է"]) await continuePlace(tg.call, db, topic, name(text));
   ends(tg, PLACE_TEXT.askAccess);
-  for (const text of [PLACE_TEXT.unknown, PLACE_TEXT.skip, PLACE_TEXT.anonymous]) await continuePlace(tg.call, db, topic, name(text));
+  for (const text of [PLACE_TEXT.unknown, PLACE_TEXT.unknown, PLACE_TEXT.skip, PLACE_TEXT.anonymous]) await continuePlace(tg.call, db, topic, name(text));
   // The places topic refuses (it doesn't exist): the summary goes to the group itself.
   const refusing = async (method: string, body: unknown) => {
     const thread = (body as { message_thread_id?: number }).message_thread_id;
@@ -282,4 +285,12 @@ test("old data is removed: unsent drafts after a day, handled submissions after 
   await removeOldData(db, "3");
   assert.deepEqual(sqlite.prepare("SELECT sender_name FROM place_submissions").all().map((row) => row.sender_name), ["new"]);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM site_presence").get()?.n, 1);
+});
+
+test("the road and the entrance keep one line each, road first", () => {
+  assert.equal(setAccessPart("", "Մուտքը", "Կա թեքահարթակ"), "Մուտքը՝ Կա թեքահարթակ");
+  assert.equal(setAccessPart("Մուտքը՝ Կա թեքահարթակ", "Ճանապարհը", "Հարթ"), "Ճանապարհը՝ Հարթ\nՄուտքը՝ Կա թեքահարթակ");
+  // Answering again replaces that part only; an old unlabelled answer gives way.
+  assert.equal(setAccessPart("Ճանապարհը՝ Հարթ\nՄուտքը՝ Կա թեքահարթակ", "Ճանապարհը", "Դժվար"), "Ճանապարհը՝ Դժվար\nՄուտքը՝ Կա թեքահարթակ");
+  assert.equal(setAccessPart("Կան աստիճաններ", "Մուտքը", "Շատ աստիճաններ"), "Մուտքը՝ Շատ աստիճաններ");
 });

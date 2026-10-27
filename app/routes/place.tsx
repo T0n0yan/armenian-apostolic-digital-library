@@ -1,12 +1,13 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { Navigation } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import type { Route } from "./+types/place";
 import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
+import { PhotoGallery } from "../components/photo-gallery";
 import { PlacesMap, VisitButton } from "../components/places-map";
 import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
@@ -51,6 +52,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
   const video = place.videoUrl.startsWith("places/") ? placeMediaUrl(place.videoUrl) : null;
   const embed = video ? null : youtubeEmbed(place.videoUrl);
   const { visited, toggle } = usePlaceVisits();
+  const [viewing, setViewing] = useState<number | null>(null);
   // One array per place, so the small map is drawn once and not again on every render.
   const pin = useMemo(() => [{ id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region, summary: "", icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified }], [place]);
   return (
@@ -62,7 +64,11 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         {place.photos.length ? (
           <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-1">
             {place.photos.map((key, index) => (
-              <img key={key} className={`reveal-img aspect-[4/3] shrink-0 snap-center rounded-[18px] object-cover shadow-card ${place.photos.length === 1 ? "mx-auto w-full max-w-[720px]" : "w-[86%] max-w-[560px] min-[560px]:w-[70%]"}`} src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
+              // A tap opens the photos whole, one by one.
+              <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
+                className={`shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 ${place.photos.length === 1 ? "mx-auto w-full max-w-[720px]" : "w-[86%] max-w-[560px] min-[560px]:w-[70%]"}`}>
+                <img className="reveal-img block aspect-[4/3] w-full rounded-[18px] object-cover shadow-card" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
+              </button>
             ))}
           </div>
         ) : null}
@@ -83,7 +89,11 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           <section className={panel}>
             <h2 className={heading}>Այցելություն</h2>
             {place.openHours ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Բաց է՝ </strong>{place.openHours}</p> : null}
-            {place.accessibility ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Ճանապարհը և մուտքը՝ </strong>{place.accessibility}</p> : null}
+            {/* «Ճանապարհը՝ …» and «Մուտքը՝ …» each on its line (from the bot); older text as one line. */}
+            {place.accessibility.split("\n").filter(Boolean).map((line) => {
+              const [label, ...rest] = /^(Ճանապարհը|Մուտքը)՝ /u.test(line) ? line.split("՝ ") : ["Ճանապարհը և մուտքը", line];
+              return <p key={line} className="m-0 whitespace-pre-line"><strong className="font-semibold">{label}՝ </strong>{rest.join("՝ ")}</p>;
+            })}
           </section>
         ) : null}
         {video ? <video className="w-full rounded-[18px] bg-black" src={video} controls preload="metadata" playsInline /> : null}
@@ -105,6 +115,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         <Link className="mx-auto text-[13.5px] text-gold-bright" to="/places">← Բոլոր սրբավայրերը քարտեզում</Link>
         <p className="m-0 text-center text-[10px] text-faint opacity-60">Քարտեզ՝ {MAP_ATTRIBUTION}</p>
       </article>
+      {viewing !== null ? <PhotoGallery photos={place.photos.map((key) => placeMediaUrl(key))} start={viewing} alt={place.name} onClose={() => setViewing(null)} /> : null}
     </PageShell>
   );
 }
