@@ -4,6 +4,7 @@ import angelLeft from "../assets/angel-left.webp";
 import divider2 from "../assets/divider2.webp";
 import lastSupper from "../assets/last-supper.webp";
 import { SECTION_SLUGS } from "../utils/material-path";
+import { ArmeniaOutline } from "./armenia-outline";
 import { ArtImage } from "./art-image";
 import { PageHeader } from "./page-layout";
 import { MY_CORNER_IMAGE, getCategoryImage } from "./section-header";
@@ -475,7 +476,7 @@ function Content({ kind }: { kind: Kind }) {
           <div className="mx-auto grid w-full max-w-[520px] justify-items-center gap-2"><Bone className="h-3.5 w-full rounded-full" /><Bone className="h-3.5 w-3/4 rounded-full" /></div>
           <div className="mx-auto mt-4 grid w-full max-w-[1040px] gap-3">
             <span className="flex gap-2"><span className="frosted-panel grid flex-1 grid-cols-3 gap-1 rounded-[18px] p-1.5">{repeat(3, (index) => <span key={index} className="grid h-11 place-items-center"><span className="grid justify-items-center gap-1.5"><Bone className="h-4 w-6 rounded-full" /><Bone className="h-2 w-14 rounded-full" /></span></span>)}</span><Bone className="size-[58px] rounded-[18px]" /></span>
-            <Bone className="aspect-[1/0.85] w-full rounded-[22px] opacity-60 min-[860px]:aspect-auto min-[860px]:h-[min(72svh,560px)]" />
+            <span className="block aspect-[1/0.92] max-h-[min(78svh,720px)] min-h-[320px] w-full p-[14px] min-[860px]:aspect-auto min-[860px]:h-[min(72svh,560px)]"><ArmeniaOutline /></span>
           </div>
           <Bone className="mx-auto mt-4 h-11 w-64 rounded-full" />
           <div className="mt-5 grid grid-cols-2 gap-2"><Bone className="col-span-2 h-12 rounded-[18px]" />{repeat(6, (index) => <Bone key={index} className="h-14 rounded-[18px]" />)}</div>

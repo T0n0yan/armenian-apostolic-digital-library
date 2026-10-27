@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
 import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
+import { ArmeniaOutline } from "./armenia-outline";
 import { MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
 import { directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
@@ -188,6 +189,8 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const [closing, setClosing] = useState(false);
+  // Until the first tiles are drawn (slow connections), Armenia's outline shimmers in the map's place.
+  const [ready, setReady] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
   // The map is built once per list of places; the visited marks and the filter repaint it without rebuilding.
   const visitedRef = useRef(visited);
@@ -283,6 +286,7 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
         container.current.style.clipPath = `path('${d}')`;
       };
 
+      m.once("idle", () => { if (!cancelled) setReady(true); });
       m.on("load", () => {
         if (!focus) {
           // No farther out than all of Armenia, also when the map opened where the reader left it.
@@ -367,7 +371,10 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   const zoom = (by: number) => mapRef.current?.easeTo({ zoom: mapRef.current.getZoom() + by });
   return (
     <div ref={frame} className={focus ? "places-map-small" : "places-map-free"}>
-      <div ref={container} className="places-map" role="region" aria-label="Սրբավայրերի քարտեզ" />
+      <div ref={container} className={`places-map ${ready ? "" : "is-loading"}`} role="region" aria-label="Սրբավայրերի քարտեզ" />
+      <div className={`places-map-loading ${ready ? "is-ready" : ""}`} role="status" aria-label={ready ? undefined : "Քարտեզը բեռնվում է…"}>
+        {focus ? <span className="page-bone block h-full w-full" /> : <ArmeniaOutline />}
+      </div>
       <div className="places-map-zoom">
         <button type="button" onClick={() => zoom(1)} aria-label="Մոտեցնել"><Plus aria-hidden="true" size={17} /></button>
         <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>
