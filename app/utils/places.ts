@@ -30,6 +30,46 @@ export function placeSlug(name: string) {
   return latin.normalize("NFKD").replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "").slice(0, 60) || "place";
 }
 
+/** Armenian letters in Latin, as people type them: «Գրիգոր Լուսավորիչ» → grigor lusavorich. */
+function romanize(text: string) {
+  return [...text.toLocaleLowerCase("hy").replace(/ու/gu, "u")].map((letter) => LATIN[letter] ?? letter).join("");
+}
+
+// Russian letters, so «Лусаворич» finds the place too.
+const CYRILLIC: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p",
+  р: "r", с: "s", т: "t", у: "u", ф: "f", х: "kh", ц: "ts", ч: "ch", ш: "sh", щ: "sh", ы: "y", э: "e", ю: "yu", я: "ya", ь: "", ъ: "",
+};
+
+/**
+ * One spelling for the ways the same name is typed in Latin letters: "Lusavorich", "Lusavoritch",
+ * "Echmiadzin", "Etchmiatsin", "Yerevan", "Erevan", "Narekatsi", "Narekaci", "Khor Virap", "Xor Virap".
+ */
+function latinKey(text: string) {
+  return [...text.toLocaleLowerCase()].map((letter) => CYRILLIC[letter] ?? letter).join("").normalize("NFKD").replace(/[^a-z0-9]+/gu, " ")
+    .replace(/tch/gu, "ch").replace(/tz|ts|c(?!h)/gu, "c").replace(/dz/gu, "c")
+    .replace(/x|gh/gu, "kh").replace(/q/gu, "k").replace(/w/gu, "v").replace(/dj|zh|j/gu, "ch")
+    .replace(/\bye/gu, "e").replace(/\bvo/gu, "o").replace(/y/gu, "").replace(/(.)\1+/gu, "$1")
+    .replace(/\s+/gu, " ").trim();
+}
+
+/** Whether a place's name or region matches what was typed, in Armenian or in Latin letters. */
+export function placeMatches(place: { name: string; region: string }, typed: string) {
+  const query = typed.trim().toLocaleLowerCase("hy");
+  if (!query) return true;
+  const text = `${place.name} ${place.region}`.toLocaleLowerCase("hy");
+  if (/\p{Script=Armenian}/u.test(query)) return query.split(/\s+/u).every((word) => text.includes(word));
+  const latin = ` ${latinKey(romanize(text))}`;
+  const key = latinKey(query);
+  return Boolean(key) && key.split(" ").every((word) => latin.includes(` ${word}`));
+}
+
+/** The blocklist words found in a place's name, case and letter variants aside. */
+export function blockedWords(name: string, words: readonly string[]) {
+  const text = name.toLocaleLowerCase("hy");
+  return words.filter((word) => word.trim() && text.includes(word.trim().toLocaleLowerCase("hy")));
+}
+
 /**
  * Coordinates from what people paste: «40.161795, 44.291395», a Google Maps link (…/@40.16,44.29,15z
  * or ?q=40.16,44.29), an Apple Maps one (?ll=40.16,44.29) or a Yandex one (?ll=44.29,40.16, longitude

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import { Check, LoaderCircle, LocateFixed, MapPin, Send, SlidersHorizontal, X } from "lucide-react";
+import { Check, LoaderCircle, LocateFixed, MapPin, Search, Send, SlidersHorizontal, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -10,7 +10,7 @@ import { PlacesMap, type MapPlace, type NearView, type PlacesShown } from "../co
 import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { SiteNav } from "../components/site-nav";
 import { listPlaces } from "../data/places.server";
-import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMatches, placeMediaUrl } from "../utils/places";
 import { findMyPosition, openLocationSettings, type LocationFailure } from "../utils/my-location";
 import { usePlaceVisits } from "../utils/place-visits";
 import { seoMeta } from "../utils/seo";
@@ -155,7 +155,19 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   };
   const setRadius = (radiusKm: number) => { if (!nearView) return; const view = { ...nearView, radiusKm }; saveNear(view); setNear({ status: "on", view }); };
   const stopNear = () => { saveNear(null); setNear({ status: "off" }); };
-  const byFilters = places.filter((place) => (!provinces.size || provinces.has(provinceOf(place))) && (!kinds.size || kinds.has(place.kind)));
+  // The header's search filters the map and the list right here, in Armenian or Latin letters.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
+  const openSearch = () => { setSearchOpen(true); window.requestAnimationFrame(() => searchInput.current?.focus()); };
+  const closeSearch = () => { setSearchOpen(false); setQuery(""); };
+  const searching = query.trim().length > 0;
+  // Arriving from the search page («Սրբավայրեր», or «Բոլորը քարտեզում»): the search is already typed.
+  useEffect(() => {
+    const typed = new URLSearchParams(window.location.search).get("q")?.trim();
+    if (typed) { setQuery(typed.slice(0, 120)); setSearchOpen(true); }
+  }, []);
+  const byFilters = places.filter((place) => placeMatches(place, query) && (!provinces.size || provinces.has(provinceOf(place))) && (!kinds.size || kinds.has(place.kind)));
   const nearby = nearView ? nearbyPlaces(byFilters, nearView, nearView.radiusKm) : [];
   const filtered = nearView ? nearby.map(({ place }) => place) : byFilters;
   const shown = filtered.filter((place) => show === "all" || visited.has(place.id) === (show === "visited"));
@@ -197,7 +209,16 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Սրբավայրեր" />
+      <PageHeader backTo="/" backLabel="Գրադարան" title="Սրբավայրեր" onSearch={searchOpen ? closeSearch : openSearch} />
+      {searchOpen ? (
+        <div className="mx-auto mt-2 flex w-full max-w-[560px] items-center gap-2 rounded-[16px] border border-[rgb(217_181_111/45%)] bg-subtle px-3 motion-safe:animate-[glass-enter_200ms_ease-out]">
+          <Search aria-hidden="true" size={17} className="shrink-0 text-gold-bright" />
+          <input ref={searchInput} className="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint" type="search" enterKeyHint="search"
+            value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") closeSearch(); if (event.key === "Enter") event.currentTarget.blur(); }}
+            placeholder="Եկեղեցի, վանք կամ գյուղ (կարելի է լատինատառ)" aria-label="Փնտրել սրբավայրերը" />
+          <button type="button" onClick={closeSearch} aria-label="Փակել որոնումը" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-ink"><X aria-hidden="true" size={17} /></button>
+        </div>
+      ) : null}
       <p className="mx-auto mt-2 mb-4 max-w-[620px] text-center text-[14px] leading-relaxed text-muted">
         Հայաստանի վանքերն ու եկեղեցիները քարտեզի վրա։ Հպեք եկեղեցուն՝ տեղեկության և ճանապարհի համար։
       </p>
@@ -266,7 +287,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
           ) : null}
         </div>
       ) : null}
-      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|")} near={nearView} />
+      <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|") + (searching ? `?${shownKey}` : "")} near={nearView} />
       <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
         <Send aria-hidden="true" size={16} /> Լրացնել քարտեզը բոտի միջոցով
       </a>
@@ -284,6 +305,12 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               {nearView.radiusKm < NEARBY_RADII[NEARBY_RADII.length - 1] ? <> <button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-gold-bright underline" onClick={() => setRadius(NEARBY_RADII[NEARBY_RADII.length - 1])}>Ցույց տալ {NEARBY_RADII[NEARBY_RADII.length - 1]} կմ-ում</button></> : null}
             </p>
           )}
+        </section>
+      ) : searching ? (
+        // What was typed, as one list; the map shows the same places.
+        <section className="mt-5 grid gap-2" aria-labelledby="found-title">
+          <h2 className="m-0 px-1 text-[13px] font-semibold text-muted" id="found-title">Գտնվեց՝ {shown.length}</h2>
+          {shown.length ? <ProvincePlaces items={shown} /> : <p className="m-0 rounded-[16px] bg-subtle px-4 py-5 text-center text-[13px] text-muted">«{query.trim()}» անունով սրբավայր դեռ չկա քարտեզում։</p>}
         </section>
       ) : places.length ? (
         // Provinces two by two; the open one's places fill the row under it.
