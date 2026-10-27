@@ -133,15 +133,17 @@ const escapeHtml = (value) => value.replace(/[&<>"]/gu, (char) => ({ "&": "&amp;
  * as the reader chose), with the pages that are kept, and it reloads by itself once back online.
  */
 async function offlinePage(cache) {
+  // The latest pages first; only as many as the list shows are read.
   const kept = [];
-  for (const request of await cache.keys()) {
+  for (const request of (await cache.keys()).reverse()) {
+    if (kept.length >= 8) break;
     const url = new URL(request.url);
     if (url.pathname.endsWith(".data") || url.pathname.startsWith("/api/") || url.search) continue;
     const html = await (await cache.match(request))?.text().catch(() => "") ?? "";
     const title = /<title>([^<]*)<\/title>/u.exec(html)?.[1]?.split(" — ")[0]?.trim();
     if (title) kept.push({ path: url.pathname, title });
   }
-  const links = kept.slice(-8).reverse().map(({ path, title }) => `<a href="${escapeHtml(path)}"><span>${title}</span><b>›</b></a>`).join("");
+  const links = kept.map(({ path, title }) => `<a href="${escapeHtml(path)}"><span>${title}</span><b>›</b></a>`).join("");
   return `<!doctype html><html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Ինտերնետը բացակայում է — Հոգևոր ժառանգություն</title>
 <script>try{var p=localStorage.getItem("library-theme-v1"),h=new Date().getHours();document.documentElement.dataset.theme=p==="dark"||p==="light"?p:p==="sun"?(h>=7&&h<19?"light":"dark"):(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
 <style>

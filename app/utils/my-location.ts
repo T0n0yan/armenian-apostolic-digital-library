@@ -4,7 +4,7 @@
  * In Telegram's Mini App the position comes from Telegram's own location access (Bot API 8.0),
  * elsewhere from the browser.
  */
-export type MyPosition = { latitude: number; longitude: number };
+type MyPosition = { latitude: number; longitude: number };
 export type LocationFailure = "denied" | "unavailable" | "unsupported";
 
 type TelegramLocationManager = {
