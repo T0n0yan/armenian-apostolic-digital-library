@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Ban, Bot, Check, Crown, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Activity, Ban, Bot, Check, Crown, MapPin, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin";
@@ -169,6 +169,11 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             </p>
           ) : null}
         </section>
+
+        <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/places">
+          <span className="flex items-center gap-2 text-[17px] font-bold"><MapPin aria-hidden="true" size={19} className="text-gold" /> Սրբավայրեր</span>
+          <span className="text-[13px] text-gold-bright">Առաջարկներ և քարտեզ →</span>
+        </Link>
 
         {stats ? <SiteStats stats={stats} /> : null}
 

@@ -238,13 +238,15 @@ export async function loader({ request }: Route.LoaderArgs) {
     ? savedMatches.length
     : telegramMaterials.length + personalMaterials.length;
 
-  if (hasSearchQuery && scope === "library") {
+  // A secret (not in wrangler.jsonc), so not in the generated Env type; without it nothing is counted.
+  const analyticsSecret = (env as Env & { TELEGRAM_BRIDGE_SHARED_SECRET?: string }).TELEGRAM_BRIDGE_SHARED_SECRET;
+  if (hasSearchQuery && scope === "library" && analyticsSecret) {
     await recordSearchAggregate(
       env.DB,
       resolvedQuery.normalized,
       categoryId,
       total,
-      env.TELEGRAM_BRIDGE_SHARED_SECRET,
+      analyticsSecret,
     ).catch(() => {
       console.warn(JSON.stringify({ event: "search_analytics_write", outcome: "error" }));
     });

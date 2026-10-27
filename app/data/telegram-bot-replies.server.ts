@@ -1,12 +1,14 @@
 import { env } from "cloudflare:workers";
 import { CONTACT_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
+import { answerPlaceCallback, continuePlace, startPlace } from "./place-intake.server";
 import { isLibraryPath } from "../utils/material-path";
 import { readerIdFrom, relayedText, SUPPORT_PROMPTS, supportHeader, supportKindFor, type SupportKind } from "../utils/support-relay";
 
 type BotEnv = {
   TELEGRAM_BOT_TOKEN?: string; PUBLIC_URL?: string; SUPPORT_URL?: string;
-  SUPPORT_CHAT_ID?: string; SUPPORT_TOPIC_SUPPORT?: string; SUPPORT_TOPIC_CONTACT?: string;
+  SUPPORT_CHAT_ID?: string; SUPPORT_TOPIC_SUPPORT?: string; SUPPORT_TOPIC_CONTACT?: string; SUPPORT_TOPIC_PLACES?: string;
+  DB?: D1Database;
 };
 type User = { id: number; is_bot?: boolean; first_name?: string; last_name?: string; username?: string; language_code?: string };
 type Message = {
@@ -17,21 +19,25 @@ type Message = {
   from?: User;
   text?: string;
   caption?: string;
-  photo?: unknown; video?: unknown; document?: unknown; audio?: unknown; voice?: unknown; animation?: unknown;
+  photo?: Array<{ file_id: string; width?: number; height?: number }>; video?: { file_id: string };
+  document?: unknown; audio?: unknown; voice?: unknown; animation?: unknown;
+  location?: { latitude: number; longitude: number };
   reply_to_message?: Message;
 };
-type Update = { message?: Message };
+type CallbackQuery = { id: string; data?: string; from: User; message?: { chat: { id: number }; message_id: number } };
+type Update = { message?: Message; callback_query?: CallbackQuery };
 
 
 function settings() {
-  const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support, SUPPORT_CHAT_ID: supportChat, SUPPORT_TOPIC_SUPPORT: supportTopic, SUPPORT_TOPIC_CONTACT: contactTopic } = env as BotEnv;
+  const { TELEGRAM_BOT_TOKEN: token, PUBLIC_URL: site, SUPPORT_URL: support, SUPPORT_CHAT_ID: supportChat, SUPPORT_TOPIC_SUPPORT: supportTopic, SUPPORT_TOPIC_CONTACT: contactTopic, SUPPORT_TOPIC_PLACES: placesTopic, DB: db } = env as BotEnv;
   const topic = (value?: string) => Number(value?.trim()) || undefined;
   return {
     token: token?.trim() || null,
     site: (site || "https://apostolic.am").replace(/\/+$/u, ""),
     support: support?.trim() || null,
     // The private group where readers' messages arrive (empty: the relay is off).
-    relay: Number(supportChat?.trim()) ? { chat: Number(supportChat), topics: { support: topic(supportTopic), contact: topic(contactTopic) } as Record<SupportKind, number | undefined> } : null,
+    relay: Number(supportChat?.trim()) ? { chat: Number(supportChat), topics: { support: topic(supportTopic), contact: topic(contactTopic) } as Record<SupportKind, number | undefined>, places: topic(placesTopic) } : null,
+    db: db ?? null,
   };
 }
 
@@ -56,7 +62,27 @@ export async function webhookSecret(token: string) {
  * does and where to ask for help. Anything else gets the same short help.
  */
 export async function answerUpdate(update: Update) {
-  const { token, site, support, relay } = settings();
+  const { token, site, support, relay, db } = settings();
+  const call = (method: string, body: unknown) => callTelegram(token ?? "", method, body);
+  const places = relay ? { chat_id: relay.chat, message_thread_id: relay.places } : null;
+  if (token && places && db && update.callback_query?.data?.startsWith("place:")) {
+    await answerPlaceCallback(call, db, places, update.callback_query);
+    return;
+  }
+  // The buttons under /start and /help: the same as /contact, /support and /place.
+  const pressed = update.callback_query;
+  if (token && relay && pressed?.data?.startsWith("menu:")) {
+    await call("answerCallbackQuery", { callback_query_id: pressed.id });
+    const chat = pressed.message?.chat.id ?? pressed.from.id;
+    if (pressed.data === "menu:place" && places && db) await startPlace(call, db, chat, pressed.from);
+    else if (pressed.data === "menu:contact" || pressed.data === "menu:support") {
+      await call("sendMessage", {
+        chat_id: chat, text: SUPPORT_PROMPTS[pressed.data === "menu:support" ? "support" : "contact"],
+        reply_markup: { force_reply: true, input_field_placeholder: "Ձեր հաղորդագրությունը…" },
+      });
+    }
+    return;
+  }
   const message = update.message;
   if (!token || !message) return;
   if (message.chat.type === "group" || message.chat.type === "supergroup") return answerGroup(token, relay, message);
@@ -65,6 +91,13 @@ export async function answerUpdate(update: Update) {
   const [command, payload = ""] = text.split(/\s+/u, 2);
   const name = message.from?.first_name?.trim();
 
+  // /place: a reader sends a church or shrine for the map; their messages go to the places topic
+  // until they press «Ավարտել».
+  if (places && db && message.from && (command === "/place" || (command === "/start" && payload === "place"))) {
+    await startPlace(call, db, message.chat.id, message.from);
+    return;
+  }
+  if (places && db && message.from && !text.startsWith("/") && await continuePlace(call, db, places, { ...message, from: message.from })) return;
   // /support, /contact, or the group welcome's «Գրել մեզ» button (t.me/bot?start=contact).
   const asks = command === "/start" && (payload === "contact" || payload === "support") ? `/${payload}` : command;
   if (relay && (asks === "/support" || asks === "/contact")) {
@@ -114,7 +147,7 @@ export async function answerUpdate(update: Update) {
         "",
         "Սեղմեք ներքևի կոճակը՝ գրադարանը բացելու համար։ Կարող եք պահել նյութեր, դնել հիշեցումներ և նշել կարդացածը։",
       ].join("\n"),
-      reply_markup: { inline_keyboard: [[{ text: path === "/" ? "📖 Բացել գրադարանը" : "📖 Բացել նյութը", web_app: { url: `${site}${path}` } }]] },
+      reply_markup: { inline_keyboard: [[{ text: path === "/" ? "📖 Բացել գրադարանը" : "📖 Բացել նյութը", web_app: { url: `${site}${path}` } }], ...(relay ? MENU_ROWS : [])] },
     });
     return;
   }
@@ -129,13 +162,19 @@ export async function answerUpdate(update: Update) {
       "🌐 Կայքը՝ " + site.replace(/^https?:\/\//u, ""),
       "",
       ...(relay
-        ? ["✉️ Հարց կամ առաջարկ՝ /contact", "🛠 Տեխնիկական խնդիր՝ /support", "", `Էլ. փոստ՝ ${CONTACT_EMAIL}, ${SUPPORT_EMAIL}`]
+        ? ["✉️ Հարց կամ առաջարկ՝ /contact", "🛠 Տեխնիկական խնդիր՝ /support", "📍 Ուղարկել սրբավայր՝ /place", "", `Էլ. փոստ՝ ${CONTACT_EMAIL}, ${SUPPORT_EMAIL}`]
         : [support ? `Հարցերի և առաջարկների համար՝ ${support}` : `Հարցերի և առաջարկների համար՝ ${CONTACT_EMAIL}`, `Տեխնիկական խնդիրների համար՝ ${SUPPORT_EMAIL}`]),
     ].join("\n"),
     link_preview_options: { is_disabled: true },
-    reply_markup: { inline_keyboard: [[{ text: "📖 Բացել գրադարանը", web_app: { url: `${site}/` } }]] },
+    reply_markup: { inline_keyboard: [[{ text: "📖 Բացել գրադարանը", web_app: { url: `${site}/` } }], ...(relay ? MENU_ROWS : [])] },
   });
 }
+
+/** Buttons for writing to the team, under /start and /help (answered in answerUpdate). */
+const MENU_ROWS = [
+  [{ text: "✉️ Հարց կամ առաջարկ", callback_data: "menu:contact" }, { text: "🛠 Տեխնիկական խնդիր", callback_data: "menu:support" }],
+  [{ text: "📍 Ուղարկել սրբավայր", callback_data: "menu:place" }],
+];
 
 /**
  * In groups the bot answers only two things: /chatid (so the owner can find the support group's
@@ -228,7 +267,7 @@ export async function postGroupWelcome(chatId: string | number, pin: boolean, te
   return pinned.ok ? sent : { ok: false, description: `Ուղարկվեց, բայց չամրացվեց. ${pinned.description ?? ""}` };
 }
 
-export const WEBHOOK_UPDATES = ["message", "edited_message"];
+export const WEBHOOK_UPDATES = ["message", "edited_message", "callback_query"];
 
 /** Points the bot's webhook at this site and sets its command list. */
 export async function connectBot() {
@@ -249,6 +288,7 @@ export async function connectBot() {
       ...(settings().relay ? [
         { command: "contact", description: "Հարց կամ առաջարկ" },
         { command: "support", description: "Տեխնիկական խնդիր" },
+        { command: "place", description: "Ուղարկել սրբավայր քարտեզի համար" },
       ] : []),
     ],
   });

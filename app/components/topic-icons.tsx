@@ -16,6 +16,11 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   );
 }
 
+/** Sacred places: an Armenian church, its conical dome and cross over the drum, an arched door. */
+export function PlacesIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-church" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 1.75v2.9M10.85 2.85h2.3\"/><path d=\"M8.6 9 12 4.9 15.4 9z\"/><path d=\"M9.35 9v3.6h5.3V9\"/><path d=\"M12 10.1v1.3\"/><path d=\"M5 21.25V15.4l2.6-2.8h8.8l2.6 2.8v5.85\"/><path d=\"M3.5 21.25h17\"/><path d=\"M10.5 21.25v-2.6a1.5 1.5 0 0 1 3 0v2.6\"/><path d=\"M7.6 16.6v1.6M16.4 16.6v1.6\"/></g>"} />;
+}
+
 /** Gospel teaching: the open Gospel, its lines following the curve of the pages, with a cross. */
 export function GospelIcon(props: IconProps) {
   return <Icon {...props} motion="ti-gospel" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 7C9.75 5.25 6.5 4.5 2.75 4.75v13.5c3.75-.25 7 .5 9.25 2.25c2.25-1.75 5.5-2.5 9.25-2.25V4.75c-3.75-.25-7 .5-9.25 2.25m0 0v13\"/><path d=\"M5.2 8.7c1.4 0 2.8.35 4.1 1M5.2 11.7c1.4 0 2.8.35 4.1 1M5.2 14.7c.9 0 1.8.15 2.7.45\"/><path d=\"M16.75 8.5v7.2M14.75 10.9c1.3-.35 2.7-.45 4-.3\"/></g>"} />;

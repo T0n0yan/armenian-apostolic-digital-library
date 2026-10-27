@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { readerIdFrom, relayedText, SUPPORT_PROMPTS, supportHeader, supportKindFor } from "../app/utils/support-relay";
+import { readerIdFrom, relayedText, relayHeader, SUPPORT_PROMPTS, supportHeader, supportKindFor } from "../app/utils/support-relay";
 
 test("a relayed message carries the reader's id, and only that id is read back", () => {
   const header = supportHeader("support", { id: 123456789, first_name: "Արամ", username: "aram" });
@@ -23,4 +23,10 @@ test("long messages are cut to Telegram's limit and keep the header", () => {
   assert.equal(text.length, 4096);
   assert.equal(readerIdFrom(text), 1);
   assert.equal(relayedText("#u1", "", 1024), "#u1");
+});
+
+test("a sacred place sent with /place carries the reader's id too, so the team can answer", () => {
+  const header = relayHeader("📍 Սրբավայր", { id: 42, first_name: "Անի" });
+  assert.equal(header, "📍 Սրբավայր · Անի · #u42");
+  assert.equal(readerIdFrom(header), 42);
 });

@@ -1,0 +1,77 @@
+# Trims staging to a small, clean site (scripts/staging-reset.sql): two materials per section and
+# an empty places map. Runs only on the staging branch, when the script or this file changes there.
+# Production is never touched: the database and bucket names below are staging's.
+name: Staging reset
+
+on:
+  push:
+    branches: [staging]
+    paths: ["scripts/staging-reset.sql", ".github/workflows/staging-reset.yml"]
+
+concurrency:
+  group: staging-reset
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      WRANGLER_SEND_METRICS: "false"
+      DB: armenian-apostolic-digital-library-staging
+      BUCKET: armenian-apostolic-library-media-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Count before
+        run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --command "SELECT t.title, COUNT(m.message_id) AS materials FROM library_topics t LEFT JOIN library_materials m ON m.topic_key = t.id AND m.sync_state = 'ready' AND m.deleted_at IS NULL GROUP BY t.id; SELECT (SELECT COUNT(*) FROM places) AS places, (SELECT COUNT(*) FROM place_submissions) AS submissions, (SELECT COUNT(*) FROM place_visits) AS visits"
+      - name: Remove the places' pictures
+        run: |
+          pnpm exec wrangler d1 execute "$DB" --env staging --remote --json --command "SELECT icon, photos_json FROM places" > places.json
+          node -e '
+            const rows = JSON.parse(require("fs").readFileSync("places.json", "utf8"))[0].results;
+            const keys = rows.flatMap((row) => [row.icon, ...JSON.parse(row.photos_json || "[]")]).filter((key) => typeof key === "string" && key.startsWith("places/"));
+            require("fs").writeFileSync("keys.txt", keys.join("\n"));
+            console.log(keys.length, "pictures");
+          '
+          while read -r key; do
+            [ -n "$key" ] && pnpm exec wrangler r2 object delete "$BUCKET/$key" --env staging --remote || true
+          done < keys.txt
+      - name: Trim the library and empty the map
+        run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --file scripts/staging-reset.sql
+      - name: Count after
+        run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --command "SELECT t.title, COUNT(m.message_id) AS materials FROM library_topics t LEFT JOIN library_materials m ON m.topic_key = t.id AND m.sync_state = 'ready' AND m.deleted_at IS NULL GROUP BY t.id; SELECT (SELECT COUNT(*) FROM places) AS places, (SELECT COUNT(*) FROM place_submissions) AS submissions, (SELECT COUNT(*) FROM place_visits) AS visits"
+      - name: Check the pages and the bot's address
+        run: |
+          sleep 20
+          fail=0
+          for path in / /psalms /pray /saints /gospel /daily /questions /search /places /settings /saved /mer-masin /kap /privacy /api/search-index /api/content-version /manifest.webmanifest; do
+            code=$(curl -s -o page.html -w "%{http_code}" "https://staging.apostolic.am$path")
+            echo "$code $(wc -c < page.html) $path"
+            # The search index answers with a redirect to its current version.
+            case "$code" in 200|302) ;; *) fail=1 ;; esac
+          done
+          # Material pages: the first link of each section.
+          for section in psalms pray saints gospel daily questions; do
+            link=$(curl -s "https://staging.apostolic.am/$section" | grep -o "href=\"/$section/[^\"]*\"" | head -1 | cut -d'"' -f2)
+            [ -n "$link" ] || { echo "no material link in /$section"; fail=1; continue; }
+            code=$(curl -s -o page.html -w "%{http_code}" "https://staging.apostolic.am$link")
+            echo "$code $(wc -c < page.html) $link"
+            [ "$code" = "200" ] || fail=1
+          done
+          # The bot's webhook answers only Telegram (403 without its secret): it is up.
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "content-type: application/json" -d '{}' https://staging.apostolic.am/telegram/webhook)
+          echo "$code /telegram/webhook (403 expected)"
+          [ "$code" = "403" ] || fail=1
+          exit $fail

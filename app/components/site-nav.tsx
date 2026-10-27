@@ -6,6 +6,7 @@ import ArmenianEternity from "../assets/armenian-eternity.svg";
 import CrownWreath from "../assets/crown-olive-wreath.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
+import { PlacesIcon } from "./topic-icons";
 import { ReminderIndicator } from "./reminder-indicator";
 import { INSTALL_REQUEST_EVENT, isInstalledApp, isTelegramMiniApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
@@ -143,6 +144,12 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                       </li>
                     );
                   })}
+                  <li>
+                    <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to="/places" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><PlacesIcon aria-hidden="true" size={17} /></span>
+                      <span className="min-w-0 flex-1 truncate">Սրբավայրեր</span>
+                    </NavLink>
+                  </li>
                 </ul>
               </section>
             ) : null}

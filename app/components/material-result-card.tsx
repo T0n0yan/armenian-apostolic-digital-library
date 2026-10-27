@@ -348,9 +348,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {...longPress.handlers}
         >
         {variant === "video" ? (
-          <span ref={videoPoster.ref} className="relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
+          <span ref={videoPoster.ref} className="reveal-frame relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
             {videoPoster.poster ? (
-              <img className="h-full w-full object-cover opacity-95 motion-safe:animate-[glass-enter_400ms_ease-out]" src={videoPoster.poster} alt="" loading="lazy" decoding="async" onError={(event) => { const image = event.currentTarget; const fallback = sameOriginMedia(image.src); if (new URL(fallback, location.origin).href !== image.src) image.src = fallback; else image.style.visibility = "hidden"; }} />
+              <img className="reveal-img h-full w-full object-cover" src={videoPoster.poster} alt="" loading="lazy" decoding="async" onError={(event) => { const image = event.currentTarget; const fallback = sameOriginMedia(image.src); if (new URL(fallback, location.origin).href !== image.src) image.src = fallback; else image.style.visibility = "hidden"; }} />
             ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgb(10_5_14/70%))]" aria-hidden="true" />
             <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
@@ -358,9 +358,9 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           </span>
         ) : variant === "portrait" ? (
           // Saints: the portrait fills the top of the card with the name on it, as in their section.
-          <span className="relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[14px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
+          <span className="reveal-frame relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[14px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
             {thumbnail && !thumbnailFailed ? (
-              <img className="h-full w-full object-cover object-top" src={thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
+              <img className="reveal-img h-full w-full object-cover object-top" src={thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
             ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgb(20_10_24/82%))]" aria-hidden="true" />
             <span className="absolute inset-x-0 bottom-0 grid justify-items-center gap-1.5 px-4 pb-3.5 text-center">
@@ -383,10 +383,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] font-semibold text-muted">{day.month}</span>
           </span>
         ) : (
-          <span ref={isVideo ? videoPoster.ref : undefined} className={`relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle aspect-[4/3]`}>
+          <span ref={isVideo ? videoPoster.ref : undefined} className={`reveal-frame relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle aspect-[4/3]`}>
             {thumbnail && !thumbnailFailed ? (
               <img
-                className="h-full w-full object-cover object-top"
+                className="reveal-img h-full w-full object-cover object-top"
                 src={thumbnail}
                 width={material.preview.width ?? 320}
                 height={material.preview.height ?? 240}
