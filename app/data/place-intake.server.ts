@@ -23,7 +23,7 @@ type Point = { latitude: number; longitude: number };
 type Query = { id: string; data?: string; from: Reader; message?: { chat: { id: number }; message_id: number } };
 
 type TextStep = "liturgy" | "services" | "hours" | "history";
-type Step = "name" | "kind" | "location" | "region" | "photos" | "active" | TextStep | "clergy" | "access" | "credit" | "review";
+type Step = "name" | "kind" | "location" | "region" | "photos" | "active" | TextStep | "clergy" | "access" | "entrance" | "credit" | "review";
 /** null: the questions in order; otherwise one answer changed from the review, then back to it. */
 type Mode = null | "edit" | "append" | "replace";
 type Draft = { step: Step; mode: Mode; submission: number; pending: string | null };
@@ -39,7 +39,7 @@ const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PICTURES = 10;
 const MAX_TEXT = 2000;
 
-const ORDER: Step[] = ["name", "kind", "location", "region", "photos", "active", "liturgy", "services", "clergy", "hours", "access", "history", "credit", "review"];
+const ORDER: Step[] = ["name", "kind", "location", "region", "photos", "active", "liturgy", "services", "clergy", "hours", "access", "entrance", "history", "credit", "review"];
 
 /** Free-text questions: their column, question, ready answers and the hint in the input field. */
 const TEXTS: Record<TextStep, { column: keyof Submission; ask: string; quick: string[]; placeholder: string }> = {
@@ -53,7 +53,7 @@ const isTextStep = (step: Step): step is TextStep => step in TEXTS;
 const FIELD_LABELS: Array<[Step, string]> = [
   ["name", "Անունը"], ["kind", "Տեսակը"], ["location", "Տեղը"], ["region", "Մարզը"], ["photos", "Լուսանկարները"], ["active", "Գործո՞ղ է"],
   ["liturgy", "Սուրբ Պատարագ"], ["services", "Ժամերգություններ"], ["clergy", "Ծառայողներ"], ["hours", "Բաց ժամերը"],
-  ["access", "Ճանապարհը"], ["history", "Պատմությունը"], ["credit", "Իմ անունը"],
+  ["access", "Ճանապարհը"], ["entrance", "Մուտքը"], ["history", "Պատմությունը"], ["credit", "Իմ անունը"],
 ];
 
 const CLERGY_EXAMPLES: Record<string, string> = {
@@ -63,6 +63,15 @@ const CLERGY_EXAMPLES: Record<string, string> = {
   "Սարկավագ": "Օրինակ՝ Արամ սարկավագ Պետրոսյան",
 };
 const OTHER_ROLE = PLACE_CHOICES.clergy[PLACE_CHOICES.clergy.length - 1];
+
+/** The way to the church and its entrance, each on its own line in places.accessibility. */
+const ROAD = "Ճանապարհը";
+const ENTRANCE = "Մուտքը";
+export function setAccessPart(current: string, part: typeof ROAD | typeof ENTRANCE, value: string) {
+  const lines = current.split("\n").filter((line) => line.startsWith(`${ROAD}՝ `) || line.startsWith(`${ENTRANCE}՝ `));
+  const kept = lines.filter((line) => !line.startsWith(`${part}՝ `));
+  return [...kept, `${part}՝ ${value}`].sort((a, b) => Number(a.startsWith(ENTRANCE)) - Number(b.startsWith(ENTRANCE))).join("\n");
+}
 
 /** Whether a question is asked for this place: the working-church ones only where they make sense. */
 function applies(step: Step, row: Submission): boolean {
@@ -200,7 +209,11 @@ async function ask(call: Call, db: D1Database, chat: number, reader: Reader, dra
       }
       return say(row.clergy ? PLACE_TEXT.askClergyMore : PLACE_TEXT.askClergy, clergyKeyboard(Boolean(row.clergy), editing));
     }
-    case "access": return say(PLACE_TEXT.askAccess, replyKeyboard([...PLACE_CHOICES.access.map(([label]) => [label]), [PLACE_TEXT.unknown], ...back]));
+    case "access": return say(PLACE_TEXT.askAccess, replyKeyboard([...PLACE_CHOICES.access.map(([label]) => [label]), [PLACE_TEXT.unknown], ...back], "Կամ նկարագրեք…"));
+    case "entrance": {
+      const [level, ramp, few, many] = PLACE_CHOICES.entrance.map(([label]) => label);
+      return say(PLACE_TEXT.askEntrance, replyKeyboard([[level], [ramp], [few, many], [PLACE_TEXT.unknown], ...back], "Կամ նկարագրեք…"));
+    }
     case "credit": {
       const name = senderName(reader);
       return say(PLACE_TEXT.askCredit, replyKeyboard([...(name ? [[`Այո՝ «${name}»`]] : []), [PLACE_TEXT.anonymous], ...back], "Կամ գրեք անունը…"));
@@ -251,7 +264,7 @@ function describeSubmission(row: Submission, limit = 700, forTeam = false) {
     applies("services", row) ? `🕯 Ժամերգություններ՝ ${value(row.services)}` : "",
     applies("clergy", row) ? `🙏 Ծառայողներ՝${row.clergy ? `\n${short(row.clergy, limit)}` : " —"}` : "",
     applies("hours", row) ? `🕘 Բաց է՝ ${value(row.open_hours)}` : "",
-    `♿ Ճանապարհը և մուտքը՝ ${value(row.accessibility)}`,
+    `♿ Ճանապարհը և մուտքը՝${row.accessibility ? `\n${row.accessibility}` : " —"}`,
     `📜 Պատմությունը՝ ${value(row.notes)}`,
     `👤 Անունը կայքում՝ ${row.credit && row.credit_name ? `«${row.credit_name}»` : "չի նշվի (անանուն)"}`,
   ];
@@ -286,7 +299,7 @@ export async function startPlace(call: Call, db: D1Database, chat: number, reade
 const BUTTONS = new Set<string>([
   PLACE_TEXT.cancel, PLACE_TEXT.next, PLACE_TEXT.done, PLACE_TEXT.skip, PLACE_TEXT.unknown, PLACE_TEXT.noPhotos, PLACE_TEXT.ready,
   PLACE_TEXT.clearPhotos, PLACE_TEXT.anonymous, PLACE_TEXT.shareLocation, PLACE_TEXT.back, ...PLACE_TEXT.legacy,
-  ...PLACE_CHOICES.kind.map(([label]) => label), ...PLACE_CHOICES.active.map(([label]) => label), ...PLACE_CHOICES.access.map(([label]) => label),
+  ...PLACE_CHOICES.kind.map(([label]) => label), ...PLACE_CHOICES.active.map(([label]) => label), ...PLACE_CHOICES.access.map(([label]) => label), ...PLACE_CHOICES.entrance.map(([label]) => label),
   ...PLACE_CHOICES.clergy, ...Object.values(TEXTS).flatMap((question) => question.quick),
 ]);
 
@@ -402,11 +415,13 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
       await ask(call, db, chat, reader, added, `✅ Ավելացվեց։\n\n${clergy}`);
       return true;
     }
-    case "access": {
+    case "access":
+    case "entrance": {
       if (isUnknown(text)) return next();
       const words = (message.text ?? "").trim();
       if (!words) return again(PLACE_TEXT.textHelp);
-      await update("accessibility = ?", words.slice(0, 300));
+      const row = await readSubmission(db, draft.submission);
+      await update("accessibility = ?", setAccessPart(row?.accessibility ?? "", draft.step === "access" ? ROAD : ENTRANCE, words.slice(0, 300)));
       return next();
     }
     case "credit": {
@@ -468,7 +483,7 @@ function teamSummary(row: Submission, limit: number) {
     applies("services", row) ? field("🕯 Ժամերգություններ", row.services) : "",
     applies("clergy", row) && row.clergy ? `🙏 Ծառայողներ՝\n${short(row.clergy, limit)}` : "",
     applies("hours", row) ? field("🕘 Բաց է", row.open_hours) : "",
-    field("♿ Ճանապարհը", row.accessibility),
+    row.accessibility ? `♿ ${row.accessibility.replace(/\n/gu, "\n♿ ")}` : "",
     field("📜 Պատմությունը", row.notes),
     `👤 Կայքում՝ ${row.credit && row.credit_name ? `«${row.credit_name}»` : "անանուն"}`,
   ].filter(Boolean).join("\n");
