@@ -24,6 +24,7 @@
 6. Ավելի ուշ՝ աուդիոյի օպտիմալացում, տառատեսակներ, դիզայն և պատկերներ։
 
 ## Արված
+- 2026-10-27 — Թողարկվեց production. քարտեզ (OSM-ից 475 տեղ՝ թաքցված, ադմինը ցուցադրում է մեկ-մեկ կամ ամբողջ տեսակով՝ `/admin/places`), նոր «Խորհրդավոր ընթրիք», GitHub-ի րոպեների խնայողություն ([#52](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/52), [#53](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/53), [#54](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/54), [#55](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/55))։ Պահոցը այժմ հանրային է (GitHub Actions-ն անվճար)։
 - 2026-10-27 — Սրբավայրերի քարտեզ (`/places`, «Եղել եմ», ֆիլտրեր, «Իմ մոտակայքում» 10/30/50 կմ), բոտի `/place`, ադմին, էջերի սքելեթոններ, նկարների ամբողջական բացում, offline էջ ([#51](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/51))։
 - 2026-10-21 — Ընթեռնելի հասցեներ, «Մեր մասին», «Կապ» ([#20](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/20))։
 - 2026-10-22 — «Մեր մասին», «Կապ», «Գաղտնիություն» էջերի միատեսակ դիզայն ([#21](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/21))։
