@@ -2,6 +2,30 @@
 
 Նոր փոփոխությունների ճյուղը՝ `feat/free-tier-efficiency`։ Այս քայլերը կատարվում են **ձեր համակարգչում**։ Cloud միջավայրի localhost-ը ձեր համակարգչի localhost-ը չէ։
 
+## macOS — ամենապարզ տարբերակը
+
+WebStorm-ի Terminal-ը բացել `View → Tool Windows → Terminal`-ից։ Նախ՝ `node --version`։ Պետք է Node.js 22 կամ նոր. եթե չկա, տեղադրել Node.js 24 LTS-ի macOS installer-ը [պաշտոնական կայքից](https://nodejs.org/en/download), հետո վերաբացել WebStorm-ը։
+
+Ստորև `npx`-ը վերցնում է նախագծի կոնկրետ pnpm տարբերակը. գլոբալ pnpm տեղադրել պետք չէ։ Ներբեռնումը պահանջում է ինտերնետ, բայց Cloudflare/GitHub գաղտնիքներ պետք չեն։ Հրամանները միացված են `&&`-ով, որպեսզի սխալի դեպքում հաջորդ քայլը չսկսվի։
+
+```sh
+mkdir -p ~/Projects &&
+cd ~/Projects &&
+git clone --branch feat/free-tier-efficiency --single-branch https://github.com/T0n0yan/armenian-apostolic-digital-library.git armenian-library-local &&
+cd armenian-library-local &&
+npx --yes pnpm@10.28.0 install --frozen-lockfile &&
+npx --yes pnpm@10.28.0 db:migrate:local &&
+npx --yes pnpm@10.28.0 dev --host 127.0.0.1 --port 5173
+```
+
+Եթե `armenian-library-local` պանակն արդեն կա, հրամանը կանգ կառնի. այն մի ջնջեք և մի reset արեք։ Նախ ստուգել այնտեղ եղած աշխատանքը կամ ընտրել նոր պանակի անուն։ Եթե `git`-ը բացակայում է, macOS-ը կարող է առաջարկել տեղադրել Command Line Tools-ը. ամբողջ Xcode-ը պարտադիր չէ։
+
+WebStorm-ում բացել `File → Open → ~/Projects/armenian-library-local` պանակը։ Բրաուզերում բացել `http://127.0.0.1:5173` (կամ Terminal-ի ցուցադրած այլ port-ը, եթե 5173-ը զբաղված է)։ Terminal-ը բաց պահել, կանգնեցնել՝ Ctrl+C։ Հաջորդ անգամ նույն պանակի Terminal-ում բավական է միայն վերջին `npx … dev` հրամանը։
+
+Ցանկալի է նախ հաստատել, որ էջը բացվում է, հետո ավելացնել ներքևում նկարագրված փորձնական նյութերը։ Դատարկ բաժինները դեռ չեն նշանակում, որ տեղադրումը ձախողվել է։
+
+Ստուգված է cloud/Linux միջավայրում՝ pnpm 10.28.0-ի `npx` գործարկումը, տեղական migrations-ը և development սերվերի գլխավոր էջի պատասխանը։ Օգտագործողի Mac-ում գործարկումը դեռ պետք է հաստատել. macOS-ում փորձարկված չենք հայտարարում։
+
 ## Առաջին գործարկում
 
 1. Տեղադրել Node.js 22 կամ ավելի նոր տարբերակ։ WebStorm → Settings → Languages & Frameworks → Node.js-ում ընտրել տեղադրված Node interpreter-ը։

@@ -1,6 +1,7 @@
 # Ինտեգրացիաներ
 
 ## Հիմա
+- 2026-10-28 — Տիրոջ ընտրությամբ macOS/WebStorm տեղական գործարկում. հրահանգները պատրաստ են, cloud-ում `npx`/local migrations/HTML պատասխանը ստուգված են, սպասում ենք Mac-ում գործարկման արդյունքին։
 - Անվճար պլանի օպտիմալացում և գլխավոր ադմինի օգտագործման վահանակ՝ `feat/free-tier-efficiency`, կոդ՝ `15a60ba`։ Push-ը հաջողված է, staging merge՝ `c0391b6` ([Deploy](https://github.com/T0n0yan/armenian-apostolic-digital-library/actions/runs/40739457560))։ Staging-ի build/tests/migrations/deploy-ը հաջող են (2026-10-28 17:51 UTC)։ Production-ի լիազորությունը տրված է, բայց GitHub API-ն PR ստեղծելիս `Forbidden` է վերադարձնում, իսկ live կայքերը՝ proxy CONNECT 403։ Հանձնում՝ [հաշվետվություն](../qa/FREE-TIER-REVIEW.md)։
 - Սրբավայրերի քարտեզ՝ `feat/places-map` (հանված է staging-ից 2026-10-23, տերը կվերադառնա)։ Staging DB-ում մնացել են 0028/0029 աղյուսակները և 9 փորձնական տեղ։
 

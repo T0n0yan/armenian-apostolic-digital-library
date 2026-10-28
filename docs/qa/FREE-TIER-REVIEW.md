@@ -120,3 +120,7 @@ Workflow՝ `.github/workflows/private-backup.yml`։ Առանց երկու reposi
 - WebStorm-ի տեղական գործարկման ուղեցույց՝ [WEBSTORM-LOCAL.md](WEBSTORM-LOCAL.md)։ Այն օգտագործողի համակարգչի համար է, cloud-ի localhost-ը նրան հասանելի հղում չի համարվում։
 - Նոր ստուգմամբ GitHub API, Cloudflare API և staging կայքը դեռ վերադարձնում են proxy CONNECT 403։ Cloudflare API token/account ID միջավայրում բացակայում են։ Backup/WAF/private bucket-ի live փոփոխություններ դեռ չեն կատարվել։
 - Հաջորդ առաջարկվող հերթականությունը՝ տեղական գործարկում → ցանցի հասանելիություն → պատրաստ փոփոխությունների staging ստուգում և քննարկված production թողարկում → backup/restore → private մեդիա → WAF → իրական աուդիոյի համեմատություն և փուլային rollout։
+
+### macOS տեղական փուլ
+
+Տերը ընտրել է սկսել macOS/WebStorm տեղական գործարկումից։ `WEBSTORM-LOCAL.md`-ում ավելացված են Node.js նախապայմանը, `npx`-ով pnpm 10.28.0 գործարկումը, նոր առանձին պանակով clone-ը, միայն local D1 migrations-ը և development սերվերը։ Իրական աուդիո, մուտք և production տվյալներ ինքնաբերաբար չեն պատճենվում։ Այս փուլը փոխում է միայն փաստաթղթերը. production/WAF/bucket փոփոխություններ չեն կատարվում։
