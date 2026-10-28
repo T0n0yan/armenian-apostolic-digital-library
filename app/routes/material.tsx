@@ -1,4 +1,5 @@
 import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
+import { useFindFlash } from "../utils/find-flash";
 import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router";
 
@@ -83,6 +84,8 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     ? (location.state as { searchHit: BridgeSearchHit }).searchHit
     : undefined;
   const [activeHit, setActiveHit] = useState(stateHit);
+  // Opened from a search: the words searched for light up in the text and fade.
+  useFindFlash(location.pathname, "main article");
   // Prayers open with a bird-letter initial, as in old manuscripts.
   const contentCategory = resolveContentCategoryId(null, material.categoryName);
   const isPrayer = contentCategory === "category_prayers";

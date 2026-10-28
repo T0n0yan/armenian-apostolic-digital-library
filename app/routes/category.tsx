@@ -1,4 +1,5 @@
 import { searchValidation } from "../utils/search-validation";
+import { useRememberFind } from "../utils/find-flash";
 import { env } from "cloudflare:workers";
 import { ChevronDown, ChevronRight, ChevronUp, LoaderCircle, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
@@ -480,6 +481,9 @@ export default function Category({ loaderData }: Route.ComponentProps) {
     setFound({ query, ids, hits, index: 0 });
     setFinding(false);
   }, [category.id, category.slug, isPsalms, loaderData.intro?.id, materials, nextCursor]);
+
+  // A found item opened from here: the words light up on its page (not a psalm's number).
+  useRememberFind(found?.ids.length && !/^\d+$/u.test(found.query) ? found.query : "");
 
   // Another section starts clean: no earlier search in its field, nothing found yet.
   useEffect(() => { setFound(null); setFinding(false); }, [category.id]);

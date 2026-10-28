@@ -61,6 +61,7 @@ import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
 import { PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+import { useRememberFind } from "../utils/find-flash";
 
 const PLACES_SECTION = "places";
 
@@ -537,6 +538,8 @@ export default function Search({ loaderData }: Route.ComponentProps) {
   } = loaderData;
   const stateKey = `${filters.query}|${filters.categoryId}|${filters.scope}|${filters.dateFrom}|${filters.dateTo}`;
   const [telegramResults, setTelegramResults] = useState(loaderData.materials);
+  // A result opened from here lights the searched words up on its page.
+  useRememberFind(loaderData.highlightQuery || loaderData.filters.query);
   const [noteResults, setNoteResults] = useState(loaderData.personalMaterials);
   const telegramResultsRef = useRef(telegramResults);
   const noteResultsRef = useRef(noteResults);

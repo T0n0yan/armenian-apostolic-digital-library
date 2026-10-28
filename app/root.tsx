@@ -100,7 +100,8 @@ export async function loader({request}: Route.LoaderArgs) {
 
   const value = {
     // «Կառավարում» is the owner's alone; other admins get links to what they were allowed.
-    showAdminLink: Boolean(telegramAdmin?.owner || (!telegramAdmin && hasAdminNavigationCookie(request))),
+    // The cookie stands for a Cloudflare Access sign-in only; a reader signed in with another account doesn't get the link.
+    showAdminLink: Boolean(telegramAdmin?.owner || (!telegramUser && hasAdminNavigationCookie(request))),
     isAdmin: can(telegramAdmin, "copy"),
     adminPermissions: telegramAdmin ? (telegramAdmin.owner ? Object.keys(ADMIN_PERMISSIONS) as AdminPermission[] : telegramAdmin.permissions) : [],
     signedIn: Boolean(telegramUser),
