@@ -64,12 +64,12 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
       <p className="mt-1 mb-4 text-center text-[13px] text-muted">{PLACE_KINDS[place.kind]}{ACTIVE_LABELS[place.active] ? ` · ${ACTIVE_LABELS[place.active]}` : ""}{place.region ? ` · ${place.region}` : ""}</p>
       <article className="grid gap-4">
         {place.photos.length ? (
-          <div className="-mx-1 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-1">
+          <div className={`-mx-1 flex snap-x snap-mandatory items-center gap-2.5 overflow-x-auto px-1 pb-1 ${place.photos.length === 1 ? "justify-center" : ""}`}>
             {place.photos.map((key, index) => (
-              // A tap opens the photos whole, one by one.
+              // Each photo whole, in its own proportions (never cropped); a tap opens them one by one.
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
-                className={`shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 ${place.photos.length === 1 ? "mx-auto w-full max-w-[720px]" : "w-[86%] max-w-[560px] min-[560px]:w-[70%]"}`}>
-                <img className="reveal-img block aspect-[4/3] w-full rounded-[18px] object-cover shadow-card" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
+                className={`shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 ${place.photos.length === 1 ? "max-w-full" : "max-w-[88%]"}`}>
+                <img className="reveal-img block h-auto max-h-[min(68svh,560px)] w-auto max-w-full rounded-[18px] shadow-card" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
               </button>
             ))}
           </div>
