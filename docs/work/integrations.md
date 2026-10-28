@@ -24,6 +24,7 @@
 - 2026-10-21 — info@apostolic.am, դոմենը Cloudflare-ում, media.apostolic.am։
 
 ## Կարևոր մյուսների համար
+- 2026-10-28 — Տիրոջ նոր պահանջը՝ հաշվիչների ակտիվացումը հետաձգել։ Ենթակառուցվածքային/production յուրաքանչյուր քայլից առաջ ներկայացնել կոնկրետ առաջարկը և սպասել տիրոջ ընտրությանը։ WebStorm local ուղեցույց՝ [WEBSTORM-LOCAL.md](../qa/WEBSTORM-LOCAL.md)։ Cloud-ում development սերվերը ստուգված է՝ գլխավոր/բաժին/նյութ HTTP 200, սակայն օգտագործողի համակարգչի գործարկումը դեռ չի ստուգվել։
 - 2026-10-28 — Անվճար պլանի աշխատանքի ամբողջ հանձնման փաստաթուղթը՝ [FREE-TIER-REVIEW.md](../qa/FREE-TIER-REVIEW.md)։ Նոր `/admin/usage` և `/admin/media-inventory` էջերը միայն owner-ին են։ Analytics-ի համար առանձին Worker secret է պետք. թվերը դեռ live չեն ստուգվել։ Backup workflow-ը առանց կարգավորման բաց է թողնվում։
 - Խմբի բոլոր թեմաները փակ են. «փակ» նշանակում է միայն «գրում են ադմինները», կայքում այն ցույց տալ պետք չէ։
 - Փոստը Zoho Mail-ում է. info@, contact@, support@ մեկ փոստարկղի alias-ներ են։ Կոդում՝ `app/utils/contact.ts` (`INFO_EMAIL`, `CONTACT_EMAIL`, `SUPPORT_EMAIL`)։
