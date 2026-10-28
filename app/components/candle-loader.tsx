@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 
-// Intro on the first visit of a session: the unlit candle (0.7 s), a spark and the flame catching
-// (~0.9 s), then the light settles and welcomes the reader before the page opens (3.6 s at least,
-// so it is felt even on fast connections), and finally the light swells from the flame over the
-// whole screen and lifts to show the page. The page keeps loading underneath meanwhile.
-const LIGHT_AT_MS = 700;
-const MINIMUM_VISIBLE_MS = 3_600;
-const EXIT_MS = 2_000;
+// Brief welcome, skipped for returning visits and reduced-motion readers.
+const LIGHT_AT_MS = 100;
+const MINIMUM_VISIBLE_MS = 650;
+const EXIT_MS = 300;
 const SESSION_KEY = "library-loader-seen-v4";
 
 type Phase = "unlit" | "lit" | "hidden" | "removed";
@@ -14,7 +11,7 @@ type Phase = "unlit" | "lit" | "hidden" | "removed";
 const styles = `
 html[data-intro-seen] .candle-loader{display:none}
 html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overflow:hidden}
-.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .8s ease 1.1s}
+.candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .25s ease}
 .candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
 .candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}
 /* The welcome: the flame's light swells from the wick until it fills the screen with the page's
@@ -61,7 +58,7 @@ export function CandleLoader() {
     const later = (callback: () => void, ms: number) => { timers.push(window.setTimeout(() => active && callback(), ms)); };
     let seen = false;
     try { seen = sessionStorage.getItem(SESSION_KEY) === "1"; } catch { /* Storage may be blocked. */ }
-    if (seen) {
+    if (seen || matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.motion === "reduced") {
       // Later visits skip the intro; the light-flood exit is only for the first one.
       setPhase("removed");
       return () => { active = false; timers.forEach(clearTimeout); };

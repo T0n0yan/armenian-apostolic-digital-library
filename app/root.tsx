@@ -275,7 +275,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App({ loaderData }: Route.ComponentProps) {
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
-  setRemindersEnabled(Boolean(loaderData.signedIn));
+  setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
   // The phone's title search and page keeping follow the content version (utils/local-search.ts).
   setContentVersion(loaderData.contentVersion);
   setRootSearchState({ signedIn: Boolean(loaderData.signedIn), categories: loaderData.categories });
@@ -285,45 +285,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
   useLayoutEffect(() => {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
-
-  // Protects the library's artwork: holding a link, card or picture opens no system menu
-  // (Android's link menu, Telegram's "Open in…" popup, "save image"). The reading text itself
-  // (.reading-body) can be selected and copied, and copied text carries its source. Admins can
-  // lift the rest with developer mode. (Screenshots can't be blocked.)
-  useEffect(() => {
-    const devMode = () => document.documentElement.dataset.devMode === "on";
-    const isField = (target: EventTarget | null) => Boolean((target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable='true']"));
-    // Plain reading text (not its links, pictures or the player inside it).
-    const isReadingText = (target: EventTarget | null) => {
-      const element = target instanceof Element ? target : (target as Node | null)?.parentElement ?? null;
-      return Boolean(element?.closest?.(".reading-body") && !element.closest("a, img, video, audio, button"));
-    };
-    const onContextMenu = (event: MouseEvent) => {
-      if (!devMode() && !isField(event.target) && !isReadingText(event.target)) event.preventDefault();
-    };
-    const onCopy = (event: ClipboardEvent) => {
-      // Copies the site makes itself (a verse, a link) and form fields keep their own text.
-      if (devMode() || isField(event.target)) return;
-      const text = window.getSelection()?.toString() ?? "";
-      if (text.trim().length < 15 || !event.clipboardData) return;
-      // The page's title first, then the words, then the link: "Սաղմոս 25" / text / https://….
-      const title = document.querySelector("main h1")?.textContent?.trim();
-      event.clipboardData.setData("text/plain", `${title ? `${title}\n` : ""}${text.trim()}\n\n«Հոգևոր ժառանգություն» — ${window.location.href}`);
-      event.preventDefault();
-    };
-    // No selection starts outside form fields and the reading text (iOS can still try on a long press).
-    const onSelectStart = (event: Event) => {
-      if (!devMode() && !isField(event.target) && !isReadingText(event.target)) event.preventDefault();
-    };
-    document.addEventListener("contextmenu", onContextMenu);
-    document.addEventListener("copy", onCopy);
-    document.addEventListener("selectstart", onSelectStart);
-    return () => {
-      document.removeEventListener("contextmenu", onContextMenu);
-      document.removeEventListener("copy", onCopy);
-      document.removeEventListener("selectstart", onSelectStart);
-    };
-  }, []);
 
   // Tells the site once that this device has visited, for the admin's visitor list. A random id
   // stays in the browser; nothing else is sent. Once per device: each request costs the free plan.
@@ -341,15 +302,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
     void fetch("/api/presence", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ visitorId, platform, inTelegram }), keepalive: true })
       .then((response) => { if (response.ok) localStorage.setItem("library-presence-sent", "1"); })
       .catch(() => null);
-  }, []);
-
-  // Load the bird-letter font for prayer initials once the page has settled, so opening a prayer
-  // shows the ornate letter at once instead of swapping it in.
-  useEffect(() => {
-    const warm = () => { document.fonts?.load('1em "Trchnatar Birds Color"', "Ա").catch(() => undefined); };
-    const idle = (window as { requestIdleCallback?: (callback: () => void) => number }).requestIdleCallback;
-    const handle = idle ? idle(warm) : window.setTimeout(warm, 1500);
-    return () => { if (!idle) window.clearTimeout(handle); };
   }, []);
 
   // After a new deploy, an open page may ask for scripts that no longer exist; reload it once

@@ -208,6 +208,17 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   // Until the first tiles are drawn (slow connections), Armenia's outline shimmers in the map's place.
   const [ready, setReady] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
+  const [loadMap, setLoadMap] = useState(!focus);
+  // Detail maps are often below long text/photos: download MapLibre and tiles near the viewport.
+  useEffect(() => {
+    if (loadMap) return;
+    if (!("IntersectionObserver" in window) || !frame.current) { setLoadMap(true); return; }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) { setLoadMap(true); observer.disconnect(); }
+    }, { rootMargin: "200px" });
+    observer.observe(frame.current);
+    return () => observer.disconnect();
+  }, [loadMap]);
   // The map is built once per list of places; the visited marks and the filter repaint it without rebuilding.
   const visitedRef = useRef(visited);
   visitedRef.current = visited;
@@ -287,6 +298,7 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
 
   useEffect(() => {
     let map: MapInstance | null = null;
+    if (!loadMap) return;
     let cancelled = false;
     let observer: MutationObserver | null = null;
     void (async () => {
@@ -404,7 +416,7 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     })();
     return () => { cancelled = true; observer?.disconnect(); map?.remove(); mapRef.current = null; };
-  }, [places, focus]);
+  }, [places, focus, loadMap]);
 
   const current = places.find((place) => place.id === selected);
   const zoom = (by: number) => mapRef.current?.easeTo({ zoom: mapRef.current.getZoom() + by });

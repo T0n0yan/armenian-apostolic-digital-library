@@ -66,3 +66,11 @@ jobs:
             CLOUD_SYNC_ENV=$target node --import tsx services/telegram-bridge/src/cloud-import.ts ${{ inputs.mode == 'dry-run' && 'dry-run' || 'reconcile' }}
             echo "::endgroup::"
           done
+      - name: Refresh previews for the synced environments
+        if: inputs.mode != 'dry-run'
+        run: |
+          for target in $TARGETS; do
+            if [ "$target" = "staging" ]; then export OG_SITE=https://staging.apostolic.am OG_BUCKET=armenian-apostolic-library-media-staging
+            else export OG_SITE=https://apostolic.am OG_BUCKET=armenian-apostolic-library-media-production; fi
+            node --import tsx scripts/og-cards.ts
+          done

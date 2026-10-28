@@ -37,6 +37,8 @@ export default [
   // One psalm verse: /psalms/22/3 (shared from the verse popup).
   route(":section/:item/:verse", "routes/verse.tsx"),
   route("api/categories/:slug/posts", "routes/category-page.ts"),
+  route("admin/media-inventory", "routes/admin-media-inventory.tsx"),
+  route("admin/usage", "routes/admin-usage.tsx"),
   route("admin", "routes/admin.tsx"),
   route("admin/people", "routes/admin-people.tsx"),
   route("admin/people/export", "routes/admin-people-export.ts"),

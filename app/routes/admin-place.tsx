@@ -1,3 +1,4 @@
+import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { env } from "cloudflare:workers";
 import { Check, Copy, ImagePlus, Star, Trash2, Upload } from "lucide-react";
 import { useState } from "react";
@@ -31,7 +32,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   return { place, canDelete: can(admin, "places-delete") };
 }
 
-export async function action({ request, params }: Route.ActionArgs) {
+async function performAction({ request, params }: Route.ActionArgs) {
   const admin = await requirePermission(request, env.DB, "places");
   requireSameOrigin(request);
   const { DB, MEDIA } = env as unknown as Bindings;
@@ -214,4 +215,10 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   return <RouteErrorPage error={error} />;
+}
+
+export async function action(args: Route.ActionArgs) {
+  const response = await performAction(args);
+  if (response instanceof Response && response.status >= 300 && response.status < 400) await bumpCacheEpoch(env.DB);
+  return response;
 }

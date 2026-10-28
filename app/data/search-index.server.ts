@@ -19,15 +19,19 @@ type Row = {
  */
 export async function buildSearchIndex(database: D1Database, version: string): Promise<SearchIndex> {
   const { results } = await database.prepare(
-    `SELECT materials.chat_id, materials.message_id, materials.material_id, materials.title, materials.content_type,
+    `WITH first_posts AS (
+       SELECT topic_key, MIN(message_id) AS first_message_id FROM library_materials
+       WHERE sync_state = 'ready' AND deleted_at IS NULL GROUP BY topic_key
+     )
+     SELECT materials.chat_id, materials.message_id, materials.material_id, materials.title, materials.content_type,
        materials.number_value, materials.date_value, materials.published_at,
        materials.topic_key, topics.title AS topic_title, topics.slug AS topic_slug,
-       (SELECT MIN(first.message_id) FROM library_materials AS first
-         WHERE first.topic_key = materials.topic_key AND first.sync_state = 'ready' AND first.deleted_at IS NULL) AS first_message_id,
+       first_posts.first_message_id,
        media.media_index, media.kind AS media_kind, media.r2_key, media.r2_etag, media.thumbnail_r2_key, media.thumbnail_etag,
        (SELECT COUNT(*) FROM library_media AS counted
          WHERE counted.chat_id = materials.chat_id AND counted.message_id = materials.message_id AND counted.status = 'ready') AS media_count
      FROM library_materials AS materials
+     LEFT JOIN first_posts ON first_posts.topic_key = materials.topic_key
      INNER JOIN library_topics AS topics ON topics.id = materials.topic_key
      LEFT JOIN library_media AS media ON media.chat_id = materials.chat_id AND media.message_id = materials.message_id
        AND media.status = 'ready' AND media.media_index = (

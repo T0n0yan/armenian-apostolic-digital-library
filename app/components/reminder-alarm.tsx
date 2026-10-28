@@ -68,6 +68,7 @@ export function ReminderAlarm() {
   }, []);
 
   const load = useCallback(async () => {
+    if (document.visibilityState !== "visible") return;
     const reminders = await loadReminders();
     for (const timer of timers.current.values()) window.clearTimeout(timer);
     timers.current.clear();
