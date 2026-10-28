@@ -36,7 +36,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
         if (from === null || to === undefined || Math.abs(to - from) < 40 || count < 2) return;
         go(to < from ? 1 : -1);
       }}>
-      <img key={photos[index]} className="max-h-full max-w-full rounded-[10px] object-contain motion-safe:animate-[glass-enter_250ms_ease-out]" src={photos[index]} alt={`${alt}, նկար ${index + 1}`} onClick={(event) => event.stopPropagation()} />
+      <img key={photos[index]} className="max-h-full max-w-full rounded-[10px] object-fit motion-safe:animate-[glass-enter_250ms_ease-out]" src={photos[index]} alt={`${alt}, նկար ${index + 1}`} onClick={(event) => event.stopPropagation()} />
       <button className={`${round} absolute top-[max(12px,env(safe-area-inset-top))] right-3`} type="button" onClick={onClose} aria-label="Փակել" autoFocus><X aria-hidden="true" size={20} /></button>
       {count > 1 ? (
         <>
