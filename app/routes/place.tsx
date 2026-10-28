@@ -1,10 +1,11 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import { Navigation } from "lucide-react";
+import { Navigation, Pencil } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useRouteLoaderData } from "react-router";
 
 import type { Route } from "./+types/place";
+import type { loader as rootLoader } from "../root";
 import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { PhotoGallery } from "../components/photo-gallery";
@@ -52,6 +53,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
   const video = place.videoUrl.startsWith("places/") ? placeMediaUrl(place.videoUrl) : null;
   const embed = video ? null : youtubeEmbed(place.videoUrl);
   const { visited, toggle } = usePlaceVisits();
+  const canManage = Boolean(useRouteLoaderData<typeof rootLoader>("root")?.showAdminLink);
   const [viewing, setViewing] = useState<number | null>(null);
   // One array per place, so the small map is drawn once and not again on every render.
   const pin = useMemo(() => [{ id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region, summary: "", icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified }], [place]);
@@ -73,6 +75,12 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           </div>
         ) : null}
         <div className="mx-auto w-full max-w-[420px]"><VisitButton visited={visited.has(place.id)} onToggle={() => toggle(place.id)} /></div>
+        {canManage ? (
+          // Only the admin sees it: straight to this place's editor.
+          <Link className="mx-auto flex min-h-11 w-full max-w-[420px] items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" to={`/admin/places/${place.id}`}>
+            <Pencil aria-hidden="true" size={16} /> Խմբագրել (միայն ադմին)
+          </Link>
+        ) : null}
         {!place.verified ? (
           <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13px] text-muted">⚑ Ճշտել. տեղեկությունը ուղարկել են մեր ընթերցողները, և այն դեռ ստուգվում է հոգևորականների կողմից։</p>
         ) : null}
