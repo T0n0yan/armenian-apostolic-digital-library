@@ -9,7 +9,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { PlacesMap, type MapPlace, type NearView, type PlacesShown } from "../components/places-map";
 import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { SiteNav } from "../components/site-nav";
-import { listPlaces } from "../data/places.server";
+import { listPublicPlaceSummaries } from "../data/places.server";
 import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMatches, placeMediaUrl } from "../utils/places";
 import { findMyPosition, openLocationSettings, type LocationFailure } from "../utils/my-location";
 import { usePlaceVisits } from "../utils/place-visits";
@@ -33,13 +33,13 @@ function summary(text: string) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const places = await listPlaces(env.DB, { publishedOnly: true });
+  const places = await listPublicPlaceSummaries(env.DB);
   return {
     origin: new URL(request.url).origin,
     places: places.map((place): MapPlace => ({
       id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region,
       summary: summary(place.description),
-      icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified,
+      icon: place.icon, cover: place.cover, verified: place.verified,
     })),
   };
 }

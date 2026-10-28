@@ -1,3 +1,4 @@
+import { listPublicPlaceSummaries } from "../data/places.server";
 import { env } from "cloudflare:workers";
 
 import { listCloudLibraryCategories } from "../data/cloud-library.server";
@@ -40,6 +41,8 @@ export async function loader() {
           : null;
         return entry(materialPath(createMaterialId(row.chat_id, row.message_id), row.category_name, { title: row.title, psalm }), row.changed_at);
       }),
+      entry("/places", null, "0.7"),
+      ...(await listPublicPlaceSummaries(env.DB)).map((place) => entry(`/places/${place.id}`, place.updatedAt)),
       entry("/mer-masin", null, "0.3"),
       entry("/kap", null, "0.3"),
       entry("/privacy", null, "0.2"),

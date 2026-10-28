@@ -2,7 +2,7 @@ import { Bell, BellRing, CalendarPlus, Check, LoaderCircle, X } from "lucide-rea
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { BottomSheet } from "./bottom-sheet";
-import { REMINDERS_CHANGED_EVENT } from "../utils/reminder-store";
+import { notifyRemindersChanged, useActiveReminders } from "../utils/reminder-store";
 import { enablePushNotifications, pushSupport, type PushSupport } from "../utils/web-push";
 import { calendarFileUrl, googleCalendarUrl } from "../utils/calendar";
 import { formatClock, formatDayMonth } from "../utils/armenian-date";
@@ -108,12 +108,14 @@ function Wheel({ count, value, onChange, label }: { count: number; value: number
  * is due the bell rings in the library; with the library closed, a notification or the Telegram
  * bot reminds instead.
  */
-export function ReminderButton({ materialId, title, className, label = false, prefetch = false, path }: { materialId: string; title: string; className: string; label?: boolean; prefetch?: boolean; path?: string }) {
+export function ReminderButton({ materialId, title, className, label = false, path }: { materialId: string; title: string; className: string; label?: boolean; path?: string }) {
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState<Channel>("calendar");
   const [android, setAndroid] = useState(false);
   useEffect(() => setAndroid(/Android/u.test(navigator.userAgent)), []);
   const [reminder, setReminder] = useState<Reminder | null>(null);
+  const activeReminders = useActiveReminders();
+  const hasReminder = Boolean(reminder) || activeReminders.some((item) => item.materialId === materialId);
   const [loaded, setLoaded] = useState(false);
   const [mode, setMode] = useState<Mode>("date");
   const [day, setDay] = useState(() => dayKey(new Date()));
@@ -140,9 +142,8 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     return data.reminder;
   }, [materialId]);
 
-  // On a material's own page, show a ringing bell when it already has a reminder (lists load it
-  // only when the sheet opens, to avoid a request per card).
-  useEffect(() => { if (prefetch) void load(); }, [load, prefetch]);
+  // Fetch the full editable reminder only when the reader opens the sheet.
+  // The shared reminder store already drives the header bell.
 
   const openSheet = async () => {
     setError(null);
@@ -190,7 +191,7 @@ export function ReminderButton({ materialId, title, className, label = false, pr
     setBusy(false);
     if (!response?.ok) { setError("Չհաջողվեց պահել։ Փորձեք նորից։"); return; }
     setReminder({ remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "push" });
-    window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
+    notifyRemindersChanged();
     setOpen(false);
   };
 
@@ -205,31 +206,31 @@ export function ReminderButton({ materialId, title, className, label = false, pr
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ materialId, remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "calendar" }),
       keepalive: true,
-    }).catch(() => null);
+    }).then((response) => { if (response.ok) notifyRemindersChanged(); }).catch(() => null);
     setReminder({ remindAt: chosen.toISOString(), repeat: chosenRepeat, channel: "calendar" });
-    window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
     window.setTimeout(() => setOpen(false), 400);
   };
 
   const remove = async () => {
     setBusy(true);
-    await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, remove: true }) }).catch(() => null);
+    const response = await fetch("/api/reminders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, remove: true }) }).catch(() => null);
     setBusy(false);
+    if (!response?.ok) { setError("Չհաջողվեց հեռացնել։ Փորձեք նորից։"); return; }
     setReminder(null);
-    window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
+    notifyRemindersChanged();
     setOpen(false);
   };
 
   const close = useCallback(() => setOpen(false), []);
-  const Icon = reminder ? BellRing : Bell;
+  const Icon = hasReminder ? BellRing : Bell;
   const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
   const secondary = "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/40%)] bg-transparent text-[13px] font-semibold text-gold-bright no-underline";
   const segment = (active: boolean) => `min-h-10 cursor-pointer rounded-[10px] border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
   return (
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">
-        <Icon aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} fill={reminder ? "currentColor" : "none"} />
-        {label ? <span>{reminder ? "Դրված է" : "Հիշեցնել"}</span> : null}
+        <Icon aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} fill={hasReminder ? "currentColor" : "none"} />
+        {label ? <span>{hasReminder ? "Դրված է" : "Հիշեցնել"}</span> : null}
       </button>
       <BottomSheet open={open} onClose={close} label="Հիշեցում" className="gap-3.5 p-4">
         <div className="flex items-start gap-3">

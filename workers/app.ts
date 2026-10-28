@@ -156,20 +156,23 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const url = new URL(request.url);
     // Moving between pages inside the site fetches "<page>.data" (the home page: "/_root.data");
     // those are cached like the pages themselves, so searching or opening a section from inside
-    // the site costs the Worker no CPU the second time (the free plan allows 10 ms a request).
+    // the site avoids repeated SSR/SQL work (it still counts as a Worker invocation).
     const page = url.pathname.replace(/\.data$/u, "").replace(/^\/_root$/u, "/");
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
-    const sharedJson = url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname === "/api/search-index" || url.pathname.startsWith("/api/categories/");
+    const sharedJson = url.pathname === "/api/places-search" || url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname === "/api/search-index" || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
-      && (sharedJson || !request.headers.has("cookie"))
+      && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))
       && !url.searchParams.has("refresh")
       && (page === "/"
         || page === "/search"
         || page.startsWith("/categories/")
         || page.startsWith("/materials/")
         || isLibraryPath(page)
+        || page === "/places" || page.startsWith("/places/")
+        || ["/mer-masin", "/kap", "/privacy"].includes(page)
         || url.pathname.startsWith("/api/categories/")
         || url.pathname === "/api/search-page"
+        || url.pathname === "/api/places-search"
         || url.pathname === "/api/search-index"
         || url.pathname === "/api/search-suggestions");
     if (!cacheable) return requestHandler(request);
@@ -182,7 +185,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const cached = await cache.match(cacheKey);
     if (cached) return cached;
     const response = await requestHandler(request);
-    if (response.status !== 200 || response.headers.has("set-cookie")) return response;
+    if (response.status !== 200 || response.headers.has("set-cookie") || /private|no-store/iu.test(response.headers.get("cache-control") ?? "")) return response;
     const cacheResponse = new Response(response.body, response);
     // Five minutes at the edge: a new Telegram post shows within that, and «Թարմացնել կայքը» in the
     // admin page (a new cache version) makes every page fresh at once. The title index's address

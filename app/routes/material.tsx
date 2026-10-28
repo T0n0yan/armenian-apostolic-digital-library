@@ -195,7 +195,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             </button>
           ) : null}
           {loaderData.canSave ? (
-            <ReminderButton className={actionTile} materialId={material.id} title={material.title} label prefetch path={location.pathname} />
+            <ReminderButton className={actionTile} materialId={material.id} title={material.title} label path={location.pathname} />
           ) : null}
           <a className={actionTile} href={material.telegramUrl} target="_blank" rel="noreferrer" aria-label="Բացել Telegram-ում">
             <ExternalLink aria-hidden="true" size={20} strokeWidth={1.9} />

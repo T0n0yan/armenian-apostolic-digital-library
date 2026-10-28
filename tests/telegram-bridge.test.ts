@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
+import { mediaInventoryPage } from "../app/data/media-inventory.server";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
 import { getMediaClient } from "../app/auth/media-client.server";
@@ -1265,6 +1266,25 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   ).run();
   await seedCloudLibrary(database, mediaBucket as unknown as TestR2Bucket);
 
+  const referenced = await database.prepare("SELECT r2_key AS key FROM library_media WHERE r2_key IS NOT NULL LIMIT 1").first<{ key: string }>();
+  assert.ok(referenced);
+  const old = new Date(Date.now() - 30 * 86_400_000);
+  const inventory = await mediaInventoryPage({ list: async () => ({
+    objects: [referenced.key, "v1/unused", "places/private", "public-index/title/old.json"].map((key) => ({ key, size: 10, uploaded: old })),
+    truncated: true, cursor: "next-page",
+  }) } as unknown as Parameters<typeof mediaInventoryPage>[0], database as unknown as Parameters<typeof mediaInventoryPage>[1]);
+  assert.deepEqual(inventory.candidates.map((item) => item.key), ["v1/unused"]);
+  assert.equal(inventory.bytes, 40);
+  assert.equal(inventory.next, "next-page");
+  await database.prepare("INSERT INTO places(id,name,latitude,longitude,published,credit_name,photos_json) VALUES ('qa-visible','Փորձնական սրբավայր',40,44,1,'not-in-public-summary','[\"cover.jpg\",\"second.jpg\"]'), ('qa-hidden','Փորձնական թաքնված',40,44,0,'','[]')").run();
+  const publicPlaces = await (await mf.dispatchFetch("https://app.fixture/api/places-search?q=" + encodeURIComponent("Փորձնական"))).json() as { places: { id: string; cover: string }[] };
+  assert.deepEqual(publicPlaces.places.map((item) => item.id), ["qa-visible"]);
+  assert.equal(publicPlaces.places[0].cover, "cover.jpg");
+  assert.doesNotMatch(JSON.stringify(publicPlaces), /not-in-public-summary|second.jpg/);
+  const sitemap = await (await mf.dispatchFetch("https://app.fixture/sitemap.xml")).text();
+  assert.match(sitemap, /\/places\/qa-visible/);
+  assert.doesNotMatch(sitemap, /qa-hidden/);
+
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
   const homeHtml = await home.text();
@@ -1273,6 +1293,15 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   for (const topic of ["Աղոթքներ", "Սրբերի կյանք", "Ավետարանի ուսուցում", "Սաղմոսներ", "Հարցեր Աստվածաշնչից", "Օրվա ընթերցանություն"]) {
     assert.match(homeHtml, new RegExp(topic, "u"));
   }
+  const indexRedirect = await mf.dispatchFetch("https://app.fixture/api/search-index?v=old", { redirect: "manual" });
+  assert.equal(indexRedirect.status, 302);
+  const titleResponse = await mf.dispatchFetch(`https://app.fixture${indexRedirect.headers.get("location")}`);
+  assert.equal(titleResponse.status, 200);
+  const titleIndex = await titleResponse.json() as { version: string; items: unknown[] };
+  assert.ok(titleIndex.items.length > 0);
+  const snapshot = await (mediaBucket as unknown as { head(key: string): Promise<{ customMetadata: { version: string } } | null> }).head("public-index/title/current.json");
+  assert.equal(snapshot?.customMetadata.version, titleIndex.version);
+
   const category = await mf.dispatchFetch(`https://app.fixture/categories/${MOCK_TOPIC_SLUG}`);
   const categoryHtml = await category.text();
   assert.match(categoryHtml, /Առավոտյան աղոթք/u);
@@ -1438,6 +1467,33 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   });
   const cookie = (session.headers.get("set-cookie") ?? "").split(";", 1)[0];
   assert.equal(session.status, 200);
+  assert.equal((await mf.dispatchFetch("https://app.fixture/admin/media-inventory")).status, 403);
+  // Usage must remain owner-only on HTML and React Router data requests.
+  assert.equal((await mf.dispatchFetch("https://app.fixture/admin/usage")).status, 403);
+  assert.equal((await mf.dispatchFetch("https://app.fixture/admin/usage", { headers: { cookie } })).status, 403);
+  await database.prepare("UPDATE app_users SET role = 'admin' WHERE id = 'telegram:70001'").run();
+  await database.prepare("INSERT INTO admin_access(user_id,owner,permissions) VALUES ('telegram:70001',0,'[\"places\"]')").run();
+  assert.equal((await mf.dispatchFetch("https://app.fixture/admin/usage", { headers: { cookie } })).status, 403);
+  assert.equal((await mf.dispatchFetch("https://app.fixture/admin/media-inventory", { headers: { cookie } })).status, 403);
+  await database.prepare("UPDATE admin_access SET owner = 1 WHERE user_id = 'telegram:70001'").run();
+  const ownerUsage = await mf.dispatchFetch("https://app.fixture/admin/usage", { headers: { cookie } });
+  assert.equal(ownerUsage.status, 200);
+  assert.match(ownerUsage.headers.get("cache-control") ?? "", /private, no-store/);
+  const ownerInventory = await mf.dispatchFetch("https://app.fixture/admin/media-inventory", { headers: { cookie } });
+  assert.equal(ownerInventory.status, 200);
+  assert.match(ownerInventory.headers.get("cache-control") ?? "", /private, no-store/);
+  assert.match(await ownerUsage.text(), /կապը դեռ կարգավորված չէ/u);
+  const hidePlace = await mf.dispatchFetch("https://app.fixture/admin/places", {
+    method: "POST", redirect: "manual", headers: { cookie, origin: "https://app.fixture", "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ intent: "hide", placeId: "qa-visible" }),
+  });
+  assert.equal(hidePlace.status, 302);
+  const hiddenSearch = await (await mf.dispatchFetch("https://app.fixture/api/places-search?q=" + encodeURIComponent("Փորձնական"))).json() as { places: unknown[] };
+  assert.equal(hiddenSearch.places.length, 0, "hiding a place invalidates both public projection and edge cache");
+  await database.prepare("UPDATE admin_access SET owner = 0 WHERE user_id = 'telegram:70001'").run();
+  assert.equal((await mf.dispatchFetch("https://app.fixture/admin/usage.data", { headers: { cookie } })).status, 403);
+  await database.prepare("UPDATE app_users SET role = 'member' WHERE id = 'telegram:70001'").run();
+
   const save = await mf.dispatchFetch("https://app.fixture/saved", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://app.fixture", cookie },
