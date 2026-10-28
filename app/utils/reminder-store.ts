@@ -23,6 +23,7 @@ export const REMINDER_RINGING_EVENT = "library:reminder-ringing";
 let reminders: ActiveReminder[] = [];
 let missed: MissedReminder[] = [];
 let loading: Promise<ActiveReminder[]> | null = null;
+let loadedAt = 0;
 // Bumped on every local change, so a load that started before it can't bring back what the
 // reader just marked read or cancelled.
 let version = 0;
@@ -38,27 +39,42 @@ function emit(next: ActiveReminder[], nextMissed: MissedReminder[] = missed) {
 }
 
 let enabled = false;
+let viewerScope = "";
+
+/** A successful edit invalidates the TTL before listeners reload; older requests cannot win. */
+export function notifyRemindersChanged() {
+  version += 1;
+  loadedAt = 0;
+  loading = null;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT));
+}
 
 /**
  * Only signed-in readers have reminders, so guests never ask the server for them. Set from the
  * root route on every render; signing in turns it on and reloads the reminders.
  */
-export function setRemindersEnabled(next: boolean) {
-  if (next === enabled) return;
+export function setRemindersEnabled(next: boolean, scope = "") {
+  if (next === enabled && scope === viewerScope) return;
   enabled = next;
+  viewerScope = scope;
+  version += 1;
+  loadedAt = 0;
+  loading = null;
   if (typeof window === "undefined") return;
+  emit([], []);
   if (next) window.setTimeout(() => window.dispatchEvent(new Event(REMINDERS_CHANGED_EVENT)), 0);
-  else emit([], []);
 }
 
 /** Loads the reader's active reminders (guests get none); shared by the alarm and the bell. */
 export function loadReminders({ fresh = false } = {}) {
   if (!enabled) return Promise.resolve(reminders);
   if (loading && !fresh) return loading;
+  if (!fresh && loadedAt && Date.now() - loadedAt < 60_000) return Promise.resolve(reminders);
+  if (fresh) version += 1;
   const started = version;
   const request: Promise<ActiveReminder[]> = fetch("/api/reminders?upcoming=1")
     .then((response) => response.ok ? response.json() as Promise<{ reminders?: ActiveReminder[]; missed?: MissedReminder[] }> : null)
-    .then((data) => { if (data && started === version) emit(data.reminders ?? [], data.missed ?? []); return reminders; })
+    .then((data) => { if (data && started === version) { loadedAt = Date.now(); emit(data.reminders ?? [], data.missed ?? []); } return reminders; })
     .catch(() => reminders)
     .finally(() => { if (loading === request) loading = null; });
   loading = request;
@@ -67,6 +83,7 @@ export function loadReminders({ fresh = false } = {}) {
 
 function changeLocally(next: ActiveReminder[], nextMissed: MissedReminder[]) {
   version += 1;
+  loadedAt = 0;
   emit(next, nextMissed);
 }
 

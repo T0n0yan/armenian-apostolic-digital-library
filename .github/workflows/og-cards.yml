@@ -1,17 +1,15 @@
 # Draws the link-preview cards (psalms, their verses, prayers, Bible questions) into an
 # environment's R2 bucket. A Worker request may not use the ~1 s of CPU a card takes, so they are
 # drawn here (scripts/og-cards.ts); only changed ones redraw.
-# To save GitHub's free minutes it runs only when cards can have changed: after a production sync
-# (new or edited posts), when the card design changes, or by hand. One job, one environment.
+# Deploy-triggered cards wait for a successful deployment. Cloud sync draws its own target
+# in the already-installed job, avoiding another checkout/install and incorrect staging targets.
 name: Link-preview cards
 
 on:
   workflow_run:
-    workflows: ["Cloud sync"]
-    types: [completed]
-  push:
+    workflows: ["Deploy"]
     branches: [main, staging]
-    paths: ["scripts/og-cards.ts", "app/utils/og-card-layout.ts", "app/assets/og-fonts/**", "app/assets/og-initials/**", ".github/workflows/og-cards.yml"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       environment:
@@ -37,13 +35,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      # A push to staging draws staging; a sync and a push to main draw production; by hand, as chosen.
-      TARGET: ${{ inputs.environment || (github.event_name == 'push' && github.ref_name == 'staging' && 'staging') || 'production' }}
+      # A completed staging deploy draws staging; a main deploy draws production.
+      TARGET: ${{ inputs.environment || (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'Deploy' && github.event.workflow_run.head_branch == 'staging' && 'staging') || 'production' }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       WRANGLER_SEND_METRICS: "false"
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:

@@ -1,3 +1,4 @@
+import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { env } from "cloudflare:workers";
 import { Ban, Check, ClipboardCopy, Download, Eye, EyeOff, Footprints, ImageOff, MapPin, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
@@ -35,7 +36,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { submissions, places, blocklist, visited, canVisit: Boolean(user), canDelete: can(admin, "places-delete"), isOwner: admin.owner };
 }
 
-export async function action({ request }: Route.ActionArgs) {
+async function performAction({ request }: Route.ActionArgs) {
   const admin = await requirePermission(request, env.DB, "places");
   requireSameOrigin(request);
   const { DB, MEDIA, TELEGRAM_BOT_TOKEN } = env as unknown as Bindings;
@@ -375,4 +376,10 @@ function BlocklistSection({ blocklist, places, busy, error, canEdit }: { blockli
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   return <RouteErrorPage error={error} />;
+}
+
+export async function action(args: Route.ActionArgs) {
+  const response = await performAction(args);
+  if (response instanceof Response && response.status >= 300 && response.status < 400) await bumpCacheEpoch(env.DB);
+  return response;
 }

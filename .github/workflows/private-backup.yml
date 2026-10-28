@@ -1,0 +1,45 @@
+# Encrypted D1 backups go only to a separately configured private R2 bucket. No public artifacts.
+name: Private database backup
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 2 * * 0'
+permissions:
+  contents: read
+concurrency:
+  group: private-database-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: vars.BACKUP_AGE_RECIPIENT != '' && vars.BACKUP_R2_BUCKET != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: sudo apt-get update && sudo apt-get install -y age
+      - name: Export, encrypt and upload
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_TOKEN }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_R2_BUCKET: ${{ vars.BACKUP_R2_BUCKET }}
+          WRANGLER_SEND_METRICS: 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ "$BACKUP_R2_BUCKET" == armenian-apostolic-library-media-* ]]; then
+            echo 'Refusing a public media bucket'; exit 1
+          fi
+          backup_dir=$(mktemp -d)
+          trap 'rm -rf "$backup_dir"' EXIT
+          pnpm exec wrangler d1 export armenian-apostolic-digital-library-production --env production --remote --output "$backup_dir/database.sql"
+          age -r "$BACKUP_AGE_RECIPIENT" -o "$backup_dir/database.sql.age" "$backup_dir/database.sql"
+          rm "$backup_dir/database.sql"
+          pnpm exec wrangler r2 object put "$BACKUP_R2_BUCKET/d1/$(date -u +%Y-%m-%dT%H-%M-%SZ).sql.age" --remote --file "$backup_dir/database.sql.age" --content-type application/octet-stream

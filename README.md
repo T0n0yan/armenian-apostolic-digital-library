@@ -1,22 +1,19 @@
 # Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան
 
-Telegram Mini App-first գրադարան։ Telegram-ը նյութերի և media-ի միակ մշտական source of truth-ն է։
+Telegram Mini App-first գրադարան։ Telegram-ը սկզբնաղբյուրն է։ GitHub Actions-ը նյութերը ներմուծում է D1, իսկ մեդիան՝ R2/CDN։
 
 ## Architecture
 
 ```text
-Telegram MTProto
-      ↓
-long-running Node.js Telegram Bridge (Teleproto, Layer 230)
-      ↓ authenticated internal HTTP
-Cloudflare Worker / React Router loaders
-      ↓
-Mini App UI
+Telegram MTProto → GitHub Actions (cloud-sync) → D1 + R2
+                                                    ↓
+                          Cloudflare Worker / React Router → կայք / Mini App
+                          R2 custom domain / CDN           → աուդիո և նկարներ
 
-D1 → users, bookmark references, category/topic/hashtag/post mappings, review state
+D1 → գրադարան, օգտատերեր, պահված նյութեր, հիշեցումներ, սրբավայրեր
 ```
 
-Worker-ը և D1-ը Telegram post body կամ media bytes չեն պահում։ Video/audio/image request-երը Worker-ի private proxy route-ով stream են արվում Bridge-ից։ R2 binding չկա։
+Ընթերցողների հարցումները մատուցվում են D1/R2-ից՝ առանց մշտական Telegram Bridge-ի։ Հիմնական մեդիան ուղիղ CDN-ից է, Worker-ի /media երթուղին պահեստային տարբերակն է։ Տեղական մշակման համար առկա է նաև mock Bridge։
 
 ## Local mock mode
 
@@ -52,6 +49,8 @@ Local URL՝ `http://127.0.0.1:5173/`։ Mock Bridge-ը լսում է `http://127.
 | `CF_ACCESS_CLIENT_SECRET` | Optional Cloudflare Access service-token secret; configure only with its ID |
 | `CF_ACCESS_TEAM_DOMAIN` | Optional Cloudflare Access issuer for `/admin` |
 | `CF_ACCESS_AUD` | Optional Cloudflare Access audience |
+| `CF_ANALYTICS_ACCOUNT_ID` | Cloudflare հաշվի ID՝ գլխավոր ադմինի օգտագործման վահանակի համար |
+| `CF_ANALYTICS_TOKEN` | Միայն ընթերցման Analytics API token՝ Worker secret |
 
 Սրանք Worker secrets են և չունեն `VITE_` prefix։
 
@@ -178,3 +177,5 @@ pnpm build
 ```
 
 Tests-ը իրական Telegram credential չի օգտագործում։ 100+ MB video-ն virtual generated stream է և repository-ում մեծ fixture file չի պահվում։
+
+Անվճար պլանի օպտիմալացման փոփոխություններն ու կարգավորումը՝ [հանձնման հաշվետվություն](docs/qa/FREE-TIER-REVIEW.md)։

@@ -185,8 +185,8 @@ export default function Home({loaderData}: Route.ComponentProps) {
             </div>
         </div>
         <HomeTitle/>
-        <div className="hero-rise hero-rise-delay-2 mt-2"><DailyVerseCard/></div>
         <HomeSearch/>
+        <div className="hero-rise hero-rise-delay-2 mt-2"><DailyVerseCard/></div>
         <section className="mt-4 grid gap-3" aria-labelledby="categories-title">
             <h2 className="m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase" id="categories-title">
                 Բաժիններ

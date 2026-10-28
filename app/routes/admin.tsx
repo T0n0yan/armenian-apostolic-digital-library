@@ -172,6 +172,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   return (
     <PageShell>
       <SiteNav />
+      <Link className={`${panelSection} block text-gold-bright`} to="/admin/usage">Կայքի վիճակը · Cloudflare օգտագործում և սահմանաչափեր →</Link>
       <PageHeader eyebrow="Միայն ադմինների համար" title="Կառավարում" description="Ով կարող է հրապարակել Telegram խմբից կայք, և ով ունի կառավարման հասանելիություն։" />
       {error ? <p className="m-0 mb-3 rounded-[12px] border border-[rgb(239_145_136/35%)] bg-[rgb(239_145_136/10%)] px-3 py-2.5 text-[13px] text-danger" role="alert">{error}</p> : null}
 
