@@ -8,6 +8,15 @@ const KEY = "library-visited-places";
 // Known after the first answer from /api/place-visits; guests' marks stay in the browser only.
 let signedIn = false;
 const CHANGE = "library:place-visits";
+// Whose marks the browser holds: "guest", or the account they came from. Another account's are never carried over.
+const OWNER_KEY = "library-visited-places-owner";
+
+function readOwner() {
+  try { return localStorage.getItem(OWNER_KEY) ?? "guest"; } catch { return "guest"; }
+}
+function writeOwner(owner: string) {
+  try { localStorage.setItem(OWNER_KEY, owner); } catch { /* Private mode. */ }
+}
 
 function readLocal(): string[] {
   try {
@@ -34,14 +43,20 @@ export function usePlaceVisits() {
     sync();
     window.addEventListener(CHANGE, sync);
     window.addEventListener("storage", sync);
-    // Signed in: the account's marks join the browser's, and the browser's go up to the account.
-    void fetch("/api/place-visits").then((response) => response.json() as Promise<{ signedIn: boolean; places: string[] }>).then((answer) => {
+    // Signed in: a guest's marks go up to the account and join its own. Marks left by another account
+    // on this phone are dropped, never given to this one; signed out, an account's marks leave the phone.
+    void fetch("/api/place-visits").then((response) => response.json() as Promise<{ signedIn: boolean; account?: string; places: string[] }>).then((answer) => {
       signedIn = answer.signedIn;
-      if (!signedIn) return;
+      const owner = readOwner();
+      if (!signedIn || !answer.account) {
+        if (owner !== "guest") { writeOwner("guest"); writeLocal([]); }
+        return;
+      }
       const places = answer.places;
-      const local = readLocal();
+      const local = owner === "guest" || owner === answer.account ? readLocal() : [];
       const missing = local.filter((id) => !places.includes(id));
       if (missing.length) void send(missing, true);
+      writeOwner(answer.account);
       writeLocal([...local, ...places]);
     }).catch(() => undefined);
     return () => { window.removeEventListener(CHANGE, sync); window.removeEventListener("storage", sync); };

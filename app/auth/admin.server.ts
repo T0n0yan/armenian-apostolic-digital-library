@@ -182,6 +182,11 @@ export function createAdminNavigationCookie(request: Request) {
   return `${ADMIN_NAVIGATION_COOKIE}=1; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax${secure}`;
 }
 
+export function clearAdminNavigationCookie(request: Request) {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `${ADMIN_NAVIGATION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+}
+
 export function hasAdminNavigationCookie(request: Request) {
   const cookies = request.headers.get("cookie") ?? "";
   return cookies
