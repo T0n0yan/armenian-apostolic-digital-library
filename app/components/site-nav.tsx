@@ -25,6 +25,7 @@ const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
   const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
+  const permissions: string[] = rootData?.adminPermissions ?? [];
   const topicItems = rootData?.categories ?? [];
   const [isOpen, setIsOpen] = useState(false);
   // The menu shows either its links or, in place, the settings (with a way back).
@@ -167,9 +168,13 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   Ավելացնել գլխավոր էկրանին
                 </button>
               ) : null}
-              {canManage ? (
-                <NavLink className={linkClass} to="/admin" tabIndex={isOpen ? 0 : -1}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>Կառավարում</NavLink>
-              ) : null}
+              {/* «Կառավարում» is the owner's; another admin sees only the pages the owner allowed. */}
+              {(canManage ? [["/admin", "Կառավարում"]] : [
+                ...(permissions.includes("places") ? [["/admin/places", "Սրբավայրերի կառավարում"]] : []),
+                ...(permissions.includes("people") ? [["/admin/people", "Օգտատերեր"]] : []),
+              ]).map(([to, label]) => (
+                <NavLink key={to} className={linkClass} to={to} end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>{label}</NavLink>
+              ))}
             </section>
 
             {/* Sign-in, last in the menu where people look for it; it leads to «Իմ անկյունը». */}

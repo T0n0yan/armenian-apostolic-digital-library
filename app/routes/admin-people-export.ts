@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/admin-people-export";
-import { requireAdmin } from "../auth/admin.server";
+import { requirePermission } from "../auth/admin.server";
 import { listDevices, listPeople } from "../data/people.server";
 import { EXPORT_PAGE_SIZE } from "../data/people";
 import { validPlatform } from "../data/presence.server";
@@ -11,7 +11,7 @@ import { validPlatform } from "../data/presence.server";
  * admin's browser builds the Excel file from them (app/routes/admin-people.tsx).
  */
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireAdmin(request, env.DB);
+  await requirePermission(request, env.DB, "people");
   const url = new URL(request.url);
   const offset = Math.max(0, Math.min(500_000, Number(url.searchParams.get("offset")) || 0));
   const headers = { "Cache-Control": "private, no-store" };

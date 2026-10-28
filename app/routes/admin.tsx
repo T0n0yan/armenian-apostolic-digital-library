@@ -1,9 +1,12 @@
 import { env } from "cloudflare:workers";
 import { Activity, Ban, Bot, Check, Crown, MapPin, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
 
 import type { Route } from "./+types/admin";
-import { createAdminNavigationCookie, requireAdmin, requireSameOrigin } from "../auth/admin.server";
+import { createAdminNavigationCookie, requireOwner, requireSameOrigin } from "../auth/admin.server";
+import { ADMIN_PERMISSIONS, isAdminPermission, parsePermissions } from "../utils/admin-permissions";
+import { AdminRightsDialog } from "../components/admin-rights-dialog";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldLabel, panelSection, primaryButton } from "../components/ui-styles";
@@ -17,6 +20,8 @@ import {
   removeManualPublisher,
   setPublisherStatus,
   setSiteAdminRole,
+  setAdminAccess,
+  countOwners,
 } from "../data/publishers.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { siteStats, type Platform } from "../data/presence.server";
@@ -31,7 +36,7 @@ export function meta() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   // Someone who typed /admin without access is taken to the library instead of an error.
-  const admin = await requireAdmin(request, env.DB).catch((error: unknown) => {
+  const admin = await requireOwner(request, env.DB).catch((error: unknown) => {
     if (error instanceof Response && (error.status === 401 || error.status === 403)) throw redirect("/");
     throw error;
   });
@@ -53,7 +58,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const admin = await requireAdmin(request, env.DB);
+  const admin = await requireOwner(request, env.DB);
   requireSameOrigin(request);
   const form = await request.formData();
   const intent = form.get("intent");
@@ -92,11 +97,23 @@ export async function action({ request }: Route.ActionArgs) {
     const userId = form.get("userId");
     if (typeof userId !== "string" || !userId) return data({ error: "Օգտատերը չի գտնվել։" }, { status: 400 });
     if (intent === "site-member") {
-      const admins = await env.DB.prepare("SELECT COUNT(*) AS count FROM app_users WHERE role = 'admin'").first<{ count: number }>();
-      if ((admins?.count ?? 0) <= 1) return data({ error: "Վերջին ադմինին հնարավոր չէ հեռացնել։" }, { status: 409 });
+      const target = await env.DB.prepare("SELECT owner FROM admin_access WHERE user_id = ?").bind(userId).first<{ owner: number }>();
+      if (target?.owner === 1 && await countOwners(env.DB) <= 1) return data({ error: "Գլխավոր ադմինին հնարավոր չէ հեռացնել։" }, { status: 409 });
     }
     await setSiteAdminRole(env.DB, userId, intent === "site-admin" ? "admin" : "member");
-    return redirect("/admin?saved=1");
+    // A new admin: the rights window opens right away.
+    return redirect(intent === "site-admin" ? `/admin?rights=${encodeURIComponent(userId)}#admins` : "/admin?saved=1#admins");
+  }
+
+  if (intent === "admin-rights") {
+    const userId = String(form.get("userId") ?? "");
+    const owner = form.get("owner") === "on";
+    const target = await env.DB.prepare("SELECT role FROM app_users WHERE id = ?").bind(userId).first<{ role: string }>();
+    if (target?.role !== "admin") return data({ error: "Այս մարդը ադմին չէ։" }, { status: 400 });
+    const current = await env.DB.prepare("SELECT owner FROM admin_access WHERE user_id = ?").bind(userId).first<{ owner: number }>();
+    if (current?.owner === 1 && !owner && await countOwners(env.DB) <= 1) return data({ error: "Պետք է մնա գոնե մեկ գլխավոր ադմին։" }, { status: 409 });
+    await setAdminAccess(env.DB, userId, owner, form.getAll("permissions").filter(isAdminPermission));
+    return redirect("/admin?saved=1#admins");
   }
 
   const chatId = await getContentChatId(env.DB);
@@ -143,6 +160,15 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   const navigation = useNavigation();
   const refreshing = navigation.state !== "idle" && navigation.formData?.get("intent") === "refresh-site";
   const error = actionData && "error" in actionData ? actionData.error : null;
+  // The rights window: opened by «Իրավունքներ», or right after someone is made an admin (?rights=<id>).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [rightsFor, setRightsFor] = useState<string | null>(null);
+  useEffect(() => { const id = searchParams.get("rights"); if (id) setRightsFor(id); }, [searchParams]);
+  const rightsPerson = siteUsers.find((user) => user.id === rightsFor && user.role === "admin") ?? null;
+  const closeRights = () => { setRightsFor(null); if (searchParams.has("rights")) setSearchParams((params) => { params.delete("rights"); return params; }, { replace: true, preventScrollReset: true }); };
+  // Saving closes the window.
+  const saving = useNavigation().formData?.get("intent") === "admin-rights";
+  useEffect(() => { if (saving) setRightsFor(null); }, [saving]);
   return (
     <PageShell>
       <SiteNav />
@@ -280,22 +306,35 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
           )}
         </section>
 
-        <section className={panelSection + " grid gap-3"}>
+        <section id="admins" className={panelSection + " grid gap-3"}>
           <h2 className="m-0 flex items-center gap-2 text-[17px]"><Crown aria-hidden="true" size={19} className="text-gold" /> Կայքի ադմիններ</h2>
-          <p className="m-0 text-[13px] leading-[1.6] text-muted">Ադմինները տեսնում են այս էջը։ Ցուցակում են միայն նրանք, ովքեր գոնե մեկ անգամ բացել են mini app-ը։</p>
+          <p className="m-0 text-[13px] leading-[1.6] text-muted">
+            Այս էջը տեսնում է միայն գլխավոր ադմինը։ Մյուս ադմինները կարող են միայն այն, ինչ նշել եք «Իրավունքներ»-ում։ Ցուցակում են միայն նրանք, ովքեր գոնե մեկ անգամ մտել են կայք։
+          </p>
           <ul className="m-0 grid list-none gap-2 p-0">
-            {siteUsers.map((user) => (
+            {siteUsers.map((user) => {
+              const rights = parsePermissions(user.permissions);
+              return (
               <li className={row} key={user.id}>
-                <span className="grid gap-0.5">
-                  <strong className="text-[13px]">{user.displayName}{user.role === "admin" ? " · ադմին" : ""}</strong>
+                <span className="grid min-w-0 gap-0.5">
+                  <strong className="text-[13px]">{user.displayName}{user.role === "admin" ? (user.owner ? " · 👑 գլխավոր ադմին" : " · ադմին") : ""}</strong>
                   <span className="text-[11px] text-faint">{user.username ? `@${user.username} · ` : ""}ID {user.telegramId}</span>
+                  {user.role === "admin" && !user.owner ? <span className="text-[11.5px] text-muted">{rights.length ? rights.map((id) => ADMIN_PERMISSIONS[id].split("՝")[0].split(" (")[0]).join(" · ") : "Իրավունքներ դեռ չկան"}</span> : null}
                 </span>
-                {user.role === "admin"
-                  ? <ActionButton intent="site-member" userId={user.id} danger>Հանել ադմինից</ActionButton>
-                  : <ActionButton intent="site-admin" userId={user.id}>Դարձնել ադմին</ActionButton>}
+                {user.role === "admin" ? (
+                  <span className="flex flex-wrap gap-1.5">
+                    <button className={smallButton} type="button" onClick={() => setRightsFor(user.id)}>Իրավունքներ</button>
+                    <ActionButton intent="site-member" userId={user.id} danger>Հանել</ActionButton>
+                  </span>
+                ) : <ActionButton intent="site-admin" userId={user.id}>Դարձնել ադմին</ActionButton>}
               </li>
-            ))}
+              );
+            })}
           </ul>
+          {rightsPerson ? (
+            <AdminRightsDialog person={{ id: rightsPerson.id, displayName: rightsPerson.displayName, owner: rightsPerson.owner === 1, permissions: parsePermissions(rightsPerson.permissions) }}
+              permissions={ADMIN_PERMISSIONS} onClose={closeRights} />
+          ) : null}
         </section>
 
         {sync ? (
