@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Form, Link, redirect } from "react-router";
 
 import type { Route } from "./+types/admin-people";
-import { requireAdmin } from "../auth/admin.server";
+import { requirePermission } from "../auth/admin.server";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, panelSection } from "../components/ui-styles";
@@ -33,7 +33,7 @@ function readOptions(url: URL) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireAdmin(request, env.DB).catch((error: unknown) => {
+  await requirePermission(request, env.DB, "people").catch((error: unknown) => {
     if (error instanceof Response && (error.status === 401 || error.status === 403)) throw redirect("/");
     throw error;
   });

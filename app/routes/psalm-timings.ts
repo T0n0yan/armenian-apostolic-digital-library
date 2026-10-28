@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/psalm-timings";
-import { getOptionalTelegramAdmin } from "../auth/admin.server";
+import { can, getOptionalTelegramAdmin } from "../auth/admin.server";
 import { requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 
@@ -10,7 +10,7 @@ export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
   const user = await requireTelegramUser(request);
   const admin = await getOptionalTelegramAdmin(request, env.DB);
-  if (!admin) return Response.json({ ok: false }, { status: 403 });
+  if (!can(admin, "psalms")) return Response.json({ ok: false }, { status: 403 });
   const body = (await request.json().catch(() => null)) as { materialId?: unknown; starts?: unknown } | null;
   const reference = typeof body?.materialId === "string" ? parseMaterialId(body.materialId) : null;
   if (!reference) return Response.json({ ok: false }, { status: 400 });

@@ -21,6 +21,9 @@ export type SiteAdminCandidate = {
   username: string | null;
   role: "member" | "admin";
   lastSeenAt: string;
+  /** From admin_access: the owner, and what another admin may do (JSON list). */
+  owner: number | null;
+  permissions: string | null;
 };
 
 export type SyncOverview = {
@@ -68,8 +71,10 @@ export async function listWithheldAuthors(database: D1Database, chatId: string) 
 
 export async function listSiteAdminCandidates(database: D1Database) {
   const { results } = await database.prepare(
-    `SELECT id, telegram_id AS telegramId, display_name AS displayName, username, role, last_seen_at AS lastSeenAt
-     FROM app_users ORDER BY role = 'admin' DESC, last_seen_at DESC LIMIT 40`,
+    `SELECT users.id, users.telegram_id AS telegramId, users.display_name AS displayName, users.username, users.role, users.last_seen_at AS lastSeenAt,
+       access.owner, access.permissions
+     FROM app_users AS users LEFT JOIN admin_access AS access ON access.user_id = users.id
+     ORDER BY users.role = 'admin' DESC, access.owner DESC, users.last_seen_at DESC LIMIT 40`,
   ).all<SiteAdminCandidate>();
   return results;
 }
@@ -113,5 +118,24 @@ export async function removeManualPublisher(database: D1Database, chatId: string
 }
 
 export async function setSiteAdminRole(database: D1Database, userId: string, role: "member" | "admin") {
-  await database.prepare("UPDATE app_users SET role = ? WHERE id = ?").bind(role, userId).run();
+  await database.batch([
+    database.prepare("UPDATE app_users SET role = ? WHERE id = ?").bind(role, userId),
+    // A new admin starts with no rights; a removed one loses them.
+    role === "admin"
+      ? database.prepare("INSERT OR IGNORE INTO admin_access (user_id) VALUES (?)").bind(userId)
+      : database.prepare("DELETE FROM admin_access WHERE user_id = ?").bind(userId),
+  ]);
+}
+
+/** The owner's choice for one admin: owner or not, and what they may do. */
+export async function setAdminAccess(database: D1Database, userId: string, owner: boolean, permissions: string[]) {
+  await database.prepare(
+    `INSERT INTO admin_access (user_id, owner, permissions) VALUES (?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET owner = excluded.owner, permissions = excluded.permissions, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
+  ).bind(userId, owner ? 1 : 0, JSON.stringify(permissions)).run();
+}
+
+export async function countOwners(database: D1Database) {
+  const row = await database.prepare("SELECT COUNT(*) AS count FROM admin_access JOIN app_users ON app_users.id = admin_access.user_id WHERE admin_access.owner = 1 AND app_users.role = 'admin'").first<{ count: number }>();
+  return row?.count ?? 0;
 }

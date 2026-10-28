@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { redirect } from "react-router";
 
-import { getOptionalTelegramAdmin } from "../auth/admin.server";
+import { can, getOptionalTelegramAdmin } from "../auth/admin.server";
 import { getOptionalTelegramUser } from "../auth/telegram-user.server";
 import { getPublicMaterialDetail } from "./material-detail.server";
 import { getPollVotes } from "./poll-votes.server";
@@ -67,7 +67,7 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
     env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
       .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
-    getOptionalTelegramAdmin(request, env.DB).then(Boolean).catch(() => false),
+    getOptionalTelegramAdmin(request, env.DB).then((admin) => can(admin, "psalms")).catch(() => false),
   ]) : [null, false];
   // When this reader marked the material as read (the page compares with their local date).
   const own = user ? parseMaterialId(material.id) : null;

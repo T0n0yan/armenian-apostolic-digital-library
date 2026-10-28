@@ -1,8 +1,9 @@
-import type {ReactNode} from "react";
+import {useState, type ReactNode} from "react";
 import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
 import {glassPanel} from "./ui-styles";
+import {PageFind} from "./page-find";
 
 type PageShellProps = {
     children: ReactNode; width?: "admin" | "content" | "library";
@@ -18,7 +19,7 @@ type PageHeaderProps = {
     ornate?: boolean;
     /** Show the search shortcut in the header row (off on the search page itself). */
     showSearch?: boolean;
-    /** The page searches by itself (the map's places): the search button calls this instead of opening /search. */
+    /** The page searches by itself (the map's places): the search button calls this. Without it, the button narrows this page (PageFind). */
     onSearch?: () => void;
     title: ReactNode;
     children?: ReactNode;
@@ -111,7 +112,15 @@ function titleSize(title: ReactNode) {
     return "text-[22px] leading-[30px] tracking-[-0.4px] min-[560px]:text-[28px] min-[560px]:leading-[36px] min-[960px]:text-[34px] min-[960px]:leading-[42px]";
 }
 
-export function PageHeader({backLabel, backTo, children, description, eyebrow, home = false, onSearch, ornate = false, showSearch = true, title}: PageHeaderProps) {
+export function PageHeader(props: PageHeaderProps) {
+    const [finding, setFinding] = useState(false);
+    return (<>
+        <HeaderBar {...props} onSearch={props.onSearch ?? (() => setFinding(!finding))}/>
+        {finding ? <PageFind onClose={() => setFinding(false)}/> : null}
+    </>);
+}
+
+function HeaderBar({backLabel, backTo, children, description, eyebrow, home = false, onSearch, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
             flex

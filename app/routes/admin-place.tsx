@@ -4,7 +4,7 @@ import { useState } from "react";
 import { data, Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
 
 import type { Route } from "./+types/admin-place";
-import { requireAdmin, requireSameOrigin } from "../auth/admin.server";
+import { can, requirePermission, requireSameOrigin } from "../auth/admin.server";
 import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
@@ -22,17 +22,17 @@ export function meta() {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  await requireAdmin(request, env.DB).catch((error: unknown) => {
+  const admin = await requirePermission(request, env.DB, "places").catch((error: unknown) => {
     if (error instanceof Response && (error.status === 401 || error.status === 403)) throw redirect("/");
     throw error;
   });
   const place = await getPlace(env.DB, params.id);
   if (!place) throw new Response("Not found", { status: 404 });
-  return { place };
+  return { place, canDelete: can(admin, "places-delete") };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  await requireAdmin(request, env.DB);
+  const admin = await requirePermission(request, env.DB, "places");
   requireSameOrigin(request);
   const { DB, MEDIA } = env as unknown as Bindings;
   const place = await getPlace(DB, params.id);
@@ -85,6 +85,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     return redirect(`/admin/places/${place.id}`);
   }
   if (intent === "delete") {
+    if (!can(admin, "places-delete")) throw new Response("Not allowed.", { status: 403 });
     await deletePlace(DB, MEDIA, place.id);
     return redirect("/admin/places");
   }
@@ -201,9 +202,11 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           <UploadButton name="photos" intent="photos" accept="image/jpeg,image/png,image/webp" multiple label="Ավելացնել նկարներ" icon={<ImagePlus aria-hidden="true" size={14} />} disabled={busy} />
         </section>
 
+        {loaderData.canDelete ? (
         <Form method="post" className="flex justify-end" onSubmit={(event) => { if (!window.confirm(`Ջնջե՞լ «${place.name}»-ը և նրա բոլոր նկարները։`)) event.preventDefault(); }}>
           <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete" disabled={busy}><Trash2 aria-hidden="true" size={14} /> Ջնջել տեղը</button>
         </Form>
+        ) : null}
       </div>
     </PageShell>
   );
