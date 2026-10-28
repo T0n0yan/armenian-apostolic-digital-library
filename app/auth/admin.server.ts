@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
+import { parsePermissions, type AdminPermission } from "../utils/admin-permissions";
 import { getOptionalTelegramUser } from "./telegram-user.server";
 
 type AdminEnvironment = Env & {
@@ -72,36 +73,59 @@ function getJwks(issuer: string) {
   return jwks;
 }
 
+export { ADMIN_PERMISSIONS, isAdminPermission, parsePermissions, type AdminPermission } from "../utils/admin-permissions";
+
+export type AdminAccess = AdminIdentity & { owner: boolean; permissions: AdminPermission[] };
+
 export async function getOptionalTelegramAdmin(
   request: Request,
   database: D1Database,
-): Promise<AdminIdentity | null> {
+): Promise<AdminAccess | null> {
   const user = await getOptionalTelegramUser(request);
   if (!user) return null;
 
   if (user.source === "local-development") {
-    return {
-      email: "local-development",
-      source: "local-development",
-    };
+    return { email: "local-development", source: "local-development", owner: true, permissions: [] };
   }
 
   const record = await database
-    .prepare("SELECT role FROM app_users WHERE id = ? LIMIT 1")
+    .prepare("SELECT users.role, access.owner, access.permissions FROM app_users AS users LEFT JOIN admin_access AS access ON access.user_id = users.id WHERE users.id = ? LIMIT 1")
     .bind(user.id)
-    .first<{ role: string }>();
+    .first<{ role: string; owner: number | null; permissions: string | null }>();
   if (record?.role !== "admin") return null;
 
   return {
     email: user.username ? `@${user.username}` : user.displayName,
     source: "telegram",
+    owner: record.owner === 1,
+    permissions: parsePermissions(record.permissions),
   };
+}
+
+/** Whether this admin may do it: the owner always, others when the owner allowed it. */
+export function can(admin: Pick<AdminAccess, "owner" | "permissions"> | null | undefined, permission: AdminPermission) {
+  return Boolean(admin && (admin.owner || admin.permissions.includes(permission)));
+}
+
+const forbidden = () => new Response("Not allowed.", { status: 403, statusText: "Forbidden" });
+
+/** The owner only: the /admin page and everything about other admins. */
+export async function requireOwner(request: Request, database: D1Database) {
+  const admin = await requireAdmin(request, database);
+  if (!admin.owner) throw forbidden();
+  return admin;
+}
+
+export async function requirePermission(request: Request, database: D1Database, permission: AdminPermission) {
+  const admin = await requireAdmin(request, database);
+  if (!can(admin, permission)) throw forbidden();
+  return admin;
 }
 
 export async function requireAdmin(
   request: Request,
   database: D1Database,
-): Promise<AdminIdentity> {
+): Promise<AdminAccess> {
   const telegramAdmin = await getOptionalTelegramAdmin(request, database);
   if (telegramAdmin) return telegramAdmin;
 
@@ -126,9 +150,12 @@ export async function requireAdmin(
       throw new Error("Cloudflare Access identity is missing.");
     }
 
+    // Cloudflare Access lets in only the owner's own accounts.
     return {
       email: payload.email,
       source: "cloudflare-access",
+      owner: true,
+      permissions: [],
     };
   } catch {
     throw new Response("Admin access token is invalid.", {

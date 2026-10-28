@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/place-media";
-import { requireAdmin } from "../auth/admin.server";
+import { requirePermission } from "../auth/admin.server";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
 
@@ -15,7 +15,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const place = await DB.prepare("SELECT published FROM places WHERE id = ?").bind(params.placeId).first<{ published: number }>();
   if (!place) return new Response(null, { status: 404 });
   const isPublic = Boolean(place.published);
-  if (!isPublic) await requireAdmin(request, DB);
+  if (!isPublic) await requirePermission(request, DB, "places");
   const key = `places/${params.placeId}/${params.file}`;
   const range = request.headers.get("range");
   const object = await MEDIA.get(key, range ? { range: request.headers } : undefined);

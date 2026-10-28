@@ -11,7 +11,8 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import {getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
+import {can, getOptionalTelegramAdmin, hasAdminNavigationCookie} from "./auth/admin.server";
+import {ADMIN_PERMISSIONS, type AdminPermission} from "./utils/admin-permissions";
 import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
 import { ReminderError } from "./components/reminder-error";
 import { CandleLoader } from "./components/candle-loader";
@@ -98,8 +99,10 @@ export async function loader({request}: Route.LoaderArgs) {
   ]);
 
   const value = {
-    showAdminLink: Boolean(telegramAdmin || hasAdminNavigationCookie(request)),
-    isAdmin: Boolean(telegramAdmin),
+    // «Կառավարում» is the owner's alone; other admins get links to what they were allowed.
+    showAdminLink: Boolean(telegramAdmin?.owner || (!telegramAdmin && hasAdminNavigationCookie(request))),
+    isAdmin: can(telegramAdmin, "copy"),
+    adminPermissions: telegramAdmin ? (telegramAdmin.owner ? Object.keys(ADMIN_PERMISSIONS) as AdminPermission[] : telegramAdmin.permissions) : [],
     signedIn: Boolean(telegramUser),
     // Shown with "Ելք" at the bottom of the menu.
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,

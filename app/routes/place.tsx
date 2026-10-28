@@ -53,7 +53,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
   const video = place.videoUrl.startsWith("places/") ? placeMediaUrl(place.videoUrl) : null;
   const embed = video ? null : youtubeEmbed(place.videoUrl);
   const { visited, toggle } = usePlaceVisits();
-  const canManage = Boolean(useRouteLoaderData<typeof rootLoader>("root")?.showAdminLink);
+  const canManage = Boolean(useRouteLoaderData<typeof rootLoader>("root")?.adminPermissions.includes("places"));
   const [viewing, setViewing] = useState<number | null>(null);
   // One array per place, so the small map is drawn once and not again on every render.
   const pin = useMemo(() => [{ id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region, summary: "", icon: place.icon, cover: place.photos[0] ?? null, verified: place.verified }], [place]);

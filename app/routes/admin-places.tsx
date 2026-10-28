@@ -1,10 +1,10 @@
 import { env } from "cloudflare:workers";
 import { Ban, Check, ClipboardCopy, Download, Eye, EyeOff, Footprints, ImageOff, MapPin, Plus, Trash2, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { data, Form, Link, redirect, useNavigation } from "react-router";
 
 import type { Route } from "./+types/admin-places";
-import { requireAdmin, requireSameOrigin } from "../auth/admin.server";
+import { can, requirePermission, requireSameOrigin } from "../auth/admin.server";
 import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
@@ -24,7 +24,7 @@ export function meta() {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  await requireAdmin(request, env.DB).catch((error: unknown) => {
+  const admin = await requirePermission(request, env.DB, "places").catch((error: unknown) => {
     if (error instanceof Response && (error.status === 401 || error.status === 403)) throw redirect("/");
     throw error;
   });
@@ -32,11 +32,11 @@ export async function loader({ request }: Route.LoaderArgs) {
   const [submissions, places, blocklist, visited] = await Promise.all([
     listOpenSubmissions(env.DB), listPlaces(env.DB, { publishedOnly: false }), listBlocklist(env.DB), user ? listVisitedIds(env.DB, user.id) : [],
   ]);
-  return { submissions, places, blocklist, visited, canVisit: Boolean(user) };
+  return { submissions, places, blocklist, visited, canVisit: Boolean(user), canDelete: can(admin, "places-delete"), isOwner: admin.owner };
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  await requireAdmin(request, env.DB);
+  const admin = await requirePermission(request, env.DB, "places");
   requireSameOrigin(request);
   const { DB, MEDIA, TELEGRAM_BOT_TOKEN } = env as unknown as Bindings;
   const form = await request.formData();
@@ -53,6 +53,10 @@ export async function action({ request }: Route.ActionArgs) {
     return redirect(`/admin/places${new URL(request.url).search}`);
   }
   const back = redirect(`/admin/places${new URL(request.url).search}`);
+  // Deleting and the blocklist need their own permission.
+  if ((intent === "block-add" || intent === "block-remove" || intent === "delete-blocked" || intent === "delete") && !can(admin, "places-delete")) {
+    throw new Response("Not allowed.", { status: 403 });
+  }
   if (intent === "block-add") {
     const word = String(form.get("word") ?? "").trim();
     if (word.length < 2) return data({ error: "Գրեք առնվազն 2 տառ։", submissionId: -1 }, { status: 400 });
@@ -135,10 +139,13 @@ function downloadCsv(places: Place[], visited: Set<string>) {
 }
 
 export default function AdminPlaces({ loaderData, actionData }: Route.ComponentProps) {
-  const { submissions, places, blocklist, canVisit } = loaderData;
+  const { submissions, places, blocklist, canVisit, canDelete, isOwner } = loaderData;
   const visitedSet = new Set(loaderData.visited);
   const busy = useNavigation().state === "submitting";
   const [filter, setFilter] = useState("");
+  const filterInput = useRef<HTMLInputElement>(null);
+  // The header's search goes to this page's own filter (places by name, Latin letters too).
+  const focusFilter = () => { filterInput.current?.scrollIntoView({ block: "center", behavior: "smooth" }); filterInput.current?.focus({ preventScroll: true }); };
   const [status, setStatus] = useState<"all" | "shown" | "hidden" | "blocked">("all");
   const [kind, setKind] = useState<PlaceKind | "">("");
   const [province, setProvince] = useState("");
@@ -156,7 +163,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
   return (
     <PageShell width="admin">
       <SiteNav />
-      <PageHeader backTo="/admin" backLabel="Կառավարում" title="Սրբավայրեր" />
+      <PageHeader backTo={isOwner ? "/admin" : "/places"} backLabel={isOwner ? "Կառավարում" : "Քարտեզ"} title="Սրբավայրեր" onSearch={focusFilter} />
       <div className="mt-4 grid gap-5">
         <section className={`${panelSection} grid gap-3`}>
           <h2 className="m-0 text-[17px] font-bold text-ink">Նոր առաջարկներ{submissions.length ? ` (${submissions.length})` : ""}</h2>
@@ -200,7 +207,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
           ))}
         </section>
 
-        <BlocklistSection blocklist={blocklist} places={places} busy={busy} error={actionData?.submissionId === -1 ? actionData.error : ""} />
+        <BlocklistSection blocklist={blocklist} places={places} busy={busy} canEdit={canDelete} error={actionData?.submissionId === -1 ? actionData.error : ""} />
 
         <section className={`${panelSection} grid gap-3`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -239,7 +246,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                 {([["all", "Բոլորը"], ["visited", `Եղել եմ · ${visitedSet.size}`], ["unvisited", "Դեռ չեմ եղել"]] as const).map(([value, label]) => <button key={value} type="button" className={tab(been === value)} aria-pressed={been === value} onClick={() => setBeen(value)}>{label}</button>)}
               </FilterRow>
             ) : null}
-            <input className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել անունով կամ մարզով (նաև լատինատառ)…" aria-label="Փնտրել տեղերը" />
+            <input ref={filterInput} className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել անունով կամ մարզով (նաև լատինատառ)…" aria-label="Փնտրել տեղերը" />
           </div>
           <ExportPanel places={shown} visited={visitedSet} />
           <div className="grid gap-2">
@@ -270,7 +277,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                 {place.published
                   ? <button className={`${smallButton} text-[#3f8f5a]`} type="submit" name="intent" value="hide" disabled={busy} title="Թաքցնել քարտեզից"><Eye aria-hidden="true" size={15} /> Ցուցադրված</button>
                   : <button className={`${smallButton} text-faint`} type="submit" name="intent" value="show" disabled={busy} title="Ցուցադրել քարտեզում"><EyeOff aria-hidden="true" size={15} /> Թաքցված</button>}
-                <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete" disabled={busy} title="Ջնջել" aria-label={`Ջնջել «${place.name}»-ը`}><Trash2 aria-hidden="true" size={15} /></button>
+                {canDelete ? <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete" disabled={busy} title="Ջնջել" aria-label={`Ջնջել «${place.name}»-ը`}><Trash2 aria-hidden="true" size={15} /></button> : null}
               </Form>
               </div>
               );
@@ -330,7 +337,7 @@ function ExportPanel({ places, visited }: { places: Place[]; visited: Set<string
 }
 
 /** Words that mark another denomination's church: such places never show on the site, and an import skips them. */
-function BlocklistSection({ blocklist, places, busy, error }: { blocklist: string[]; places: Place[]; busy: boolean; error: string }) {
+function BlocklistSection({ blocklist, places, busy, error, canEdit }: { blocklist: string[]; places: Place[]; busy: boolean; error: string; canEdit: boolean }) {
   const caught = places.filter((place) => blockedWords(place.name, blocklist).length);
   const countFor = (word: string) => places.filter((place) => blockedWords(place.name, [word]).length).length;
   return (
@@ -345,17 +352,17 @@ function BlocklistSection({ blocklist, places, busy, error }: { blocklist: strin
           <Form key={word} method="post" className="inline-flex items-center gap-1 rounded-full border border-glass-border bg-subtle py-1 pr-1 pl-3 text-[13px] text-ink">
             <input type="hidden" name="word" value={word} />
             {word}{countFor(word) ? <span className="text-[11.5px] font-semibold text-danger">· {countFor(word)}</span> : null}
-            <button className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-danger" type="submit" name="intent" value="block-remove" disabled={busy} aria-label={`Հանել «${word}»-ը`}><X aria-hidden="true" size={14} /></button>
+            {canEdit ? <button className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-danger" type="submit" name="intent" value="block-remove" disabled={busy} aria-label={`Հանել «${word}»-ը`}><X aria-hidden="true" size={14} /></button> : <span className="w-2" />}
           </Form>
         ))}
         {blocklist.length === 0 ? <span className="text-[13px] text-faint">Ցուցակը դատարկ է։</span> : null}
       </div>
-      <Form method="post" className="flex flex-wrap gap-2">
+      {canEdit ? <Form method="post" className="flex flex-wrap gap-2">
         <input className={`${fieldControl} min-w-0 flex-1`} name="word" placeholder="Նոր բառ կամ անուն, օր.՝ Բեթել" required minLength={2} maxLength={60} />
         <button className={primaryButton} type="submit" name="intent" value="block-add" disabled={busy}><Plus aria-hidden="true" size={16} /> Ավելացնել</button>
-      </Form>
+      </Form> : null}
       {error ? <p className="m-0 text-[13px] text-danger">{error}</p> : null}
-      {caught.length ? (
+      {caught.length && canEdit ? (
         <Form method="post" className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[rgb(184_72_62/10%)] px-3 py-2.5"
           onSubmit={(event) => { if (!confirm(`Ջնջե՞լ ${caught.length} տեղ, որոնց անունը սև ցուցակում է։\n\n${caught.slice(0, 20).map((place) => `• ${place.name}`).join("\n")}`)) event.preventDefault(); }}>
           <span className="text-[13px] text-ink">Սև ցուցակով բռնված է {caught.length} տեղ (տե՛ս «Սև ցուցակով» ֆիլտրը ներքևում)։</span>
