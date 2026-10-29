@@ -114,9 +114,9 @@ async function photoImage(url: string, ratio: number) {
 }
 
 /** Drawings appear only this close (about half a kilometre across a phone screen); farther, the disc. */
-const DRAWING_ZOOM = 15.5;
+const DRAWING_ZOOM = 12;
 /** A drawing's largest side on the map, in CSS pixels, whatever size the uploaded file is. */
-const DRAWING_SIZE = 70;
+const DRAWING_SIZE = 60;
 
 /** A church's drawing scaled down to fit DRAWING_SIZE, sharp on the phone's screen. */
 async function drawingImage(url: string, ratio: number) {

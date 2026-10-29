@@ -322,7 +322,7 @@ function ExportPanel({ places, visited }: { places: Place[]; visited: Set<string
       </div>
       {chunks.length ? (
         <>
-          <p className="m-0 text-[12.5px] text-muted">GPT-ին տալու համար պատճենեք {CHUNK}-ական. ամեն մասը առանձին հաղորդագրությամբ։</p>
+          <p className="m-0 text-[12.5px] text-muted">Պատճենել {CHUNK}-ական. ամեն մասը առանձին հաղորդագրությամբ։</p>
           <div className="flex flex-wrap gap-1.5">
             {chunks.map((from) => (
               <button key={from} className={smallButton} type="button" onClick={() => void copy(from)}>
