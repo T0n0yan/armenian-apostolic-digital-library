@@ -7,7 +7,8 @@ How the pieces fit: `FUNCTIONALITY.md`, `docs/ENVIRONMENTS.md`.
 ## Talking to the owner
 
 - Write **everything the owner sees in Armenian**: replies, next-step boxes, buttons, captions.
-  Code, commits and identifiers stay English. The owner reads English poorly.
+  Identifiers (names in code) stay English. Since 2026-10-31 (owner's decision): new code comments
+  and commit messages are in Armenian, short and plain, so the owner can read them. The owner reads English poorly.
 - Keep them informed in plain words; they want to see what is happening.
 
 ## Work is split between chats

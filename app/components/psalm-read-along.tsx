@@ -29,12 +29,16 @@ function currentAudio() {
  * /psalms/22/3), save in «Իմ անկյունը», and listen from this verse. A shared verse opens the
  * psalm at "#3", which lights that verse and opens its popup.
  */
-export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMark = false, psalmPath, title, hasAudio = false, canSave = false, savedVerses = [] }: {
+export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMark = false, psalmPath, title, hasAudio = false, canSave = false, savedVerses = [], numbered = true }: {
   text: string; materialId: string; timings?: Timings | null; canMark?: boolean;
   psalmPath: string; title: string; hasAudio?: boolean; canSave?: boolean; savedVerses?: number[];
+  /** false՝ համարներ չունեցող տեքստ (աղոթք). ամեն տողը առանձին մաս է, որը հետևում է ձայնին։ */
+  numbered?: boolean;
 }) {
-  // The psalm by the library's standard: superscription, numbered verses, headings (psalm-verses.ts).
-  const parsed = useMemo(() => psalmLines(text).filter((line) => line.kind !== "label"), [text]);
+  // Սաղմոսը՝ գրադարանի կանոնով (վերնագիր, համարներ, ենթավերնագրեր), իսկ մնացածը՝ տող առ տող։
+  const parsed = useMemo(() => (numbered
+    ? psalmLines(text).filter((line) => line.kind !== "label")
+    : text.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => ({ text: line, kind: "verse" as const }))), [numbered, text]);
   const lines = useMemo(() => parsed.map((line) => line.text), [parsed]);
   // Only numbered verses are marked and followed ("1 Երանելի է…"); the title, the psalm number and
   // the superscription are not. Numbering may start at 2; an unnumbered line after a verse belongs to it.
@@ -43,13 +47,14 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     const numbers: number[] = [];
     let current = -1;
     for (const line of parsed) {
-      const number = line.kind === "verse" ? verseNumber(line.text) : null;
+      // Առանց համարների տեքստում ամեն տողն ինքն է «համարը»։
+      const number = line.kind === "verse" ? (numbered ? verseNumber(line.text) : current + 2) : null;
       if (number) { current += 1; numbers.push(Number(number)); }
       // Superscription and headings belong to no verse; a continuation to the verse before it.
       map.push(line.kind === "verse" || line.kind === "continuation" ? current : -1);
     }
     return { verseOf: map, verseCount: current + 1, verseNumbers: numbers };
-  }, [parsed]);
+  }, [numbered, parsed]);
   const [timings, setTimings] = useState<Timings | null>(savedTimings && savedTimings.length === verseCount ? savedTimings : null);
   const estimated = useMemo(() => {
     const lengths = Array.from({ length: verseCount }, () => 0);
@@ -226,6 +231,8 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     }
     // Selecting words to copy them is not a tap on the verse.
     if (window.getSelection()?.toString().trim()) return;
+    // Առանց համարների տեքստում (աղոթք) տողի վրա սեղմելը ձայնը տանում է այդ տողին։
+    if (!numbered) { if (hasAudio) listenFrom(index); return; }
     if (selected === index && popupPhase === "in") closePopup();
     else openPopup(index);
   };
@@ -236,10 +243,10 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     <div className="grid gap-3">
       {canMark && !marking ? (
         <div className="flex flex-wrap items-center justify-end gap-2 font-sans">
-          <span className="mr-auto text-[11.5px] text-muted">{timings ? "Համարների ժամերը նշված են" : "Համարների ժամերը նշված չեն"}</span>
+          <span className="mr-auto text-[11.5px] text-muted">{numbered ? (timings ? "Համարների ժամերը նշված են" : "Համարների ժամերը նշված չեն") : (timings ? "Տողերի ժամերը նշված են" : "Տողերի ժամերը նշված չեն")}</span>
           {timings ? <button className={`${button} border-glass-border bg-transparent text-muted`} type="button" disabled={saving} onClick={() => save(null)}>Ջնջել</button> : null}
           <button className={`${button} border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-gold-bright`} type="button" onClick={startMarking}>
-            <PencilLine aria-hidden="true" size={15} /> {timings ? "Վերանշել" : "Նշել համարները"}
+            <PencilLine aria-hidden="true" size={15} /> {timings ? "Վերանշել" : numbered ? "Նշել համարները" : "Նշել տողերը"}
           </button>
         </div>
       ) : null}

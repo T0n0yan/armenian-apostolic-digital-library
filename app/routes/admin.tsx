@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Ban, Bot, Gauge, Check, Crown, MapPin, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Activity, Ban, BookOpenText, Bot, Gauge, Check, Crown, MapPin, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { data, Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
 import { useEffect, useState } from "react";
 
@@ -204,6 +204,11 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/usage">
           <span className="flex items-center gap-2 text-[17px] font-bold"><Gauge aria-hidden="true" size={19} className="text-gold" /> Կայքի վիճակը</span>
           <span className="text-[13px] text-gold-bright">Անվճար սահմանաչափեր →</span>
+        </Link>
+
+        <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/glossary">
+          <span className="flex items-center gap-2 text-[17px] font-bold"><BookOpenText aria-hidden="true" size={19} className="text-gold" /> Բառարան</span>
+          <span className="text-[13px] text-gold-bright">Բառեր և բացատրություններ →</span>
         </Link>
 
         {stats ? <SiteStats stats={stats} /> : null}

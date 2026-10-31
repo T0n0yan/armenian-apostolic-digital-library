@@ -48,10 +48,13 @@ export default [
   route("admin/telegram-file/:fileId", "routes/admin-telegram-file.ts"),
   // Sacred places: the map, one place, and their pictures from R2.
   route("places", "routes/places.tsx"),
+  route("places/new", "routes/place-new.tsx"),
   route("places/:id", "routes/place.tsx"),
   route("place-media/:placeId/:file", "routes/place-media.ts"),
   route("api/place-visits", "routes/place-visits.ts"),
   route("api/places-search", "routes/places-search.ts"),
+  route("api/glossary", "routes/glossary-api.ts"),
+  route("admin/glossary", "routes/admin-glossary.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),

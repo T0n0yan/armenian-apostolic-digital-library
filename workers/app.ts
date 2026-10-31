@@ -159,7 +159,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     // the site avoids repeated SSR/SQL work (it still counts as a Worker invocation).
     const page = url.pathname.replace(/\.data$/u, "").replace(/^\/_root$/u, "/");
     // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
-    const sharedJson = url.pathname === "/api/places-search" || url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname === "/api/search-index" || url.pathname.startsWith("/api/categories/");
+    const sharedJson = url.pathname === "/api/glossary" || url.pathname === "/api/places-search" || url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname === "/api/search-index" || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
       && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))
       && !url.searchParams.has("refresh")

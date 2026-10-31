@@ -1,5 +1,8 @@
 import { ACTIVE_LABELS, insideArmenia, isPlaceKind, parseCoordinates, PLACE_KINDS } from "../utils/places";
-import { clergyExample, clergyName } from "../utils/clergy-titles";
+import { clergyExample } from "../utils/clergy-titles";
+import { addServant, ENTRANCE, OTHER_ROLE, ROAD, setAccessPart } from "../utils/place-answers";
+
+export { addServant, setAccessPart };
 import { PLACE_CHOICES, PLACE_TEXT, readerName, relayHeader } from "../utils/support-relay";
 
 /**
@@ -29,7 +32,7 @@ type Step = "name" | "kind" | "location" | "region" | "photos" | "active" | Text
 type Mode = null | "edit" | "append" | "replace";
 type Draft = { step: Step; mode: Mode; submission: number; pending: string | null };
 
-type Submission = {
+export type Submission = {
   id: number; place_name: string; kind: string; kind_note: string; region: string; latitude: number | null; longitude: number | null; active: string; liturgy: string;
   services: string; clergy: string; open_hours: string; accessibility: string; notes: string; credit: number | null; credit_name: string;
   photos_json: string; videos_json: string;
@@ -57,16 +60,6 @@ const FIELD_LABELS: Array<[Step, string]> = [
   ["access", "Ճանապարհը"], ["entrance", "Մուտքը"], ["history", "Պատմությունը"], ["credit", "Իմ անունը"],
 ];
 
-const OTHER_ROLE = PLACE_CHOICES.clergy[PLACE_CHOICES.clergy.length - 1];
-
-/** The way to the church and its entrance, each on its own line in places.accessibility. */
-const ROAD = "Ճանապարհը";
-const ENTRANCE = "Մուտքը";
-export function setAccessPart(current: string, part: typeof ROAD | typeof ENTRANCE, value: string) {
-  const lines = current.split("\n").filter((line) => line.startsWith(`${ROAD}՝ `) || line.startsWith(`${ENTRANCE}՝ `));
-  const kept = lines.filter((line) => !line.startsWith(`${part}՝ `));
-  return [...kept, `${part}՝ ${value}`].sort((a, b) => Number(a.startsWith(ENTRANCE)) - Number(b.startsWith(ENTRANCE))).join("\n");
-}
 
 /** Whether a question is asked for this place: the working-church ones only where they make sense. */
 function applies(step: Step, row: Submission): boolean {
@@ -109,7 +102,7 @@ function writeDraft(db: D1Database, reader: number, draft: Draft) {
   ).bind(reader, Date.now(), draft.submission, draft.step, draft.mode, draft.pending).run();
 }
 
-async function readSubmission(db: D1Database, id: number) {
+export async function readSubmission(db: D1Database, id: number) {
   return db.prepare("SELECT * FROM place_submissions WHERE id = ?").bind(id).first<Submission>();
 }
 
@@ -142,7 +135,7 @@ export async function pointFromText(text: string, fetcher: typeof fetch = fetch)
  * «Արմավիրի մարզ, Վաղարշապատ» for a point, from OpenStreetMap's Nominatim (one request per place sent,
  * well within its policy); empty when it can't be found, and the reader is asked instead.
  */
-async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
+export async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&accept-language=hy&lat=${point.latitude}&lon=${point.longitude}`;
   const answer = await fetcher(url, { headers: { "user-agent": "apostolic.am places map (info@apostolic.am)" } })
     .then((response) => (response.ok ? response.json() as Promise<{ address?: Record<string, string> }> : null)).catch(() => null);
@@ -151,18 +144,6 @@ async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
   const settlement = address.city ?? address.town ?? address.village ?? address.hamlet ?? address.suburb ?? "";
   // Yerevan is both: «Երևան», not «Երևան, Երևան».
   return [...new Set([province, settlement].filter(Boolean))].join(", ").slice(0, 120);
-}
-
-/** «Քահանա՝ Տեր Ա, Տեր Բ»: one line per role, people of the same role on one line. */
-export function addServant(current: string, role: string | null, typed: string) {
-  const lines = current ? current.split("\n") : [];
-  if (!role || role === OTHER_ROLE) return [...lines, typed].join("\n");
-  // Written with the rank's address: «Արժանապատիվ Տ. Հովհաննես քհն. Աբրահամյան».
-  const name = clergyName(role, typed);
-  const index = lines.findIndex((line) => line.startsWith(`${role}՝ `));
-  if (index >= 0) lines[index] = `${lines[index]}, ${name}`;
-  else lines.push(`${role}՝ ${name}`);
-  return lines.join("\n");
 }
 
 function clergyKeyboard(any: boolean, editing: boolean) {
@@ -470,7 +451,7 @@ export async function continuePlace(call: Call, db: D1Database, _target: Target,
 
 /** Posts a sent submission in the team's places topic: the details, the pin, then the pictures. */
 /** The team's copy: only what was answered, one line each, the place as a map link. */
-function teamSummary(row: Submission, limit: number) {
+export function teamSummary(row: Submission, limit: number) {
   const field = (label: string, text: string) => (text ? `${label}՝ ${short(text, limit)}` : "");
   return [
     `📍 «${row.place_name}»`,

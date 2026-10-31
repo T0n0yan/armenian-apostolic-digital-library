@@ -62,8 +62,10 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   const pollVotes = reference && material.poll
     ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
     : null;
-  // A psalm's marked verse timings, and whether this reader may mark them.
-  const psalmReference = isPsalm ? parseMaterialId(material.id) : null;
+  // Ձայնագրության տողերի ժամանակները (սաղմոս կամ ձայնագրություն ունեցող ցանկացած նյութ, օր.՝ աղոթք)
+  // և արդյոք այս մարդը կարող է դրանք նշել։
+  const hasAudio = material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"));
+  const psalmReference = isPsalm || hasAudio ? parseMaterialId(material.id) : null;
   const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
     env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
       .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
