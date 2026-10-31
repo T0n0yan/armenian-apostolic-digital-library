@@ -4,7 +4,12 @@
  * Ապագայում նույնը կաշխատի Աստվածաշնչի համար. բառերը պարզապես կավելանան բազայում։
  */
 
-export type GlossaryTerm = { id: number; word: string; forms: string[]; meaning: string; note: string; verified: boolean };
+/** Բառարանի բաժինները. բառ, անձնանուն, տեղանուն։ */
+export const GLOSSARY_KINDS = { word: "Բառեր", person: "Անձնանուններ", place: "Տեղանուններ" } as const;
+export type GlossaryKind = keyof typeof GLOSSARY_KINDS;
+export const isGlossaryKind = (value: unknown): value is GlossaryKind => typeof value === "string" && value in GLOSSARY_KINDS;
+
+export type GlossaryTerm = { id: number; word: string; forms: string[]; meaning: string; note: string; verified: boolean; kind: GlossaryKind };
 
 /** Բառը մեկ ձևի է բերում՝ փոքրատառ, «է»→«ե», «օ»→«ո», «իւ»→«յու», «ւ»→«վ» (բացի «ու»-ից)։ */
 export function normalizeWord(word: string) {

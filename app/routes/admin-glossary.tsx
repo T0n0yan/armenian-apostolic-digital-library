@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { BookOpenText, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { BookOpenText, Check, MapPin, Pencil, Plus, Trash2, User, X } from "lucide-react";
 import { useState } from "react";
 import { data, Form, redirect, useNavigation } from "react-router";
 
@@ -11,7 +11,7 @@ import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, panelSection, primaryButton } from "../components/ui-styles";
 import { deleteGlossaryTerm, listGlossary, parseForms, saveGlossaryTerm } from "../data/glossary.server";
 import { bumpCacheEpoch } from "../data/site-refresh.server";
-import { normalizeWord, type GlossaryTerm } from "../utils/glossary";
+import { GLOSSARY_KINDS, isGlossaryKind, normalizeWord, type GlossaryKind, type GlossaryTerm } from "../utils/glossary";
 
 export function meta() {
   return [{ title: "Բառարան — Կառավարում" }, { name: "robots", content: "noindex, nofollow" }];
@@ -41,7 +41,7 @@ export async function action({ request }: Route.ActionArgs) {
     // Նույն բառը երկու անգամ չի կարող լինել։
     const twin = (await listGlossary(env.DB)).find((term) => term.id !== id && normalizeWord(term.word) === normalizeWord(word));
     if (twin) return data({ error: `«${twin.word}» բառն արդեն կա բառարանում։`, id: id ?? 0 }, { status: 409 });
-    await saveGlossaryTerm(env.DB, { id, word, forms: parseForms(text("forms", 600)), meaning, note: text("note", 600), verified: form.get("verified") === "on" });
+    await saveGlossaryTerm(env.DB, { id, word, forms: parseForms(text("forms", 600)), meaning, note: text("note", 600), verified: form.get("verified") === "on", kind: isGlossaryKind(form.get("kind")) ? form.get("kind") as GlossaryKind : "word" });
   }
   // Կայքի էջերը կվերցնեն թարմ բառարանը։
   await bumpCacheEpoch(env.DB);
@@ -49,11 +49,16 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 /** Մեկ բառի ձևը՝ և՛ նորի, և՛ փոփոխության համար։ */
-function TermForm({ term, error, onDone }: { term?: GlossaryTerm; error?: string; onDone?: () => void }) {
+function TermForm({ term, error, onDone, kind }: { term?: GlossaryTerm; error?: string; onDone?: () => void; kind?: GlossaryKind }) {
   const busy = useNavigation().state === "submitting";
   return (
     <Form method="post" preventScrollReset className="grid gap-2.5" onSubmit={() => onDone?.()}>
       {term ? <input type="hidden" name="id" value={term.id} /> : null}
+      <label className="grid gap-1 text-[13px] font-semibold text-ink">Բաժինը
+        <select className={fieldControl} name="kind" defaultValue={term?.kind ?? kind ?? "word"}>
+          {Object.entries(GLOSSARY_KINDS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+      </label>
       <div className="grid gap-2.5 min-[620px]:grid-cols-2">
         <label className="grid gap-1 text-[13px] font-semibold text-ink">Բառը<input className={fieldControl} name="word" defaultValue={term?.word} required maxLength={60} placeholder="Օր.՝ ամբարիշտ" /></label>
         <label className="grid gap-1 text-[13px] font-semibold text-ink">Այլ ձևեր (ստորակետով)<input className={fieldControl} name="forms" defaultValue={term?.forms.join(", ")} maxLength={600} placeholder="Օր.՝ ամբարշտաց, ամբարշտութիւն" /></label>
@@ -76,9 +81,10 @@ export default function AdminGlossary({ loaderData, actionData }: Route.Componen
   const { terms } = loaderData;
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
+  const [kind, setKind] = useState<GlossaryKind>("word");
   const busy = useNavigation().state === "submitting";
   const query = normalizeWord(filter.trim());
-  const shown = terms.filter((term) => !query || normalizeWord(`${term.word} ${term.forms.join(" ")} ${term.meaning}`).includes(query));
+  const shown = terms.filter((term) => term.kind === kind).filter((term) => !query || normalizeWord(`${term.word} ${term.forms.join(" ")} ${term.meaning}`).includes(query));
   return (
     <PageShell width="admin">
       <SiteNav />
@@ -87,10 +93,19 @@ export default function AdminGlossary({ loaderData, actionData }: Route.Componen
         <section className={`${panelSection} grid gap-3`}>
           <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold text-ink"><Plus aria-hidden="true" size={18} className="text-gold" /> Նոր բառ</h2>
           <p className="m-0 text-[13px] text-muted">Բառը կնշվի կայքի բոլոր տեքստերում (սաղմոսներ, աղոթքներ, վարքեր…), իսկ սեղմելիս կբացվի բացատրությունը։</p>
-          <TermForm error={actionData && !actionData.id ? actionData.error : undefined} />
+          <TermForm key={kind} kind={kind} error={actionData && !actionData.id ? actionData.error : undefined} />
         </section>
         <section className={`${panelSection} grid gap-3`}>
-          <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold text-ink"><BookOpenText aria-hidden="true" size={18} className="text-gold" /> Բառեր ({terms.length})</h2>
+          {/* Բաժիններ՝ բառեր, անձնանուններ, տեղանուններ։ */}
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Բառարանի բաժիններ">
+            {(Object.keys(GLOSSARY_KINDS) as GlossaryKind[]).map((id) => (
+              <button key={id} type="button" role="tab" aria-selected={kind === id} onClick={() => setKind(id)}
+                className={`inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold ${kind === id ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
+                {id === "word" ? <BookOpenText aria-hidden="true" size={15} /> : id === "person" ? <User aria-hidden="true" size={15} /> : <MapPin aria-hidden="true" size={15} />}
+                {GLOSSARY_KINDS[id]} · {terms.filter((term) => term.kind === id).length}
+              </button>
+            ))}
+          </div>
           <input className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել բառ կամ բացատրություն…" aria-label="Փնտրել բառարանում" />
           <ul className="m-0 grid list-none gap-2 p-0">
             {shown.map((term) => (
