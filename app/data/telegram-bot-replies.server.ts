@@ -50,6 +50,19 @@ export async function callTelegram(token: string, method: string, body: unknown)
   return (await response?.json().catch(() => null) as { ok?: boolean; result?: unknown; description?: string } | null) ?? { ok: false };
 }
 
+/**
+ * A message in the team's places topic (the group's General topic when that one is missing), for
+ * places sent from the site's form. Nothing happens when the bot or the support group isn't set.
+ */
+export async function notifyPlacesTeam(text: string) {
+  const { token, relay } = settings();
+  if (!token || !relay) return false;
+  const send = (target: { chat_id: number; message_thread_id?: number }) =>
+    callTelegram(token, "sendMessage", { ...target, text: text.slice(0, 4096), link_preview_options: { is_disabled: true } });
+  const posted = await send({ chat_id: relay.chat, message_thread_id: relay.places });
+  return Boolean(posted.ok || (relay.places && (await send({ chat_id: relay.chat })).ok));
+}
+
 /** The secret Telegram sends with every webhook call, derived from the bot token. */
 export async function webhookSecret(token: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`library-webhook:${token}`));
