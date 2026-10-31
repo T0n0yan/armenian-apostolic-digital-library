@@ -1,22 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { useRouteLoaderData } from "react-router";
 
 /**
- * «Եղել եմ»: which sacred places this reader has visited. Kept in the browser for everyone and, when
- * the reader is signed in, in their account too (marks made before signing in are carried over).
+ * «Եղել եմ»: which sacred places this reader has visited. Only signed-in readers have it: their
+ * marks live in their account, with a copy in the browser so the map shows them at once.
  */
 const KEY = "library-visited-places";
-// Known after the first answer from /api/place-visits; guests' marks stay in the browser only.
-let signedIn = false;
 const CHANGE = "library:place-visits";
-// Whose marks the browser holds: "guest", or the account they came from. Another account's are never carried over.
+// Whose marks the browser copy holds: another account's are never shown or carried over.
 const OWNER_KEY = "library-visited-places-owner";
-
-function readOwner() {
-  try { return localStorage.getItem(OWNER_KEY) ?? "guest"; } catch { return "guest"; }
-}
-function writeOwner(owner: string) {
-  try { localStorage.setItem(OWNER_KEY, owner); } catch { /* Private mode. */ }
-}
 
 function readLocal(): string[] {
   try {
@@ -27,8 +19,11 @@ function readLocal(): string[] {
   }
 }
 
-function writeLocal(ids: Iterable<string>) {
-  try { localStorage.setItem(KEY, JSON.stringify([...new Set(ids)])); } catch { /* Private mode: kept for this visit only. */ }
+function writeLocal(ids: Iterable<string>, owner: string) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify([...new Set(ids)]));
+    localStorage.setItem(OWNER_KEY, owner);
+  } catch { /* Private mode: kept for this visit only. */ }
   window.dispatchEvent(new Event(CHANGE));
 }
 
@@ -36,37 +31,44 @@ function send(places: string[], visited: boolean) {
   return fetch("/api/place-visits", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ places, visited }) }).catch(() => null);
 }
 
+/** Whether the reader is signed in (from the root loader): guests can't see or mark visits. */
+export function useSignedIn() {
+  return Boolean((useRouteLoaderData("root") as { signedIn?: boolean } | undefined)?.signedIn);
+}
+
 export function usePlaceVisits() {
+  const signedIn = useSignedIn();
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
+  const [account, setAccount] = useState<string | null>(null);
   useEffect(() => {
+    if (!signedIn) {
+      setVisited(new Set());
+      setAccount(null);
+      return;
+    }
+    let owner: string | null = null;
+    try { owner = localStorage.getItem(OWNER_KEY); } catch { /* blocked */ }
+    // The browser copy, until the account answers (only if it is this account's: checked below).
     const sync = () => setVisited(new Set(readLocal()));
-    sync();
     window.addEventListener(CHANGE, sync);
     window.addEventListener("storage", sync);
-    // Signed in: a guest's marks go up to the account and join its own. Marks left by another account
-    // on this phone are dropped, never given to this one; signed out, an account's marks leave the phone.
     void fetch("/api/place-visits").then((response) => response.json() as Promise<{ signedIn: boolean; account?: string; places: string[] }>).then((answer) => {
-      signedIn = answer.signedIn;
-      const owner = readOwner();
-      if (!signedIn || !answer.account) {
-        if (owner !== "guest") { writeOwner("guest"); writeLocal([]); }
-        return;
-      }
-      const places = answer.places;
-      const local = owner === "guest" || owner === answer.account ? readLocal() : [];
-      const missing = local.filter((id) => !places.includes(id));
-      if (missing.length) void send(missing, true);
-      writeOwner(answer.account);
-      writeLocal([...local, ...places]);
-    }).catch(() => undefined);
+      if (!answer.signedIn || !answer.account) return;
+      setAccount(answer.account);
+      writeLocal(answer.places, answer.account);
+    }).catch(() => {
+      // Offline: the copy is shown only when it belongs to this browser's last account.
+      if (owner) sync();
+    });
     return () => { window.removeEventListener(CHANGE, sync); window.removeEventListener("storage", sync); };
-  }, []);
+  }, [signedIn]);
   const toggle = useCallback((id: string) => {
+    if (!signedIn || !account) return;
     const current = new Set(readLocal());
     const next = !current.has(id);
     if (next) current.add(id); else current.delete(id);
-    writeLocal(current);
-    if (signedIn) void send([id], next);
-  }, []);
-  return { visited, toggle };
+    writeLocal(current, account);
+    void send([id], next);
+  }, [account, signedIn]);
+  return { visited, toggle, signedIn };
 }

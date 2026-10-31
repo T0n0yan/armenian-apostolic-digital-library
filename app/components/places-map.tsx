@@ -1,4 +1,4 @@
-import { Check, ChevronRight, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
+import { Check, ChevronRight, LogIn, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -6,6 +6,7 @@ import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
 import { ArmeniaOutline } from "./armenia-outline";
 import { MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
 import { circleRing, directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+import { useSignedIn } from "../utils/place-visits";
 
 export type MapPlace = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
@@ -50,6 +51,15 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
 
 /** «Եղել եմ»: green when the reader has been there, an invitation in red when not yet. */
 export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle: () => void }) {
+  const signedIn = useSignedIn();
+  // Guests can't mark: the button leads to signing in instead.
+  if (!signedIn) {
+    return (
+      <Link to="/saved" className="mt-2.5 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[11px] border border-glass-border bg-subtle text-[13px] font-semibold text-muted no-underline">
+        <LogIn aria-hidden="true" size={15} /> Մուտք գործեք՝ «Եղել եմ» նշելու համար
+      </Link>
+    );
+  }
   // A quiet checkbox: an empty ring until the reader marks it, then a green tick.
   return (
     <button type="button" onClick={onToggle} aria-pressed={visited}
@@ -114,9 +124,9 @@ async function photoImage(url: string, ratio: number) {
 }
 
 /** Drawings appear only this close (about half a kilometre across a phone screen); farther, the disc. */
-const DRAWING_ZOOM = 15.5;
+const DRAWING_ZOOM = 12;
 /** A drawing's largest side on the map, in CSS pixels, whatever size the uploaded file is. */
-const DRAWING_SIZE = 70;
+const DRAWING_SIZE = 60;
 
 /** A church's drawing scaled down to fit DRAWING_SIZE, sharp on the phone's screen. */
 async function drawingImage(url: string, ratio: number) {

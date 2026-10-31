@@ -1,4 +1,5 @@
 import { ACTIVE_LABELS, insideArmenia, isPlaceKind, parseCoordinates, PLACE_KINDS } from "../utils/places";
+import { clergyExample, clergyName } from "../utils/clergy-titles";
 import { PLACE_CHOICES, PLACE_TEXT, readerName, relayHeader } from "../utils/support-relay";
 
 /**
@@ -56,12 +57,6 @@ const FIELD_LABELS: Array<[Step, string]> = [
   ["access", "Ճանապարհը"], ["entrance", "Մուտքը"], ["history", "Պատմությունը"], ["credit", "Իմ անունը"],
 ];
 
-const CLERGY_EXAMPLES: Record<string, string> = {
-  "Թեմի Առաջնորդ": "Օրինակ՝ Տեր Գրիգոր Սրբազան",
-  "Վանահայր": "Օրինակ՝ Տեր Ներսես վարդապետ",
-  "Քահանա": "Օրինակ՝ Տեր Հովհաննես քահանա Աբրահամյան",
-  "Սարկավագ": "Օրինակ՝ Արամ սարկավագ Պետրոսյան",
-};
 const OTHER_ROLE = PLACE_CHOICES.clergy[PLACE_CHOICES.clergy.length - 1];
 
 /** The way to the church and its entrance, each on its own line in places.accessibility. */
@@ -159,9 +154,11 @@ async function regionFor(point: Point, fetcher: typeof fetch = fetch) {
 }
 
 /** «Քահանա՝ Տեր Ա, Տեր Բ»: one line per role, people of the same role on one line. */
-export function addServant(current: string, role: string | null, name: string) {
+export function addServant(current: string, role: string | null, typed: string) {
   const lines = current ? current.split("\n") : [];
-  if (!role || role === OTHER_ROLE) return [...lines, name].join("\n");
+  if (!role || role === OTHER_ROLE) return [...lines, typed].join("\n");
+  // Written with the rank's address: «Արժանապատիվ Տ. Հովհաննես քհն. Աբրահամյան».
+  const name = clergyName(role, typed);
   const index = lines.findIndex((line) => line.startsWith(`${role}՝ `));
   if (index >= 0) lines[index] = `${lines[index]}, ${name}`;
   else lines.push(`${role}՝ ${name}`);
@@ -169,8 +166,10 @@ export function addServant(current: string, role: string | null, name: string) {
 }
 
 function clergyKeyboard(any: boolean, editing: boolean) {
-  const [a, b, c, d, other] = PLACE_CHOICES.clergy;
-  return replyKeyboard([[a, b], [c, d], [other], [any ? PLACE_TEXT.done : PLACE_TEXT.unknown], ...(editing && !any ? [[PLACE_TEXT.back]] : [])]);
+  const roles: string[] = [...PLACE_CHOICES.clergy];
+  // Two ranks a row, «Այլ ծառայող» on its own.
+  const rows = Array.from({ length: Math.ceil((roles.length - 1) / 2) }, (_, index) => roles.slice(index * 2, Math.min(index * 2 + 2, roles.length - 1)));
+  return replyKeyboard([...rows, [OTHER_ROLE], [any ? PLACE_TEXT.done : PLACE_TEXT.unknown], ...(editing && !any ? [[PLACE_TEXT.back]] : [])]);
 }
 
 /** Asks the question of a step, with the buttons that step takes. */
@@ -205,7 +204,7 @@ async function ask(call: Call, db: D1Database, chat: number, reader: Reader, dra
     }
     case "clergy": {
       if (draft.pending) {
-        return say(draft.pending === OTHER_ROLE ? PLACE_TEXT.askClergyOther : `${draft.pending}. ${PLACE_TEXT.askClergyName}\n${CLERGY_EXAMPLES[draft.pending] ?? ""}`, replyKeyboard([], "Անունը…"));
+        return say(draft.pending === OTHER_ROLE ? PLACE_TEXT.askClergyOther : `${draft.pending}. ${clergyExample(draft.pending) || PLACE_TEXT.askClergyName}`, replyKeyboard([], "Անունը…"));
       }
       return say(row.clergy ? PLACE_TEXT.askClergyMore : PLACE_TEXT.askClergy, clergyKeyboard(Boolean(row.clergy), editing));
     }

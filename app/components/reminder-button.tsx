@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BottomSheet } from "./bottom-sheet";
 import { notifyRemindersChanged, useActiveReminders } from "../utils/reminder-store";
 import { enablePushNotifications, pushSupport, type PushSupport } from "../utils/web-push";
-import { calendarFileUrl, googleCalendarUrl } from "../utils/calendar";
+import { calendarFileUrl } from "../utils/calendar";
 import { formatClock, formatDayMonth } from "../utils/armenian-date";
 
 type Repeat = "none" | "daily" | "weekly" | "monthly" | "yearly";
@@ -110,9 +110,8 @@ function Wheel({ count, value, onChange, label }: { count: number; value: number
  */
 export function ReminderButton({ materialId, title, className, label = false, path }: { materialId: string; title: string; className: string; label?: boolean; path?: string }) {
   const [open, setOpen] = useState(false);
-  const [channel, setChannel] = useState<Channel>("calendar");
-  const [android, setAndroid] = useState(false);
-  useEffect(() => setAndroid(/Android/u.test(navigator.userAgent)), []);
+  // Notifications first; the phone's own calendar is the other way.
+  const [channel, setChannel] = useState<Channel>("push");
   const [reminder, setReminder] = useState<Reminder | null>(null);
   const activeReminders = useActiveReminders();
   const hasReminder = Boolean(reminder) || activeReminders.some((item) => item.materialId === materialId);
@@ -224,7 +223,6 @@ export function ReminderButton({ materialId, title, className, label = false, pa
   const close = useCallback(() => setOpen(false), []);
   const Icon = hasReminder ? BellRing : Bell;
   const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
-  const secondary = "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/40%)] bg-transparent text-[13px] font-semibold text-gold-bright no-underline";
   const segment = (active: boolean) => `min-h-10 cursor-pointer rounded-[10px] border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
   return (
     <>
@@ -244,15 +242,15 @@ export function ReminderButton({ materialId, title, className, label = false, pa
 
         {reminder ? (
           <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/9%)] px-3.5 py-2.5 text-[13px] text-ink">
-            Դրված է՝ <strong>{formatWhen(reminder.remindAt)}</strong>{REPEAT_TEXT[reminder.repeat]}{reminder.channel === "calendar" ? " · 📅 օրացույցում" : ""}
+            Դրված է՝ <strong>{formatWhen(reminder.remindAt)}</strong>{REPEAT_TEXT[reminder.repeat]}{reminder.channel === "calendar" ? " · 📱 հեռախոսի օրացույցում" : ""}
           </p>
         ) : null}
 
         <div className="grid gap-1.5">
           <span className="px-1 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Ինչպես հիշեցնել</span>
           <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Ինչպես հիշեցնել">
-            <button className={segment(channel === "calendar")} type="button" role="radio" aria-checked={channel === "calendar"} onClick={() => setChannel("calendar")}>📅 Օրացույցով</button>
             <button className={segment(channel === "push")} type="button" role="radio" aria-checked={channel === "push"} onClick={() => setChannel("push")}>🔔 Ծանուցումով</button>
+            <button className={segment(channel === "calendar")} type="button" role="radio" aria-checked={channel === "calendar"} onClick={() => setChannel("calendar")}>📱 Հեռախոսի օրացույցով</button>
           </div>
         </div>
 
@@ -306,7 +304,9 @@ export function ReminderButton({ materialId, title, className, label = false, pa
 
         {/* Whether reminders can reach the reader while the library is closed. */}
         {channel === "calendar" ? (
-          <p className="m-0 text-center text-[12px] leading-snug text-muted">Հիշեցումը կավելանա Ձեր հեռախոսի օրացույցին և կհնչի նույնիսկ առանց ինտերնետի։ Մենք Ձեր օրացույցը չենք տեսնում։</p>
+          <p className="m-0 rounded-[12px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3 py-2 text-center text-[12.5px] leading-snug text-ink">
+            📱 Հիշեցումը կավելանա <strong>Ձեր հեռախոսի ներքին օրացույցում</strong> (Calendar / Օրացույց հավելված) և կհնչի նույնիսկ առանց ինտերնետի։ Մենք Ձեր օրացույցը չենք տեսնում։
+          </p>
         ) : push === "telegram" ? (
           <p className="m-0 text-center text-[12px] text-muted">Հիշեցումը կստանաք նաև Telegram-ում՝ բոտի հաղորդագրությամբ։</p>
         ) : push === "ready" ? (
@@ -326,19 +326,11 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         {error ? <p className="m-0 text-center text-[12.5px] text-[#b4472f]" role="alert">{error}</p> : null}
         <div className="grid gap-2">
           {channel === "calendar" ? (
-            <>
-              {/* Android phones often can't open .ics files by themselves: Google Calendar first. */}
-              {android ? (
-                <a className={`${primary} ${tooSoon ? "pointer-events-none opacity-60" : ""}`} href={googleCalendarUrl(origin, calendarEvent)} target="_blank" rel="noreferrer"
-                  onClick={(event) => { openCalendarLink(event, googleCalendarUrl(origin, calendarEvent)); noteCalendarReminder(); }}>
-                  <CalendarPlus aria-hidden="true" size={17} /> Ավելացնել Google Օրացույցին
-                </a>
-              ) : null}
-              <a className={`${android ? secondary : primary} ${tooSoon ? "pointer-events-none opacity-60" : ""}`} href={calendarFileUrl(origin, calendarEvent)} target="_blank" rel="noreferrer"
-                onClick={(event) => { openCalendarLink(event, calendarFileUrl(origin, calendarEvent)); noteCalendarReminder(); }}>
-                <CalendarPlus aria-hidden="true" size={17} /> {android ? "Այլ օրացույց (.ics)" : "Ավելացնել օրացույցին"}
-              </a>
-            </>
+            // Only the phone's own calendar (an .ics event), not an online calendar.
+            <a className={`${primary} ${tooSoon ? "pointer-events-none opacity-60" : ""}`} href={calendarFileUrl(origin, calendarEvent)} target="_blank" rel="noreferrer"
+              onClick={(event) => { openCalendarLink(event, calendarFileUrl(origin, calendarEvent)); noteCalendarReminder(); }}>
+              <CalendarPlus aria-hidden="true" size={17} /> Ավելացնել հեռախոսի օրացույցին
+            </a>
           ) : (
             <button className={primary} type="button" disabled={busy || tooSoon} onClick={save}>
               {busy ? <LoaderCircle aria-hidden="true" size={17} className="animate-search-spin" /> : <Bell aria-hidden="true" size={17} />}

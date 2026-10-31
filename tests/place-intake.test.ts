@@ -65,16 +65,18 @@ async function upToReview(tg: ReturnType<typeof telegram>, db: D1Database) {
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.0389 } }));
   await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: "small" }, { file_id: "big" }] }));
   for (const text of [PLACE_TEXT.next, "Այո, գործող է", "Ամեն կիրակի", PLACE_TEXT.yes, "Ամեն օր 09:30 և 17:00",
-    "Թեմի Առաջնորդ", "Տեր Սիոն Սրբազան", "Քահանա", "Տեր Ա", "Քահանա", "Տեր Բ", PLACE_TEXT.done,
+    "Արքեպիսկոպոս", "Սիոն Ադամյան", "Հոգևոր հովիվ", "Տեր Ա", "Հոգևոր հովիվ", "Տեր Բ", PLACE_TEXT.done,
     "Ամեն օր 09:00–18:00", "🚗 Մեքենայով՝ մինչև եկեղեցի", "Մի քանի աստիճան", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
 }
 
 test("people serving are kept one role to a line", () => {
-  let clergy = addServant("", "Թեմի Առաջնորդ", "Տեր Սիոն Սրբազան");
-  clergy = addServant(clergy, "Քահանա", "Տեր Ա");
-  clergy = addServant(clergy, "Քահանա", "Տեր Բ");
-  clergy = addServant(clergy, "Այլ ծառայող", "Դպիր՝ Արմեն");
-  assert.equal(clergy, "Թեմի Առաջնորդ՝ Տեր Սիոն Սրբազան\nՔահանա՝ Տեր Ա, Տեր Բ\nԴպիր՝ Արմեն");
+  let clergy = addServant("", "Արքեպիսկոպոս", "Սիոն Ադամյան");
+  clergy = addServant(clergy, "Հոգևոր հովիվ", "Տեր Ա");
+  clergy = addServant(clergy, "Հոգևոր հովիվ", "Տեր Բ");
+  clergy = addServant(clergy, "Ավագ քահանա", "Տաճատ Ինջիղուլյան");
+  clergy = addServant(clergy, "Դպիր", "Արմեն Սարգսյան");
+  clergy = addServant(clergy, "Այլ ծառայող", "Լուսարար՝ Արմեն");
+  assert.equal(clergy, "Արքեպիսկոպոս՝ Գերաշնորհ Տ. Սիոն արք. Ադամյան\nՀոգևոր հովիվ՝ Տեր Ա, Տեր Բ\nԱվագ քահանա՝ Արժանապատիվ Տ. Տաճատ ավգ. քհն. Ինջիղուլյան\nԴպիր՝ Քաղցրաշնորհ Արմեն դպր. Սարգսյան\nԼուսարար՝ Արմեն");
 });
 
 test("/place asks one thing at a time and sends nothing until the reader confirms", async () => {
@@ -118,11 +120,11 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   // One message answers a question; the next one follows at once.
   await continuePlace(tg.call, db, topic, name("Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30"));
   ends(tg, PLACE_TEXT.askClergy);
-  await continuePlace(tg.call, db, topic, name("Թեմի Առաջնորդ"));
-  assert.ok(tg.texts().at(-1)?.includes(PLACE_TEXT.askClergyName));
-  await continuePlace(tg.call, db, topic, name("Տեր Սիոն Սրբազան"));
+  await continuePlace(tg.call, db, topic, name("Արքեպիսկոպոս"));
+  assert.ok(tg.texts().at(-1)?.includes("Կայքում կգրվի՝ Գերաշնորհ Տ. Հովհաննես արք. Աբրահամյան"));
+  await continuePlace(tg.call, db, topic, name("Սիոն Ադամյան"));
   ends(tg, PLACE_TEXT.askClergyMore);
-  for (const text of ["Քահանա", "Տեր Ա", "Քահանա", "Տեր Բ", "Սարկավագ", "Ա սարկավագ"]) await continuePlace(tg.call, db, topic, name(text));
+  for (const text of ["Հոգևոր հովիվ", "Տեր Ա", "Հոգևոր հովիվ", "Տեր Բ", "Սարկավագ", "Արամ Պետրոսյան"]) await continuePlace(tg.call, db, topic, name(text));
   await continuePlace(tg.call, db, topic, name(PLACE_TEXT.done));
   ends(tg, PLACE_TEXT.askHours);
   await continuePlace(tg.call, db, topic, name("Միշտ բաց է"));
@@ -147,7 +149,7 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(row.active, "yes");
   assert.equal(row.liturgy, "Ամեն կիրակի");
   assert.equal(row.services, "Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30");
-  assert.equal(row.clergy, "Թեմի Առաջնորդ՝ Տեր Սիոն Սրբազան\nՔահանա՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Ա սարկավագ");
+  assert.equal(row.clergy, "Արքեպիսկոպոս՝ Գերաշնորհ Տ. Սիոն արք. Ադամյան\nՀոգևոր հովիվ՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Բարեշնորհ Արամ սրկ. Պետրոսյան");
   assert.equal(row.open_hours, "Միշտ բաց է");
   assert.equal(row.accessibility, "Ճանապարհը՝ Քարքարոտ արահետ, 200 մ\nՄուտքը՝ Մի քանի աստիճան");
   assert.equal(row.notes, "");
@@ -194,8 +196,8 @@ test("from the review any answer can be added to, rewritten or left as it was", 
   // The people serving: added to by role, until «Վերջ».
   await answerPlaceCallback(tg.call, db, topic, press("place:field:clergy"));
   await answerPlaceCallback(tg.call, db, topic, press("place:text:append"));
-  for (const text of ["Սարկավագ", "Ա սարկավագ", PLACE_TEXT.done]) await continuePlace(tg.call, db, topic, name(text));
-  assert.equal(sqlite.prepare("SELECT clergy FROM place_submissions").get()?.clergy, "Թեմի Առաջնորդ՝ Տեր Սիոն Սրբազան\nՔահանա՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Ա սարկավագ");
+  for (const text of ["Սարկավագ", "Արամ Պետրոսյան", PLACE_TEXT.done]) await continuePlace(tg.call, db, topic, name(text));
+  assert.equal(sqlite.prepare("SELECT clergy FROM place_submissions").get()?.clergy, "Արքեպիսկոպոս՝ Գերաշնորհ Տ. Սիոն արք. Ադամյան\nՀոգևոր հովիվ՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Բարեշնորհ Արամ սրկ. Պետրոսյան");
   assert.ok(tg.texts().at(-1)?.startsWith(PLACE_TEXT.reviewTitle));
   await answerPlaceCallback(tg.call, db, topic, press("place:field:history"));
   await continuePlace(tg.call, db, topic, name("Կառուցվել է 2000 թ."));

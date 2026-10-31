@@ -3,6 +3,8 @@
  * posts in the private support group (#u123), and an admin's reply to that message goes back to
  * the reader. Which topic a message belongs to comes from the bot's prompt the reader answered.
  */
+import { CLERGY_RANKS } from "./clergy-titles";
+
 export type SupportKind = "support" | "contact";
 
 export const SUPPORT_PROMPTS: Record<SupportKind, string> = {
@@ -118,7 +120,8 @@ export const PLACE_CHOICES = {
   // The way to the church, then its entrance: a flat road can still end at steps.
   access: [["🚗 Մեքենայով՝ մինչև եկեղեցի"], ["🚶 Մի քիչ ոտքով՝ հարթ ճանապարհ"], ["🥾 Դժվար արահետ (քարքարոտ, լեռնային)"]],
   entrance: [["♿ Առանց աստիճանների, սայլակով կարելի է"], ["Կա թեքահարթակ"], ["Մի քանի աստիճան"], ["Շատ աստիճաններ"]],
-  clergy: ["Թեմի Առաջնորդ", "Վանահայր", "Քահանա", "Սարկավագ", "Այլ ծառայող"],
+  // The ranks with their address forms (utils/clergy-titles.ts), then anyone else.
+  clergy: [...CLERGY_RANKS.map((rank) => rank.role), "Այլ ծառայող"],
 } as const;
 
 /** The reader's Telegram id from a relayed message, or null when it isn't one. */
