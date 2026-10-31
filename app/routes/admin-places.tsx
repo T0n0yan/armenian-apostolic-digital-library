@@ -86,7 +86,7 @@ async function performAction({ request }: Route.ActionArgs) {
     return back;
   }
   if (intent === "dismiss") {
-    await dismissSubmission(DB, Number(form.get("submissionId")));
+    await dismissSubmission(DB, MEDIA, Number(form.get("submissionId")));
     return redirect("/admin/places");
   }
   if (intent === "from-submission") {
@@ -168,12 +168,12 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
       <div className="mt-4 grid gap-5">
         <section className={`${panelSection} grid gap-3`}>
           <h2 className="m-0 text-[17px] font-bold text-ink">Նոր առաջարկներ{submissions.length ? ` (${submissions.length})` : ""}</h2>
-          <p className="m-0 text-[13px] text-muted">Ինչ մարդիկ ուղարկել են բոտին /place հրամանով։ «Ստեղծել տեղ»-ը նկարները բերում է կայք, տեղը պատրաստում է, բայց չի հրապարակում։</p>
+          <p className="m-0 text-[13px] text-muted">Ինչ մարդիկ ուղարկել են բոտին /place հրամանով կամ կայքի «Ավելացնել սրբավայր» ձևով։ «Ստեղծել տեղ»-ը նկարները բերում է կայք, տեղը պատրաստում է, բայց չի հրապարակում։</p>
           {submissions.length === 0 ? <p className="m-0 text-[13px] text-faint">Նոր առաջարկ չկա։</p> : null}
           {submissions.map((submission) => (
             <article key={submission.id} className={card}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <strong className="text-[15px] text-ink">{submission.placeName ? `«${submission.placeName}» · ` : ""}{submission.senderName}</strong>
+                <strong className="text-[15px] text-ink">{submission.placeName ? `«${submission.placeName}» · ` : ""}{submission.senderName}{submission.fromSite ? " · 🌐 կայքից" : " · ✈️ բոտից"}</strong>
                 <span className="text-[12px] text-faint">
                   {formatArmenianDate(submission.createdAt)} · {submission.credit === null ? "անունը նշելու մասին չի պատասխանել" : submission.credit ? `կայքում նշել «${submission.creditName || submission.senderName}»` : "անանուն"}
                 </span>
