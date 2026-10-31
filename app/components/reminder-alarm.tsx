@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderRead, markReminderRung, snoozeReminder, useActiveReminders, type ActiveReminder } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, REMINDERS_CHANGED_EVENT, cancelReminder, loadReminders, markReminderDone, markReminderRead, markReminderRung, snoozeReminder, useActiveReminders, type ActiveReminder } from "../utils/reminder-store";
 import { materialIdFromShortPath, materialPath } from "../utils/material-path";
 
 type Upcoming = ActiveReminder;
@@ -214,7 +214,7 @@ export function ReminderAlarm() {
         <button className={`${action} border-glass-border bg-subtle text-ink`} type="button" onClick={() => snooze(5)}>5 րոպեից</button>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <button className={`${action} inline-flex items-center justify-center gap-1.5 border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/12%)] text-[rgb(52_130_74)]`} type="button" onClick={() => { void markReminderRead(current.materialId); dismiss(); }}>
+        <button className={`${action} inline-flex items-center justify-center gap-1.5 border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/12%)] text-[rgb(52_130_74)]`} type="button" onClick={() => { void markReminderDone(current.materialId); dismiss(); }}>
           <Check aria-hidden="true" size={15} /> Արդեն կարդացել եմ
         </button>
         <button className={`${action} border-glass-border bg-transparent text-muted`} type="button" onClick={() => { void cancelReminder(current.materialId); dismiss(); }}>

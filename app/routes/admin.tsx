@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Ban, Bot, Check, Crown, MapPin, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Activity, Ban, Bot, Gauge, Check, Crown, MapPin, MonitorSmartphone, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { data, Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
 import { useEffect, useState } from "react";
 
@@ -172,7 +172,6 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
   return (
     <PageShell>
       <SiteNav />
-      <Link className={`${panelSection} block text-gold-bright`} to="/admin/usage">Կայքի վիճակը · Cloudflare օգտագործում և սահմանաչափեր →</Link>
       <PageHeader eyebrow="Միայն ադմինների համար" title="Կառավարում" description="Ով կարող է հրապարակել Telegram խմբից կայք, և ով ունի կառավարման հասանելիություն։" />
       {error ? <p className="m-0 mb-3 rounded-[12px] border border-[rgb(239_145_136/35%)] bg-[rgb(239_145_136/10%)] px-3 py-2.5 text-[13px] text-danger" role="alert">{error}</p> : null}
 
@@ -200,6 +199,11 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
         <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/places">
           <span className="flex items-center gap-2 text-[17px] font-bold"><MapPin aria-hidden="true" size={19} className="text-gold" /> Սրբավայրեր</span>
           <span className="text-[13px] text-gold-bright">Առաջարկներ և քարտեզ →</span>
+        </Link>
+
+        <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/usage">
+          <span className="flex items-center gap-2 text-[17px] font-bold"><Gauge aria-hidden="true" size={19} className="text-gold" /> Կայքի վիճակը</span>
+          <span className="text-[13px] text-gold-bright">Անվճար սահմանաչափեր →</span>
         </Link>
 
         {stats ? <SiteStats stats={stats} /> : null}

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import { Navigation, Pencil } from "lucide-react";
+import { RichText } from "../components/rich-text";
+import { Navigation, Pencil, ShieldCheck } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 
@@ -62,9 +63,16 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
       <SiteNav />
       <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={place.name} />
       <p className="mt-1 mb-4 text-center text-[13px] text-muted">{PLACE_KINDS[place.kind]}{ACTIVE_LABELS[place.active] ? ` · ${ACTIVE_LABELS[place.active]}` : ""}{place.region ? ` · ${place.region}` : ""}</p>
+      {place.verified ? (
+        // Checked by the clergy: a gold seal under the title, instead of the «⚑ Ճշտել» note.
+        <p className="mx-auto -mt-2 mb-4 flex w-fit items-center gap-2 rounded-full border border-[rgb(217_181_111/55%)] bg-[linear-gradient(135deg,rgb(226_194_126/22%),rgb(176_125_46/12%))] py-1.5 pr-3.5 pl-1.5 text-[13px] font-semibold text-gold-bright shadow-[0_6px_18px_rgb(150_100_30/18%)]">
+          <span className="grid size-6 place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]"><ShieldCheck aria-hidden="true" size={14} strokeWidth={2.4} /></span>
+          Հաստատված է հոգևորականի կողմից
+        </p>
+      ) : null}
       <article className="grid gap-4">
-        {place.photos.length ? (
-          <div className={`-mx-1 flex snap-x snap-mandatory items-center gap-2.5 overflow-x-auto px-1 pb-1 ${place.photos.length === 1 ? "justify-center" : ""}`}>
+        {place.photos.length || video ? (
+          <div className={`-mx-1 flex snap-x snap-mandatory items-center gap-2.5 overflow-x-auto px-1 pb-1 ${place.photos.length + (video ? 1 : 0) === 1 ? "justify-center" : ""}`}>
             {place.photos.map((key, index) => (
               // Each photo whole, in its own proportions (never cropped); a tap opens them one by one.
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
@@ -72,6 +80,8 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
                 <img className="reveal-img block h-auto max-h-[min(68svh,560px)] w-auto max-w-full rounded-[18px] shadow-card" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
               </button>
             ))}
+            {/* The uploaded video beside the photos, played in place. */}
+            {video ? <video className={`block max-h-[min(68svh,560px)] shrink-0 snap-center rounded-[18px] bg-black shadow-card ${place.photos.length ? "max-w-[88%]" : "max-w-full"}`} src={video} controls preload="metadata" playsInline /> : null}
           </div>
         ) : null}
         <div className="mx-auto w-full max-w-[420px]"><VisitButton visited={visited.has(place.id)} onToggle={() => toggle(place.id)} /></div>
@@ -84,7 +94,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         {!place.verified ? (
           <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13px] text-muted">⚑ Ճշտել. տեղեկությունը ուղարկել են մեր ընթերցողները, և այն դեռ ստուգվում է հոգևորականների կողմից։</p>
         ) : null}
-        {place.description ? <section className={panel}><h2 className={heading}>Պատմություն</h2><p className="m-0 whitespace-pre-line">{place.description}</p></section> : null}
+        {place.description ? <section className={panel}><h2 className={heading}>Պատմություն</h2><RichText text={place.description} /></section> : null}
         {place.liturgy || place.services ? (
           <section className={panel}>
             <h2 className={heading}>Արարողություններ</h2>
@@ -104,7 +114,6 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             })}
           </section>
         ) : null}
-        {video ? <video className="w-full rounded-[18px] bg-black" src={video} controls preload="metadata" playsInline /> : null}
         {embed ? <iframe className="aspect-video w-full rounded-[18px] border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}
         {!video && !embed && place.videoUrl ? <a className="text-gold-bright" href={place.videoUrl} target="_blank" rel="noreferrer">Դիտել տեսանյութը →</a> : null}
         <section className={panel}>

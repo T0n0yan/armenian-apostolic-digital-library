@@ -1,12 +1,13 @@
 import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { env } from "cloudflare:workers";
-import { Check, Copy, ImagePlus, Star, Trash2, Upload } from "lucide-react";
+import { Check, Copy, ImagePlus, Star, Trash2, Upload, Video } from "lucide-react";
 import { useState } from "react";
-import { data, Form, Link, redirect, useNavigation, useSearchParams } from "react-router";
+import { data, Form, Link, redirect, useNavigation, useRevalidator, useSearchParams } from "react-router";
 
 import type { Route } from "./+types/admin-place";
 import { can, requirePermission, requireSameOrigin } from "../auth/admin.server";
 import { RouteErrorPage } from "../components/error-page";
+import { RichTextField } from "../components/rich-text";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, fieldLabel, panelSection, primaryButton } from "../components/ui-styles";
@@ -85,6 +86,11 @@ async function performAction({ request, params }: Route.ActionArgs) {
     await setPlacePictures(DB, place.id, { photos: intent === "cover" ? [key, ...rest] : rest });
     return redirect(`/admin/places/${place.id}`);
   }
+  if (intent === "remove-video") {
+    if (place.videoUrl.startsWith("places/")) await MEDIA.delete(place.videoUrl);
+    await setPlacePictures(DB, place.id, { videoUrl: "" });
+    return redirect(`/admin/places/${place.id}`);
+  }
   if (intent === "delete") {
     if (!can(admin, "places-delete")) throw new Response("Not allowed.", { status: 403 });
     await deletePlace(DB, MEDIA, place.id);
@@ -99,7 +105,7 @@ async function performAction({ request, params }: Route.ActionArgs) {
  */
 function UploadButton({ name, intent, accept, multiple, label, icon, disabled }: { name: string; intent: string; accept: string; multiple?: boolean; label: string; icon: React.ReactNode; disabled: boolean }) {
   return (
-    <Form method="post" encType="multipart/form-data">
+    <Form method="post" preventScrollReset encType="multipart/form-data">
       <input type="hidden" name="intent" value={intent} />
       <label className={`${smallButton} ${disabled ? "opacity-60" : ""}`}>
         {icon} {disabled ? "Վերբեռնվում է…" : label}
@@ -107,6 +113,43 @@ function UploadButton({ name, intent, accept, multiple, label, icon, disabled }:
           onChange={(event) => { if (event.currentTarget.files?.length) event.currentTarget.form?.requestSubmit(); }} />
       </label>
     </Form>
+  );
+}
+
+/**
+ * A video from the phone: sent as the request body itself (so the Worker streams it into storage),
+ * with a progress bar; the page reloads its data once it is in.
+ */
+function VideoUpload({ placeId, hasVideo }: { placeId: string; hasVideo: boolean }) {
+  const revalidator = useRevalidator();
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const upload = (file: File) => {
+    setError("");
+    if (file.size > 95_000_000) { setError("Տեսանյութը շատ մեծ է (առավելագույնը 95 ՄԲ)։ Կարճեցրեք կամ սեղմեք այն հեռախոսում։"); return; }
+    const request = new XMLHttpRequest();
+    request.open("POST", `/admin/places/${placeId}/video`);
+    request.setRequestHeader("content-type", file.type || "video/mp4");
+    request.upload.onprogress = (event) => { if (event.lengthComputable) setProgress(event.loaded / event.total); };
+    request.onload = () => {
+      setProgress(null);
+      if (request.status >= 200 && request.status < 300) { void revalidator.revalidate(); return; }
+      try { setError((JSON.parse(request.responseText) as { error?: string }).error ?? "Չհաջողվեց վերբեռնել։"); } catch { setError("Չհաջողվեց վերբեռնել։"); }
+    };
+    request.onerror = () => { setProgress(null); setError("Կապը ընդհատվեց։ Փորձեք նորից։"); };
+    setProgress(0);
+    request.send(file);
+  };
+  return (
+    <div className="grid gap-1.5">
+      <label className={`${smallButton} ${progress !== null ? "opacity-70" : ""}`}>
+        <Video aria-hidden="true" size={14} /> {progress !== null ? `Վերբեռնվում է… ${Math.round(progress * 100)}%` : hasVideo ? "Փոխել տեսանյութը" : "Ավելացնել տեսանյութ"}
+        <input className="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm" disabled={progress !== null}
+          onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) upload(file); }} />
+      </label>
+      {progress !== null ? <span className="h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-subtle"><span className="block h-full bg-[linear-gradient(90deg,#b07d2e,#e2c27e)]" style={{ width: `${Math.round(progress * 100)}%` }} /></span> : null}
+      {error ? <span className="text-[12.5px] text-danger">{error}</span> : null}
+    </div>
   );
 }
 
@@ -126,7 +169,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
       <div className="mt-4 grid gap-5">
         {place.published ? <Link className="w-fit text-[13px] text-gold-bright" to={`/places/${place.id}`}>Բացել կայքում →</Link> : null}
 
-        <Form method="post" className={`${panelSection} grid gap-4`}>
+        <Form method="post" preventScrollReset className={`${panelSection} grid gap-4`}>
           <label className={fieldLabel}>Անունը<input className={fieldControl} name="name" defaultValue={place.name} required /></label>
           <div className="grid gap-4 min-[560px]:grid-cols-2">
             <label className={fieldLabel}>Տեսակը
@@ -140,7 +183,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
             <input className={fieldControl} name="coordinates" defaultValue={`${place.latitude}, ${place.longitude}`} required />
             <span className={fieldHint}>«40.1617, 44.2913» կամ Google Maps-ի հղումը։ <a className="text-gold-bright" href={`https://www.google.com/maps?q=${place.latitude},${place.longitude}`} target="_blank" rel="noreferrer">Ստուգել քարտեզում</a></span>
           </label>
-          <label className={fieldLabel}>Պատմություն և տեղեկություն<textarea className={textarea} name="description" defaultValue={place.description} rows={6} /></label>
+          <div className={fieldLabel}>Պատմություն և տեղեկություն<RichTextField className={textarea} name="description" defaultValue={place.description} /></div>
           <label className={fieldLabel}>Գործո՞ղ է
             <select className={fieldControl} name="active" defaultValue={place.active}>
               <option value="">Հայտնի չէ</option>
@@ -152,9 +195,12 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           <label className={fieldLabel}>Ծառայողներ (մեկ դեր՝ մեկ տող)<textarea className={textarea} name="clergy" defaultValue={place.clergy} rows={3} placeholder={"Թեմի Առաջնորդ՝ Տեր … Սրբազան\nՔահանա՝ Տեր …, Տեր …\nՍարկավագ՝ …"} /></label>
           <label className={fieldLabel}>Բաց է<input className={fieldControl} name="openHours" defaultValue={place.openHours} placeholder="Ամեն օր 09:00–18:00" /></label>
           <label className={fieldLabel}>Ճանապարհը և մուտքը<textarea className={fieldControl} name="accessibility" rows={2} defaultValue={place.accessibility} placeholder={"Ճանապարհը՝ մեքենայով՝ մինչև եկեղեցի\nՄուտքը՝ մի քանի աստիճան"} /></label>
-          <label className={fieldLabel}>Տեսանյութ
-            <input className={fieldControl} name="videoUrl" defaultValue={place.videoUrl} placeholder="YouTube-ի հղում (կամ բոտով ուղարկված տեսանյութը)" />
-          </label>
+          {/* An uploaded video (from the phone, below with the photos) keeps its key here; otherwise a YouTube link. */}
+          {place.videoUrl.startsWith("places/") ? <input type="hidden" name="videoUrl" value={place.videoUrl} /> : (
+            <label className={fieldLabel}>Տեսանյութի հղում (YouTube)
+              <input className={fieldControl} name="videoUrl" defaultValue={place.videoUrl} placeholder="https://youtu.be/… · կամ վերբեռնեք հեռախոսից՝ ներքևում «Լուսանկարներ և տեսանյութ»" />
+            </label>
+          )}
           <label className={fieldLabel}>Ուղարկողի անունը (եթե համաձայն է)<input className={fieldControl} name="creditName" defaultValue={place.creditName} /></label>
           <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" name="verified" defaultChecked={place.verified} /> Տեղեկությունը ստուգված է հոգևորականների կողմից (առանց սրա կայքում երևում է «⚑ Ճշտել»)</label>
           <label className="flex items-center gap-2 text-[14px] font-semibold text-ink"><input type="checkbox" name="published" defaultChecked={place.published} /> Ցույց տալ քարտեզում</label>
@@ -173,7 +219,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
             </span>
             <div className="grid gap-2">
               <UploadButton name="icon" intent="icon" accept="image/png,image/webp" label={place.icon ? "Փոխել գծանկարը (PNG)" : "Վերբեռնել գծանկարը (PNG)"} icon={<Upload aria-hidden="true" size={14} />} disabled={busy} />
-              {place.icon ? <Form method="post"><button className={smallButton} type="submit" name="intent" value="remove-icon" disabled={busy}><Trash2 aria-hidden="true" size={14} /> Հեռացնել գծանկարը</button></Form> : null}
+              {place.icon ? <Form method="post" preventScrollReset><button className={smallButton} type="submit" name="intent" value="remove-icon" disabled={busy}><Trash2 aria-hidden="true" size={14} /> Հեռացնել գծանկարը</button></Form> : null}
             </div>
           </div>
           <div className="grid gap-2 rounded-[14px] bg-subtle p-3">
@@ -186,13 +232,13 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
         </section>
 
         <section className={`${panelSection} grid gap-3`}>
-          <h2 className="m-0 text-[16px] font-bold text-ink">Լուսանկարներ ({place.photos.length})</h2>
+          <h2 className="m-0 text-[16px] font-bold text-ink">Լուսանկարներ ({place.photos.length}) և տեսանյութ</h2>
           <p className="m-0 text-[12.5px] text-muted">Առաջինը գլխավորն է. այն երևում է քարտեզի պատուհանում և որպես կլոր նշան, քանի դեռ գծանկար չկա։</p>
           <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-4">
             {place.photos.map((key, index) => (
               <figure key={key} className="m-0 grid gap-1.5">
                 <img className="aspect-[4/3] w-full rounded-[10px] object-cover" src={placeMediaUrl(key)} alt="" loading="lazy" />
-                <Form method="post" className="flex flex-wrap gap-1.5">
+                <Form method="post" preventScrollReset className="flex flex-wrap gap-1.5">
                   <input type="hidden" name="key" value={key} />
                   {index > 0 ? <button className={smallButton} type="submit" name="intent" value="cover" disabled={busy}><Star aria-hidden="true" size={13} /> Գլխավոր</button> : <span className="text-[12px] text-gold-bright">★ Գլխավոր</span>}
                   <button className={smallButton} type="submit" name="intent" value="remove-photo" disabled={busy} aria-label="Ջնջել"><Trash2 aria-hidden="true" size={13} /></button>
@@ -200,11 +246,22 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
               </figure>
             ))}
           </div>
-          <UploadButton name="photos" intent="photos" accept="image/jpeg,image/png,image/webp" multiple label="Ավելացնել նկարներ" icon={<ImagePlus aria-hidden="true" size={14} />} disabled={busy} />
+          <div className="flex flex-wrap gap-2">
+            <UploadButton name="photos" intent="photos" accept="image/jpeg,image/png,image/webp" multiple label="Ավելացնել նկարներ" icon={<ImagePlus aria-hidden="true" size={14} />} disabled={busy} />
+            <VideoUpload placeId={place.id} hasVideo={place.videoUrl.startsWith("places/")} />
+          </div>
+          {place.videoUrl.startsWith("places/") ? (
+            <figure className="m-0 grid max-w-[360px] gap-1.5">
+              <video className="w-full rounded-[10px] bg-black" src={placeMediaUrl(place.videoUrl)} controls preload="metadata" playsInline />
+              <Form method="post" preventScrollReset onSubmit={(event) => { if (!window.confirm("Ջնջե՞լ տեսանյութը։")) event.preventDefault(); }}>
+                <button className={smallButton} type="submit" name="intent" value="remove-video" disabled={busy}><Trash2 aria-hidden="true" size={13} /> Ջնջել տեսանյութը</button>
+              </Form>
+            </figure>
+          ) : null}
         </section>
 
         {loaderData.canDelete ? (
-        <Form method="post" className="flex justify-end" onSubmit={(event) => { if (!window.confirm(`Ջնջե՞լ «${place.name}»-ը և նրա բոլոր նկարները։`)) event.preventDefault(); }}>
+        <Form method="post" preventScrollReset className="flex justify-end" onSubmit={(event) => { if (!window.confirm(`Ջնջե՞լ «${place.name}»-ը և նրա բոլոր նկարները։`)) event.preventDefault(); }}>
           <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete" disabled={busy}><Trash2 aria-hidden="true" size={14} /> Ջնջել տեղը</button>
         </Form>
         ) : null}

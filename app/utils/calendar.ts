@@ -38,19 +38,6 @@ export function calendarFileUrl(origin: string, event: CalendarEvent) {
   return url.toString();
 }
 
-/** Google Calendar's page for a new event, already filled in. */
-export function googleCalendarUrl(origin: string, event: CalendarEvent) {
-  const end = new Date(event.start.getTime() + 15 * 60_000);
-  const url = new URL("https://calendar.google.com/calendar/render");
-  url.searchParams.set("action", "TEMPLATE");
-  url.searchParams.set("text", `🙏 ${event.title}`);
-  url.searchParams.set("dates", `${floatingTime(event.start)}/${floatingTime(end)}`);
-  url.searchParams.set("details", `Հոգևոր ժառանգություն\n${new URL(event.path, origin)}`);
-  const rule = calendarRule(event.repeat);
-  if (rule) url.searchParams.set("recur", `RRULE:${rule}`);
-  return url.toString();
-}
-
 /** Text as an iCalendar value: backslash, comma, semicolon and line breaks escaped. */
 function escapeText(value: string) {
   return value.replace(/[\\;,]/gu, (character) => `\\${character}`).replace(/\r?\n/gu, "\\n");

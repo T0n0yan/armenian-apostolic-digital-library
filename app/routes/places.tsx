@@ -121,7 +121,7 @@ const NEAR_FAILURES: Record<LocationFailure, string> = {
 /** The map of sacred places, and the same places as a list under it. */
 export default function Places({ loaderData }: Route.ComponentProps) {
   const { places } = loaderData;
-  const { visited, toggle } = usePlaceVisits();
+  const { visited, toggle, signedIn } = usePlaceVisits();
   const [show, setShow] = useState<PlacesShown>("all");
   // Filters: provinces and kinds ticked (none ticked: all of them).
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -228,8 +228,9 @@ export default function Places({ loaderData }: Route.ComponentProps) {
           <div className="flex items-stretch gap-2">
             <div className="frosted-card flex flex-1 gap-1 p-1" role="group" aria-label="Ցույց տալ քարտեզում">
               {segment("all", filtered.length, "բոլորը", "text-gold-bright")}
-              {segment("visited", been, "եղել եմ", "text-[#3f8f5a]")}
-              {segment("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]")}
+              {/* «Եղել եմ» is a signed-in reader's own: guests see only the total. */}
+              {signedIn ? segment("visited", been, "եղել եմ", "text-[#3f8f5a]") : null}
+              {signedIn ? segment("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]") : null}
             </div>
             <button type="button" aria-expanded={filtersOpen} aria-label="Ֆիլտր" onClick={() => setFiltersOpen(!filtersOpen)}
               className={`frosted-card relative grid w-14 shrink-0 cursor-pointer place-items-center text-gold-bright ${filtersOpen ? "shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : ""}`}>
