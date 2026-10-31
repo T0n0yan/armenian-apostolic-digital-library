@@ -116,6 +116,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   // caption under the recording, or rich text): the text is laid out by the psalm standard.
   const psalmText = psalmBodyText(material);
   const psalmView = isPsalm && psalmText.trim().length > 0 && !activeHit;
+  // Ձայնագրություն ունեցող ցանկացած այլ նյութ (օր.՝ աղոթք). տեքստը տող առ տող հետևում է ձայնին։
+  const hasAudio = material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"));
+  const plainText = !material.richContent ? material.formattedText.text.slice(textTitleLength).trim() : "";
+  const linesView = !isPsalm && hasAudio && plainText.length > 0 && !activeHit;
 
   useEffect(() => {
     setActiveHit(stateHit);
@@ -158,7 +162,22 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {psalmView ? (
+        {linesView ? (
+          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+            <PsalmReadAlong
+              key={material.id}
+              text={plainText}
+              numbered={false}
+              materialId={material.id}
+              timings={loaderData.psalmTimings}
+              canMark={loaderData.canMarkPsalm}
+              psalmPath={loaderData.canonicalPath}
+              title={material.title}
+              hasAudio
+              canSave={loaderData.canSave}
+            />
+          </div>
+        ) : psalmView ? (
           // Psalms follow their recording verse by verse.
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
             <PsalmReadAlong

@@ -3,7 +3,8 @@ export const ADMIN_PERMISSIONS = {
   places: "Սրբավայրեր՝ խմբագրել, ցուցադրել/թաքցնել, ընթերցողների առաջարկներ",
   "places-delete": "Սրբավայրեր՝ ջնջել և փոխել սև ցուցակը",
   people: "Օգտատերերի ցանկը և Excel-ը",
-  psalms: "Սաղմոսների համարների ժամանակները նշել",
+  psalms: "Ձայնագրության տողերի ժամանակները նշել (սաղմոսներ, աղոթքներ)",
+  glossary: "Բառարան՝ ավելացնել և խմբագրել բառերը",
   copy: "Մշակողի ռեժիմ (տեքստերի պատճենում)",
 } as const;
 export type AdminPermission = keyof typeof ADMIN_PERMISSIONS;

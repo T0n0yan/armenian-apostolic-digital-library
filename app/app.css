@@ -644,3 +644,20 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 ::highlight(find-flash-3) { background-color: rgb(226 194 126 / 30%); }
 ::highlight(find-flash-4) { background-color: rgb(226 194 126 / 18%); }
 ::highlight(find-flash-5) { background-color: rgb(226 194 126 / 8%); }
+
+/* Բառարանի բառը տեքստում. ոսկեգույն կետագիծ (components/glossary-layer.tsx)։ */
+::highlight(glossary) {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgb(176 125 46 / 85%);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+/* Բաց պատուհանի բառը. նուրբ ոսկեգույն ֆոն։ */
+::highlight(glossary-open) { background-color: rgb(226 194 126 / 35%); }
+/* Պատուհանը բացվում է մեղմ՝ բառի կողմից։ */
+.glossary-card { animation: glossary-in 220ms cubic-bezier(.2, .8, .2, 1); }
+.glossary-card[data-side="above"] { transform-origin: 50% 100%; }
+.glossary-card[data-side="below"] { transform-origin: 50% 0%; }
+@keyframes glossary-in { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .glossary-card { animation: none; } }
