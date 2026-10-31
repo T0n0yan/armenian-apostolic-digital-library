@@ -1482,7 +1482,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const ownerInventory = await mf.dispatchFetch("https://app.fixture/admin/media-inventory", { headers: { cookie } });
   assert.equal(ownerInventory.status, 200);
   assert.match(ownerInventory.headers.get("cache-control") ?? "", /private, no-store/);
-  assert.match(await ownerUsage.text(), /կապը դեռ կարգավորված չէ/u);
+  assert.match(await ownerUsage.text(), /Թվերը դեռ միացված չեն/u);
   const hidePlace = await mf.dispatchFetch("https://app.fixture/admin/places", {
     method: "POST", redirect: "manual", headers: { cookie, origin: "https://app.fixture", "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ intent: "hide", placeId: "qa-visible" }),

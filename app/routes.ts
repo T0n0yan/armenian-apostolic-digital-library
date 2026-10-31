@@ -44,6 +44,7 @@ export default [
   route("admin/people/export", "routes/admin-people-export.ts"),
   route("admin/places", "routes/admin-places.tsx"),
   route("admin/places/:id", "routes/admin-place.tsx"),
+  route("admin/places/:id/video", "routes/admin-place-video.ts"),
   route("admin/telegram-file/:fileId", "routes/admin-telegram-file.ts"),
   // Sacred places: the map, one place, and their pictures from R2.
   route("places", "routes/places.tsx"),

@@ -7,7 +7,6 @@ import { useEffect } from "react";
  */
 const KEY = "library-find-flash";
 const FRESH_MS = 2 * 60_000;
-const FLASH_MS = 7_000;
 
 type Remembered = { query: string; path: string; at: number };
 
@@ -48,46 +47,44 @@ export function findPattern(query: string) {
   return words.length ? new RegExp(words.join("|"), "giu") : null;
 }
 
-/** Lights up the remembered words inside `selector` on arrival at `path`, then puts the text back as it was. */
+// Painted by the browser over the text (CSS Custom Highlight API), never by changing the page:
+// changing React's text nodes made the page redraw itself. Held, then faded in steps (app.css).
+const HOLD_MS = 1_100;
+const FADE_STEPS = 6;
+const STEP_MS = 320;
+
+/** Lights up the remembered words inside `selector` on arrival at `path`, then fades them away. */
 export function useFindFlash(path: string, selector: string) {
   useEffect(() => {
     const saved = readRemembered(path);
     const pattern = saved ? findPattern(saved.query) : null;
     const root = document.querySelector(selector);
     if (!pattern || !root) return;
-    const marks: HTMLElement[] = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: (node) => (node.parentElement?.closest("button, input, textarea, mark, [aria-hidden='true']") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      acceptNode: (node) => (node.parentElement?.closest("button, input, textarea, [aria-hidden='true']") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });
-    const nodes: Text[] = [];
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);
-    for (const node of nodes) {
-      const text = node.data;
-      pattern.lastIndex = 0;
-      const ranges = [...text.matchAll(pattern)].map((match) => [match.index, match.index + match[0].length] as const);
-      // From the end, so earlier offsets stay right while the node is split.
-      for (const [start, end] of ranges.reverse()) {
-        const word = node.splitText(start);
-        word.splitText(end - start);
-        const mark = document.createElement("mark");
-        mark.className = "find-flash";
-        word.replaceWith(mark);
-        mark.appendChild(word);
-        marks.unshift(mark);
+    const ranges: Range[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = (node as Text).data;
+      for (const match of text.matchAll(pattern)) {
+        const range = document.createRange();
+        range.setStart(node, match.index);
+        range.setEnd(node, match.index + match[0].length);
+        ranges.push(range);
       }
     }
-    if (!marks.length) { forget(); return; }
+    if (!ranges.length) { forget(); return; }
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const first = window.requestAnimationFrame(() => marks[0].scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" }));
-    const restore = () => {
-      for (const mark of marks) {
-        const parent = mark.parentNode;
-        if (!parent) continue;
-        mark.replaceWith(...Array.from(mark.childNodes));
-        parent.normalize();
-      }
-    };
-    const done = window.setTimeout(() => { forget(); restore(); }, FLASH_MS);
-    return () => { window.cancelAnimationFrame(first); window.clearTimeout(done); restore(); };
+    const first = ranges[0].getBoundingClientRect();
+    window.scrollTo({ top: Math.max(0, window.scrollY + first.top - window.innerHeight / 2), behavior: reduced ? "auto" : "smooth" });
+    const highlights = (globalThis.CSS as { highlights?: Map<string, unknown> } | undefined)?.highlights;
+    const HighlightClass = (globalThis as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+    if (!highlights || !HighlightClass) { forget(); return; }
+    const paint = new HighlightClass(...ranges);
+    const names = Array.from({ length: FADE_STEPS + 1 }, (_, step) => `find-flash-${step}`);
+    const show = (step: number) => { names.forEach((name) => highlights.delete(name)); if (step <= FADE_STEPS) highlights.set(names[step], paint); };
+    show(0);
+    const timers = names.map((_, step) => window.setTimeout(() => { show(step + 1); if (step === FADE_STEPS) forget(); }, HOLD_MS + step * STEP_MS));
+    return () => { timers.forEach(window.clearTimeout); names.forEach((name) => highlights.delete(name)); };
   }, [path, selector]);
 }
