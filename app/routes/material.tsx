@@ -1,6 +1,6 @@
 import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
-import { useFindFlash } from "../utils/find-flash";
-import { useCallback, useEffect, useState } from "react";
+import { hasRememberedFind, useFindFlash } from "../utils/find-flash";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
@@ -80,7 +80,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const isSaved = savedIds.has(material.id);
   const toggleSaved = useCallback(() => setSaved(material.id, !isSaved), [isSaved, material.id, setSaved]);
   const location = useLocation();
-  const stateHit = isBridgeSearchHit((location.state as { searchHit?: unknown } | null)?.searchHit)
+  // Opened from a search whose words light up (useFindFlash): the old block highlight would redraw
+  // the text after a few seconds (a psalm switches back to its verse layout), so it is left out.
+  const flashing = useMemo(() => hasRememberedFind(location.pathname), [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const stateHit = !flashing && isBridgeSearchHit((location.state as { searchHit?: unknown } | null)?.searchHit)
     ? (location.state as { searchHit: BridgeSearchHit }).searchHit
     : undefined;
   const [activeHit, setActiveHit] = useState(stateHit);
