@@ -1,4 +1,4 @@
-import { BookOpenText, X } from "lucide-react";
+import { BookOpenText, MapPin, User, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
@@ -138,7 +138,11 @@ function GlossaryCard({ open, onClose }: { open: Open; onClose: () => void }) {
         <div className="h-1 bg-[linear-gradient(90deg,transparent,#e2c27e,#b07d2e,#e2c27e,transparent)]" aria-hidden="true" />
         <div className="grid gap-2 px-4 pt-3 pb-4">
           <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-[10.5px] font-bold tracking-[1.4px] text-gold uppercase"><BookOpenText aria-hidden="true" size={13} /> Բառարան</span>
+            {/* Պիտակը՝ ըստ բաժնի. բառ, անձնանուն կամ տեղանուն։ */}
+            <span className="flex items-center gap-1.5 text-[10.5px] font-bold tracking-[1.4px] text-gold uppercase">
+              {term.kind === "person" ? <User aria-hidden="true" size={13} /> : term.kind === "place" ? <MapPin aria-hidden="true" size={13} /> : <BookOpenText aria-hidden="true" size={13} />}
+              {term.kind === "person" ? "Անձնանուն" : term.kind === "place" ? "Տեղանուն" : "Բառարան"}
+            </span>
             <button className="-mr-1.5 grid size-7 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-ink" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={15} /></button>
           </div>
           <strong className="font-noto text-[22px] leading-tight font-semibold text-gold-bright">{term.word}</strong>

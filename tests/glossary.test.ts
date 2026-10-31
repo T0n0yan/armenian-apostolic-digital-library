@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buildGlossaryIndex, findGlossaryWords, lookupWord, normalizeWord, type GlossaryTerm } from "../app/utils/glossary";
 
-const term = (id: number, word: string, forms: string[] = []): GlossaryTerm => ({ id, word, forms, meaning: "", note: "", verified: false });
+const term = (id: number, word: string, forms: string[] = []): GlossaryTerm => ({ id, word, forms, meaning: "", note: "", verified: false, kind: "word" });
 const index = buildGlossaryIndex([term(1, "ամբարիշտ", ["ամբարշտ"]), term(2, "փառաբանել"), term(3, "տավիղ"), term(4, "Սիոն"), term(5, "քնար")]);
 
 test("old and new spelling read the same", () => {
