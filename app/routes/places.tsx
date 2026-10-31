@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
-import { Check, LoaderCircle, LocateFixed, MapPin, Search, Send, SlidersHorizontal, X } from "lucide-react";
+import { Check, LoaderCircle, LocateFixed, MapPin, Plus, Search, Send, SlidersHorizontal, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -289,9 +289,15 @@ export default function Places({ loaderData }: Route.ComponentProps) {
         </div>
       ) : null}
       <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|") + (searching ? `?${shownKey}` : "")} near={nearView} />
-      <a className="mx-auto mt-4 flex w-fit items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
-        <Send aria-hidden="true" size={16} /> Լրացնել քարտեզը բոտի միջոցով
-      </a>
+      {/* Adding a place: on the site (any signed-in reader, Google too) or through the bot. */}
+      <div className="mx-auto mt-4 flex flex-wrap justify-center gap-2">
+        <Link className="flex items-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13.5px] font-bold text-[#2a1708] no-underline shadow-[0_6px_16px_rgb(150_100_30/22%)]" to="/places/new">
+          <Plus aria-hidden="true" size={16} strokeWidth={2.4} /> Ավելացնել սրբավայր
+        </Link>
+        <a className="flex items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
+          <Send aria-hidden="true" size={16} /> Բոտի միջոցով
+        </a>
+      </div>
       {nearView ? (
         // Nearest first, with the distance; the visited filter of the bar applies too.
         <section className="mt-5 grid gap-2" aria-labelledby="nearby-title">

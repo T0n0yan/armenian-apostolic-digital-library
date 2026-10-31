@@ -11,7 +11,7 @@ export type Place = {
 };
 
 export type PlaceSubmission = {
-  id: number; senderName: string; placeName: string; credit: boolean | null; creditName: string; latitude: number | null; longitude: number | null;
+  id: number; senderName: string; placeName: string; fromSite: boolean; credit: boolean | null; creditName: string; latitude: number | null; longitude: number | null;
   notes: string; clergy: string; services: string; accessibility: string; kind: string; kindNote: string; region: string; active: string; liturgy: string; openHours: string; photos: string[]; videos: string[]; createdAt: string;
 };
 
@@ -99,17 +99,25 @@ export async function listOpenSubmissions(db: D1Database): Promise<PlaceSubmissi
   const { results } = await db.prepare("SELECT * FROM place_submissions WHERE status = 'open' AND submitted_at IS NOT NULL ORDER BY submitted_at DESC LIMIT 50").all<{
     id: number; sender_name: string; place_name: string; credit: number | null; credit_name: string; latitude: number | null; longitude: number | null; notes: string;
     clergy: string; services: string; accessibility: string; kind: string; kind_note: string; region: string; active: string; liturgy: string; open_hours: string;
-    photos_json: string; videos_json: string; created_at: string;
+    photos_json: string; videos_json: string; created_at: string; source?: string;
   }>();
   return results.map((row) => ({
-    id: row.id, senderName: row.sender_name, placeName: row.place_name ?? "", credit: row.credit === null ? null : Boolean(row.credit),
+    id: row.id, senderName: row.sender_name, placeName: row.place_name ?? "", fromSite: row.source === "web", credit: row.credit === null ? null : Boolean(row.credit),
     creditName: row.credit_name ?? "", clergy: row.clergy ?? "", services: row.services ?? "", accessibility: row.accessibility ?? "",
     kind: row.kind ?? "", kindNote: row.kind_note ?? "", region: row.region ?? "", active: row.active ?? "", liturgy: row.liturgy ?? "", openHours: row.open_hours ?? "", latitude: row.latitude,
     longitude: row.longitude, notes: row.notes, photos: list(row.photos_json), videos: list(row.videos_json), createdAt: row.created_at,
   }));
 }
 
-export function dismissSubmission(db: D1Database, id: number) {
+/** Photos sent with the site's form wait in R2 (photos_json "r2:<key>"); rejecting a place removes them. */
+async function removeSubmissionFiles(bucket: R2Bucket, photos: string[]) {
+  const keys = photos.filter((photo) => photo.startsWith("r2:submissions/")).map((photo) => photo.slice(3));
+  if (keys.length) await bucket.delete(keys);
+}
+
+export async function dismissSubmission(db: D1Database, bucket: R2Bucket, id: number) {
+  const row = await db.prepare("SELECT photos_json FROM place_submissions WHERE id = ?").bind(id).first<{ photos_json: string }>();
+  if (row) await removeSubmissionFiles(bucket, list(row.photos_json));
   return db.prepare("UPDATE place_submissions SET status = 'dismissed', handled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(id).run();
 }
 
@@ -215,6 +223,15 @@ export async function placeFromSubmission(db: D1Database, bucket: R2Bucket, toke
   });
   const photos: string[] = [];
   for (const fileId of submission.photos.slice(0, 12)) {
+    // From the site's form: already in R2, moved under the place.
+    if (fileId.startsWith("r2:submissions/")) {
+      const object = await bucket.get(fileId.slice(3));
+      if (!object) continue;
+      const type = object.httpMetadata?.contentType ?? "image/jpeg";
+      photos.push(await storePlaceFile(bucket, id, "photo", await object.arrayBuffer(), type));
+      await bucket.delete(fileId.slice(3));
+      continue;
+    }
     const file = await fetchTelegramFile(token, fileId);
     if (file) photos.push(await storePlaceFile(bucket, id, "photo", file.body, file.type));
   }
