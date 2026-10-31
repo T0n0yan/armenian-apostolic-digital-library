@@ -32,6 +32,11 @@ function readRemembered(path: string) {
   } catch { return null; }
 }
 
+/** Whether this page was opened from a search that lights its words up (the flash replaces the old block highlight). */
+export function hasRememberedFind(path: string) {
+  return typeof window !== "undefined" && readRemembered(path) !== null;
+}
+
 // Forgotten only once the flash has run its course, so a page drawn twice (React's checks) still shows it.
 function forget() {
   try { sessionStorage.removeItem(KEY); } catch { /* private mode */ }
@@ -39,11 +44,12 @@ function forget() {
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
-/** The words (2+ letters, longest first) as one pattern; «և» and «եւ» are the same letter. */
+/** The words (2+ letters, longest first) as one pattern; «և»/«եւ», «ե»/«է» and «ո»/«օ» count as the same. */
 export function findPattern(query: string) {
   const words = [...new Set(query.normalize("NFC").trim().split(/\s+/u).filter((word) => [...word].length >= 2))]
     .sort((a, b) => b.length - a.length)
-    .map((word) => escape(word).replace(/և|եւ/gu, "(?:և|եւ)"));
+    // Old and new spelling read the same: «Տէր» is found by «Տեր», «օրհնել» by «որհնել».
+    .map((word) => escape(word).replace(/և|եւ/gu, "\u0000").replace(/[եէ]/gu, "[եէ]").replace(/[ոօ]/gu, "[ոօ]").replace(/\u0000/gu, "(?:և|[եէ]ւ)"));
   return words.length ? new RegExp(words.join("|"), "giu") : null;
 }
 
