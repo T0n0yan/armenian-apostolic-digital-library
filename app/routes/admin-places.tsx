@@ -192,7 +192,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                   <MapPin aria-hidden="true" size={15} /> {submission.latitude.toFixed(5)}, {submission.longitude.toFixed(5)}
                 </a>
               ) : <p className="m-0 text-[13px] font-semibold text-danger">Տեղադրություն չի ուղարկվել. տեղադրեք ներքևում։</p>}
-              <Form method="post" className="grid gap-2 min-[560px]:grid-cols-[1fr_auto]">
+              <Form method="post" preventScrollReset className="grid gap-2 min-[560px]:grid-cols-[1fr_auto]">
                 <input type="hidden" name="submissionId" value={submission.id} />
                 <div className="grid gap-2">
                   <input className={fieldControl} name="name" placeholder="Տեղի անունը, օր.՝ Սուրբ Գրիգոր Լուսավորիչ" defaultValue={submission.placeName || submission.notes.split("\n")[0].replace(/^\d+\.\s*/u, "").slice(0, 80)} required />
@@ -267,7 +267,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                   {blocked.length ? <span className="text-[12px] font-semibold text-danger">Սև ցուցակ՝ «{blocked.join("», «")}». կայքում չի երևում</span> : null}
                 </span>
               </Link>
-              <Form method="post" className="flex shrink-0 flex-wrap gap-1.5" onSubmit={(event) => {
+              <Form method="post" preventScrollReset className="flex shrink-0 flex-wrap gap-1.5" onSubmit={(event) => {
                 const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
                 if (submitter?.value === "delete" && !confirm(`Ջնջե՞լ «${place.name}»-ը։ Հետագա ներմուծումը այն այլևս չի բերի։`)) event.preventDefault();
               }}>
@@ -286,7 +286,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
             {shown.length === 0 ? <p className="m-0 text-center text-[13px] text-faint">Այս ֆիլտրով տեղ չկա։</p> : null}
             {shown.length > 150 ? <p className="m-0 text-center text-[12.5px] text-faint">Ցույց է տրված 150-ը {shown.length}-ից. նեղացրեք ֆիլտրը կամ գրեք անունը։ Ներբեռնումը և պատճենումը ներառում են բոլոր {shown.length}-ը։</p> : null}
           </div>
-          <Form method="post" className="grid gap-2 border-t border-glass-border pt-3 min-[560px]:grid-cols-[1fr_1fr_auto]">
+          <Form method="post" preventScrollReset className="grid gap-2 border-t border-glass-border pt-3 min-[560px]:grid-cols-[1fr_1fr_auto]">
             <input className={fieldControl} name="name" placeholder="Նոր տեղի անունը" required />
             <input className={fieldControl} name="coordinates" placeholder="40.1617, 44.2913 կամ Google Maps-ի հղում" required />
             <button className={primaryButton} type="submit" name="intent" value="new" disabled={busy}><Plus aria-hidden="true" size={16} /> Ավելացնել</button>
@@ -358,13 +358,13 @@ function BlocklistSection({ blocklist, places, busy, error, canEdit }: { blockli
         ))}
         {blocklist.length === 0 ? <span className="text-[13px] text-faint">Ցուցակը դատարկ է։</span> : null}
       </div>
-      {canEdit ? <Form method="post" className="flex flex-wrap gap-2">
+      {canEdit ? <Form method="post" preventScrollReset className="flex flex-wrap gap-2">
         <input className={`${fieldControl} min-w-0 flex-1`} name="word" placeholder="Նոր բառ կամ անուն, օր.՝ Բեթել" required minLength={2} maxLength={60} />
         <button className={primaryButton} type="submit" name="intent" value="block-add" disabled={busy}><Plus aria-hidden="true" size={16} /> Ավելացնել</button>
       </Form> : null}
       {error ? <p className="m-0 text-[13px] text-danger">{error}</p> : null}
       {caught.length && canEdit ? (
-        <Form method="post" className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[rgb(184_72_62/10%)] px-3 py-2.5"
+        <Form method="post" preventScrollReset className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[rgb(184_72_62/10%)] px-3 py-2.5"
           onSubmit={(event) => { if (!confirm(`Ջնջե՞լ ${caught.length} տեղ, որոնց անունը սև ցուցակում է։\n\n${caught.slice(0, 20).map((place) => `• ${place.name}`).join("\n")}`)) event.preventDefault(); }}>
           <span className="text-[13px] text-ink">Սև ցուցակով բռնված է {caught.length} տեղ (տե՛ս «Սև ցուցակով» ֆիլտրը ներքևում)։</span>
           <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete-blocked" disabled={busy}><Trash2 aria-hidden="true" size={15} /> Ջնջել բոլորը</button>
