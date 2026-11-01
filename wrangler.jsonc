@@ -40,7 +40,7 @@
 			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
 			// cloud sync on GitHub (workers/app.ts).
 			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces (workers/app.ts).
-			"triggers": { "crons": ["17 0 * * *"] },
+			"triggers": { "crons": ["17 0 * * *", "7 9 * * SUN"] },
 			"durable_objects": {
 				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
 			},
@@ -81,7 +81,7 @@
 			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
 			// cloud sync on GitHub when GITHUB_SYNC_TOKEN is set (workers/app.ts).
 			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces (workers/app.ts).
-			"triggers": { "crons": ["17 0 * * *"] },
+			"triggers": { "crons": ["17 0 * * *", "7 9 * * SUN"] },
 			"durable_objects": {
 				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
 			},
