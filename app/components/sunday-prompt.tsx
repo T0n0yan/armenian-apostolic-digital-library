@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Link, useRouteLoaderData } from "react-router";
+import { useRouteLoaderData } from "react-router";
 
 import { sundayToAsk } from "../utils/liturgy";
 import { ChaliceArt } from "./chalice-art";
 
 /**
  * Կիրակնօրյա հարցը. կիրակի 13:00-ից մինչև երկուշաբթի (Երևանի ժամով), միայն մուտք գործածին։
- * Նախ՝ «Եղե՞լ եք Պատարագի», հետո՝ «Ստացե՞լ եք Հաղորդություն»։ «Ավելի ուշ»-ը թաքցնում է մինչև հաջորդ բացումը։
+ * Նախ՝ «Մասնակցե՞լ եք Պատարագին», հետո՝ «Ստացե՞լ եք Հաղորդություն», վերջում՝ Հաղորդության աղոթքը։
+ * «Փակել»-ը թաքցնում է մինչև կայքը նորից բացելը (հարցը կմնա մինչև երկուշաբթի օրվա վերջը)։
  * Տեսքը՝ «ուրիշ աշխարհ». ամբողջ էկրան, ոսկե սկիհը նշխարով, հետևում՝ պտտվող արևի շողեր։
  */
 const LATER_KEY = "library-sunday-later";
@@ -16,6 +17,7 @@ export function SundayPrompt() {
   const signedIn = Boolean((useRouteLoaderData("root") as { signedIn?: boolean } | undefined)?.signedIn);
   const [day, setDay] = useState<string | null>(null);
   const [feast, setFeast] = useState<string | null>(null);
+  const [communion, setCommunion] = useState(false);
   // «stop»՝ հաստատում «Չհարցնել այլևս»-ից առաջ, որ մարդը սխալմամբ չանջատի։
   const [step, setStep] = useState<"attended" | "communion" | "done" | "stop" | "stopped">("attended");
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,7 @@ export function SundayPrompt() {
     setBusy(false);
   };
   const later = () => { try { sessionStorage.setItem(LATER_KEY, day); } catch { /* private mode */ } setDay(null); };
+  const title = feast ? "Օրհնյալ տոն" : "Օրհնյալ կիրակի";
   const gold = "min-h-12 cursor-pointer rounded-[16px] border-0 bg-[linear-gradient(135deg,#fff3c8,#e3b24b)] px-4 text-[15px] font-bold text-[#3a2206] shadow-[0_8px_22px_rgb(240_190_90/45%)] disabled:opacity-60";
   const plain = "sunday-ghost min-h-12 cursor-pointer rounded-[16px] border px-4 text-[15px] font-bold disabled:opacity-60";
   const link = "cursor-pointer border-0 bg-transparent p-1 text-[13px] underline-offset-4 hover:underline";
@@ -55,20 +58,20 @@ export function SundayPrompt() {
         <small className="sunday-date text-[11px] font-bold tracking-[3px]">{feast ? feast.toLocaleUpperCase("hy") : dateLine}</small>
         {step === "attended" ? (
           <>
-            <h2 className="m-0 font-noto text-[30px] font-semibold">{feast ? "Տոնդ օրհնյալ" : "Օրհնյալ կիրակի"}</h2>
-            <p className="sunday-muted m-0 mb-3 text-[16px]">Այսօր եղե՞լ եք Սուրբ Պատարագի</p>
+            <h2 className="m-0 font-noto text-[30px] font-semibold">{title}</h2>
+            <p className="sunday-muted m-0 mb-3 text-[16px]">Այսօր մասնակցե՞լ եք Սուրբ Պատարագին</p>
             <div className="grid grid-cols-2 gap-2.5">
               <button className={gold} type="button" disabled={busy} onClick={() => setStep("communion")}>Այո</button>
-              <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ attended: false }); setStep("done"); }}>Այս անգամ ոչ</button>
+              <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ attended: false }); setCommunion(false); setStep("done"); }}>Այս անգամ ոչ</button>
             </div>
           </>
         ) : step === "communion" ? (
           <>
-            <h2 className="m-0 font-noto text-[28px] font-semibold">Փառք Աստծո</h2>
+            <h2 className="m-0 font-noto text-[30px] font-semibold">{title}</h2>
             <p className="sunday-muted m-0 mb-3 text-[16px]">Ստացե՞լ եք Սուրբ Հաղորդություն</p>
             <div className="grid grid-cols-2 gap-2.5">
-              <button className={gold} type="button" disabled={busy} onClick={async () => { await send({ attended: true, communion: true }); setStep("done"); }}>Այո</button>
-              <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ attended: true, communion: false }); setStep("done"); }}>Ոչ</button>
+              <button className={gold} type="button" disabled={busy} onClick={async () => { await send({ attended: true, communion: true }); setCommunion(true); setStep("done"); }}>Այո</button>
+              <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ attended: true, communion: false }); setCommunion(false); setStep("done"); }}>Ոչ</button>
             </div>
           </>
         ) : step === "stop" ? (
@@ -83,14 +86,10 @@ export function SundayPrompt() {
         ) : step === "stopped" ? (
           <p className="sunday-muted m-0 my-3 text-[15px]">Լավ, այլևս չենք հարցնի։ Նորից միացնելու համար՝ Մենյու → Կարգավորումներ → «Կիրակնօրյա հարց»։</p>
         ) : (
-          <>
-            <h2 className="m-0 font-noto text-[28px] font-semibold">Շնորհակալություն 🙏</h2>
-            <p className="sunday-muted m-0 mb-3 text-[16px]">Աստված օրհնի Ձեր շաբաթը</p>
-            <Link className={`${gold} inline-flex items-center justify-center no-underline`} to="/my-year" onClick={() => setDay(null)}>Իմ տարին</Link>
-          </>
+          <SundayPrayer withThanks={communion} onDone={() => setDay(null)} />
         )}
         <div className="sunday-muted mt-1 flex justify-center gap-5">
-          {step === "attended" || step === "communion" ? <button className={link} type="button" onClick={later}>Ավելի ուշ</button> : step !== "stop" ? <button className={link} type="button" onClick={() => setDay(null)}>Փակել</button> : null}
+          {step === "attended" || step === "communion" ? <button className={link} type="button" onClick={later}>Փակել</button> : step === "stopped" ? <button className={link} type="button" onClick={() => setDay(null)}>Փակել</button> : null}
           {step === "attended" ? <button className={`${link} opacity-70`} type="button" onClick={() => setStep("stop")}>Չհարցնել այլևս</button> : null}
         </div>
       </div>
@@ -98,3 +97,34 @@ export function SundayPrompt() {
     document.body,
   );
 }
+
+// Սբ. Հաղորդություն ստանալուց առաջ և հետո (դասական ուղղագրությամբ, ինչպես աղոթագրքում)։
+const PRAYER_BEFORE = ["Պարգեւի՛չ ողորմութեան,", "պարգեւի՛ր ինձ ուղղափառ հաւատով,", "բարի գործերով", "եւ Քո Սուրբ Մարմնի եւ Արեան հաղորդութեամբ", "գալ առ Քեզ։"];
+const PRAYER_AFTER = ["Գոհանում եմք Քեզնից,", "Քրիստո՛ս Թագաւոր մեր,", "որ կենարար Մարմնովդ եւ Սուրբ Արիւնովդ", "մեզ կենդանութիւն պարգեւեցիր.", "ամէն։"];
+const LINE_MS = 900;
+
+/**
+ * Պատասխանից հետո՝ աղոթքը, առանց վերնագրի. տողերը հայտնվում են մեկ-մեկ, լույսի պես։
+ * Հաղորդություն ստացածին՝ երկու մասն էլ («առաջ» և «հետո»), մյուսներին՝ առաջին մասը։
+ * Փակելու կոճակը երևում է, երբ աղոթքը ամբողջն է երևացել։
+ */
+function SundayPrayer({ withThanks, onDone }: { withThanks: boolean; onDone: () => void }) {
+  const parts = withThanks ? [PRAYER_BEFORE, PRAYER_AFTER] : [PRAYER_BEFORE];
+  const total = parts.flat().length;
+  let index = 0;
+  return (
+    <div className="grid gap-4 py-1">
+      {parts.map((lines, part) => (
+        <p key={part} className="sunday-prayer m-0 font-noto text-[17px] leading-[1.75] min-[560px]:text-[19px]">
+          {lines.map((line) => {
+            const delay = (index++) * LINE_MS + part * 500;
+            return <span key={line} className="sunday-prayer-line" style={{ animationDelay: `${delay}ms` }}>{line} </span>;
+          })}
+        </p>
+      ))}
+      <button className="sunday-prayer-end mx-auto min-h-11 cursor-pointer rounded-[16px] border border-[color-mix(in_srgb,var(--sunday-ink)_35%,transparent)] bg-transparent px-6 text-[14px] font-semibold text-inherit"
+        style={{ animationDelay: `${total * LINE_MS + 900}ms` }} type="button" onClick={onDone}>Ամէն</button>
+    </div>
+  );
+}
+
