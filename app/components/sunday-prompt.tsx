@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouteLoaderData } from "react-router";
 
-import { sundayToAsk } from "../utils/liturgy";
+import { sundayToAsk, yerevanDay } from "../utils/liturgy";
 import { ChaliceArt } from "./chalice-art";
 
 /**
@@ -28,7 +28,8 @@ export function SundayPrompt() {
     if (new URLSearchParams(window.location.search).get("sunday") === "preview") {
       setPreview(true);
       setStep("attended");
-      setDay(new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10));
+      // Եթե երեկ կիրակի էր՝ ցույց է տալիս «Երեկ…» տարբերակը, ինչպես իրական երկուշաբթի օրը։
+      setDay(sundayToAsk() ?? yerevanDay());
       return;
     }
     if (!signedIn) return;
@@ -49,6 +50,8 @@ export function SundayPrompt() {
     setBusy(false);
   };
   const later = () => { try { sessionStorage.setItem(LATER_KEY, day); } catch { /* private mode */ } setDay(null); };
+  // Երկուշաբթի (կամ տոնի հաջորդ օրը) հարցնում ենք «Երեկ…», ոչ թե «Այսօր…»։
+  const when = day === yerevanDay() ? "Այսօր" : "Երեկ";
   const title = feast ? "Օրհնյալ տոն" : "Օրհնյալ կիրակի";
   const gold = "min-h-12 cursor-pointer rounded-[16px] border-0 bg-[linear-gradient(135deg,#fff3c8,#e3b24b)] px-4 text-[15px] font-bold text-[#3a2206] shadow-[0_8px_22px_rgb(240_190_90/45%)] disabled:opacity-60";
   const plain = "sunday-ghost min-h-12 cursor-pointer rounded-[16px] border px-4 text-[15px] font-bold disabled:opacity-60";
@@ -68,7 +71,7 @@ export function SundayPrompt() {
         {step === "attended" ? (
           <>
             <h2 className="m-0 font-noto text-[30px] font-semibold">{title}</h2>
-            <p className="sunday-muted m-0 mb-3 text-[16px]">Այսօր մասնակցե՞լ եք Սուրբ Պատարագին</p>
+            <p className="sunday-muted m-0 mb-3 text-[16px]">{when} մասնակցե՞լ եք Սուրբ Պատարագին</p>
             <div className="grid grid-cols-2 gap-2.5">
               <button className={gold} type="button" disabled={busy} onClick={() => setStep("communion")}>Այո</button>
               <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ attended: false }); setCommunion(false); setStep("done"); }}>Այս անգամ ոչ</button>
