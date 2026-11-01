@@ -36,15 +36,15 @@ export function ChaliceArt({ size = 200, dark = "#4a2a08", className = "" }: { s
       <path d={`M${cx} ${cy - L + 1.5}V${cy + L - 1.5}M${cx - L + 1.5} ${cy}H${cx + L - 1.5}`} stroke="#c9b07e" strokeWidth=".9" fill="none" />
       {/* Սկիհը՝ սեփականատիրոջ ձևով (կոորդինատները տեղափոխված են ընդհանուր տարածք) */}
       <g transform="translate(-181.652 -37.805)">
+        {/* Վերին կցորդը գավաթից առաջ է նկարվում, որ նրա ծայրը թաքնվի գավաթի տակ */}
+        <path d="M231.326 119.222h20.652l-6.502 18.438h-8z" fill={gold} stroke={dark} strokeWidth=".6" />
         <path d="M211.652 67.805h60l-6 44c-2 10-12 16-24 16s-22-6-24-16z" fill={gold} stroke={dark} strokeWidth="1" />
-        <path d="M211.448 67.805h60" stroke="#fff6d8" strokeWidth="2.5" />
         <path d="M214.448 86.805h54M216.448 108.805h50" stroke={dark} strokeOpacity=".4" />
-        <path d="M233.476 125.672h16l-4 11.988h-8z" fill={gold} stroke={dark} strokeWidth=".6" />
         <path d="M229.582 143.152c0-8 24-8 24 0s-24 8-24 0z" fill={gold} stroke={dark} strokeWidth=".6" />
-        <path d="M237.652 148.798h8l4 20h-16z" fill={gold} stroke={dark} strokeWidth=".6" />
         <path d="M208.536 187.835l8-18h52l8 18z" fill={gold} stroke={dark} strokeWidth="1" />
-        <path d="M216.561 169.32h51.98" stroke="#fff6d8" strokeOpacity=".7" />
-        <path d="M208.558 187.92h68v5h-68z" fill={dark} opacity=".8" />
+        {/* Ստորին կցորդը հիմքի հետ մեկ մարմին է. ներքևում եզրագիծ չունի */}
+        <path d="M237.652 148.798h8l4.3 21.6h-16.6z" fill={gold} />
+        <path d="M233.35 170.4l4.302-21.602h8l4.3 21.6" fill="none" stroke={dark} strokeWidth=".6" />
       </g>
     </svg>
   );
