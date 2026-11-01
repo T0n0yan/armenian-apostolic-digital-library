@@ -690,12 +690,13 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 .sunday-world .sunday-ghost { border-color: color-mix(in srgb, var(--sunday-ink) 40%, transparent); background: color-mix(in srgb, var(--sunday-ink) 7%, transparent); color: var(--sunday-ink); }
 .sunday-sky { position: relative; min-height: 0; }
 .sunday-sky > * { position: absolute; left: 50%; top: 46%; }
-.sunday-rays { width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(var(--sunday-ray) 0 3deg, transparent 3deg 12deg);
+/* Շողերը միշտ լցնում են ամբողջ էկրանը՝ հեռախոսում և լայն համակարգչում։ */
+.sunday-rays { width: max(1400px, 220vmax); height: max(1400px, 220vmax); translate: -50% -50%; background: repeating-conic-gradient(var(--sunday-ray) 0 3deg, transparent 3deg 12deg);
   -webkit-mask: radial-gradient(circle, #000 6%, transparent 40%); mask: radial-gradient(circle, #000 6%, transparent 40%); animation: sunday-spin 60s linear infinite; }
 .sunday-rays-fine { background: repeating-conic-gradient(var(--sunday-ray-fine) 0 1.5deg, transparent 1.5deg 7deg);
   -webkit-mask: radial-gradient(circle, #000 4%, transparent 30%); mask: radial-gradient(circle, #000 4%, transparent 30%); animation-direction: reverse; animation-duration: 90s; }
-.sunday-sun { width: 230px; height: 230px; border-radius: 50%; background: var(--sunday-sun); transform: translate(-50%, -50%); animation: sunday-breathe 5s ease-in-out infinite; }
-.sunday-chalice { transform: translate(-50%, -52%); filter: drop-shadow(0 12px 20px rgb(80 40 0 / 35%)); animation: sunday-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+.sunday-sun { width: clamp(230px, 34vh, 380px); height: clamp(230px, 34vh, 380px); border-radius: 50%; background: var(--sunday-sun); transform: translate(-50%, -50%); animation: sunday-breathe 5s ease-in-out infinite; }
+.sunday-chalice { width: clamp(150px, 24vh, 260px); height: auto; transform: translate(-50%, -52%); filter: drop-shadow(0 12px 20px rgb(80 40 0 / 35%)); animation: sunday-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
 .sunday-dust { inset: 0; left: 0; top: 0; }
 .sunday-dust i { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: var(--sunday-dust); box-shadow: 0 0 6px var(--sunday-dust); animation: sunday-float 9s linear infinite; }
 @keyframes sunday-in { from { opacity: 0; } to { opacity: 1; } }
