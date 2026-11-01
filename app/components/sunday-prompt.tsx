@@ -21,8 +21,16 @@ export function SundayPrompt() {
   // «stop»՝ հաստատում «Չհարցնել այլևս»-ից առաջ, որ մարդը սխալմամբ չանջատի։
   const [step, setStep] = useState<"attended" | "communion" | "done" | "stop" | "stopped">("attended");
   const [busy, setBusy] = useState(false);
+  // Նախադիտում («Կառավարում»-ից, ?sunday=preview). բացվում է ցանկացած պահի, պատասխանը չի պահվում։
+  const [preview, setPreview] = useState(false);
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("sunday") === "preview") {
+      setPreview(true);
+      setStep("attended");
+      setDay(new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10));
+      return;
+    }
     if (!signedIn) return;
     // Հարցում ենք սերվերին միայն կիրակի/երկուշաբթի (կամ ծանուցումից եկած «?sunday=1»)։
     const fromNotice = new URLSearchParams(window.location.search).has("sunday");
@@ -35,6 +43,7 @@ export function SundayPrompt() {
 
   if (!day || typeof document === "undefined") return null;
   const send = async (body: Record<string, unknown>) => {
+    if (preview) return;
     setBusy(true);
     await fetch("/api/sunday", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
     setBusy(false);
