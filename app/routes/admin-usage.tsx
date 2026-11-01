@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Database, HardDrive, RefreshCw, Server, Timer } from "lucide-react";
+import { Activity, Database, GitBranch, HardDrive, RefreshCw, Server, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 import { data, Link, useRevalidator } from "react-router";
 
@@ -9,6 +9,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { panelSection } from "../components/ui-styles";
 import { readCloudflareUsage, type UsageEnv, type UsageMetric } from "../data/cloudflare-usage.server";
+import { readGitHubUsage, type GitHubEnv, type GitHubUsage } from "../data/github-usage.server";
 import { formatYerevanDateTime } from "../utils/armenian-date";
 
 export function meta() { return [{ title: "Կայքի վիճակը — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }]; }
@@ -16,8 +17,8 @@ export function headers() { return { "Cache-Control": "private, no-store", "X-Ro
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireOwner(request, env.DB);
-  const usage = await readCloudflareUsage(env as UsageEnv);
-  return data({ usage }, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
+  const [usage, github] = await Promise.all([readCloudflareUsage(env as UsageEnv), readGitHubUsage(env as GitHubEnv)]);
+  return data({ usage, github }, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 }
 
 /** Groups of the free plan's limits, in the order the owner reads them. */
@@ -59,9 +60,53 @@ function MetricCard({ metric }: { metric: UsageMetric }) {
   );
 }
 
+/** GitHub. Actions-ի րոպեները այս ամիս և վերջին deploy-ները (պռոդ, staging)։ */
+function GitHubSection({ github }: { github: GitHubUsage }) {
+  const percent = (github.minutes / github.limit) * 100;
+  const tone = percent >= 100 ? "text-danger" : percent >= 80 ? "text-[#c27a1d]" : "text-[#3f8f5a]";
+  const bar = percent >= 100 ? "bg-[#b8483e]" : percent >= 80 ? "bg-[#d4952c]" : "bg-[linear-gradient(90deg,#3f8f5a,#6fb37f)]";
+  const label = (deploy: GitHubUsage["deploys"][number]) => deploy.status !== "completed" ? { text: "Ընթացքում է…", tone: "text-[#c27a1d]" } : deploy.conclusion === "success" ? { text: "✓ Հաջող", tone: "text-[#3f8f5a]" } : { text: "✕ Ձախողվեց", tone: "text-danger" };
+  return (
+    <section className={`${panelSection} grid gap-3`}>
+      <h2 className="m-0 flex items-center gap-2 text-[16px] font-bold text-ink"><span className="text-gold"><GitBranch aria-hidden="true" size={18} /></span>GitHub</h2>
+      {!github.configured ? <p className="m-0 text-[13px] text-muted">GitHub-ի բանալին (GITHUB_SYNC_TOKEN) այս միջավայրում դրված չէ։</p>
+        : github.error ? <p className="m-0 text-[13px] text-danger">{github.error}</p> : (
+        <>
+          <div className="frosted-card grid gap-2 p-3.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[13px] font-semibold text-ink">Actions-ի րոպեներ այս ամիս</span>
+              <span className={`text-[13px] font-bold tabular-nums ${tone}`}>{percent < 1 && percent > 0 ? "<1" : Math.round(percent)}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.min(100, Math.max(percent, 1.5))}%` }} /></div>
+            <div className="flex items-baseline justify-between gap-2 text-[12px] text-muted tabular-nums">
+              <span>≈ {github.minutes} րոպե · {github.runs} գործարկում</span><span>սահմանը՝ {github.limit} րոպե</span>
+            </div>
+            {github.byWorkflow.length ? <div className="text-[12px] text-faint">{github.byWorkflow.slice(0, 5).map((item) => `${item.name}՝ ${item.minutes}`).join(" · ")}</div> : null}
+          </div>
+          <div className="grid gap-2.5 min-[620px]:grid-cols-2">
+            {github.deploys.map((deploy) => {
+              const state = label(deploy);
+              return (
+                <a key={deploy.branch} href={deploy.url} target="_blank" rel="noreferrer" className="frosted-card grid gap-1 p-3.5 no-underline">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[13px] font-semibold text-ink">{deploy.branch === "main" ? "Վերջին թողարկումը (apostolic.am)" : "Վերջին staging-ը"}</span>
+                    <span className={`text-[12.5px] font-bold ${state.tone}`}>{state.text}</span>
+                  </div>
+                  <span className="truncate text-[12px] text-muted">{deploy.title}</span>
+                  <span className="text-[11.5px] text-faint">{formatYerevanDateTime(deploy.at)}</span>
+                </a>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** The owner's view of the free plan: how much of each daily, monthly and storage limit is used. */
 export default function Usage({ loaderData }: Route.ComponentProps) {
-  const { usage } = loaderData;
+  const { usage, github } = loaderData;
   const revalidator = useRevalidator();
   const byId = new Map(usage.metrics.map((metric) => [metric.id, metric]));
   const worst = Math.max(0, ...usage.metrics.map((metric) => (metric.used === null ? 0 : (metric.used / metric.limit) * 100)));
@@ -97,17 +142,20 @@ export default function Usage({ loaderData }: Route.ComponentProps) {
             </div>
           </section>
         ))}
+        <GitHubSection github={github} />
         <details className={`${panelSection} text-[12.5px] leading-relaxed text-muted`}>
           <summary className="cursor-pointer text-[13px] font-semibold text-ink"><Server aria-hidden="true" size={15} className="mr-1.5 inline text-gold" />Ինչ են նշանակում թվերը</summary>
           <div className="mt-2 grid gap-2">
             <p className="m-0">Թվերը ամբողջ Cloudflare հաշվինն են՝ պռոդ, staging և նույն հաշվի այլ նախագծեր միասին։ Կարող են ուշանալ մի քանի րոպե։</p>
             <p className="m-0">Սահմանները անվճար փաթեթինն են (Workers Free, D1, R2 Standard)։ Սա հաշիվ-ապրանքագիր չէ, այլ մոտավոր հսկողություն։</p>
+            <p className="m-0">GitHub-ի րոպեները մոտավոր են (ամեն գործարկում՝ կլորացված վերև)։ Սահմանը հասնելիս գանձում չկա. մինչև ամսվա վերջ deploy-ը կկանգնի, կայքը կաշխատի։ Ճշգրիտ թիվը՝ GitHub → Settings → Billing → Usage։</p>
             <p className="m-0">Workers-ի CPU-ն և Durable Objects-ի ժամանակը այստեղ չեն հաշվվում. դրանք նայեք Cloudflare-ում։</p>
           </div>
         </details>
         <div className="flex flex-wrap gap-4 px-1 text-[13px]">
           <Link className="text-gold-bright" to="/admin/media-inventory"><Database aria-hidden="true" size={14} className="mr-1 inline" />Պահեստի չօգտագործվող ֆայլերը →</Link>
           <a className="text-gold-bright" href="https://dash.cloudflare.com/" target="_blank" rel="noreferrer">Cloudflare-ի ամբողջական էջը ↗</a>
+          <a className="text-gold-bright" href="https://github.com/settings/billing/usage" target="_blank" rel="noreferrer">GitHub-ի ծախսը ↗</a>
         </div>
       </div>
     </PageShell>
