@@ -8,10 +8,8 @@ import { ChaliceArt } from "./chalice-art";
 /**
  * Կիրակնօրյա հարցը. կիրակի 13:00-ից մինչև երկուշաբթի (Երևանի ժամով), միայն մուտք գործածին։
  * Նախ՝ «Մասնակցե՞լ եք Պատարագին», հետո՝ «Ստացե՞լ եք Հաղորդություն», վերջում՝ Հաղորդության աղոթքը։
- * «Փակել»-ը թաքցնում է մինչև կայքը նորից բացելը (հարցը կմնա մինչև երկուշաբթի օրվա վերջը)։
  * Տեսքը՝ «ուրիշ աշխարհ». ամբողջ էկրան, ոսկե սկիհը նշխարով, հետևում՝ պտտվող արևի շողեր։
  */
-const LATER_KEY = "library-sunday-later";
 
 export function SundayPrompt() {
   const signedIn = Boolean((useRouteLoaderData("root") as { signedIn?: boolean } | undefined)?.signedIn);
@@ -37,7 +35,6 @@ export function SundayPrompt() {
     const fromNotice = new URLSearchParams(window.location.search).has("sunday");
     const window_ = sundayToAsk();
     if (!window_ && !fromNotice) return;
-    try { if (!fromNotice && sessionStorage.getItem(LATER_KEY) === window_) return; } catch { /* private mode */ }
     void fetch("/api/sunday").then((response) => response.json() as Promise<{ ask: boolean; day: string | null; feast: string | null }>)
       .then((answer) => { if (answer.ask && answer.day) { setDay(answer.day); setFeast(answer.feast); } }).catch(() => undefined);
   }, [signedIn]);
@@ -49,7 +46,6 @@ export function SundayPrompt() {
     await fetch("/api/sunday", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
     setBusy(false);
   };
-  const later = () => { try { sessionStorage.setItem(LATER_KEY, day); } catch { /* private mode */ } setDay(null); };
   // Երկուշաբթի (կամ տոնի հաջորդ օրը) հարցնում ենք «Երեկ…», ոչ թե «Այսօր…»։
   const when = day === yerevanDay() ? "Այսօր" : "Երեկ";
   const title = feast ? "Օրհնյալ տոն" : "Օրհնյալ կիրակի";
@@ -101,7 +97,7 @@ export function SundayPrompt() {
           <SundayPrayer withThanks={communion} onDone={() => setDay(null)} />
         )}
         <div className="sunday-muted mt-1 flex justify-center gap-5">
-          {step === "attended" || step === "communion" ? <button className={link} type="button" onClick={later}>Փակել</button> : step === "stopped" ? <button className={link} type="button" onClick={() => setDay(null)}>Փակել</button> : null}
+          {step === "stopped" ? <button className={link} type="button" onClick={() => setDay(null)}>Փակել</button> : null}
           {step === "attended" ? <button className={`${link} opacity-70`} type="button" onClick={() => setStep("stop")}>Չհարցնել այլևս</button> : null}
         </div>
       </div>
