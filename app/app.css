@@ -661,3 +661,47 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 .glossary-card[data-side="below"] { transform-origin: 50% 0%; }
 @keyframes glossary-in { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .glossary-card { animation: none; } }
+
+/* Կիրակնօրյա պատուհան՝ «ուրիշ աշխարհ» (components/sunday-prompt.tsx)։ Գիշերային լռելյայն, ցերեկայինը՝ բաց թեմայում։ */
+.sunday-world {
+  --sunday-bg: radial-gradient(circle at 50% 36%, #3d2810 0, #1a1008 48%, #0a0604 100%);
+  --sunday-ink: #fbecc4; --sunday-muted: rgb(251 236 196 / 78%); --sunday-date: #d9b468; --sunday-outline: #4a2a08;
+  --sunday-ray: rgb(255 214 120 / 30%); --sunday-ray-fine: rgb(255 240 190 / 14%);
+  --sunday-sun: radial-gradient(circle, #fff6d0 0, #f7d27a 40%, rgb(240 190 90 / 0) 70%);
+  --sunday-dust: #ffe6a6;
+  background: var(--sunday-bg); color: var(--sunday-ink);
+  animation: sunday-in 900ms ease-out both;
+}
+:root[data-theme="light"] .sunday-world {
+  --sunday-bg: radial-gradient(circle at 50% 36%, #fffef8 0, #fbf0d4 45%, #ecd9ae 100%);
+  --sunday-ink: #4a2e0e; --sunday-muted: rgb(74 46 14 / 78%); --sunday-date: #a0712a; --sunday-outline: #5a3408;
+  --sunday-ray: rgb(222 165 60 / 30%); --sunday-ray-fine: rgb(255 210 120 / 22%);
+  --sunday-sun: radial-gradient(circle, #fff 0, #ffe7a8 40%, rgb(255 220 140 / 0) 70%);
+  --sunday-dust: #e7b34f;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme]) .sunday-world {
+  --sunday-bg: radial-gradient(circle at 50% 36%, #fffef8 0, #fbf0d4 45%, #ecd9ae 100%);
+  --sunday-ink: #4a2e0e; --sunday-muted: rgb(74 46 14 / 78%); --sunday-date: #a0712a; --sunday-outline: #5a3408;
+  --sunday-ray: rgb(222 165 60 / 30%); --sunday-ray-fine: rgb(255 210 120 / 22%);
+  --sunday-sun: radial-gradient(circle, #fff 0, #ffe7a8 40%, rgb(255 220 140 / 0) 70%); --sunday-dust: #e7b34f;
+} }
+.sunday-world .sunday-muted { color: var(--sunday-muted); }
+.sunday-world .sunday-date { color: var(--sunday-date); }
+.sunday-world .sunday-ghost { border-color: color-mix(in srgb, var(--sunday-ink) 40%, transparent); background: color-mix(in srgb, var(--sunday-ink) 7%, transparent); color: var(--sunday-ink); }
+.sunday-sky { position: relative; min-height: 0; }
+.sunday-sky > * { position: absolute; left: 50%; top: 46%; }
+.sunday-rays { width: 1400px; height: 1400px; margin: -700px 0 0 -700px; background: repeating-conic-gradient(var(--sunday-ray) 0 3deg, transparent 3deg 12deg);
+  -webkit-mask: radial-gradient(circle, #000 6%, transparent 40%); mask: radial-gradient(circle, #000 6%, transparent 40%); animation: sunday-spin 60s linear infinite; }
+.sunday-rays-fine { background: repeating-conic-gradient(var(--sunday-ray-fine) 0 1.5deg, transparent 1.5deg 7deg);
+  -webkit-mask: radial-gradient(circle, #000 4%, transparent 30%); mask: radial-gradient(circle, #000 4%, transparent 30%); animation-direction: reverse; animation-duration: 90s; }
+.sunday-sun { width: 230px; height: 230px; border-radius: 50%; background: var(--sunday-sun); transform: translate(-50%, -50%); animation: sunday-breathe 5s ease-in-out infinite; }
+.sunday-chalice { transform: translate(-50%, -52%); filter: drop-shadow(0 12px 20px rgb(80 40 0 / 35%)); animation: sunday-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+.sunday-dust { inset: 0; left: 0; top: 0; }
+.sunday-dust i { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: var(--sunday-dust); box-shadow: 0 0 6px var(--sunday-dust); animation: sunday-float 9s linear infinite; }
+@keyframes sunday-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sunday-spin { to { transform: rotate(360deg); } }
+@keyframes sunday-breathe { 0%, 100% { opacity: .9; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.07); } }
+@keyframes sunday-rise { from { opacity: 0; transform: translate(-50%, -44%) scale(.94); } to { opacity: 1; transform: translate(-50%, -52%); } }
+@keyframes sunday-float { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-80vh); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .sunday-world, .sunday-world * { animation: none !important; } }
+html[data-motion="reduced"] .sunday-world, html[data-motion="reduced"] .sunday-world * { animation: none !important; }
