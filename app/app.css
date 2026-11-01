@@ -706,12 +706,13 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 @keyframes sunday-float { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-80vh); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .sunday-world, .sunday-world * { animation: none !important; } }
 html[data-motion="reduced"] .sunday-world, html[data-motion="reduced"] .sunday-world * { animation: none !important; }
-/* Աղոթքի տողերը՝ մեկ-մեկ, մշուշից դեպի լույս։ */
-.sunday-prayer-line { display: inline; opacity: 0; filter: blur(6px); animation: sunday-line 1.6s ease-out forwards; }
+/* Աղոթքի տառերը՝ մեկ-մեկ, թեթև լույսով (components/sunday-prompt.tsx)։ */
+.sunday-letter { display: inline-block; opacity: 0; animation: sunday-letter 420ms ease-out forwards; }
+@keyframes sunday-letter { 0% { opacity: 0; transform: translateY(3px); text-shadow: 0 0 14px rgb(255 214 120 / 90%); } 60% { opacity: 1; } 100% { opacity: 1; transform: none; text-shadow: none; } }
 .sunday-prayer-end { opacity: 0; animation: sunday-in 900ms ease-out forwards; }
 @keyframes sunday-line { to { opacity: 1; filter: blur(0); } }
-@media (prefers-reduced-motion: reduce) { .sunday-prayer-line, .sunday-prayer-end { opacity: 1; filter: none; } }
-html[data-motion="reduced"] .sunday-prayer-line, html[data-motion="reduced"] .sunday-prayer-end { opacity: 1; filter: none; }
+@media (prefers-reduced-motion: reduce) { .sunday-letter, .sunday-prayer-end { opacity: 1; filter: none; } }
+html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-prayer-end { opacity: 1; filter: none; }
 /* Աղոթքը՝ աղոթքների տառատեսակով (առանց թռչնագրի), ապակյա վահանակի վրա։ */
 .sunday-prayer { font-family: var(--font-book); }
 .sunday-glass {

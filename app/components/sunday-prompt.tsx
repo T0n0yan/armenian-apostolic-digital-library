@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouteLoaderData } from "react-router";
 
@@ -110,31 +110,38 @@ export function SundayPrompt() {
 // Սբ. Հաղորդություն ստանալուց առաջ և հետո (դասական ուղղագրությամբ, ինչպես աղոթագրքում)։
 const PRAYER_BEFORE = ["Պարգեւի՛չ ողորմութեան,", "պարգեւի՛ր ինձ ուղղափառ հաւատով,", "բարի գործերով", "եւ Քո Սուրբ Մարմնի եւ Արեան հաղորդութեամբ", "գալ առ Քեզ։"];
 const PRAYER_AFTER = ["Գոհանում եմք Քեզնից,", "Քրիստո՛ս Թագաւոր մեր,", "որ կենարար Մարմնովդ եւ Սուրբ Արիւնովդ", "մեզ կենդանութիւն պարգեւեցիր.", "ամէն։"];
-const LINE_MS = 900;
+// Տառերը հայտնվում են մեկ-մեկ, արագ (ինչպես գրիչով), բառերը տողից տող չեն կտրվում։
+const LETTER_MS = 26;
+const PAUSE_MS = 500;
 
 /**
- * Պատասխանից հետո՝ աղոթքը, առանց վերնագրի. տողերը հայտնվում են մեկ-մեկ, լույսի պես։
+ * Պատասխանից հետո՝ աղոթքը, առանց վերնագրի, ապակյա վահանակի վրա. տառերը հայտնվում են մեկ-մեկ։
  * Հաղորդություն ստացածին՝ երկու մասն էլ («առաջ» և «հետո»), մյուսներին՝ առաջին մասը։
- * Փակելու կոճակը երևում է, երբ աղոթքը ամբողջն է երևացել։
+ * «Ամէն» կոճակը երևում է, երբ աղոթքը ամբողջն է գրվել։
  */
 function SundayPrayer({ withThanks, onDone }: { withThanks: boolean; onDone: () => void }) {
   const parts = withThanks ? [PRAYER_BEFORE, PRAYER_AFTER] : [PRAYER_BEFORE];
-  const total = parts.flat().length;
-  let index = 0;
+  let letter = 0;
+  const paragraphs = parts.map((lines, part) => {
+    const words = lines.join(" ").split(" ");
+    // Բառը՝ չկտրվող խումբ, բառերի միջև՝ սովորական բացատ (տողը կարող է այնտեղ ընդհատվել)։
+    const content = words.map((word, wordIndex) => (
+      <Fragment key={wordIndex}>
+        <span className="inline-block whitespace-nowrap">
+          {[...word].map((character, index) => <span key={index} className="sunday-letter" style={{ animationDelay: `${(letter++) * LETTER_MS + part * PAUSE_MS}ms` }}>{character}</span>)}
+        </span>
+        {wordIndex < words.length - 1 ? " " : null}
+      </Fragment>
+    ));
+    return <p key={part} className="sunday-prayer m-0 text-[19px] leading-[1.8] min-[560px]:text-[21px]">{content}</p>;
+  });
+  const end = letter * LETTER_MS + parts.length * PAUSE_MS + 400;
   return (
     // Ապակյա վահանակ աղոթքի հետևում, որ տեքստը շողերի վրա հեշտ կարդացվի։
     <div className="sunday-glass grid gap-4 rounded-[24px] px-5 py-5">
-      {parts.map((lines, part) => (
-        <p key={part} className="sunday-prayer m-0 text-[19px] leading-[1.8] min-[560px]:text-[21px]">
-          {lines.map((line) => {
-            const delay = (index++) * LINE_MS + part * 500;
-            return <span key={line} className="sunday-prayer-line" style={{ animationDelay: `${delay}ms` }}>{line} </span>;
-          })}
-        </p>
-      ))}
+      {paragraphs}
       <button className="sunday-prayer-end mx-auto min-h-11 cursor-pointer rounded-[16px] border border-[color-mix(in_srgb,var(--sunday-ink)_35%,transparent)] bg-transparent px-6 text-[14px] font-semibold text-inherit"
-        style={{ animationDelay: `${total * LINE_MS + 900}ms` }} type="button" onClick={onDone}>Ամէն</button>
+        style={{ animationDelay: `${end}ms` }} type="button" onClick={onDone}>Ամէն</button>
     </div>
   );
 }
-
