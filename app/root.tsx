@@ -28,6 +28,7 @@ import {InstallPrompt} from "./components/install-prompt";
 import { ReminderAlarm } from "./components/reminder-alarm";
 import { NavigationProgress } from "./components/navigation-progress";
 import { GlossaryLayer } from "./components/glossary-layer";
+import { SundayPrompt } from "./components/sunday-prompt";
 import "./app.css";
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
@@ -425,6 +426,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <ReminderError />
     <NavigationProgress />
     <GlossaryLayer />
+    <SundayPrompt />
   </>;
 }
 

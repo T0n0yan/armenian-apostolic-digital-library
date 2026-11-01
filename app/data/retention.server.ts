@@ -1,3 +1,5 @@
+import { archiveOldYears } from "./liturgy.server";
+
 /**
  * Nightly clean-up (workers/app.ts `scheduled`). Everywhere: unfinished /place conversations and what
  * they entered after a day, and a submission the team has handled after 30 days (the place itself keeps only the name the
@@ -20,4 +22,6 @@ export async function removeOldData(db: D1Database, testDataDays?: string) {
     );
   }
   await db.batch(statements);
+  // Փետրվարի 1-ից՝ նախորդ տարվա օրական գրառումները դառնում են մեկ ամփոփ տող (liturgy.server.ts)։
+  await archiveOldYears(db).catch((error: unknown) => console.error("year archive", error));
 }

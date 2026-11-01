@@ -54,6 +54,9 @@ export default [
   route("api/place-visits", "routes/place-visits.ts"),
   route("api/places-search", "routes/places-search.ts"),
   route("api/glossary", "routes/glossary-api.ts"),
+  route("api/sunday", "routes/sunday-api.ts"),
+  route("api/my-summary", "routes/my-summary-api.ts"),
+  route("my-year", "routes/my-year.tsx"),
   route("admin/glossary", "routes/admin-glossary.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.

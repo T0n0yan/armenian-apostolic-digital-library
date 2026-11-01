@@ -3,6 +3,8 @@ import { DurableObject } from "cloudflare:workers";
 import { nextReminderTime, sendDueReminders } from "../app/data/reminders.server";
 import { pushKeysFrom } from "../app/data/web-push.server";
 import { dispatchCloudSync } from "../app/data/site-refresh.server";
+import { sendSundayBatch } from "../app/data/sunday-notify.server";
+import { sundayToAsk } from "../app/utils/liturgy";
 
 /** How long after the last new post in the group the sync starts (posts often come in a row). */
 export const SYNC_DELAY_MS = 15 * 60_000;
@@ -23,7 +25,8 @@ type ClockEnv = {
  * The site's alarm clock, in place of a cron that woke the Worker every minute. Two instances:
  * - "sync": a new post in the group sets it 15 minutes ahead (each further post moves it again),
  *   then the Telegram → cloud sync starts once for the whole batch;
- * - "reminders": set to the next reminder's minute; it sends what is due and sets itself again.
+ * - "reminders": set to the next reminder's minute; it sends what is due and sets itself again;
+ * - "sunday": կիրակի 13:00-ին ուղարկում է կիրակնօրյա ծանուցումը խմբերով (sendSundayBatch)։
  */
 export class Clock extends DurableObject<ClockEnv> {
   /** Starts the sync 15 minutes after the latest call. */
@@ -46,8 +49,31 @@ export class Clock extends DurableObject<ClockEnv> {
     return at;
   }
 
+  /** Կիրակնօրյա ծանուցման սկիզբը (cron-ից)։ */
+  async startSunday() {
+    const day = sundayToAsk();
+    if (!day || await this.ctx.storage.get<string>("sundayDone") === day) return;
+    await this.ctx.storage.put("job", "sunday");
+    await this.ctx.storage.put("sundayDay", day);
+    await this.ctx.storage.put("sundayCursor", "");
+    await this.ctx.storage.setAlarm(Date.now() + 1_000);
+  }
+
   async alarm() {
     const job = await this.ctx.storage.get<string>("job");
+    if (job === "sunday") {
+      const day = await this.ctx.storage.get<string>("sundayDay");
+      if (!day || !this.env.PUBLIC_URL) return;
+      const next = await sendSundayBatch(this.env.DB, day, await this.ctx.storage.get<string>("sundayCursor") ?? "", {
+        token: this.env.TELEGRAM_BOT_TOKEN?.trim() || null,
+        publicUrl: this.env.PUBLIC_URL.replace(/\/$/u, ""),
+        pushKeys: pushKeysFrom(this.env),
+      });
+      // Հաջորդ խումբը՝ 2 վայրկյանից, մինչև բոլորը ստանան։
+      if (next !== null) { await this.ctx.storage.put("sundayCursor", next); await this.ctx.storage.setAlarm(Date.now() + 2_000); }
+      else await this.ctx.storage.put("sundayDone", day);
+      return;
+    }
     if (job === "sync") {
       const started = await dispatchCloudSync(this.env).catch(() => false);
       // Bounded retry: 1, 2, 4, 8, 16 minutes. Nightly reconciliation remains the fallback.
