@@ -7,7 +7,7 @@ import { sundayRecipients } from "./liturgy.server";
  */
 const BATCH = 12;
 const TITLE = "🕊 Օրհնյալ կիրակի";
-const BODY = "Այսօր եղե՞լ եք Սուրբ Պատարագի։ Նշեք Ձեր տարվա ճանապարհում։";
+const BODY = "Այսօր մասնակցե՞լ եք Սուրբ Պատարագին։ Նշեք Ձեր տարվա ճանապարհում։";
 
 type Options = { token: string | null; publicUrl: string; pushKeys: PushKeys | null };
 
