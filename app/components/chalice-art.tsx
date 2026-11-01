@@ -21,7 +21,8 @@ export function ChaliceArt({ size = 200, dark = "#4a2a08", className = "" }: { s
   return (
     <svg className={className} width={size} height={size * 1.4} viewBox="0 -8 120 168" aria-hidden="true">
       <defs>
-        <linearGradient id={`gold-${id}`} x1="0" x2="1">
+        {/* Մեկ ընդհանուր փայլ ամբողջ սկիհի համար (սկիհի կոորդինատներով), որ բոլոր մասերում նույն գծով լինի */}
+                <linearGradient id={`gold-${id}`} gradientUnits="userSpaceOnUse" x1="208.5" x2="282" y1="0" y2="0">
           <stop offset="0" stopColor="#7a4a12" /><stop offset=".22" stopColor="#d9a84a" /><stop offset=".45" stopColor="#fff4cc" /><stop offset=".6" stopColor="#e9c46a" /><stop offset="1" stopColor="#6e420f" />
         </linearGradient>
         <radialGradient id={`host-${id}`} cx=".45" cy=".35" r=".65">
