@@ -31,3 +31,17 @@ test("streaks and the yearly clean-up date", () => {
   assert.equal(archiveBefore(at("2027-01-20T10:00:00Z")), "2026-01-01");
   assert.equal(archiveBefore(at("2027-02-01T10:00:00Z")), "2027-01-01");
 });
+
+test("great feasts on weekdays are asked too", async () => {
+  const { easterDay, feastOn, canMarkDay } = await import("../app/utils/liturgy");
+  assert.equal(easterDay(2026), "2026-04-05");
+  assert.equal(easterDay(2027), "2027-03-28");
+  assert.equal(feastOn("2026-04-02"), "Ավագ Հինգշաբթի");
+  assert.equal(feastOn("2026-05-14"), "Համբարձում");
+  assert.equal(feastOn("2027-01-06"), "Սուրբ Ծնունդ և Աստվածահայտնություն");
+  assert.equal(sundayToAsk(Date.parse("2027-01-06T10:00:00Z")), "2027-01-06"); // չորեքշաբթի, Ծնունդ
+  assert.equal(sundayToAsk(Date.parse("2027-01-07T10:00:00Z")), "2027-01-06");
+  assert.equal(canMarkDay("2026-11-01", Date.parse("2026-11-20T10:00:00Z")), true);
+  assert.equal(canMarkDay("2026-10-01", Date.parse("2026-11-20T10:00:00Z")), false);
+  assert.equal(canMarkDay("2026-11-21", Date.parse("2026-11-20T10:00:00Z")), false);
+});

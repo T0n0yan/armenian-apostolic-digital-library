@@ -15,7 +15,7 @@ function database() {
     CREATE TABLE saved_verses (user_id TEXT, saved_at TEXT);
     CREATE TABLE push_subscriptions (user_id TEXT, endpoint TEXT, p256dh TEXT, auth TEXT);
     CREATE TABLE places (id TEXT PRIMARY KEY, name TEXT);`);
-  for (const file of ["0021_reading_log", "0023_reading_log_watch", "0033_place_visits", "0043_liturgy_year"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
+  for (const file of ["0021_reading_log", "0023_reading_log_watch", "0033_place_visits", "0043_liturgy_year", "0044_liturgy_note"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
   const statement = (sql: string, values: unknown[] = []) => ({
     bind: (...next: unknown[]) => statement(sql, next),
     run: async () => { sqlite.prepare(sql).run(...(values as never[])); return { success: true }; },
@@ -31,14 +31,14 @@ const SUNDAY_2PM = Date.parse("2026-11-08T10:00:00Z"); // կիրակի 14:00 Ե�
 test("the Sunday question: asked once, not after an answer or «don't ask again»", async () => {
   const { db, sqlite } = database();
   sqlite.exec("INSERT INTO app_users (id, telegram_id) VALUES ('a', '111'), ('b', 'google:x'), ('c', '333')");
-  assert.deepEqual(await sundayQuestion(db, "a", SUNDAY_2PM), { day: "2026-11-08", ask: true });
+  assert.deepEqual(await sundayQuestion(db, "a", SUNDAY_2PM), { day: "2026-11-08", ask: true, feast: null });
   assert.deepEqual((await sundayRecipients(db, "2026-11-08", "", 10)).map((row) => row.id), ["a", "c"]);
   await saveSundayAnswer(db, "a", "2026-11-08", true, true);
   await setSundayPrompt(db, "c", false);
   assert.equal((await sundayQuestion(db, "a", SUNDAY_2PM)).ask, false);
   assert.equal((await sundayQuestion(db, "c", SUNDAY_2PM)).ask, false);
   assert.deepEqual(await sundayRecipients(db, "2026-11-08", "", 10), []);
-  assert.deepEqual(await sundayQuestion(db, "a", Date.parse("2026-11-11T10:00:00Z")), { day: null, ask: false });
+  assert.deepEqual(await sundayQuestion(db, "a", Date.parse("2026-11-11T10:00:00Z")), { day: null, ask: false, feast: null });
 });
 
 test("a month and a year add up, and old years become one summary line", async () => {

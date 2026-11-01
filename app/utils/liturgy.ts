@@ -9,16 +9,54 @@ export function yerevanDay(now = Date.now()) {
   return new Date(now + YEREVAN_MS).toISOString().slice(0, 10);
 }
 
+/** Զատկի օրը (Գրիգորյան օրացույց, ինչպես Հայ Առաքելական Եկեղեցում)՝ YYYY-MM-DD։ */
+export function easterDay(year: number) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+const shift = (day: string, days: number) => new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
 /**
- * Որ կիրակիի մասին է հարցը. կիրակի 13:00-ից մինչև երկուշաբթի օրվա վերջը (Երևանի ժամով)։
+ * Մեծ տոներ, որոնք կարող են լինել ոչ կիրակի (կիրակիները առանց այդ էլ հարցվում են)։
+ * ⚑ Ճշտել հոգևորականի հետ։
+ */
+export function feastOn(day: string): string | null {
+  const year = Number(day.slice(0, 4));
+  const fixed: Record<string, string> = { "01-06": "Սուրբ Ծնունդ և Աստվածահայտնություն", "02-14": "Տեառնընդառաջ", "04-07": "Ավետում" };
+  if (fixed[day.slice(5)]) return fixed[day.slice(5)];
+  const easter = easterDay(year);
+  if (day === shift(easter, -3)) return "Ավագ Հինգշաբթի";
+  if (day === shift(easter, 39)) return "Համբարձում";
+  return null;
+}
+
+/** Արդյոք այդ օրը հարցնում ենք Պատարագի մասին (կիրակի կամ մեծ տոն)։ */
+export function isLiturgyDay(day: string) {
+  return new Date(`${day}T00:00:00Z`).getUTCDay() === 0 || feastOn(day) !== null;
+}
+
+/**
+ * Որ օրվա մասին է հարցը. կիրակի (կամ մեծ տոն) 13:00-ից մինչև հաջորդ օրվա վերջը (Երևանի ժամով)։
  * Մյուս ժամերին՝ null (հարց չկա)։
  */
 export function sundayToAsk(now = Date.now()) {
   const local = new Date(now + YEREVAN_MS);
-  const weekday = local.getUTCDay();
-  if (weekday === 0 && local.getUTCHours() >= 13) return local.toISOString().slice(0, 10);
-  if (weekday === 1) return new Date(now + YEREVAN_MS - 86_400_000).toISOString().slice(0, 10);
-  return null;
+  const today = local.toISOString().slice(0, 10);
+  if (local.getUTCHours() >= 13 && isLiturgyDay(today)) return today;
+  const yesterday = shift(today, -1);
+  return isLiturgyDay(yesterday) ? yesterday : null;
+}
+
+/** Ձեռքով կարելի է նշել այսօրը և վերջին 30 օրը (ոչ ապագա)։ */
+export function canMarkDay(day: string, now = Date.now()) {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) return false;
+  const today = yerevanDay(now);
+  return day <= today && day >= shift(today, -30);
 }
 
 /** «2026» → ամբողջ տարին, «2026-11» → նոյեմբերը։ Սխալ ձևի դեպքում՝ null։ */

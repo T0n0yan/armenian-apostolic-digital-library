@@ -2,8 +2,8 @@ import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/sunday-api";
 import { getOptionalTelegramUser, requireSameOriginUserRequest, requireTelegramUser, upsertAppUser } from "../auth/telegram-user.server";
-import { saveSundayAnswer, setSundayPrompt, sundayPromptOn, sundayQuestion } from "../data/liturgy.server";
-import { sundayToAsk } from "../utils/liturgy";
+import { removeLiturgyMark, saveSundayAnswer, setSundayPrompt, sundayPromptOn, sundayQuestion } from "../data/liturgy.server";
+import { canMarkDay, sundayToAsk } from "../utils/liturgy";
 
 const privateJson = { "Cache-Control": "private, no-store" };
 
@@ -17,16 +17,25 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 /**
  * { attended, communion } — պատասխանը այս կիրակիի համար,
- * { prompt: false | true } — «Չհարցնել այլևս» կամ նորից միացնել։
+ * { prompt: false | true } — «Չհարցնել այլևս» կամ նորից միացնել,
+ * { day, attended, communion, note } — ձեռքով նշում ցանկացած օրվա համար (այսօր և վերջին 30 օրը),
+ * { day, remove: true } — ձեռքով նշածը հանել։
  */
 export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
   const user = await requireTelegramUser(request);
-  const body = (await request.json().catch(() => null)) as { attended?: unknown; communion?: unknown; prompt?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { attended?: unknown; communion?: unknown; prompt?: unknown; day?: unknown; note?: unknown; remove?: unknown } | null;
   await upsertAppUser(env.DB, user);
   if (typeof body?.prompt === "boolean") {
     await setSundayPrompt(env.DB, user.id, body.prompt);
     return Response.json({ ok: true }, { headers: privateJson });
+  }
+  // Ձեռքով նշում. ցանկացած օր՝ այսօր կամ վերջին 30 օրը (տոներ, եկեղեցու սրբի հիշատակություն)։
+  if (typeof body?.day === "string") {
+    if (!canMarkDay(body.day)) return Response.json({ ok: false }, { status: 400, headers: privateJson });
+    if (body.remove === true) await removeLiturgyMark(env.DB, user.id, body.day);
+    else await saveSundayAnswer(env.DB, user.id, body.day, true, body.communion === true, typeof body.note === "string" ? body.note.trim() : "");
+    return Response.json({ ok: true, day: body.day }, { headers: privateJson });
   }
   const day = sundayToAsk();
   if (!day || typeof body?.attended !== "boolean") return Response.json({ ok: false }, { status: 400, headers: privateJson });
