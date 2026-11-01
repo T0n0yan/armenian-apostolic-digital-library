@@ -14,7 +14,9 @@ const LATER_KEY = "library-sunday-later";
 export function SundayPrompt() {
   const signedIn = Boolean((useRouteLoaderData("root") as { signedIn?: boolean } | undefined)?.signedIn);
   const [day, setDay] = useState<string | null>(null);
-  const [step, setStep] = useState<"attended" | "communion" | "done">("attended");
+  const [feast, setFeast] = useState<string | null>(null);
+  // «stop»՝ հաստատում «Չհարցնել այլևս»-ից առաջ, որ մարդը սխալմամբ չանջատի։
+  const [step, setStep] = useState<"attended" | "communion" | "done" | "stop" | "stopped">("attended");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -24,8 +26,8 @@ export function SundayPrompt() {
     const window_ = sundayToAsk();
     if (!window_ && !fromNotice) return;
     try { if (!fromNotice && sessionStorage.getItem(LATER_KEY) === window_) return; } catch { /* private mode */ }
-    void fetch("/api/sunday").then((response) => response.json() as Promise<{ ask: boolean; day: string | null }>)
-      .then((answer) => { if (answer.ask && answer.day) setDay(answer.day); }).catch(() => undefined);
+    void fetch("/api/sunday").then((response) => response.json() as Promise<{ ask: boolean; day: string | null; feast: string | null }>)
+      .then((answer) => { if (answer.ask && answer.day) { setDay(answer.day); setFeast(answer.feast); } }).catch(() => undefined);
   }, [signedIn]);
 
   if (!day || typeof document === "undefined") return null;
@@ -42,7 +44,7 @@ export function SundayPrompt() {
     <div className="fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+90px)] z-[2060] mx-auto grid max-w-[460px] gap-3 rounded-[22px] border border-[rgb(217_181_111/55%)] bg-[var(--page-bg)] p-4 text-center shadow-[0_22px_50px_rgb(40_20_10/32%)]" role="dialog" aria-label="Կիրակնօրյա հարց">
       {step === "attended" ? (
         <>
-          <strong className="text-[17px] text-ink">🕊 Օրհնյալ կիրակի</strong>
+          <strong className="text-[17px] text-ink">🕊 {feast ?? "Օրհնյալ կիրակի"}</strong>
           <p className="m-0 text-[15px] text-ink">Այսօր եղե՞լ եք Սուրբ Պատարագի։</p>
           <div className="grid grid-cols-2 gap-2">
             <button className={gold} type="button" disabled={busy} onClick={() => setStep("communion")}>Այո</button>
@@ -57,6 +59,17 @@ export function SundayPrompt() {
             <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ attended: true, communion: false }); setStep("done"); }}>Ոչ</button>
           </div>
         </>
+      ) : step === "stop" ? (
+        <>
+          <p className="m-0 text-[15px] text-ink">Այլևս չհարցնե՞լ կիրակի օրերին։</p>
+          <p className="m-0 text-[12.5px] text-muted">Կարող եք նորից միացնել ցանկացած պահի՝ Մենյու → Կարգավորումներ։</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button className={plain} type="button" disabled={busy} onClick={async () => { await send({ prompt: false }); setStep("stopped"); }}>Այո, չհարցնել</button>
+            <button className={gold} type="button" onClick={() => setStep("attended")}>Հետ</button>
+          </div>
+        </>
+      ) : step === "stopped" ? (
+        <p className="m-0 text-[14px] text-ink">Լավ, այլևս չենք հարցնի։ Նորից միացնելու համար՝ Մենյու → Կարգավորումներ → «Կիրակնօրյա հարց»։</p>
       ) : (
         <>
           <p className="m-0 text-[15px] text-ink">Շնորհակալություն 🙏 Աստված օրհնի Ձեր շաբաթը։</p>
@@ -64,8 +77,8 @@ export function SundayPrompt() {
         </>
       )}
       <div className="flex justify-center gap-4 text-[12.5px]">
-        {step !== "done" ? <button className="cursor-pointer border-0 bg-transparent text-muted underline" type="button" onClick={later}>Ավելի ուշ</button> : <button className="cursor-pointer border-0 bg-transparent text-muted underline" type="button" onClick={() => setDay(null)}>Փակել</button>}
-        {step === "attended" ? <button className="cursor-pointer border-0 bg-transparent text-faint underline" type="button" onClick={async () => { await send({ prompt: false }); setDay(null); }}>Չհարցնել այլևս</button> : null}
+        {step === "attended" || step === "communion" ? <button className="cursor-pointer border-0 bg-transparent text-muted underline" type="button" onClick={later}>Ավելի ուշ</button> : step !== "stop" ? <button className="cursor-pointer border-0 bg-transparent text-muted underline" type="button" onClick={() => setDay(null)}>Փակել</button> : null}
+        {step === "attended" ? <button className="cursor-pointer border-0 bg-transparent text-faint underline" type="button" onClick={() => setStep("stop")}>Չհարցնել այլևս</button> : null}
       </div>
     </div>,
     document.body,

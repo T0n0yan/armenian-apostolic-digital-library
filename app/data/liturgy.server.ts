@@ -1,4 +1,4 @@
-import { archiveBefore, longestStreak, periodRange, sundayToAsk } from "../utils/liturgy";
+import { archiveBefore, feastOn, longestStreak, periodRange, sundayToAsk } from "../utils/liturgy";
 
 /**
  * Կիրակնօրյա հարցը (Պատարագ, Հաղորդություն), «Իմ ամիսը / Իմ տարին» ամփոփումը,
@@ -8,20 +8,35 @@ import { archiveBefore, longestStreak, periodRange, sundayToAsk } from "../utils
 /** Հարցնե՞լ այս մարդուն հիմա. կիրակի 13:00 → երկուշաբթի, եթե չի պատասխանել և չի անջատել։ */
 export async function sundayQuestion(db: D1Database, userId: string, now = Date.now()) {
   const day = sundayToAsk(now);
-  if (!day) return { day: null, ask: false };
+  if (!day) return { day: null, ask: false, feast: null };
   const [settings, mark] = await Promise.all([
     db.prepare("SELECT sunday_prompt FROM user_settings WHERE user_id = ?").bind(userId).first<{ sunday_prompt: number }>(),
     db.prepare("SELECT 1 FROM liturgy_marks WHERE user_id = ? AND day = ?").bind(userId, day).first(),
   ]);
-  return { day, ask: (settings?.sunday_prompt ?? 1) === 1 && !mark };
+  return { day, ask: (settings?.sunday_prompt ?? 1) === 1 && !mark, feast: feastOn(day) };
 }
 
-/** Պատասխանը պահվում է այդ կիրակիի համար (կրկին պատասխանելիս՝ փոխվում)։ */
-export function saveSundayAnswer(db: D1Database, userId: string, day: string, attended: boolean, communion: boolean) {
+/** Պատասխանը պահվում է այդ օրվա համար (կրկին պատասխանելիս՝ փոխվում)։ note՝ առիթը (ձեռքով նշելիս)։ */
+export function saveSundayAnswer(db: D1Database, userId: string, day: string, attended: boolean, communion: boolean, note = "") {
   return db.prepare(
-    `INSERT INTO liturgy_marks (user_id, day, attended, communion) VALUES (?, ?, ?, ?)
-     ON CONFLICT (user_id, day) DO UPDATE SET attended = excluded.attended, communion = excluded.communion`,
-  ).bind(userId, day, attended ? 1 : 0, attended && communion ? 1 : 0).run();
+    `INSERT INTO liturgy_marks (user_id, day, attended, communion, note) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (user_id, day) DO UPDATE SET attended = excluded.attended, communion = excluded.communion,
+       note = CASE WHEN excluded.note <> '' THEN excluded.note ELSE liturgy_marks.note END`,
+  ).bind(userId, day, attended ? 1 : 0, attended && communion ? 1 : 0, note.slice(0, 120)).run();
+}
+
+/** Ձեռքով նշված օրը հանել (սխալ նշելու դեպքում)։ */
+export function removeLiturgyMark(db: D1Database, userId: string, day: string) {
+  return db.prepare("DELETE FROM liturgy_marks WHERE user_id = ? AND day = ?").bind(userId, day).run();
+}
+
+/** Ժամանակաշրջանի Պատարագները՝ օրերով և առիթով («Իմ տարին»-ի ցուցակի համար)։ */
+export async function listLiturgyMarks(db: D1Database, userId: string, period: string) {
+  const range = periodRange(period);
+  if (!range) return [];
+  const { results } = await db.prepare("SELECT day, communion, note FROM liturgy_marks WHERE user_id = ? AND attended = 1 AND day BETWEEN ? AND ? ORDER BY day DESC")
+    .bind(userId, range.from, range.to).all<{ day: string; communion: number; note: string }>();
+  return results.map((row) => ({ day: row.day, communion: Boolean(row.communion), note: row.note || feastOn(row.day) || "" }));
 }
 
 /** «Չհարցնել այլևս» (false) կամ նորից միացնել (true)։ */
