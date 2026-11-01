@@ -122,9 +122,10 @@ function SundayPrayer({ withThanks, onDone }: { withThanks: boolean; onDone: () 
   const total = parts.flat().length;
   let index = 0;
   return (
-    <div className="grid gap-4 py-1">
+    // Ապակյա վահանակ աղոթքի հետևում, որ տեքստը շողերի վրա հեշտ կարդացվի։
+    <div className="sunday-glass grid gap-4 rounded-[24px] px-5 py-5">
       {parts.map((lines, part) => (
-        <p key={part} className="sunday-prayer m-0 font-noto text-[17px] leading-[1.75] min-[560px]:text-[19px]">
+        <p key={part} className="sunday-prayer m-0 text-[19px] leading-[1.8] min-[560px]:text-[21px]">
           {lines.map((line) => {
             const delay = (index++) * LINE_MS + part * 500;
             return <span key={line} className="sunday-prayer-line" style={{ animationDelay: `${delay}ms` }}>{line} </span>;
