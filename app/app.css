@@ -712,3 +712,13 @@ html[data-motion="reduced"] .sunday-world, html[data-motion="reduced"] .sunday-w
 @keyframes sunday-line { to { opacity: 1; filter: blur(0); } }
 @media (prefers-reduced-motion: reduce) { .sunday-prayer-line, .sunday-prayer-end { opacity: 1; filter: none; } }
 html[data-motion="reduced"] .sunday-prayer-line, html[data-motion="reduced"] .sunday-prayer-end { opacity: 1; filter: none; }
+/* Աղոթքը՝ աղոթքների տառատեսակով (առանց թռչնագրի), ապակյա վահանակի վրա։ */
+.sunday-prayer { font-family: var(--font-book); }
+.sunday-glass {
+  background: color-mix(in srgb, var(--sunday-ink) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sunday-ink) 20%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 18px 40px rgb(20 10 4 / 22%);
+  animation: sunday-in 700ms ease-out both;
+}
+:root[data-theme="light"] .sunday-glass { background: rgb(255 252 242 / 62%); }
