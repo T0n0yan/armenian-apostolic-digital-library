@@ -666,7 +666,7 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 .sunday-world {
   --sunday-bg: radial-gradient(circle at 50% 36%, #3d2810 0, #1a1008 48%, #0a0604 100%);
   --sunday-ink: #fbecc4; --sunday-muted: rgb(251 236 196 / 78%); --sunday-date: #d9b468; --sunday-outline: #4a2a08;
-  --sunday-ray: rgb(255 214 120 / 30%); --sunday-ray-fine: rgb(255 240 190 / 14%);
+  --sunday-ray: rgb(255 214 120 / 16%); --sunday-ray-fine: rgb(255 240 190 / 8%);
   --sunday-sun: radial-gradient(circle, #fff6d0 0, #f7d27a 40%, rgb(240 190 90 / 0) 70%);
   --sunday-dust: #ffe6a6;
   background: var(--sunday-bg); color: var(--sunday-ink);
@@ -675,14 +675,14 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 :root[data-theme="light"] .sunday-world {
   --sunday-bg: radial-gradient(circle at 50% 36%, #fffef8 0, #fbf0d4 45%, #ecd9ae 100%);
   --sunday-ink: #4a2e0e; --sunday-muted: rgb(74 46 14 / 78%); --sunday-date: #a0712a; --sunday-outline: #5a3408;
-  --sunday-ray: rgb(222 165 60 / 30%); --sunday-ray-fine: rgb(255 210 120 / 22%);
+  --sunday-ray: rgb(222 165 60 / 14%); --sunday-ray-fine: rgb(255 210 120 / 10%);
   --sunday-sun: radial-gradient(circle, #fff 0, #ffe7a8 40%, rgb(255 220 140 / 0) 70%);
   --sunday-dust: #e7b34f;
 }
 @media (prefers-color-scheme: light) { :root:not([data-theme]) .sunday-world {
   --sunday-bg: radial-gradient(circle at 50% 36%, #fffef8 0, #fbf0d4 45%, #ecd9ae 100%);
   --sunday-ink: #4a2e0e; --sunday-muted: rgb(74 46 14 / 78%); --sunday-date: #a0712a; --sunday-outline: #5a3408;
-  --sunday-ray: rgb(222 165 60 / 30%); --sunday-ray-fine: rgb(255 210 120 / 22%);
+  --sunday-ray: rgb(222 165 60 / 14%); --sunday-ray-fine: rgb(255 210 120 / 10%);
   --sunday-sun: radial-gradient(circle, #fff 0, #ffe7a8 40%, rgb(255 220 140 / 0) 70%); --sunday-dust: #e7b34f;
 } }
 .sunday-world .sunday-muted { color: var(--sunday-muted); }
@@ -691,9 +691,9 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 .sunday-sky { position: relative; min-height: 0; }
 .sunday-sky > * { position: absolute; left: 50%; top: 46%; }
 /* Շողերը միշտ լցնում են ամբողջ էկրանը՝ հեռախոսում և լայն համակարգչում։ */
-.sunday-rays { width: max(1400px, 220vmax); height: max(1400px, 220vmax); translate: -50% -50%; background: repeating-conic-gradient(var(--sunday-ray) 0 3deg, transparent 3deg 12deg);
-  -webkit-mask: radial-gradient(circle, #000 6%, transparent 40%); mask: radial-gradient(circle, #000 6%, transparent 40%); animation: sunday-spin 60s linear infinite; }
-.sunday-rays-fine { background: repeating-conic-gradient(var(--sunday-ray-fine) 0 1.5deg, transparent 1.5deg 7deg);
+.sunday-rays { width: max(1400px, 220vmax); height: max(1400px, 220vmax); translate: -50% -50%; background: repeating-conic-gradient(transparent 0, var(--sunday-ray) 1.2deg, transparent 2.6deg 12deg);
+  -webkit-mask: radial-gradient(circle, #000 4%, rgb(0 0 0 / 50%) 18%, transparent 38%); mask: radial-gradient(circle, #000 4%, rgb(0 0 0 / 50%) 18%, transparent 38%); animation: sunday-spin 60s linear infinite; }
+.sunday-rays-fine { background: repeating-conic-gradient(transparent 0, var(--sunday-ray-fine) .6deg, transparent 1.2deg 7deg);
   -webkit-mask: radial-gradient(circle, #000 4%, transparent 30%); mask: radial-gradient(circle, #000 4%, transparent 30%); animation-direction: reverse; animation-duration: 90s; }
 .sunday-sun { width: clamp(230px, 34vh, 380px); height: clamp(230px, 34vh, 380px); border-radius: 50%; background: var(--sunday-sun); transform: translate(-50%, -50%); animation: sunday-breathe 5s ease-in-out infinite; }
 .sunday-chalice { width: clamp(150px, 24vh, 260px); height: auto; transform: translate(-50%, -52%); filter: drop-shadow(0 12px 20px rgb(80 40 0 / 35%)); animation: sunday-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
