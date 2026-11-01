@@ -41,10 +41,9 @@ export function ChaliceArt({ size = 200, dark = "#4a2a08", className = "" }: { s
         <path d="M211.652 67.805h60l-6 44c-2 10-12 16-24 16s-22-6-24-16z" fill={gold} stroke={dark} strokeWidth="1" />
         <path d="M214.448 86.805h54M216.448 108.805h50" stroke={dark} strokeOpacity=".4" />
         <path d="M229.582 143.152c0-8 24-8 24 0s-24 8-24 0z" fill={gold} stroke={dark} strokeWidth=".6" />
+        {/* Ստորին կցորդը հիմքից առաջ է նկարվում, որ նրա ծայրը թաքնվի հիմքի տակ */}
+        <path d="M237.652 148.798h8l4.6 23.2h-17.2z" fill={gold} stroke={dark} strokeWidth=".6" />
         <path d="M208.536 187.835l8-18h52l8 18z" fill={gold} stroke={dark} strokeWidth="1" />
-        {/* Ստորին կցորդը հիմքի հետ մեկ մարմին է. ներքևում եզրագիծ չունի */}
-        <path d="M237.652 148.798h8l4.3 21.6h-16.6z" fill={gold} />
-        <path d="M233.35 170.4l4.302-21.602h8l4.3 21.6" fill="none" stroke={dark} strokeWidth=".6" />
       </g>
     </svg>
   );
