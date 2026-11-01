@@ -77,6 +77,18 @@ export { ADMIN_PERMISSIONS, isAdminPermission, parsePermissions, type AdminPermi
 
 export type AdminAccess = AdminIdentity & { owner: boolean; permissions: AdminPermission[] };
 
+/**
+ * OWNER_ACCOUNTS. ստորակետով՝ Google էլ. հասցեներ և @Telegram username-ներ։ Google-ի էլ. հասցեն
+ * հաստատված է Google-ի կողմից, Telegram-ի username-ը՝ Telegram-ի ստորագրված մուտքով։
+ */
+function isOwnerAccount(user: { username: string | null }) {
+  const list = ((env as { OWNER_ACCOUNTS?: string }).OWNER_ACCOUNTS ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+  if (!list.length || !user.username) return false;
+  const name = user.username.toLowerCase();
+  // Google-ին կապված Telegram հաշիվը ունի Telegram-ի username-ը, այդ պատճառով ստուգում ենք երկու ձևն էլ։
+  return list.includes(name) || list.includes(`@${name.replace(/^@/u, "")}`);
+}
+
 export async function getOptionalTelegramAdmin(
   request: Request,
   database: D1Database,
@@ -86,6 +98,11 @@ export async function getOptionalTelegramAdmin(
 
   if (user.source === "local-development") {
     return { email: "local-development", source: "local-development", owner: true, permissions: [] };
+  }
+
+  // Կարգավորման մեջ նշված հաշիվները (OWNER_ACCOUNTS) միշտ գլխավոր ադմին են։
+  if (isOwnerAccount(user)) {
+    return { email: user.username ? (user.source === "google" ? user.username : `@${user.username}`) : user.displayName, source: "telegram", owner: true, permissions: [] };
   }
 
   const record = await database

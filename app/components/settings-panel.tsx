@@ -1,4 +1,4 @@
-import { BookOpen, Check, Code2, LocateFixed, Monitor, Moon, Sparkles, Sun, SunMoon, Type } from "lucide-react";
+import { BookOpen, Check, Church, Code2, LocateFixed, Monitor, Moon, Sparkles, Sun, SunMoon, Type } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouteLoaderData } from "react-router";
 
@@ -72,6 +72,18 @@ export function SettingsPanel() {
   const [dailyVerse, setDailyVerse] = useState<Toggle>("on");
   const [devMode, setDevMode] = useState<Toggle>("off");
   const isAdmin = Boolean((useRouteLoaderData("root") as { isAdmin?: boolean } | undefined)?.isAdmin);
+  const signedIn = Boolean((useRouteLoaderData("root") as { signedIn?: boolean } | undefined)?.signedIn);
+  // Կիրակնօրյա հարցի վիճակը՝ սերվերից (բեռնվում է միայն մուտք գործածի համար)։
+  const [sundayOn, setSundayOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!signedIn) return;
+    void fetch("/api/sunday").then((response) => response.json() as Promise<{ promptOn?: boolean }>).then((answer) => setSundayOn(answer.promptOn ?? true)).catch(() => undefined);
+  }, [signedIn]);
+  const toggleSunday = async (on: boolean) => {
+    setSundayOn(on);
+    const response = await fetch("/api/sunday", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt: on }) }).catch(() => null);
+    if (!response?.ok) setSundayOn(!on);
+  };
   const [sunText, setSunText] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
 
@@ -153,6 +165,13 @@ export function SettingsPanel() {
           <Switch label="Հիշեցման զանգի ձայնը" checked={alarmSound === "on"} onChange={(on) => { const next = on ? "on" : "off"; setAlarmSound(next); setPreference("alarmSound", next); }} />
           <Switch label="Անիմացիաներ" checked={motion === "full"} onChange={(on) => { const next = on ? "full" : "reduced"; setMotion(next); setPreference("motion", next); }} />
         </Setting>
+
+        {signedIn ? (
+          // Կիրակնօրյա հարցը («Եղե՞լ եք Պատարագի») և ծանուցումը. պահվում է հաշվում։
+          <Setting icon={<Church aria-hidden="true" size={18} />} title="Սուրբ Պատարագ" hint="Կիրակի օրերին և մեծ տոներին հարցնում ենք՝ եղե՞լ եք Պատարագի։ Պատասխանները երևում են «Իմ տարին»-ում։">
+            <Switch label="Կիրակնօրյա հարց" checked={sundayOn ?? true} onChange={(on) => void toggleSunday(on)} />
+          </Setting>
+        ) : null}
 
         {isAdmin ? (
           // Admins only: lifts the copy/selection protections to work with the texts.

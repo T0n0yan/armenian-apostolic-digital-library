@@ -14,6 +14,7 @@ import { CategoryIcon } from "../components/category-icon";
 import { googleConfig } from "../auth/google.server";
 import { readingDays } from "../data/reading-log.server";
 import { ReadingCalendar } from "../components/reading-calendar";
+import { MyYearLinks } from "../components/my-year-links";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
 import { EmptyState, PageShell, RouteErrorState } from "../components/page-layout";
@@ -251,6 +252,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
           {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
+          <MyYearLinks />
 
           {"verses" in loaderData && loaderData.verses ? <SavedVerses verses={loaderData.verses} /> : null}
 

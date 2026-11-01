@@ -12,6 +12,9 @@ const requestHandler = createRequestHandler(
 
 export { Clock } from "./clock";
 
+/** Կիրակի 09:07 UTC = 13:07 Երևան։ */
+const SUNDAY_CRON = "7 9 * * SUN";
+
 type SyncEnv = { GITHUB_SYNC_TOKEN?: string; GITHUB_SYNC_REPO?: string; SYNC_ON_POSTS?: string };
 type ClockEnv = { CLOCK?: DurableObjectNamespace<import("./clock").Clock> };
 
@@ -76,7 +79,13 @@ function secure(response: Response) {
 }
 
 export default {
-  async scheduled(_controller, env, context) {
+  async scheduled(controller, env, context) {
+    // Կիրակի 13:07 (Երևան)՝ կիրակնօրյա ծանուցում (առանձին cron, wrangler.jsonc)։
+    if (controller.cron === SUNDAY_CRON) {
+      const clock = (env as unknown as ClockEnv).CLOCK;
+      if (clock) context.waitUntil(clock.get(clock.idFromName("sunday")).startSunday().catch((error: unknown) => console.error("sunday clock", error)));
+      return;
+    }
     // Once a night: posts deleted in Telegram send no update, so a full sync takes them down;
     // the reminders' clock is set again in case it was lost; the webhook asks for every update; old
     // data is removed (app/data/retention.server.ts).
