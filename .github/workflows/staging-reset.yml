@@ -1,4 +1,5 @@
-# Trims staging to a small, clean site (scripts/staging-reset.sql): two materials per section and
+# Trims staging to a small, clean site (scripts/staging-reset.sql): one material per section, one video,
+# one recording, unused media removed from staging's bucket (scripts/staging-prune-media.mjs) and
 # an empty places map. Runs only on the staging branch, when the script or this file changes there.
 # Production is never touched: the database and bucket names below are staging's.
 name: Staging reset
@@ -6,7 +7,7 @@ name: Staging reset
 on:
   push:
     branches: [staging]
-    paths: ["scripts/staging-reset.sql", ".github/workflows/staging-reset.yml"]
+    paths: ["scripts/staging-reset.sql", "scripts/staging-prune-media.mjs", ".github/workflows/staging-reset.yml"]
 
 concurrency:
   group: staging-reset
@@ -50,6 +51,8 @@ jobs:
           done < keys.txt
       - name: Trim the library and empty the map
         run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --file scripts/staging-reset.sql
+      - name: Remove media the trimmed library no longer uses
+        run: node scripts/staging-prune-media.mjs
       - name: Count after
         run: pnpm exec wrangler d1 execute "$DB" --env staging --remote --command "SELECT t.title, COUNT(m.message_id) AS materials FROM library_topics t LEFT JOIN library_materials m ON m.topic_key = t.id AND m.sync_state = 'ready' AND m.deleted_at IS NULL GROUP BY t.id; SELECT (SELECT COUNT(*) FROM places) AS places, (SELECT COUNT(*) FROM place_submissions) AS submissions, (SELECT COUNT(*) FROM place_visits) AS visits"
       - name: Check the pages and the bot's address

@@ -496,7 +496,9 @@ flowchart LR
 | `qa.yml` | PR | թեստեր |
 | `private-backup.yml` | շաբաթական | D1-ի գաղտնագրված պատճեն |
 | `diagnose-topic.yml` | ձեռքով | մեկ թեմայի ախտորոշում |
-| `staging-reset.yml`, `staging-osm-places.yml` | staging, հատուկ ֆայլի փոփոխություն | staging-ի մաքրում, OSM ներմուծում |
+| `staging-reset.yml` | staging, իր ֆայլերի փոփոխություն | staging-ը՝ ամեն բաժնից 1 նյութ + 1 տեսանյութ + 1 ձայնագրություն, ավելորդ մեդիան ջնջվում է staging-ի պահեստից |
+| `staging-osm-places.yml` | staging, իր ֆայլի փոփոխություն | OSM ներմուծում staging-ում |
+| `storage-report.yml` | ձեռքով | միայն կարդում է. R2 և D1-ի ամբողջական հաշվետվություն (Summary-ում) |
 
 Ռեպոն փակ է (2026-11-02-ից). անվճար սահմանը 2000 րոպե ամսական, երևում է «Կայքի վիճակը» էջում։
 
