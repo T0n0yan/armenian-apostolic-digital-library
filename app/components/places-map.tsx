@@ -1,12 +1,13 @@
-import { Check, ChevronRight, LogIn, MapPin, Minus, Navigation, Plus, X } from "lucide-react";
+import { Check, ChevronRight, MapPin, Minus, Navigation, Pencil, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import { ARMENIA_BORDER, ARMENIA_BOUNDS } from "../utils/armenia-border";
 import { ArmeniaOutline } from "./armenia-outline";
 import { MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
 import { circleRing, directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 import { useSignedIn } from "../utils/place-visits";
+import { SignInSheet } from "./sign-in-sheet";
 
 export type MapPlace = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
@@ -35,6 +36,7 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
         </div>
       </div>
       <VisitButton visited={visited} onToggle={onToggleVisit} />
+      {place.verified ? null : <FillPlaceButton placeId={place.id} className="mt-2" />}
       <div className="mt-2 flex items-center gap-1.5">
         <Link className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-[11px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
           Մանրամասն <ChevronRight aria-hidden="true" size={15} />
@@ -49,15 +51,35 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
   );
 }
 
+/** «Լրացնել տվյալները»՝ քարտեզում արդեն եղած տեղի համար (նոր տեղ ավելացնելու փոխարեն)։ */
+export function FillPlaceButton({ placeId, className = "" }: { placeId: string; className?: string }) {
+  const signedIn = useSignedIn();
+  const navigate = useNavigate();
+  const [asking, setAsking] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => (signedIn ? navigate(`/places/new?place=${encodeURIComponent(placeId)}`) : setAsking(true))}
+        className={`inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[11px] border border-dashed border-[rgb(217_181_111/50%)] bg-transparent text-[12.5px] font-semibold text-gold-bright ${className}`}>
+        <Pencil aria-hidden="true" size={14} /> Գիտե՞ք այս վայրը. լրացրեք տվյալները
+      </button>
+      <SignInSheet open={asking} onClose={() => setAsking(false)} reason="լրացնեք այս սրբավայրի տվյալները" />
+    </>
+  );
+}
+
 /** «Եղել եմ»: green when the reader has been there, an invitation in red when not yet. */
 export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle: () => void }) {
   const signedIn = useSignedIn();
-  // Guests can't mark: the button leads to signing in instead.
+  const [asking, setAsking] = useState(false);
+  // Չգրանցվածը նշել չի կարող. սեղմելիս բացվում է մուտքի պատուհանը։
   if (!signedIn) {
     return (
-      <Link to="/saved" className="mt-2.5 inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[11px] border border-glass-border bg-subtle text-[13px] font-semibold text-muted no-underline">
-        <LogIn aria-hidden="true" size={15} /> Մուտք գործեք՝ «Եղել եմ» նշելու համար
-      </Link>
+      <>
+        <button type="button" onClick={() => setAsking(true)} className="mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-glass-border bg-subtle text-[13px] font-semibold text-muted">
+          <span className="grid size-[18px] place-items-center rounded-full border-[1.5px] border-current" /> Նշել, որ եղել եմ
+        </button>
+        <SignInSheet open={asking} onClose={() => setAsking(false)} reason="նշեք այն սրբավայրերը, որտեղ եղել եք" />
+      </>
     );
   }
   // A quiet checkbox: an empty ring until the reader marks it, then a green tick.

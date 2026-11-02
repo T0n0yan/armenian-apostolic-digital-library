@@ -326,6 +326,10 @@ flowchart TD
   PL --> MAP["/places քարտեզ (MapLibre)<br/>Հայաստանի եզրագիծը, «Իմ դիրքը»"]
   MAP --> ONE["/places/:id. նկարներ, պատմություն,<br/>ինչպես հասնել, ով է ծառայում, ✓ հոգևորականի կողմից"]
   ONE --> VIS["«Այցելել եմ» (place_visits)"]
+  ONE --> FILL["«Լրացրեք տվյալները» → /places/new?place=id<br/>place_submissions.place_id"]
+  FILL --> ADM
+  GUEST["Չգրանցված այցելու"] -->|"միայն քարտեզ և ճանապարհ"| MAP
+  GUEST -.->|"եղել եմ, մոտակայքում, ավելացնել, լրացնել"| SIGN["Մուտքի պատուհան (sign-in-sheet.tsx)"]
 ```
 
 ## 12. Բոտը

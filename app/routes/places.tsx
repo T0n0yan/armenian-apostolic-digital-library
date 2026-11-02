@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { Check, LoaderCircle, LocateFixed, MapPin, Plus, Search, Send, SlidersHorizontal, X } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/places";
 import { PageHeader, PageShell } from "../components/page-layout";
@@ -11,7 +11,8 @@ import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { SiteNav } from "../components/site-nav";
 import { listPublicPlaceSummaries } from "../data/places.server";
 import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMatches, placeMediaUrl } from "../utils/places";
-import { findMyPosition, openLocationSettings, type LocationFailure } from "../utils/my-location";
+import { useSignInGuard } from "../components/sign-in-sheet";
+import { deviceKind, findMyPosition, locationPermission, openLocationSettings, type DeviceKind, type LocationFailure } from "../utils/my-location";
 import { usePlaceVisits } from "../utils/place-visits";
 import { seoMeta } from "../utils/seo";
 
@@ -113,15 +114,38 @@ function saveNear(view: NearView | null) {
 }
 
 const NEAR_FAILURES: Record<LocationFailure, string> = {
-  denied: "Տեղորոշման թույլտվություն չկա։ Թույլատրեք այն կարգավորումներում և փորձեք կրկին։",
-  unavailable: "Չհաջողվեց որոշել ձեր տեղը։ Ստուգեք, որ սարքի տեղորոշումը միացված է, և փորձեք կրկին։",
-  unsupported: "Այս բրաուզերը չի կարող որոշել ձեր տեղը։",
+  denied: "Տեղորոշման թույլտվություն չկա, դրա համար «Իմ մոտակայքում»-ը չի աշխատում։",
+  unavailable: "Ձեր հեռախոսի տեղորոշումը (GPS) անջատված է կամ տեղը չհաջողվեց որոշել։",
+  unsupported: "Այս բրաուզերը չի կարող որոշել ձեր տեղը։ Բացեք կայքը Chrome-ով կամ Safari-ով։",
+};
+
+/** Ինչպես միացնել տեղորոշումը՝ ըստ սարքի. բրաուզերը նորից չի հարցնում, եթե մեկ անգամ արգելվել է։ */
+const NEAR_STEPS: Record<DeviceKind, Record<"denied" | "unavailable", string[]>> = {
+  telegram: {
+    denied: ["Սեղմեք «Բացել կարգավորումները» ներքևում", "Միացրեք «Տեղորոշում» (Location)", "Վերադարձեք և սեղմեք «Փորձել կրկին»"],
+    unavailable: ["Հեռախոսի վերևի արագ մենյուից միացրեք «Տեղորոշում» (Location / GPS)", "Telegram-ի կարգավորումներում թույլատրեք տեղորոշումը", "Սեղմեք «Փորձել կրկին»"],
+  },
+  ios: {
+    denied: ["Կարգավորումներ (Settings) → Գաղտնիություն (Privacy & Security) → Տեղորոշում (Location Services)", "Գտեք Safari-ն (կամ Chrome-ը) → «Հավելվածն օգտագործելիս» (While Using the App)", "Վերադարձեք, թարմացրեք էջը և սեղմեք «Իմ մոտակայքում»"],
+    unavailable: ["Կարգավորումներ → Գաղտնիություն → Տեղորոշում (Location Services)՝ միացնել", "Վերադարձեք և սեղմեք «Փորձել կրկին»"],
+  },
+  android: {
+    denied: ["Հասցեի տողի ձախ կողմում սեղմեք 🔒 (կամ ⓘ) նշանը", "«Թույլտվություններ» → «Տեղորոշում» → «Թույլատրել»", "Թարմացրեք էջը և սեղմեք «Իմ մոտակայքում»"],
+    unavailable: ["Հեռախոսի վերևի արագ մենյուից միացրեք «Տեղորոշում» (Location)", "Սեղմեք «Փորձել կրկին»"],
+  },
+  desktop: {
+    denied: ["Հասցեի տողի ձախ կողմում սեղմեք 🔒 նշանը", "«Տեղորոշում» (Location) → «Թույլատրել»", "Թարմացրեք էջը"],
+    unavailable: ["Համակարգչի կարգավորումներում միացրեք տեղորոշումը", "Սեղմեք «Փորձել կրկին»"],
+  },
 };
 
 /** The map of sacred places, and the same places as a list under it. */
 export default function Places({ loaderData }: Route.ComponentProps) {
   const { places } = loaderData;
   const { visited, toggle, signedIn } = usePlaceVisits();
+  // Չգրանցվածին՝ միայն քարտեզ և ճանապարհ. մնացածի համար՝ մուտքի պատուհան։
+  const [signInSheet, guard] = useSignInGuard(signedIn);
+  const navigate = useNavigate();
   const [show, setShow] = useState<PlacesShown>("all");
   // Filters: provinces and kinds ticked (none ticked: all of them).
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -144,6 +168,8 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   const nearView = near.status === "on" ? near.view : null;
   const locate = async (radiusKm = 30) => {
     setNear({ status: "locating" });
+    // Եթե բրաուզերն արդեն գիտի, որ արգելված է, միանգամից ցույց ենք տալիս ինչպես միացնել։
+    if (deviceKind() !== "telegram" && (await locationPermission()) === "denied") { setNear({ status: "failed", failure: "denied" }); return; }
     try {
       const position = await findMyPosition();
       const view = { ...position, radiusKm };
@@ -272,29 +298,40 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               <button type="button" onClick={stopNear} aria-label="Անջատել «Իմ մոտակայքում»-ը" className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-[11px] border-0 bg-transparent text-faint hover:text-ink"><X aria-hidden="true" size={17} /></button>
             </div>
           ) : (
-            <button type="button" disabled={near.status === "locating"} onClick={() => void locate()}
+            <button type="button" disabled={near.status === "locating"} onClick={() => guard("գտնեք Ձեզ մոտ գտնվող սրբավայրերը", () => void locate())}
               className="frosted-card flex min-h-12 cursor-pointer items-center justify-center gap-2 px-4 text-[14px] font-semibold text-gold-bright disabled:cursor-wait">
               {near.status === "locating" ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={18} /> : <LocateFixed aria-hidden="true" size={18} />}
               {near.status === "locating" ? "Որոշում եմ ձեր տեղը…" : "Իմ մոտակայքում"}
             </button>
           )}
           {near.status === "failed" ? (
-            <p className="m-0 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[12.5px] leading-relaxed text-muted" role="alert">
-              {NEAR_FAILURES[near.failure]}
-              {near.failure === "denied" && typeof window !== "undefined" ? <button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[12.5px] font-semibold text-gold-bright underline" onClick={() => { if (!openLocationSettings()) void locate(); }}>Փորձել կրկին</button> : null}
-            </p>
+            <div className="grid gap-2 rounded-[14px] border border-[rgb(184_72_62/45%)] bg-[rgb(184_72_62/10%)] px-3.5 py-3 text-[13px] leading-relaxed text-ink" role="alert">
+              <strong className="text-[#c4574b]">{NEAR_FAILURES[near.failure]}</strong>
+              {near.failure !== "unsupported" ? (
+                <ol className="m-0 grid gap-1 pl-5 text-[12.5px] text-muted">
+                  {NEAR_STEPS[deviceKind()][near.failure].map((step) => <li key={step}>{step}</li>)}
+                </ol>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {deviceKind() === "telegram" ? <button type="button" className="min-h-9 cursor-pointer rounded-[11px] border border-glass-border bg-subtle px-3 text-[12.5px] font-semibold text-gold-bright" onClick={() => openLocationSettings()}>Բացել կարգավորումները</button> : null}
+                <button type="button" className="min-h-9 cursor-pointer rounded-[11px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[12.5px] font-bold text-[#2a1708]" onClick={() => void locate()}>Փորձել կրկին</button>
+              </div>
+            </div>
           ) : near.status === "on" ? (
             <p className="m-0 text-center text-[12px] text-faint">Ձեր տեղը մնում է միայն ձեր սարքում։</p>
           ) : null}
         </div>
       ) : null}
+      {signInSheet}
       <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|") + (searching ? `?${shownKey}` : "")} near={nearView} />
       {/* Adding a place: on the site (any signed-in reader, Google too) or through the bot. */}
       <div className="mx-auto mt-4 flex flex-wrap justify-center gap-2">
-        <Link className="flex items-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13.5px] font-bold text-[#2a1708] no-underline shadow-[0_6px_16px_rgb(150_100_30/22%)]" to="/places/new">
+        <Link className="flex items-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13.5px] font-bold text-[#2a1708] no-underline shadow-[0_6px_16px_rgb(150_100_30/22%)]" to="/places/new"
+          onClick={(event) => { if (!signedIn) { event.preventDefault(); guard("ավելացնեք նոր սրբավայր", () => navigate("/places/new")); } }}>
           <Plus aria-hidden="true" size={16} strokeWidth={2.4} /> Ավելացնել սրբավայր
         </Link>
-        <a className="flex items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer">
+        <a className="flex items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer"
+          onClick={(event) => { if (!signedIn) { event.preventDefault(); guard("ավելացնեք նոր սրբավայր", () => undefined); } }}>
           <Send aria-hidden="true" size={16} /> Բոտի միջոցով
         </a>
       </div>

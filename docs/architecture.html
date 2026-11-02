@@ -494,7 +494,11 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   ADM --&gt; VID[&quot;Տեսանյութ հեռախոսից → R2 places/ (≤95 ՄԲ)&quot;]
   PL --&gt; MAP[&quot;/places քարտեզ (MapLibre)&lt;br/&gt;Հայաստանի եզրագիծը, «Իմ դիրքը»&quot;]
   MAP --&gt; ONE[&quot;/places/:id. նկարներ, պատմություն,&lt;br/&gt;ինչպես հասնել, ով է ծառայում, ✓ հոգևորականի կողմից&quot;]
-  ONE --&gt; VIS[&quot;«Այցելել եմ» (place_visits)&quot;]</pre></div>
+  ONE --&gt; VIS[&quot;«Այցելել եմ» (place_visits)&quot;]
+  ONE --&gt; FILL[&quot;«Լրացրեք տվյալները» → /places/new?place=id&lt;br/&gt;place_submissions.place_id&quot;]
+  FILL --&gt; ADM
+  GUEST[&quot;Չգրանցված այցելու&quot;] --&gt;|&quot;միայն քարտեզ և ճանապարհ&quot;| MAP
+  GUEST -.-&gt;|&quot;եղել եմ, մոտակայքում, ավելացնել, լրացնել&quot;| SIGN[&quot;Մուտքի պատուհան (sign-in-sheet.tsx)&quot;]</pre></div>
 </figure>
 </section>
 <section id="12-բոտը" class="part" data-text="12. բոտը ">
