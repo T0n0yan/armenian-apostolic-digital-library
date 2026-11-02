@@ -1,5 +1,6 @@
 const encoder = new TextEncoder();
-const MAX_AGE_SECONDS = 60 * 60 * 24;
+// Browser login-ը (oauth.telegram.org) հետ է գալիս անմիջապես. 15 րոպեից ավելի հին proof չենք ընդունում (A-09)։
+const MAX_AGE_SECONDS = 60 * 15;
 
 function toHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
