@@ -10,7 +10,7 @@ import type { loader as rootLoader } from "../root";
 import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { PhotoGallery } from "../components/photo-gallery";
-import { PlacesMap, VisitButton } from "../components/places-map";
+import { FillPlaceButton, PlacesMap, VisitButton } from "../components/places-map";
 import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
 import { getPlace } from "../data/places.server";
@@ -85,6 +85,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           </div>
         ) : null}
         <div className="mx-auto w-full max-w-[420px]"><VisitButton visited={visited.has(place.id)} onToggle={() => toggle(place.id)} /></div>
+        <div className="mx-auto w-full max-w-[420px]"><FillPlaceButton placeId={place.id} /></div>
         {canManage ? (
           // Only the admin sees it: straight to this place's editor.
           <Link className="mx-auto flex min-h-11 w-full max-w-[420px] items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" to={`/admin/places/${place.id}`}>

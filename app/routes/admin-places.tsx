@@ -12,7 +12,7 @@ import { SiteNav } from "../components/site-nav";
 import { fieldControl, panelSection, primaryButton } from "../components/ui-styles";
 import { getOptionalTelegramUser, upsertAppUser } from "../auth/telegram-user.server";
 import {
-  addBlocklistWord, createPlace, deletePlace, dismissSubmission, listBlocklist, listOpenSubmissions, listPlaces, listVisitedIds, placeFromSubmission,
+  addBlocklistWord, applySubmissionToPlace, createPlace, deletePlace, dismissSubmission, listBlocklist, listOpenSubmissions, listPlaces, listVisitedIds, placeFromSubmission,
   removeBlocklistWord, setPlacesPublished, setVisited, type Place,
 } from "../data/places.server";
 import { formatArmenianDate } from "../utils/armenian-date";
@@ -88,6 +88,12 @@ async function performAction({ request }: Route.ActionArgs) {
   if (intent === "dismiss") {
     await dismissSubmission(DB, MEDIA, Number(form.get("submissionId")));
     return redirect("/admin/places");
+  }
+  if (intent === "apply-to-place") {
+    const submissionId = Number(form.get("submissionId"));
+    const id = await applySubmissionToPlace(DB, MEDIA, TELEGRAM_BOT_TOKEN?.trim() ?? "", submissionId);
+    if (!id) return data({ error: "Տեղը չգտնվեց (գուցե ջնջվել է)։", submissionId }, { status: 400 });
+    return redirect(`/admin/places/${id}`);
   }
   if (intent === "from-submission") {
     const submissionId = Number(form.get("submissionId"));
@@ -173,7 +179,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
           {submissions.map((submission) => (
             <article key={submission.id} className={card}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <strong className="text-[15px] text-ink">{submission.placeName ? `«${submission.placeName}» · ` : ""}{submission.senderName}{submission.fromSite ? " · 🌐 կայքից" : " · ✈️ բոտից"}</strong>
+                <strong className="text-[15px] text-ink">{submission.placeId ? "✏️ Լրացում · " : ""}{submission.placeName ? `«${submission.placeName}» · ` : ""}{submission.senderName}{submission.fromSite ? " · 🌐 կայքից" : " · ✈️ բոտից"}</strong>
                 <span className="text-[12px] text-faint">
                   {formatArmenianDate(submission.createdAt)} · {submission.credit === null ? "անունը նշելու մասին չի պատասխանել" : submission.credit ? `կայքում նշել «${submission.creditName || submission.senderName}»` : "անանուն"}
                 </span>
@@ -194,12 +200,18 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               ) : <p className="m-0 text-[13px] font-semibold text-danger">Տեղադրություն չի ուղարկվել. տեղադրեք ներքևում։</p>}
               <Form method="post" preventScrollReset className="grid gap-2 min-[560px]:grid-cols-[1fr_auto]">
                 <input type="hidden" name="submissionId" value={submission.id} />
+                {submission.placeId ? (
+                  <p className="m-0 text-[13px] text-muted">Սա լրացում է քարտեզում արդեն եղած տեղի համար՝ <a className="text-gold-bright" href={`/admin/places/${submission.placeId}`}>{submission.placeId}</a>։ «Ավելացնել տեղին»-ը լրացված դաշտերը կդնի տեղի մեջ, պատմությունն ու նկարները կավելացնի եղածներին։</p>
+                ) : (
                 <div className="grid gap-2">
                   <input className={fieldControl} name="name" placeholder="Տեղի անունը, օր.՝ Սուրբ Գրիգոր Լուսավորիչ" defaultValue={submission.placeName || submission.notes.split("\n")[0].replace(/^\d+\.\s*/u, "").slice(0, 80)} required />
                   {submission.latitude === null ? <input className={fieldControl} name="coordinates" placeholder="40.1617, 44.2913 կամ Google Maps-ի հղում" /> : null}
                 </div>
+                )}
                 <div className="flex flex-wrap items-start gap-2">
-                  <button className={primaryButton} type="submit" name="intent" value="from-submission" disabled={busy}><Check aria-hidden="true" size={16} /> Ստեղծել տեղ</button>
+                  {submission.placeId
+                    ? <button className={primaryButton} type="submit" name="intent" value="apply-to-place" formNoValidate disabled={busy}><Check aria-hidden="true" size={16} /> Ավելացնել տեղին</button>
+                    : <button className={primaryButton} type="submit" name="intent" value="from-submission" disabled={busy}><Check aria-hidden="true" size={16} /> Ստեղծել տեղ</button>}
                   <button className={smallButton} type="submit" name="intent" value="dismiss" formNoValidate disabled={busy}><X aria-hidden="true" size={15} /> Մերժել</button>
                 </div>
                 {actionData?.error && actionData.submissionId === submission.id ? <p className="m-0 text-[13px] text-danger">{actionData.error}</p> : null}

@@ -10,6 +10,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, panelSection, primaryButton } from "../components/ui-styles";
 import { createWebPlace, openWebPlaces } from "../data/place-web.server";
+import { getPlace } from "../data/places.server";
 import { readWebPlace, WEB_PHOTO_LIMIT, type WebPlaceErrors } from "../utils/place-web-form";
 import { clergyName, CLERGY_RANKS } from "../utils/clergy-titles";
 import { findMyPosition, type LocationFailure } from "../utils/my-location";
@@ -22,10 +23,18 @@ export function meta() {
   return [{ title: "Ավելացնել սրբավայր — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex" }];
 }
 
+/** «?place=<id>»՝ քարտեզում արդեն եղած տեղի տվյալների լրացում (նոր տեղ չի ստեղծվում)։ */
+async function targetPlace(id: string | null) {
+  if (!id || id.length > 120) return null;
+  const place = await getPlace(env.DB, id, { publishedOnly: true });
+  return place ? { id: place.id, name: place.name, kind: place.kind, latitude: place.latitude, longitude: place.longitude, region: place.region } : null;
+}
+
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getOptionalTelegramUser(request);
+  const target = await targetPlace(new URL(request.url).searchParams.get("place"));
   return data(
-    { signedIn: Boolean(user), name: user?.displayName ?? "", waiting: user ? await openWebPlaces(env.DB, user.id) : 0 },
+    { signedIn: Boolean(user), name: user?.displayName ?? "", waiting: user ? await openWebPlaces(env.DB, user.id) : 0, target },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }
@@ -34,9 +43,11 @@ export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
   const user = await requireTelegramUser(request);
   const { DB, MEDIA } = env as unknown as Bindings;
-  const place = readWebPlace(await request.formData());
+  const form = await request.formData();
+  const target = await targetPlace(String(form.get("placeId") ?? "") || null);
+  const place = readWebPlace(form);
   if (Object.keys(place.errors).length) return data({ errors: place.errors, sent: false }, { status: 400 });
-  const result = await createWebPlace(DB, MEDIA, user, place);
+  const result = await createWebPlace(DB, MEDIA, user, place, fetch, target?.id ?? null);
   if ("error" in result) return data({ errors: { form: result.error } as WebPlaceErrors, sent: false }, { status: 429 });
   return { errors: {} as WebPlaceErrors, sent: true };
 }
@@ -113,9 +124,10 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
   const submit = useSubmit();
   const sending = navigation.state !== "idle" && navigation.formMethod === "POST";
   const errors: WebPlaceErrors = answer?.errors ?? {};
-  const [kind, setKind] = useState("");
+  const target = loaderData.target;
+  const [kind, setKind] = useState<string>(target?.kind ?? "");
   const [active, setActive] = useState("");
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(target ? `${target.latitude.toFixed(6)}, ${target.longitude.toFixed(6)}` : "");
   const [locating, setLocating] = useState<"idle" | "busy" | LocationFailure>("idle");
   const point = useMemo(() => parseCoordinates(location), [location]);
   const [photos, setPhotos] = useState<Array<{ file: File; url: string }>>([]);
@@ -132,11 +144,11 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
     return (
       <PageShell>
         <SiteNav />
-        <PageHeader backTo="/places" backLabel="Սրբավայրեր" title="Ավելացնել սրբավայր" />
+        <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={loaderData.target ? "Լրացնել տվյալները" : "Ավելացնել սրբավայր"} />
         <section className={`${panelSection} mx-auto mt-4 grid max-w-[520px] justify-items-center gap-3 text-center`}>
           <MapPin aria-hidden="true" size={30} className="text-gold" />
           <p className="m-0 text-[15px] leading-relaxed text-ink">Եկեղեցի կամ սրբավայր ավելացնելու համար մուտք գործեք <strong>Google</strong>-ով կամ <strong>Telegram</strong>-ով։ Այդպես թիմը կկարողանա կապվել Ձեզ հետ, եթե հարց լինի։</p>
-          <Link className={primaryButton} to="/saved"><LogIn aria-hidden="true" size={17} /> Մուտք գործել</Link>
+          <Link className={primaryButton} to={`/saved`}><LogIn aria-hidden="true" size={17} /> Մուտք գործել</Link>
         </section>
       </PageShell>
     );
@@ -149,7 +161,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
         <PageHeader backTo="/places" backLabel="Սրբավայրեր" title="Շնորհակալություն 🙏" />
         <section className={`${panelSection} mx-auto mt-4 grid max-w-[560px] justify-items-center gap-3 text-center`}>
           <span className="grid size-14 place-items-center rounded-full bg-[rgb(63_143_90/14%)] text-[#3f8f5a]"><Check aria-hidden="true" size={28} strokeWidth={2.6} /></span>
-          <p className="m-0 text-[15px] leading-relaxed text-ink">Ուղարկված է։ Թիմը կստուգի տեղեկությունը, և հաստատելուց հետո սրբավայրը կհայտնվի քարտեզում։</p>
+          <p className="m-0 text-[15px] leading-relaxed text-ink">{target ? `Ուղարկված է։ Թիմը կստուգի տեղեկությունը, և հաստատելուց հետո այն կավելանա «${target.name}»-ի էջում։` : "Ուղարկված է։ Թիմը կստուգի տեղեկությունը, և հաստատելուց հետո սրբավայրը կհայտնվի քարտեզում։"}</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Link className={primaryButton} to="/places">Քարտեզ</Link>
             <a className="inline-flex min-h-11 items-center rounded-[14px] border border-[rgb(217_181_111/40%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" href="/places/new">Ավելացնել ևս մեկը</a>
@@ -194,14 +206,17 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       <div ref={top} />
-      <PageHeader backTo="/places" backLabel="Սրբավայրեր" title="Ավելացնել սրբավայր" />
+      <PageHeader backTo={target ? `/places/${target.id}` : "/places"} backLabel={target ? target.name : "Սրբավայրեր"} title={target ? "Լրացնել տվյալները" : "Ավելացնել սրբավայր"} />
       <p className="mx-auto mt-1 mb-4 max-w-[600px] text-center text-[14px] leading-relaxed text-muted">
-        Պատմեք եկեղեցու, վանքի կամ մատուռի մասին։ Պարտադիր են միայն <span className="text-danger">*</span> նշվածները, մնացածը՝ ինչ գիտեք։ Թիմը կստուգի, հետո այն կհայտնվի քարտեզում։
+        {target
+          ? <>«{target.name}»-ն արդեն քարտեզում է։ Գրեք այն, ինչ գիտեք՝ Պատարագի ժամը, ծառայողները, նկարներ, պատմությունը։ Թիմը կստուգի և կավելացնի այս եկեղեցու էջում։</>
+          : <>Պատմեք եկեղեցու, վանքի կամ մատուռի մասին։ Պարտադիր են միայն <span className="text-danger">*</span> նշվածները, մնացածը՝ ինչ գիտեք։ Թիմը կստուգի, հետո այն կհայտնվի քարտեզում։</>}
       </p>
       {errors.form ? <p className="mx-auto mb-3 max-w-[600px] rounded-[14px] bg-[rgb(184_72_62/10%)] px-4 py-3 text-center text-[14px] font-semibold text-danger" role="alert">{errors.form}</p> : null}
       <form method="post" encType="multipart/form-data" onSubmit={send} className="mx-auto grid w-full max-w-[680px] gap-4" noValidate>
+        {target ? <input type="hidden" name="placeId" value={target.id} /> : null}
         <Step number={1} title="Անունը" required>
-          <input className={fieldControl} name="name" placeholder="Օր.՝ Սուրբ Գրիգոր Նարեկացի եկեղեցի" maxLength={120} required />
+          <input className={fieldControl} name="name" placeholder="Օր.՝ Սուրբ Գրիգոր Նարեկացի եկեղեցի" maxLength={120} required defaultValue={target?.name} />
           {problem(errors.name)}
         </Step>
 
@@ -222,7 +237,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
               <Check aria-hidden="true" size={15} /> Տեղը գտնված է՝ {point.latitude.toFixed(5)}, {point.longitude.toFixed(5)} · ստուգել քարտեզում ↗
             </a>
           ) : null}
-          <input className={fieldControl} name="region" placeholder="Մարզ, բնակավայր (եթե չգրեք, կլրացվի ինքնաբերաբար)" maxLength={120} />
+          <input className={fieldControl} name="region" placeholder="Մարզ, բնակավայր (եթե չգրեք, կլրացվի ինքնաբերաբար)" maxLength={120} defaultValue={target?.region} />
           {problem(errors.location)}
         </Step>
 

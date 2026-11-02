@@ -15,17 +15,17 @@ export async function openWebPlaces(db: D1Database, userId: string) {
 }
 
 /** Saves the place as a sent submission, stores its photos in R2, and tells the team. */
-export async function createWebPlace(db: D1Database, bucket: R2Bucket, user: TelegramUserIdentity, { fields, photos }: WebPlace, fetcher: typeof fetch = fetch) {
+export async function createWebPlace(db: D1Database, bucket: R2Bucket, user: TelegramUserIdentity, { fields, photos }: WebPlace, fetcher: typeof fetch = fetch, placeId: string | null = null) {
   if (await openWebPlaces(db, user.id) >= OPEN_LIMIT) return { error: "Դուք արդեն ուղարկել եք մի քանի տեղ, որոնք դեռ դիտվում են։ Փորձեք մի փոքր ուշ։" };
   const point = fields.point!;
   const region = fields.region || await regionFor(point, fetcher);
   const telegramId = /^\d{1,20}$/u.test(user.telegramId) ? Number(user.telegramId) : 0;
   const inserted = await db.prepare(
     `INSERT INTO place_submissions (telegram_id, user_id, source, sender_name, place_name, kind, region, latitude, longitude, active, liturgy, services, clergy,
-       open_hours, accessibility, notes, credit, credit_name, submitted_at)
-     VALUES (?, ?, 'web', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) RETURNING id`,
+       open_hours, accessibility, notes, credit, credit_name, place_id, submitted_at)
+     VALUES (?, ?, 'web', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) RETURNING id`,
   ).bind(telegramId, user.id, user.displayName.slice(0, 120), fields.name, fields.kind, region, point.latitude, point.longitude, fields.active, fields.liturgy, fields.services,
-    fields.clergy, fields.openHours, fields.accessibility, fields.notes, fields.credit ? 1 : 0, fields.creditName || (fields.credit ? user.displayName : "")).first<{ id: number }>();
+    fields.clergy, fields.openHours, fields.accessibility, fields.notes, fields.credit ? 1 : 0, fields.creditName || (fields.credit ? user.displayName : ""), placeId).first<{ id: number }>();
   if (!inserted) return { error: "Չհաջողվեց պահել։ Փորձեք նորից։" };
   const keys: string[] = [];
   for (const file of photos.slice(0, WEB_PHOTO_LIMIT)) {
@@ -36,7 +36,7 @@ export async function createWebPlace(db: D1Database, bucket: R2Bucket, user: Tel
   if (keys.length) await db.prepare("UPDATE place_submissions SET photos_json = ? WHERE id = ?").bind(JSON.stringify(keys), inserted.id).run();
   const row = await readSubmission(db, inserted.id);
   if (row) {
-    const from = `📍 Սրբավայր կայքից · ${user.displayName}${user.username ? ` · @${user.username}` : ""} · ${user.source === "google" ? "Google" : "Telegram"}`;
+    const from = `${placeId ? `✏️ Լրացում քարտեզում եղած տեղի համար (${placeId})` : "📍 Սրբավայր կայքից"} · ${user.displayName}${user.username ? ` · @${user.username}` : ""} · ${user.source === "google" ? "Google" : "Telegram"}`;
     await notifyPlacesTeam(`${from}\n\n${teamSummary(row, 400)}${keys.length ? `\n📷 Նկարներ՝ ${keys.length}` : ""}\n\nԴիտել և հաստատել՝ /admin/places`).catch(() => false);
   }
   return { id: inserted.id };

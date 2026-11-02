@@ -155,8 +155,8 @@ export function ReminderButton({ materialId, title, className, label = false, pa
     setMinute(current ? at.getMinutes() : 0);
     setMode(current?.repeat === "daily" ? "daily" : "date");
     setRepeat(current && current.repeat !== "daily" ? current.repeat : "none");
-    // The phone's calendar first: it rings offline and costs the server nothing.
-    setChannel(current?.channel ?? "calendar");
+    // Լռելյայն՝ բրաուզերի ծանուցում. հեռախոսի օրացույցը՝ երկրորդ տարբերակ։
+    setChannel(current?.channel ?? "push");
   };
 
   const days = useMemo(() => Array.from({ length: DAY_STRIP }, (_, index) => {
@@ -223,7 +223,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
   const close = useCallback(() => setOpen(false), []);
   const Icon = hasReminder ? BellRing : Bell;
   const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
-  const segment = (active: boolean) => `min-h-10 cursor-pointer rounded-[10px] border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
+  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-[10px] border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
   return (
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">
@@ -249,8 +249,8 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         <div className="grid gap-1.5">
           <span className="px-1 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Ինչպես հիշեցնել</span>
           <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Ինչպես հիշեցնել">
-            <button className={segment(channel === "push")} type="button" role="radio" aria-checked={channel === "push"} onClick={() => setChannel("push")}>🔔 Ծանուցումով</button>
-            <button className={segment(channel === "calendar")} type="button" role="radio" aria-checked={channel === "calendar"} onClick={() => setChannel("calendar")}>📱 Հեռախոսի օրացույցով</button>
+            <button className={segment(channel === "push")} type="button" role="radio" aria-checked={channel === "push"} onClick={() => setChannel("push")}>🔔 Ծանուցում</button>
+            <button className={segment(channel === "calendar")} type="button" role="radio" aria-checked={channel === "calendar"} onClick={() => setChannel("calendar")}>📅 Օրացույց</button>
           </div>
         </div>
 
@@ -283,9 +283,9 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         </div>
 
         {mode === "date" ? (
-          <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1 min-[400px]:grid-cols-4" role="radiogroup" aria-label="Կրկնել">
+          <div className="grid grid-cols-2 gap-1 rounded-[14px] bg-subtle p-1 min-[480px]:grid-cols-4" role="radiogroup" aria-label="Կրկնել">
             {REPEATS.map((option) => (
-              <button key={option.value} className={`${segment(repeat === option.value)} min-h-9 text-[12px]`} type="button" role="radio" aria-checked={repeat === option.value} onClick={() => setRepeat(option.value)}>{option.label}</button>
+              <button key={option.value} className={`${segment(repeat === option.value)} min-h-9 px-2 text-[12.5px]`} type="button" role="radio" aria-checked={repeat === option.value} onClick={() => setRepeat(option.value)}>{option.label}</button>
             ))}
           </div>
         ) : null}
@@ -305,7 +305,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         {/* Whether reminders can reach the reader while the library is closed. */}
         {channel === "calendar" ? (
           <p className="m-0 rounded-[12px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3 py-2 text-center text-[12.5px] leading-snug text-ink">
-            📱 Հիշեցումը կավելանա <strong>Ձեր հեռախոսի ներքին օրացույցում</strong> (Calendar / Օրացույց հավելված) և կհնչի նույնիսկ առանց ինտերնետի։ Մենք Ձեր օրացույցը չենք տեսնում։
+            📱 Հիշեցումը կավելանա <strong>Ձեր հեռախոսի ներքին օրացույցում</strong> (Calendar / Օրացույց հավելված) և կհնչի նույնիսկ առանց ինտերնետի։
           </p>
         ) : push === "telegram" ? (
           <p className="m-0 text-center text-[12px] text-muted">Հիշեցումը կստանաք նաև Telegram-ում՝ բոտի հաղորդագրությամբ։</p>
