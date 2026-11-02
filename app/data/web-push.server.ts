@@ -1,3 +1,4 @@
+import { safePushEndpoint } from "../utils/push-endpoint";
 /**
  * Web Push from a Worker with WebCrypto only: VAPID (RFC 8292) for authorization and aes128gcm
  * payload encryption (RFC 8291 / RFC 8188).
@@ -84,6 +85,8 @@ export async function encryptPayload(subscription: PushSubscriptionRow, payload:
  * (the reader turned notifications off or cleared the site), so it can be removed.
  */
 export async function sendWebPush(subscription: PushSubscriptionRow, message: unknown, keys: PushKeys): Promise<"sent" | "gone" | "failed"> {
+  // Երկրորդ պատնեշ. նույնիսկ եթե բազայում հին/սխալ endpoint կա, դուրս POST չենք անի անծանոթ հասցեի։
+  if (!safePushEndpoint(subscription.endpoint)) return "gone";
   const body = await encryptPayload(subscription, encode(JSON.stringify(message)));
   const response = await fetch(subscription.endpoint, {
     method: "POST",
@@ -95,6 +98,7 @@ export async function sendWebPush(subscription: PushSubscriptionRow, message: un
       urgency: "high",
     },
     body,
+    redirect: "manual",
   }).catch(() => null);
   if (!response) return "failed";
   if (response.status === 404 || response.status === 410) return "gone";
