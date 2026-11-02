@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { lockScroll } from "../utils/scroll-lock";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -18,10 +19,9 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
       else if (event.key === "ArrowRight") go(1);
       else if (event.key === "ArrowLeft") go(-1);
     };
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
+    return () => { window.removeEventListener("keydown", onKey); unlock(); };
   }, [onClose]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const round = "grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white backdrop-blur-md";
