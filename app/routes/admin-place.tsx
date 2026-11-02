@@ -11,7 +11,8 @@ import { RichTextField } from "../components/rich-text";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, fieldLabel, panelSection, primaryButton } from "../components/ui-styles";
-import { deletePlace, getPlace, PLACE_UPLOAD_TYPES, setPlacePictures, storePlaceFile, updatePlace } from "../data/places.server";
+import { deletePlace, getPlace, setPlacePictures, storePlaceFile, updatePlace } from "../data/places.server";
+import { sniffImageType } from "../utils/image-magic";
 import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
@@ -59,16 +60,22 @@ async function performAction({ request, params }: Route.ActionArgs) {
   if (intent === "photos") {
     const added: string[] = [];
     for (const file of files("photos").slice(0, 12)) {
-      if (!PLACE_UPLOAD_TYPES.includes(file.type) || file.size > 15_000_000) continue;
-      added.push(await storePlaceFile(MEDIA, place.id, "photo", await file.arrayBuffer(), file.type));
+      if (file.size > 15_000_000) continue;
+      const buffer = await file.arrayBuffer();
+      const type = sniffImageType(new Uint8Array(buffer)); // իսկական տեսակը, ոչ հաճախորդի MIME-ը (A-11/A-17)
+      if (!type) continue;
+      added.push(await storePlaceFile(MEDIA, place.id, "photo", buffer, type));
     }
     await setPlacePictures(DB, place.id, { photos: [...place.photos, ...added] });
     return redirect(`/admin/places/${place.id}`);
   }
   if (intent === "icon") {
     const [file] = files("icon");
-    if (!file || !["image/png", "image/webp"].includes(file.type)) return data({ error: "Գծանկարը պետք է լինի PNG (թափանցիկ ֆոնով)։" }, { status: 400 });
-    const key = await storePlaceFile(MEDIA, place.id, "icon", await file.arrayBuffer(), file.type);
+    if (!file || file.size > 5_000_000) return data({ error: "Գծանկարը պետք է լինի PNG/WebP, մինչև 5 ՄԲ։" }, { status: 400 });
+    const buffer = await file.arrayBuffer();
+    const type = sniffImageType(new Uint8Array(buffer));
+    if (type !== "image/png" && type !== "image/webp") return data({ error: "Գծանկարը պետք է լինի PNG (թափանցիկ ֆոնով) կամ WebP։" }, { status: 400 });
+    const key = await storePlaceFile(MEDIA, place.id, "icon", buffer, type);
     if (place.icon) await MEDIA.delete(place.icon);
     await setPlacePictures(DB, place.id, { icon: key });
     return redirect(`/admin/places/${place.id}`);

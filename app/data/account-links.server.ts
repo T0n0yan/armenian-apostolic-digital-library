@@ -23,18 +23,24 @@ export const NOT_MOVED: Record<string, string> = {
  */
 export async function joinAccounts(database: D1Database, aliasId: string, user: { id: string; telegramId: string }) {
   if (aliasId === user.id) return;
-  for (const table of USER_TABLES) {
-    // A table may be missing in an environment that has not got it yet; the others still move.
-    await database.batch([
+  // Մեկ ատոմային batch (D1-ի transaction). կա՛մ ամբողջ միացումը կատարվում է, կա՛մ ոչինչ. մասնակի
+  // կորուստ չի լինում (A-16)։ Ամեն աղյուսակից տեղափոխում ենք, հետո ջնջում հինը, վերջում՝ կապը։
+  const statements = [
+    ...USER_TABLES.flatMap((table) => [
       database.prepare(`UPDATE OR IGNORE ${table} SET user_id = ? WHERE user_id = ?`).bind(user.id, aliasId),
       database.prepare(`DELETE FROM ${table} WHERE user_id = ?`).bind(aliasId),
-    ]).catch((error) => console.error(JSON.stringify({ event: "account_join_table_failed", table, error: String(error) })));
+    ]),
+    // Հիշեցումները բոտով հասնում են մարդուն իր Telegram id-ով։
+    database.prepare("UPDATE reading_reminders SET telegram_id = ? WHERE user_id = ?").bind(user.telegramId, user.id),
+    database.prepare("INSERT INTO account_links (alias_id, user_id) VALUES (?, ?) ON CONFLICT(alias_id) DO UPDATE SET user_id = excluded.user_id, linked_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')").bind(aliasId, user.id),
+  ];
+  try {
+    await database.batch(statements);
+  } catch (error) {
+    // Ձախողման դեպքում ոչինչ չի փոխվել (batch-ը ատոմային է)։ Գրանցում ենք՝ հետո նորից փորձելու համար։
+    console.error(JSON.stringify({ event: "account_join_failed", aliasId, error: String(error) }));
+    throw error;
   }
-  // Reminders reach the reader through the bot by their Telegram id.
-  await database.prepare("UPDATE reading_reminders SET telegram_id = ? WHERE user_id = ?").bind(user.telegramId, user.id).run().catch(() => undefined);
-  await database.prepare(
-    "INSERT INTO account_links (alias_id, user_id) VALUES (?, ?) ON CONFLICT(alias_id) DO UPDATE SET user_id = excluded.user_id, linked_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
-  ).bind(aliasId, user.id).run();
 }
 
 /** The Telegram account a Google account was joined to, or null. */
