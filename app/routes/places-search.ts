@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit.server";
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
 
 import type { Route } from "./+types/places-search";
 import { listPublicPlaceSummaries } from "../data/places.server";

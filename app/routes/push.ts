@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import type { Route } from "./+types/push";
 import { requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
 import { safePushEndpoint } from "../utils/push-endpoint";
-import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit.server";
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
 
 const noStore = { "Cache-Control": "private, no-store" };
 
