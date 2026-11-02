@@ -1,5 +1,10 @@
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
 import { safeReturnPath } from "../utils/return-path";
 import { env } from "cloudflare:workers";
+
+// Google-ի հրապարակային բանալիները՝ ID token-ի ստորագրությունը ստուգելու համար (defense-in-depth)։
+const GOOGLE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 
 const STATE_COOKIE = "library_google_oauth";
 const STATE_SECONDS = 600;
@@ -94,22 +99,19 @@ export async function finishGoogleSignIn(request: Request) {
     }),
   }).catch(() => null);
   const tokens = (await response?.json().catch(() => null)) as { id_token?: string } | null;
-  // The ID token comes straight from Google's token endpoint over TLS, so its claims can be read
-  // without verifying the signature (Google's guidance); the audience and expiry are still checked.
-  const claims = (() => {
+  // ID token-ի ստորագրությունը ստուգվում է Google-ի հրապարակային բանալիներով (issuer և audience-ը՝ ներսում)։
+  const claims = await (async () => {
+    if (!tokens?.id_token) return null;
     try {
-      const part = tokens?.id_token?.split(".")[1];
-      if (!part) return null;
-      const base64 = part.replaceAll("-", "+").replaceAll("_", "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
-      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
-      return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
+      const { payload } = await jwtVerify(tokens.id_token, GOOGLE_JWKS, {
+        issuer: ["https://accounts.google.com", "accounts.google.com"],
+        audience: config.clientId,
+      });
+      return payload;
     } catch { return null; }
   })();
-  const valid = claims && claims.aud === config.clientId
-    && (claims.iss === "https://accounts.google.com" || claims.iss === "accounts.google.com")
-    && typeof claims.exp === "number" && claims.exp * 1000 > Date.now() && typeof claims.sub === "string";
-  const profile: GoogleProfile | null = valid ? {
-    sub: claims.sub as string,
+  const profile: GoogleProfile | null = claims && typeof claims.sub === "string" ? {
+    sub: claims.sub,
     email: typeof claims.email === "string" ? claims.email : null,
     name: (typeof claims.name === "string" && claims.name.trim()) || (typeof claims.email === "string" ? claims.email.split("@")[0] : "Google"),
   } : null;
