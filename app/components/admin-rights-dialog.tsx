@@ -1,4 +1,5 @@
 import { Crown, X } from "lucide-react";
+import { useScrollLock } from "../utils/scroll-lock";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Form, useNavigation } from "react-router";
@@ -15,6 +16,7 @@ export function AdminRightsDialog({ person, permissions, onClose }: {
   onClose: () => void;
 }) {
   const busy = useNavigation().state !== "idle";
+  useScrollLock(true);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);

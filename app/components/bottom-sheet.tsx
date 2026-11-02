@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
+import { useScrollLock } from "../utils/scroll-lock";
+
 const EXIT_MS = 380;
 
 /**
@@ -12,6 +14,8 @@ export function BottomSheet({ open, onClose, label, children, className = "" }: 
 }) {
   const [rendered, setRendered] = useState(open);
   const [phase, setPhase] = useState<"in" | "out">("in");
+  // Մինչ պատուհանը բաց է, հետևի էջը չի ոլորվում։
+  useScrollLock(open);
 
   useEffect(() => {
     if (open) { setRendered(true); setPhase("in"); return; }

@@ -1,4 +1,5 @@
 import { AlertCircle, ChevronLeft, ChevronRight, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video, X } from "lucide-react";
+import { lockScroll } from "../utils/scroll-lock";
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
@@ -305,10 +306,9 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
 function PhotoViewer({ source, alt, onClose }: { source: string; alt: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     window.addEventListener("keydown", onKey);
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
+    return () => { window.removeEventListener("keydown", onKey); unlock(); };
   }, [onClose]);
   return createPortal(
     <div className="fixed inset-0 z-[90] grid place-items-center bg-[rgb(8_4_10/94%)] p-[max(12px,env(safe-area-inset-top))_12px_max(12px,env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-label="Նկարը ամբողջ էկրանով" onClick={onClose}>
