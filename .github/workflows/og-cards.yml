@@ -8,7 +8,8 @@ name: Link-preview cards
 on:
   workflow_run:
     workflows: ["Deploy"]
-    branches: [main, staging]
+    # Միայն պռոդի համար. staging-ի քարտերը՝ ձեռքով (Actions-ի րոպեները խնայելու համար)։
+    branches: [main]
     types: [completed]
   workflow_dispatch:
     inputs:
