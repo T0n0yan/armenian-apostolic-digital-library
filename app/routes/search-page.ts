@@ -3,7 +3,7 @@ import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract"
 import { searchValidation } from "../utils/search-validation";
 import { env } from "cloudflare:workers";
 
-import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit.server";
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
 
 import type { Route } from "./+types/search-page";
 import type { SearchFilters } from "../data/search-materials";

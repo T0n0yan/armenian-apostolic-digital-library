@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit.server";
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
 
 import type { Route } from "./+types/presence";
 import { touchPresence, validPlatform } from "../data/presence.server";
