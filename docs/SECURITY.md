@@ -32,7 +32,7 @@ dash.cloudflare.com → **Zero Trust → Access → Applications** → policy-ի
 ## 3. GitHub — code security (A-14, A-15)
 
 github.com → ռեպո → **Settings**.
-- **Code security / Advanced Security** → միացնել՝ Dependency graph, Dependabot alerts, Dependabot security updates (անվճar, ✅ արված)։
+- **Code security / Advanced Security** → միացնել՝ Dependency graph, Dependabot alerts, Dependabot security updates (անվճար, ✅ արված)։
   Secret scanning + Push protection՝ փակ ռեպոյում վճարովի են (Advanced Security)։ **Չենք վճարում.**
   գաղտնիքներ երբեք կոդում չկան (Cloudflare/GitHub Secrets, `.dev.vars` gitignore)։
 - **Branches / Rulesets** → `main`-ի համար «Require a pull request before merging»։
