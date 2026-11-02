@@ -2,7 +2,9 @@
 
 The library site and Telegram Mini App for the group «Հայ Առաքելական Սուրբ Եկեղեցի»
 (t.me/armenian_apostolic_church). Production: https://apostolic.am, staging: https://staging.apostolic.am.
-How the pieces fit: `FUNCTIONALITY.md`, `docs/ENVIRONMENTS.md`.
+How the pieces fit: `docs/ARCHITECTURE.md` (diagrams of everything), `docs/ENVIRONMENTS.md`.
+**Whenever you add or change a feature, page, table, workflow or service, update `docs/ARCHITECTURE.md`
+in the same branch** (the owner reads it to understand the site).
 
 ## Talking to the owner
 
