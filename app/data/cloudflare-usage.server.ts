@@ -7,7 +7,7 @@ const definitions = [
   { id: "d1-read", label: "D1 կարդացած տողեր", limit: 5_000_000, unit: "տող", period: "Այսօր՝ UTC 00:00-ից" },
   { id: "d1-write", label: "D1 գրած տողեր", limit: 100_000, unit: "տող", period: "Այսօր՝ UTC 00:00-ից" },
   { id: "d1-storage", label: "D1 ընդհանուր պահեստ", limit: 5_000_000_000, unit: "byte", period: "Վերջին հասանելի չափում" },
-  { id: "r2-storage", label: "R2 ընդհանուր պահեստ", limit: 10_000_000_000, unit: "byte", period: "Վերջին օրվա առավելագույն ծավալների գումար" },
+  { id: "r2-storage", label: "R2 ընդհանուր պահեստ", limit: 10_000_000_000, unit: "byte", period: "Ամեն բաքեթի վերջին չափված ծավալը" },
   { id: "d1-largest", label: "D1 ամենամեծ բազան", limit: 500_000_000, unit: "byte", period: "Վերջին հասանելի չափում" },
   { id: "r2-a", label: "R2 Class A գործողություններ", limit: 1_000_000, unit: "հարցում", period: "Այս ամսվա սկզբից՝ UTC" },
   { id: "r2-b", label: "R2 Class B գործողություններ", limit: 10_000_000, unit: "հարցում", period: "Այս ամսվա սկզբից՝ UTC" },
@@ -67,6 +67,18 @@ export async function readCloudflareUsage(env: UsageEnv, requestFetch: typeof fe
     }),
     group(["r2-storage"], async () => {
       const since = new Date(now.getTime() - 86_400_000).toISOString();
+      // Ամեն բաքեթի վերջին ժամի չափը (ոչ թե օրվա առավելագույնը), որ ջնջումից հետո թիվը իջնի։
+      const hourly = await query("r2StorageAdaptiveGroups", `datetime_geq: "${since}", datetime_leq: "${until}"`, "max { payloadSize metadataSize } dimensions { bucketName datetimeHour }").catch(() => null);
+      if (hourly?.length) {
+        const latest = new Map<string, { hour: string; bytes: number }>();
+        for (const row of hourly as Array<{ max?: { payloadSize?: number; metadataSize?: number }; dimensions?: { bucketName?: string; datetimeHour?: string } }>) {
+          const bucket = row.dimensions?.bucketName ?? "";
+          const hour = row.dimensions?.datetimeHour ?? "";
+          const bytes = (row.max?.payloadSize ?? NaN) + (row.max?.metadataSize ?? NaN);
+          if (!latest.has(bucket) || hour > latest.get(bucket)!.hour) latest.set(bucket, { hour, bytes });
+        }
+        return [[...latest.values()].reduce((n, item) => n + item.bytes, 0)];
+      }
       const rows = await query("r2StorageAdaptiveGroups", `datetime_geq: "${since}", datetime_leq: "${until}"`, "max { payloadSize metadataSize } dimensions { bucketName }");
       if (!rows.length) throw new Error("No storage samples");
       return [rows.reduce((n, row) => n + (row.max?.payloadSize ?? NaN) + (row.max?.metadataSize ?? NaN), 0)];
