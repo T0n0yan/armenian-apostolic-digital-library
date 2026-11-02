@@ -1,0 +1,23 @@
+# Միայն կարդում է. ինչով է լցված R2 պահեստը և D1 բազաները (scripts/storage-report.mjs)։
+# Գործարկել ձեռքով՝ Actions → Storage report → Run workflow. արդյունքը՝ գործարկման Summary-ում։
+name: Storage report
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/storage-report.mjs
