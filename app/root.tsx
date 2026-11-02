@@ -1,4 +1,5 @@
 import { BOOT_SCRIPT } from "./utils/boot-script";
+import { printSignature } from "./utils/console-signature";
 import {env} from "cloudflare:workers";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import {
@@ -290,6 +291,9 @@ export default function App({ loaderData }: Route.ComponentProps) {
     document.addEventListener("visibilitychange", check);
     return () => { active = false; document.removeEventListener("visibilitychange", check); };
   }, [loaderData.contentVersion, revalidator]);
+
+  // Console-ի ստորագրությունը՝ մեկ անգամ։
+  useEffect(() => { printSignature(); }, []);
 
   // The service worker answers page data it already has while the content version stays the same.
   useEffect(() => {
