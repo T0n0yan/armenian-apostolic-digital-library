@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
+import { useScrollLock } from "../utils/scroll-lock";
 import { createPortal } from "react-dom";
 import { useRouteLoaderData } from "react-router";
 
@@ -21,6 +22,8 @@ export function SundayPrompt() {
   const [busy, setBusy] = useState(false);
   // Նախադիտում («Կառավարում»-ից, ?sunday=preview). բացվում է ցանկացած պահի, պատասխանը չի պահվում։
   const [preview, setPreview] = useState(false);
+  // Մինչ պատուհանը բաց է, հետևի էջը չի ոլորվում։
+  useScrollLock(Boolean(day));
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("sunday") === "preview") {

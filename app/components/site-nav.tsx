@@ -1,4 +1,5 @@
 import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { lockScroll } from "../utils/scroll-lock";
 import { memo, useEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -52,8 +53,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
   useEffect(() => {
     if (!isOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     const focusable = () => Array.from(
       dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled])') ?? [],
     );
@@ -78,7 +78,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlock();
       triggerRef.current?.focus();
     };
   }, [isOpen]);

@@ -1,5 +1,6 @@
 import { ArrowDown, Plus, Share, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useOutsideClose } from "../utils/outside-close";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import DoveMark from "../assets/dove-mark.png";
 
@@ -151,12 +152,23 @@ export function InstallPrompt() {
     }
   }, [dismiss, mode]);
 
+  // Տոստը մնում է 5 վայրկյան, հետո ինքն է անհետանում. դրսում հպելը էլ է փակում։
+  // Եթե մարդը սեղմել է «Ավելացնել»-ը և կարդում է բացատրությունը, ժամաչափը կանգնում է։
+  const toast = useRef<HTMLElement>(null);
+  useOutsideClose(toast, visible && phase === "in", dismiss);
+  useEffect(() => {
+    if (!visible || phase !== "in" || showHint) return;
+    const timer = window.setTimeout(dismiss, 5_000);
+    return () => window.clearTimeout(timer);
+  }, [visible, phase, showHint, dismiss]);
+
   if (!visible || !mode) return null;
   const hasButton = mode !== "ios";
   const iphone = mode === "ios" && /iphone|ipod/iu.test(navigator.userAgent);
   return (
     <>
       <aside
+        ref={toast}
         className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
         data-phase={phase}
         role="dialog"

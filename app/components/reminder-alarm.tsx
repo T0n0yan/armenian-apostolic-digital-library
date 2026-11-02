@@ -1,4 +1,5 @@
 import { BookOpen, Check, X } from "lucide-react";
+import { useOutsideClose } from "../utils/outside-close";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 
@@ -180,11 +181,16 @@ export function ReminderAlarm() {
     timers.current.set(reminder.materialId, window.setTimeout(() => ring({ ...reminder, at }), minutes * 60_000 - COUNTDOWN_SECONDS * 1000));
   };
 
+  // Դրսում հպելը փակում է հիշեցումը (այն մնում է վերնագրի զանգակում)։
+  const card = useRef<HTMLElement>(null);
+  useOutsideClose(card, Boolean(current) && phase === "in", dismiss);
+
   if (!current) return null;
   const counting = secondsLeft > 0;
   const action = "min-h-10 cursor-pointer rounded-[12px] border px-3 text-[12.5px] font-bold";
   return (
     <aside
+      ref={card}
       className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-[22px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
       data-phase={phase}
       role="alertdialog"
