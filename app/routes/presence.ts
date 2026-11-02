@@ -1,10 +1,13 @@
 import { env } from "cloudflare:workers";
 
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit.server";
+
 import type { Route } from "./+types/presence";
 import { touchPresence, validPlatform } from "../data/presence.server";
 
 /** { visitorId, platform, inTelegram } — a page is open on this device. */
 export async function action({ request }: Route.ActionArgs) {
+  if (!(await withinRateLimit((env as { WRITE_RATE_LIMIT?: RateLimiter }).WRITE_RATE_LIMIT, rateKey(request, "presence")))) return tooMany();
   if (request.method !== "POST" || new URL(request.url).origin !== request.headers.get("origin")) return new Response(null, { status: 403 });
   const body = (await request.json().catch(() => null)) as { visitorId?: unknown; platform?: unknown; inTelegram?: unknown } | null;
   const visitorId = typeof body?.visitorId === "string" && /^[a-zA-Z0-9-]{8,64}$/u.test(body.visitorId) ? body.visitorId : null;
