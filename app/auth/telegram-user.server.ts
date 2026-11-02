@@ -21,6 +21,8 @@ type SessionPayload = {
   displayName: string;
   username: string | null;
   provider?: "telegram" | "google";
+  /** «Ելք բոլոր սարքերից». cookie-ի թիվը պետք է համընկնի app_users.session_epoch-ին (A-08)։ */
+  epoch?: number;
   expiresAt: number;
 };
 
@@ -241,7 +243,17 @@ export async function getOptionalTelegramUser(
   return (await getTelegramUserState(request)).user;
 }
 
-export async function getTelegramUserState(request: Request): Promise<TelegramUserState> {
+const stateCache = new WeakMap<Request, Promise<TelegramUserState>>();
+export function getTelegramUserState(request: Request): Promise<TelegramUserState> {
+  // Memoize per request. մեկ հարցման մեջ մուտքի ստուգումը (և նրա DB-ընթերցումը) միայն մեկ անգամ։
+  const cached = stateCache.get(request);
+  if (cached) return cached;
+  const promise = resolveTelegramUserState(request);
+  stateCache.set(request, promise);
+  return promise;
+}
+
+async function resolveTelegramUserState(request: Request): Promise<TelegramUserState> {
   if (isLocalDevelopmentRequest(request)) {
     return { status: "authenticated", user: {
       id: "local-development",
@@ -257,6 +269,11 @@ export async function getTelegramUserState(request: Request): Promise<TelegramUs
   if (!readCookie(request, SESSION_COOKIE)) return { status: "guest", user: null };
   const payload = await readSignedSession(request, botToken);
   if (!payload) return { status: "invalid", user: null };
+  // «Ելք բոլոր սարքերից». եթե cookie-ի թիվը հին է, մուտքը չեղյալ է։ Հին cookie-ներ (առանց epoch)՝ բաց թողնել։
+  if (typeof payload.epoch === "number") {
+    const row = await env.DB.prepare("SELECT session_epoch FROM app_users WHERE id = ?").bind(payload.id).first<{ session_epoch: number }>().catch(() => null);
+    if (row && row.session_epoch !== payload.epoch) return { status: "invalid", user: null };
+  }
 
   return { status: "authenticated", user: { ...payload, source: payload.provider ?? "telegram" } };
 }
@@ -286,13 +303,19 @@ export function requireSameOriginUserRequest(request: Request) {
 export async function createSessionCookie(request: Request, identity: Omit<SessionPayload, "expiresAt">) {
   const botToken = getBotToken();
   if (!botToken) return null;
-  const payload: SessionPayload = { ...identity, expiresAt: Date.now() + SESSION_SECONDS * 1000 };
+  const row = await env.DB.prepare("SELECT session_epoch FROM app_users WHERE id = ?").bind(identity.id).first<{ session_epoch: number }>().catch(() => null);
+  const payload: SessionPayload = { ...identity, epoch: row?.session_epoch ?? 0, expiresAt: Date.now() + SESSION_SECONDS * 1000 };
   const encodedPayload = encodeBase64Url(JSON.stringify(payload));
   const signature = toHex(
     await signHmac(await getSessionKey(botToken), encoder.encode(encodedPayload)),
   );
   const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
   return `${SESSION_COOKIE}=${encodedPayload}.${signature}; Path=/; Max-Age=${SESSION_SECONDS}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+/** «Ելք բոլոր սարքերից». բարձրացնում է session_epoch-ը, բոլոր հին cookie-ները դադարում են գործել։ */
+export async function revokeAllSessions(userId: string) {
+  await env.DB.prepare("UPDATE app_users SET session_epoch = session_epoch + 1 WHERE id = ?").bind(userId).run().catch(() => undefined);
 }
 
 /** Signs the reader out. */
