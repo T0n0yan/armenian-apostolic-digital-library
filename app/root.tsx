@@ -34,6 +34,11 @@ import "./app.css";
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
 // the phone's light/dark setting; elsewhere the browser's prefers-color-scheme does.
 const initialThemeScript = `(() => {
+  // Ստորագրություն. ով բացի console-ը, թող տեսնի՝ ում կայքն է։
+  try {
+    console.log("%cT0n0yan \u{1F609}", "color:#b07d2e;font:700 22px Georgia,serif");
+    console.log("%c\u0531\u0575\u057D \u056F\u0561\u0575\u0584\u0568 \u057D\u057F\u0565\u0572\u056E\u057E\u0565\u056C \u0567 T0n0yan-\u056B \u056F\u0578\u0572\u0574\u056B\u0581\u0589 \u0562\u0561\u0580\u056B \u0563\u0561\u056C\u0578\u0582\u057D\u057F \u2728", "color:#6d5c47;font-size:13px");
+  } catch {}
   try {
     const root = document.documentElement;
     try { if (sessionStorage.getItem("library-loader-seen-v4") === "1") root.dataset.introSeen = "true"; } catch {}

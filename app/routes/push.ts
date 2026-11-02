@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/push";
 import { requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
+import { safePushEndpoint } from "../utils/push-endpoint";
 
 const noStore = { "Cache-Control": "private, no-store" };
 
@@ -22,10 +23,10 @@ export async function action({ request }: Route.ActionArgs) {
     await env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?").bind(body.endpoint, user.id).run();
     return Response.json({ ok: true }, { headers: noStore });
   }
-  const endpoint = body?.subscription?.endpoint;
+  const endpoint = safePushEndpoint(body?.subscription?.endpoint);
   const p256dh = body?.subscription?.keys?.p256dh;
   const auth = body?.subscription?.keys?.auth;
-  if (typeof endpoint !== "string" || !endpoint.startsWith("https://") || endpoint.length > 1000 || typeof p256dh !== "string" || typeof auth !== "string" || p256dh.length > 200 || auth.length > 100) {
+  if (!endpoint || typeof p256dh !== "string" || typeof auth !== "string" || p256dh.length > 200 || auth.length > 100) {
     return Response.json({ ok: false }, { status: 400, headers: noStore });
   }
   // A reader can have notifications in a handful of browsers, not an unlimited number.

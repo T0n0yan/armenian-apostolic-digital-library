@@ -20,8 +20,12 @@ export async function loader({ request }: Route.LoaderArgs) {
       `SELECT COUNT(*) AS count, MAX(message_id) AS last, SUM(message_id) AS ids, MAX(COALESCE(edited_at, '')) AS edited
        FROM library_materials WHERE sync_state = 'ready' AND deleted_at IS NULL`,
     ).first<{ count: number; last: number | null; ids: number | null; edited: string | null }>();
-    const topics = await env.DB.prepare("SELECT group_concat(id || ':' || status || ':' || title, '|') AS names FROM library_topics").first<{ names: string | null }>();
-    const version = [OG_CARD_LAYOUT, row?.count, row?.last, row?.ids, row?.edited, topics?.names].join(":");
+    // Միայն թե երբ է որևէ topic վերջին անգամ փոխվել, ոչ թե անունները (թաքցված բաժինների անունները չպետք է արտահոսեն)։
+    const topics = await env.DB.prepare("SELECT COUNT(*) AS count, MAX(updated_at) AS changed FROM library_topics").first<{ count: number; changed: string | null }>();
+    const raw = [OG_CARD_LAYOUT, row?.count, row?.last, row?.ids, row?.edited, topics?.count, topics?.changed].join(":");
+    // Opaque SHA-256. ոչ մի ներքին անուն կամ կարգավիճակ չի երևում։
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+    const version = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
     return Response.json({ version }, { headers: { "cache-control": "no-store", "x-robots-tag": "noindex" } });
   }
   if (!(OG_CARD_SECTIONS as readonly string[]).includes(section)) return Response.json({ sections: OG_CARD_SECTIONS }, { status: 400 });
