@@ -2,6 +2,7 @@ import type { TelegramUserIdentity } from "../auth/telegram-user.server";
 import { readSubmission, regionFor, teamSummary } from "./place-intake.server";
 import { notifyPlacesTeam } from "./telegram-bot-replies.server";
 import { OPEN_LIMIT, PHOTO_TYPES, WEB_PHOTO_LIMIT, type WebPlace } from "../utils/place-web-form";
+import { sniffImageType } from "../utils/image-magic";
 
 /**
  * /places/new: a place sent from the site by a signed-in reader (Google or Telegram), with the
@@ -29,8 +30,12 @@ export async function createWebPlace(db: D1Database, bucket: R2Bucket, user: Tel
   if (!inserted) return { error: "Չհաջողվեց պահել։ Փորձեք նորից։" };
   const keys: string[] = [];
   for (const file of photos.slice(0, WEB_PHOTO_LIMIT)) {
-    const key = `submissions/${inserted.id}/photo-${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}.${PHOTO_TYPES[file.type]}`;
-    await bucket.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    // Իսկական տեսակը առաջին բայթերով. ծպտված HTML/SVG/script՝ չի պահվում (A-11)։
+    const type = sniffImageType(bytes);
+    if (!type) continue;
+    const key = `submissions/${inserted.id}/photo-${Date.now().toString(36)}${crypto.randomUUID().slice(0, 6)}.${PHOTO_TYPES[type]}`;
+    await bucket.put(key, bytes, { httpMetadata: { contentType: type } });
     keys.push(`r2:${key}`);
   }
   if (keys.length) await db.prepare("UPDATE place_submissions SET photos_json = ? WHERE id = ?").bind(JSON.stringify(keys), inserted.id).run();
