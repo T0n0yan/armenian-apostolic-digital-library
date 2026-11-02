@@ -49,6 +49,10 @@ github.com → ռեպո → **Settings**.
 4. Գործարկել `Private database backup` workflow-ը ձեռքով, ստուգել, որ ֆայլ է հայտնվում բաքեթում։
 5. Ամիսը մեկ՝ վերականգնման փորձ առանձին staging/ժամանակավոր բազայում (restore drill)։
 
+**Վերականգնում.** `age -d -i backup-key.txt backup.sql.age > database.sql`, հետո ներմուծել նոր D1 բազա։
+Որոնման ինդեքսը (`library_search_fts*`) backup-ում չկա (ածանցյալ է). այն նորից կկառուցվի՝ ձեռքով «Cloud sync»
+գործարկելով կամ կայքի առաջին sync-ին (`library_search_documents`-ից)։
+
 ## Արված (կոդով, prod-ում)
 
 A-03 ադմինի ինքնություն · A-04 Web Push SSRF · A-05 OG արտահոսք · A-06 CSP · A-07/A-12 rate limiting ·
