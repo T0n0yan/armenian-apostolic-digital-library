@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import type { Route } from "./+types/push";
 import { requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
 import { safePushEndpoint } from "../utils/push-endpoint";
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
 
 const noStore = { "Cache-Control": "private, no-store" };
 
@@ -14,6 +15,7 @@ export async function loader() {
 /** Saves ({ subscription }) or removes ({ endpoint, remove: true }) this browser's push subscription. */
 export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
+  if (!(await withinRateLimit((env as { WRITE_RATE_LIMIT?: RateLimiter }).WRITE_RATE_LIMIT, rateKey(request, "push")))) return tooMany();
   const user = await requireTelegramUser(request);
   const body = (await request.json().catch(() => null)) as {
     subscription?: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };

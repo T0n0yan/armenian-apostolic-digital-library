@@ -3,6 +3,8 @@ import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract"
 import { searchValidation } from "../utils/search-validation";
 import { env } from "cloudflare:workers";
 
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
+
 import type { Route } from "./+types/search-page";
 import type { SearchFilters } from "../data/search-materials";
 import { searchMaterials } from "../data/search-materials.server";
@@ -14,6 +16,7 @@ function date(value: string | null) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
+  if (!(await withinRateLimit((env as { READ_RATE_LIMIT?: RateLimiter }).READ_RATE_LIMIT, rateKey(request, "search")))) return tooMany();
   try {
   const url = new URL(request.url);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);

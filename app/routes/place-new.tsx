@@ -12,6 +12,7 @@ import { fieldControl, fieldHint, panelSection, primaryButton } from "../compone
 import { createWebPlace, openWebPlaces } from "../data/place-web.server";
 import { getPlace } from "../data/places.server";
 import { readWebPlace, WEB_PHOTO_LIMIT, type WebPlaceErrors } from "../utils/place-web-form";
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit";
 import { clergyName, CLERGY_RANKS } from "../utils/clergy-titles";
 import { findMyPosition, type LocationFailure } from "../utils/my-location";
 import { ACTIVE_LABELS, parseCoordinates, PLACE_KINDS, type PlaceKind } from "../utils/places";
@@ -41,6 +42,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export async function action({ request }: Route.ActionArgs) {
   requireSameOriginUserRequest(request);
+  if (!(await withinRateLimit((env as unknown as { WRITE_RATE_LIMIT?: RateLimiter }).WRITE_RATE_LIMIT, rateKey(request, "place-new")))) return data({ errors: { form: "Չափազանց շատ հարցումներ։ Փորձեք մի փոքր ուշ։" } as WebPlaceErrors, sent: false }, { status: 429 });
   const user = await requireTelegramUser(request);
   const { DB, MEDIA } = env as unknown as Bindings;
   const form = await request.formData();
