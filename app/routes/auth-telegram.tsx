@@ -27,7 +27,8 @@ export async function action({ request }: Route.ActionArgs) {
   const current = await getOptionalTelegramUser(request);
   await upsertAppUser(env.DB, session.user);
   // A reader signed in with Google joins that account to their Telegram one.
-  if (current?.source === "google") await joinAccounts(env.DB, current.id, session.user);
+  // Միացման ձախողումը (հազվադեպ) չպետք է կոտրի մուտքը. batch-ը ատոմային է, նորից փորձել կարելի է։
+  if (current?.source === "google") await joinAccounts(env.DB, current.id, session.user).catch(() => undefined);
   return Response.json({ ok: true, joined: current?.source === "google" }, { headers: { "set-cookie": session.cookie, "cache-control": "no-store" } });
 }
 
