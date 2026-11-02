@@ -67,9 +67,13 @@ function MetricCard({ metric }: { metric: UsageMetric }) {
 
 /** Հայտնի թղթապանակների անունները՝ հայերեն։ */
 const PREFIX_NAMES: Record<string, string> = {
+  v1: "Telegram խմբի մեդիա", attachments: "Կայքում ավելացված ձայնագրություններ",
   places: "Սրբավայրերի նկարներ և տեսանյութեր", submissions: "Առաջարկների նկարներ", og: "Հղումների նախադիտման քարտեր",
   search: "Որոնման ինդեքս", video: "Տեսանյութեր", audio: "Ձայնագրություններ", media: "Մեդիա",
 };
+
+const KIND_NAMES = { video: "Տեսանյութեր", audio: "Ձայնագրություններ", image: "Նկարներ", other: "Այլ" } as const;
+const kindOfKey = (key: string) => (/\.(mp4|mov|webm|mkv)$/i.test(key) ? "video" : /\.(mp3|m4a|ogg|oga|opus|wav|aac)$/i.test(key) ? "audio" : /\.(jpe?g|png|webp|gif)$/i.test(key) ? "image" : "other");
 
 /** Այս կայքի պահեստը՝ ըստ թղթապանակների (միայն այս միջավայրի բաքեթը)։ */
 function StorageSection({ storage }: { storage: StorageBreakdown | null }) {
@@ -78,7 +82,8 @@ function StorageSection({ storage }: { storage: StorageBreakdown | null }) {
       <h2 className="m-0 flex items-center gap-2 text-[16px] font-bold text-ink"><span className="text-gold"><HardDrive aria-hidden="true" size={18} /></span>Ինչով է լցված պահեստը</h2>
       {!storage ? <p className="m-0 text-[13px] text-danger">Պահեստը կարդալ չհաջողվեց։</p> : (
         <>
-          <p className="m-0 text-[12.5px] text-muted">Այս կայքի բաքեթը՝ {amount(storage.bytes, "byte")}, {amount(storage.files, "")} ֆայլ{storage.complete ? "" : " (առաջին 30 000 ֆայլը)"}։ Վերևի «R2 ընդհանուր պահեստը» ամբողջ հաշվինն է՝ staging-ը և պահուստային պատճենները ներառյալ։</p>
+          <p className="m-0 text-[13px] leading-relaxed text-ink">apostolic.am-ի ֆայլերը՝ <b>{amount(storage.bytes, "byte")}</b> ({amount(storage.files, "")} ֆայլ{storage.complete ? "" : ", առաջին 30 000-ը"})։</p>
+          <p className="m-0 text-[12px] leading-relaxed text-muted">Վերևի «R2 ընդհանուր պահեստ» թիվը մի քիչ ավելի մեծ է, որովհետև այնտեղ հաշվվում են նաև staging-ի (փորձարկման կայքի) ֆայլերը։</p>
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {storage.groups.map((group) => (
               <li key={group.prefix} className="frosted-card grid gap-1.5 p-3">
@@ -87,10 +92,33 @@ function StorageSection({ storage }: { storage: StorageBreakdown | null }) {
                   <span className="shrink-0 text-[13px] font-bold tabular-nums text-ink">{amount(group.bytes, "byte")}</span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><div className="h-full rounded-full bg-[linear-gradient(90deg,#c9973f,#e9c46a)]" style={{ width: `${Math.max(1, (group.bytes / Math.max(storage.bytes, 1)) * 100)}%` }} /></div>
-                <span className="text-[11.5px] text-faint">{amount(group.files, "")} ֆայլ</span>
+                <span className="text-[11.5px] text-faint">{amount(group.files, "")} ֆայլ{group.prefix === "v1" ? " · խմբի գրառումների տեսանյութերը, ձայնագրությունները և նկարները, որոնք երևում են կայքում" : ""}</span>
+                {group.prefix === "v1" && storage.kinds.length ? (
+                  <div className="mt-1 grid gap-1 border-t border-glass-border pt-2">
+                    {storage.kinds.map((item) => (
+                      <div key={item.kind} className="flex items-baseline justify-between gap-2 text-[12.5px]">
+                        <span className="text-ink">{KIND_NAMES[item.kind]} <span className="text-faint">· {amount(item.files, "")}</span></span>
+                        <span className="tabular-nums text-muted">{amount(item.bytes, "byte")}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
+          {storage.largest.length ? (
+            <details className="text-[12.5px]">
+              <summary className="cursor-pointer font-semibold text-ink">Ամենամեծ ֆայլերը</summary>
+              <ul className="m-0 mt-2 grid list-none gap-1 p-0">
+                {storage.largest.map((item) => (
+                  <li key={item.key} className="flex items-baseline justify-between gap-2">
+                    {item.materialId ? <a className="min-w-0 truncate text-gold-bright" href={`/materials/${item.materialId}`}>{KIND_NAMES[kindOfKey(item.key)]} · գրառում №{item.materialId.split("_").pop()} →</a> : <span className="min-w-0 truncate text-muted">{item.key}</span>}
+                    <span className="shrink-0 tabular-nums text-ink">{amount(item.bytes, "byte")}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
         </>
       )}
     </section>
