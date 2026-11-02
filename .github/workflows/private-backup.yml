@@ -39,7 +39,17 @@ jobs:
           fi
           backup_dir=$(mktemp -d)
           trap 'rm -rf "$backup_dir"' EXIT
-          pnpm exec wrangler d1 export armenian-apostolic-digital-library-production --env production --remote --output "$backup_dir/database.sql"
+          db=armenian-apostolic-digital-library-production
+          # D1-ի export-ը չի կարող վերցնել FTS5 վիրտուալ աղյուսակները. վերցնում ենք բոլոր իրական
+          # աղյուսակները, բացի որոնման ինդեքսից (library_search_fts*)՝ այն ածանցյալ է և վերականգնելիս
+          # նորից է կառուցվում library_search_documents-ից։
+          tables=$(pnpm exec wrangler d1 execute "$db" --env production --remote --json \
+            --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'library_search_fts%' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name" \
+            | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);const rows=(Array.isArray(r)?r[0].results:r.result[0].results);process.stdout.write(rows.map(x=>x.name).join(' '))})")
+          table_args=""
+          for t in $tables; do table_args="$table_args --table $t"; done
+          echo "Backing up tables: $tables"
+          pnpm exec wrangler d1 export "$db" --env production --remote $table_args --output "$backup_dir/database.sql"
           age -r "$BACKUP_AGE_RECIPIENT" -o "$backup_dir/database.sql.age" "$backup_dir/database.sql"
           rm "$backup_dir/database.sql"
           pnpm exec wrangler r2 object put "$BACKUP_R2_BUCKET/d1/$(date -u +%Y-%m-%dT%H-%M-%SZ).sql.age" --remote --file "$backup_dir/database.sql.age" --content-type application/octet-stream
