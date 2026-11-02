@@ -1,0 +1,312 @@
+<title>apostolic.am կառուցվածքը</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;600;700&family=Noto+Serif+Armenian:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Ձեռագրի էջ. ոսկի և գրչության կարմիր թանաքի վրա, ձախում՝ բովանդակություն, աջում՝ բաժինները քարտերով։ */
+:root {
+  --bg: #f5f1e8; --panel: #fffdf8; --sunk: #ede6d6; --ink: #24190f; --muted: #6d5c47; --line: #ddd0b4;
+  --gold: #9a6a17; --gold-soft: #e9cf8f; --red: #9c2f22; --code-bg: #2a2118; --code-ink: #f3e6c8;
+  --font-display: "Noto Serif Armenian", "Sylfaen", Georgia, serif;
+  --font-body: "Noto Sans Armenian", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141019; --panel: #1d1724; --sunk: #251e2d; --ink: #efe6d4; --muted: #b3a48c; --line: #3a3043;
+  --gold: #d9b468; --gold-soft: #5e4a24; --red: #e2786a; --code-bg: #0e0b12; --code-ink: #f3e6c8; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #141019; --panel: #1d1724; --sunk: #251e2d; --ink: #efe6d4; --muted: #b3a48c; --line: #3a3043;
+  --gold: #d9b468; --gold-soft: #5e4a24; --red: #e2786a; --code-bg: #0e0b12; --code-ink: #f3e6c8; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { background: var(--bg); color: var(--ink); font: 15.5px/1.65 var(--font-body); margin: 0; }
+a { color: var(--gold); }
+code { font-family: var(--font-mono); font-size: .86em; background: var(--sunk); padding: .1em .35em; border-radius: 5px; overflow-wrap: anywhere; }
+b { font-weight: 650; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+
+/* Վերնագիր և շարժվող ճանապարհը */
+.hero { padding-block: 40px 28px; display: grid; gap: 18px; border-bottom: 1px solid var(--line); }
+.hero h1 { font: 700 clamp(28px, 4.4vw, 46px)/1.15 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.hero h1 + p, .hero p { margin: 0; max-width: 68ch; color: var(--muted); }
+.hero p.note { color: var(--ink); border-left: 3px solid var(--red); padding: 4px 0 4px 12px; background: none; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted); }
+.meta span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-variant-numeric: tabular-nums; }
+.road { display: flex; align-items: center; gap: 0; overflow-x: auto; padding-block: 6px; }
+.stop-node { flex: none; display: grid; justify-items: center; gap: 2px; font-size: 12.5px; color: var(--muted); }
+.stop-node b { font: 600 14px var(--font-display); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; white-space: nowrap; }
+.lane { position: relative; flex: 1 0 44px; height: 2px; background: var(--line); margin: 0 6px 18px; }
+.lane::after { content: ""; position: absolute; top: -3px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: travel 2.6s linear infinite; animation-delay: calc(var(--i) * .65s); }
+@keyframes travel { from { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } to { left: calc(100% - 8px); opacity: 0; } }
+
+/* Կողային բովանդակություն */
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 32px; padding-top: 24px; }
+.side { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 10px; padding-right: 4px; }
+.search { width: 100%; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; padding: 9px 12px; font: inherit; }
+.side nav { display: grid; gap: 1px; }
+.side nav a { display: grid; grid-template-columns: 26px 1fr; gap: 6px; padding: 6px 8px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13.5px; line-height: 1.35; }
+.side nav a .n { color: var(--gold); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 1px; }
+.side nav a:hover { background: var(--sunk); color: var(--ink); }
+.side nav a.on { background: var(--sunk); color: var(--ink); box-shadow: inset 2px 0 0 var(--red); }
+.side nav a[hidden] { display: none; }
+.empty { color: var(--muted); font-size: 13px; }
+
+/* Բաժիններ */
+main { display: grid; gap: 22px; min-width: 0; }
+.part { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px clamp(16px, 3vw, 30px); display: grid; gap: 12px; min-width: 0; animation: rise .5s ease-out both; }
+.part:nth-child(n+4) { animation-delay: .08s; }
+@keyframes rise { from { transform: translateY(8px); } to { transform: none; } }
+.part > header { display: flex; align-items: baseline; gap: 12px; }
+.part > header .n { font: 700 13px var(--font-mono); color: var(--red); min-width: 24px; }
+.part h2 { margin: 0; font: 600 clamp(21px, 2.4vw, 26px)/1.25 var(--font-display); text-wrap: balance; }
+.part h3 { margin: 10px 0 0; font: 600 17px var(--font-display); color: var(--gold); }
+.part p { margin: 0; max-width: 78ch; }
+.part ul, .part ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 80ch; }
+.part ol li::marker { color: var(--red); font-weight: 700; }
+.part ul li::marker { color: var(--gold); }
+.part p.note { border-left: 3px solid var(--red); padding-left: 12px; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+th { background: var(--sunk); font-weight: 600; font-size: 12.5px; letter-spacing: .03em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+pre.code { margin: 0; background: var(--code-bg); color: var(--code-ink); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--font-mono); }
+pre.code code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+
+/* Սխեմա */
+.diagram { margin: 4px 0; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); overflow: hidden; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 13px; }
+.tools button, .tools a { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 4px 10px; cursor: pointer; text-decoration: none; line-height: 1.5; }
+.tools button:hover, .tools a:hover { border-color: var(--gold); }
+.tools .play { background: var(--gold); border-color: var(--gold); color: var(--panel); font-weight: 600; }
+.tools .spacer { flex: 1; }
+.steps { display: inline-flex; align-items: center; gap: 4px; }
+.steps output { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+.canvas { overflow-x: auto; padding: 14px; display: grid; justify-items: center; }
+.canvas { justify-items: start; }
+.canvas svg { height: auto; margin-inline: auto; }
+.canvas pre.src { margin: 0; color: var(--muted); font: 12px var(--font-mono); white-space: pre-wrap; }
+.diagram.stepping .canvas svg .flowchart-link, .diagram.stepping .canvas svg .edgeLabel, .diagram.stepping .canvas svg path.transition,
+.diagram.stepping .canvas svg .messageLine0, .diagram.stepping .canvas svg .messageLine1, .diagram.stepping .canvas svg .messageText,
+.diagram.stepping .canvas svg .relationshipLine, .diagram.stepping .canvas svg .relationshipLabel { opacity: .1; transition: opacity .35s; }
+.diagram.stepping .canvas svg .seen { opacity: .9 !important; }
+.diagram.stepping .canvas svg .now { opacity: 1 !important; stroke: var(--red) !important; stroke-width: 3px !important; stroke-dasharray: 1000; animation: draw .9s ease-out both; }
+.diagram.stepping .canvas svg .edgeLabel.now, .diagram.stepping .canvas svg .messageText.now { stroke: none !important; animation: none; }
+@keyframes draw { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+.copied { color: var(--gold); }
+
+/* Մեծացված սխեմա */
+dialog.big { width: min(1400px, 96vw); height: 92vh; max-height: 92vh; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--ink); padding: 0; }
+dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
+.big-bar { display: flex; gap: 6px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.big-bar button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+.big-bar .t { flex: 1; font: 600 15px var(--font-display); }
+.big-stage { overflow: auto; height: calc(100% - 52px); padding: 20px; }
+.big-stage svg { transform-origin: 0 0; max-width: none !important; }
+
+.foot { color: var(--muted); font-size: 13px; padding-top: 24px; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; max-height: none; }
+  .side nav { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 4px; background: var(--panel); }
+  .tools .spacer { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .part, .lane::after, .diagram.stepping .canvas svg .now { animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <div class="hero">
+    {{INTRO}}
+    <div class="road" aria-label="Նյութի ճանապարհը">
+      <div class="stop-node"><b>Telegram խումբ</b>գրառում</div><div class="lane" style="--i:0"></div>
+      <div class="stop-node"><b>Clock</b>15 րոպե</div><div class="lane" style="--i:1"></div>
+      <div class="stop-node"><b>GitHub Actions</b>sync</div><div class="lane" style="--i:2"></div>
+      <div class="stop-node"><b>D1 + R2</b>բազա և ֆայլեր</div><div class="lane" style="--i:3"></div>
+      <div class="stop-node"><b>Worker</b>apostolic.am</div><div class="lane" style="--i:4"></div>
+      <div class="stop-node"><b>Ընթերցող</b>կայք / Mini App</div>
+    </div>
+    <div class="meta"><span>{{SECTIONS}} բաժին</span><span>{{COUNT}} սխեմա</span><span>թարմացված՝ {{UPDATED}}</span><span>աղբյուրը՝ docs/ARCHITECTURE.md</span></div>
+  </div>
+  <div class="layout">
+    <aside class="side">
+      <label for="find" class="empty">Փնտրել բաժիններում</label>
+      <input id="find" class="search" type="search" placeholder="օր.՝ հիշեցում, D1, տոն…" autocomplete="off">
+      <nav aria-label="Բաժիններ">{{NAV}}</nav>
+      <p class="empty" id="none" hidden>Այդպիսի բան չգտնվեց։</p>
+    </aside>
+    <main>
+{{BODY}}
+      <p class="foot">Այս էջը կառուցվում է <code>docs/ARCHITECTURE.md</code>-ից՝ <code>node scripts/build-architecture-page.mjs</code>։ Փոփոխությունները անել md ֆայլում։</p>
+    </main>
+  </div>
+</div>
+
+<dialog class="big" id="big" aria-label="Մեծացված սխեմա">
+  <div class="big-bar"><span class="t" id="big-title"></span><button type="button" id="zoom-out" aria-label="Փոքրացնել">−</button><button type="button" id="zoom-in" aria-label="Մեծացնել">+</button><button type="button" id="big-close">Փակել</button></div>
+  <div class="big-stage" id="big-stage"></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+(() => {
+  const figures = [...document.querySelectorAll(".diagram")];
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Սխեմաների գույները՝ էջի թեմայից։
+  function config() {
+    return {
+      startOnLoad: false, securityLevel: "strict", theme: "base",
+      flowchart: { curve: "basis", htmlLabels: true }, sequence: { mirrorActors: false },
+      themeVariables: {
+        fontFamily: css("--font-body"), fontSize: "15px",
+        background: css("--bg"), primaryColor: css("--panel"), primaryTextColor: css("--ink"), primaryBorderColor: css("--gold"),
+        secondaryColor: css("--sunk"), tertiaryColor: css("--sunk"), lineColor: css("--muted"), textColor: css("--ink"),
+        clusterBkg: css("--sunk"), clusterBorder: css("--line"), edgeLabelBackground: css("--panel"),
+        actorBkg: css("--panel"), actorBorder: css("--gold"), actorTextColor: css("--ink"), signalColor: css("--muted"), signalTextColor: css("--ink"),
+        noteBkgColor: css("--gold-soft"), noteTextColor: css("--ink"), labelBoxBkgColor: css("--panel"), labelTextColor: css("--ink"),
+      },
+    };
+  }
+
+  async function renderAll() {
+    if (!window.mermaid) return;
+    mermaid.initialize(config());
+    for (const figure of figures) {
+      const code = figure.dataset.code ?? figure.querySelector("pre.src").textContent;
+      figure.dataset.code = code;
+      try {
+        const { svg } = await mermaid.render(`m${figure.dataset.diagram}-${Date.now()}`, code);
+        const canvas = figure.querySelector(".canvas");
+        canvas.innerHTML = svg;
+        // Կարդացվող չափ. մեծ սխեման չի սեղմվում մանր տառերի, այլ պտտվում է կողքի վրա (կամ «Մեծացնել»)։
+        const element = canvas.querySelector("svg");
+        const natural = element.viewBox.baseVal?.width || 0;
+        if (natural) {
+          element.style.maxWidth = "none";
+          element.setAttribute("width", String(Math.round(Math.min(natural, Math.max(canvas.clientWidth - 28, natural * 0.72)))));
+        }
+      } catch (error) {
+        figure.querySelector(".canvas").innerHTML = `<pre class="src">Սխեման չնկարվեց. ${String(error.message).slice(0, 200)}</pre>`;
+      }
+      const link = figure.querySelector(".live");
+      const state = JSON.stringify({ code, mermaid: JSON.stringify({ theme: "default" }), autoSync: true, updateDiagram: true });
+      link.href = "https://mermaid.live/edit#base64:" + btoa(unescape(encodeURIComponent(state)));
+      stop(figure);
+    }
+  }
+
+  // Քայլ առ քայլ. սլաքները հայտնվում են այն հերթականությամբ, որով գրված են սխեմայում։
+  function parts(figure) {
+    const svg = figure.querySelector(".canvas svg");
+    if (!svg) return [];
+    const lines = [...svg.querySelectorAll(".flowchart-link, path.transition, .messageLine0, .messageLine1, .relationshipLine")];
+    const labels = [...svg.querySelectorAll(".edgeLabels .edgeLabel, .messageText, .relationshipLabel")];
+    return lines.map((line, index) => [line, labels[index]].filter(Boolean));
+  }
+  function show(figure, step) {
+    const all = parts(figure);
+    if (!all.length) return;
+    figure._step = Math.max(1, Math.min(step, all.length));
+    all.forEach((group, index) => group.forEach((element) => {
+      element.classList.toggle("seen", index < figure._step - 1);
+      element.classList.remove("now");
+      if (index === figure._step - 1) { void element.getBoundingClientRect(); element.classList.add("now"); }
+    }));
+    figure.querySelector(".count").value = `${figure._step}/${all.length}`;
+  }
+  function start(figure) {
+    if (!parts(figure).length) { figure.querySelector(".play").textContent = "Քայլեր չկան"; return; }
+    figure.classList.add("stepping");
+    figure.querySelector(".steps").hidden = false;
+    show(figure, 1);
+    clearInterval(figure._timer);
+    if (!reduced) figure._timer = setInterval(() => {
+      if (figure._step >= parts(figure).length) return clearInterval(figure._timer);
+      show(figure, figure._step + 1);
+    }, 1300);
+  }
+  function stop(figure) {
+    clearInterval(figure._timer);
+    figure.classList.remove("stepping");
+    figure.querySelector(".steps").hidden = true;
+    figure.querySelectorAll(".seen, .now").forEach((element) => element.classList.remove("seen", "now"));
+  }
+
+  const dialog = document.getElementById("big");
+  const stage = document.getElementById("big-stage");
+  let scale = 1;
+  const applyScale = () => { const svg = stage.querySelector("svg"); if (svg) svg.style.transform = `scale(${scale})`; };
+
+  for (const figure of figures) {
+    figure.querySelector(".play").addEventListener("click", () => start(figure));
+    figure.querySelector(".next").addEventListener("click", () => { clearInterval(figure._timer); show(figure, figure._step + 1); });
+    figure.querySelector(".prev").addEventListener("click", () => { clearInterval(figure._timer); show(figure, figure._step - 1); });
+    figure.querySelector(".stop").addEventListener("click", () => stop(figure));
+    figure.querySelector(".copy").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      try { await navigator.clipboard.writeText(figure.dataset.code); button.textContent = "Պատճենված է ✓"; }
+      catch { const range = document.createRange(); const pre = document.createElement("pre"); pre.textContent = figure.dataset.code; figure.querySelector(".canvas").append(pre); range.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(range); button.textContent = "Ընտրված է, սեղմեք Ctrl+C"; }
+      button.classList.add("copied");
+      setTimeout(() => { button.textContent = "Պատճենել կոդը"; button.classList.remove("copied"); }, 1800);
+    });
+    figure.querySelector(".zoom").addEventListener("click", () => {
+      const svg = figure.querySelector(".canvas svg");
+      if (!svg) return;
+      stage.replaceChildren(svg.cloneNode(true));
+      const svgCopy = stage.querySelector("svg");
+      svgCopy.removeAttribute("style");
+      svgCopy.setAttribute("width", svg.viewBox.baseVal.width || svg.getBoundingClientRect().width);
+      svgCopy.setAttribute("height", svg.viewBox.baseVal.height || svg.getBoundingClientRect().height);
+      document.getElementById("big-title").textContent = figure.closest(".part").querySelector("h2").textContent;
+      scale = 1; applyScale();
+      dialog.showModal();
+    });
+  }
+  document.getElementById("zoom-in").addEventListener("click", () => { scale = Math.min(4, scale * 1.25); applyScale(); });
+  document.getElementById("zoom-out").addEventListener("click", () => { scale = Math.max(.3, scale / 1.25); applyScale(); });
+  document.getElementById("big-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+
+  // Որոնում բաժիններում։
+  const find = document.getElementById("find");
+  const sections = [...document.querySelectorAll(".part")];
+  find.addEventListener("input", () => {
+    const query = find.value.trim().toLowerCase();
+    let shown = 0;
+    for (const section of sections) {
+      const match = !query || section.dataset.text.includes(query);
+      section.hidden = !match;
+      document.querySelector(`[data-nav="${section.id}"]`).hidden = !match;
+      if (match) shown += 1;
+    }
+    document.getElementById("none").hidden = shown > 0;
+  });
+
+  // Ընթացիկ բաժինը մենյուում։
+  const links = new Map([...document.querySelectorAll("[data-nav]")].map((link) => [link.dataset.nav, link]));
+  const spy = new IntersectionObserver((entries) => {
+    for (const entry of entries) if (entry.isIntersecting) {
+      links.forEach((link) => link.classList.remove("on"));
+      links.get(entry.target.id)?.classList.add("on");
+    }
+  }, { rootMargin: "-20% 0px -70% 0px" });
+  sections.forEach((section) => spy.observe(section));
+
+  // Թեման փոխվելիս սխեմաները նորից են նկարվում։
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+  new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  renderAll();
+})();
+</script>

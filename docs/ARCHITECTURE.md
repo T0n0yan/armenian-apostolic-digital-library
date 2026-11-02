@@ -31,6 +31,9 @@ https://mermaid.live էջ և այնտեղ մեծացնել, խմբագրել, պ
 21. [GitHub Actions](#21-github-actions)
 22. [Արագություն և խնայողություն](#22-արագություն-և-խնայողություն)
 23. [Թղթապանակների քարտեզը](#23-թղթապանակների-քարտեզը)
+24. [Կարևոր բանաձևեր և ֆունկցիաներ](#24-կարևոր-բանաձևեր-և-ֆունկցիաներ)
+25. [Ինչպես փոխել. բաղադրատոմսեր](#25-ինչպես-փոխել-բաղադրատոմսեր)
+26. [Բառարան՝ նոր մարդու համար](#26-բառարան-նոր-մարդու-համար)
 
 ---
 
@@ -528,3 +531,185 @@ flowchart TD
   ROOT --> DOC["docs/ — փաստաթղթեր, docs/work/ — չատերի աշխատանքը"]
   ROOT --> WR["wrangler.jsonc — Cloudflare-ի կարգավորումներ (D1, R2, cron)"]
 ```
+
+## 24. Կարևոր բանաձևեր և ֆունկցիաներ
+
+Այստեղ կայքի «ուղեղի» փոքր, բայց կարևոր մասերն են. փոխելիս սկսեք այս ֆունկցիաներից և դրանց թեստերից (`tests/`)։
+
+### Երևանի օրը
+Ամբողջ կայքը օրերը հաշվում է Երևանի ժամով (UTC+4, առանց ամառային ժամի)։ `app/utils/liturgy.ts`
+```ts
+const YEREVAN_MS = 4 * 3_600_000;
+export function yerevanDay(now = Date.now()) {
+  return new Date(now + YEREVAN_MS).toISOString().slice(0, 10); // «2026-11-02»
+}
+```
+
+### Զատիկի օրը (Գաուսի/Meeus-ի բանաձև)
+Շարժական տոները հաշվվում են Զատիկից։ `app/utils/liturgy.ts` · ⚑ Ճշտել հոգևորականի հետ
+```ts
+export function easterDay(year: number) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${month}-${day}`; // իրականում՝ երկնիշ ամիս/օր
+}
+```
+
+### Տոները և «Պատարագի օրը»
+```ts
+// հաստատուն տոներ + Զատիկ−3 (Ավագ Հինգշաբթի) + Զատիկ+39 (Համբարձում)
+export function feastOn(day: string): string | null
+// կիրակի կամ տոն
+export function isLiturgyDay(day: string) {
+  return new Date(`${day}T00:00:00Z`).getUTCDay() === 0 || feastOn(day) !== null;
+}
+```
+Նոր տոն ավելացնել՝ `feastOn`-ի `fixed` ցուցակում («ամիս-օր»: «անուն») կամ Զատիկից հեռավորությամբ։
+
+### Ո՞ր օրվա մասին հարցնել
+```ts
+export function sundayToAsk(now = Date.now()) {
+  const local = new Date(now + YEREVAN_MS);
+  const today = local.toISOString().slice(0, 10);
+  if (local.getUTCHours() >= 13 && isLiturgyDay(today)) return today;   // «Այսօր…»
+  const yesterday = shift(today, -1);
+  return isLiturgyDay(yesterday) ? yesterday : null;                     // «Երեկ…»
+}
+```
+Ժամը (13) փոխել՝ այստեղ և cron-ը `wrangler.jsonc`-ում (`7 9 * * SUN` = 09:07 UTC = 13:07 Երևան)։
+
+```mermaid
+stateDiagram-v2
+  state "Հարց չկա" as none
+  state "«Այսօր մասնակցե՞լ եք…»" as today
+  state "«Երեկ մասնակցե՞լ եք…»" as yesterday
+  state "Պատասխանված" as answered
+  state "Անջատված" as off
+  [*] --> none
+  none --> today: կիրակի կամ տոն, 13.00-ից
+  today --> yesterday: կեսգիշեր (Երևան)
+  yesterday --> none: հաջորդ կեսգիշեր
+  today --> answered: Այո / Այս անգամ ոչ
+  yesterday --> answered: Այո / Այս անգամ ոչ
+  today --> off: Չհարցնել այլևս
+  answered --> [*]
+```
+
+### Ձեռքով նշում՝ վերջին 30 օրը
+```ts
+export function canMarkDay(day: string, now = Date.now()) {
+  const today = yerevanDay(now);
+  return day <= today && day >= shift(today, -30); // ապագա՝ ոչ, 30 օրից հին՝ ոչ
+}
+```
+
+### Sync-ի ուշացումը
+`workers/clock.ts` · `SYNC_DELAY_MS = 15 * 60_000`. ամեն նոր գրառում զարթուցիչը տանում է 15 րոպե առաջ, այնպես որ 10 գրառում իրար հետևից՝ մեկ sync։
+
+```mermaid
+gantt
+  dateFormat HH:mm
+  axisFormat %H:%M
+  section Գրառումներ
+  Գրառում 1 :milestone, 10:00, 0m
+  Գրառում 2 :milestone, 10:05, 0m
+  Գրառում 3 :milestone, 10:09, 0m
+  section Զարթուցիչ
+  սպասում (ամեն գրառում վերսկսում է) :active, 10:00, 24m
+  Sync (մեկ անգամ) :crit, 10:24, 3m
+```
+
+### Քեշի «epoch»
+`app/data/site-refresh.server.ts` · `site_settings.cache_epoch`. թիվ, որը մտնում է քեշի բանալու մեջ։ «Թարմացնել կայքը» կամ նոր sync-ը փոխում է այն → բոլոր հին պատրաստ էջերը այլևս չեն գտնվում և վերակառուցվում են։
+
+### Բառարանի բառի նորմալացում
+`app/utils/glossary.ts`. դասական և նոր ուղղագրությունները բերում է նույն ձևի, որ «ամբարշտութիւն» և «ամբարշտություն» նույնը գտնվեն.
+```ts
+export function normalizeWord(word: string) {
+  return word.toLocaleLowerCase("hy")
+    .replace(/և/gu, "եւ").replace(/ու/gu, "\u0001").replace(/իւ/gu, "յ\u0001")
+    .replace(/ւ/gu, "վ").replace(/\u0001/gu, "ու").replace(/է/gu, "ե").replace(/օ/gu, "ո");
+}
+```
+
+### Սաղմոսի համարը
+`app/utils/psalm-number.ts`. փնտրում է «Սաղմոս 41»-ը ձայնագրության անվան, վերնագրի, հետո տեքստի մեջ, ընդունում է 1–151։
+
+### GitHub-ի րոպեները
+`app/data/github-usage.server.ts`. ամեն գործարկում՝ `ceil((ավարտ − սկիզբ) / 60 վ)`, գումարը այս ամսվա, սահմանը 2000։
+
+### Պահպանման ժամկետներ (մաքրում)
+`app/data/retention.server.ts`, ամեն գիշեր.
+| Ինչ | Ժամկետ |
+| --- | --- |
+| Չուղարկված սրբավայրի սևագիր | 1 օր |
+| Թիմի կողմից մշակված առաջարկ (պռոդ) | 30 օր |
+| Staging-ի թեստային տվյալներ | 3 օր (`TEST_DATA_DAYS`) |
+| Հին տարիների Պատարագի նշումներ | ամփոփվում են `yearly_summaries`-ում |
+
+## 25. Ինչպես փոխել. բաղադրատոմսեր
+
+### Նոր էջ
+1. Ստեղծել `app/routes/my-page.tsx` (`loader` տվյալի համար, `default` կոմպոնենտ էջի համար, `meta` վերնագրի համար)։
+2. Գրանցել `app/routes.ts`-ում՝ `route("my-page", "routes/my-page.tsx")` (**կոնկրետ հասցեները՝ `:section`-ից առաջ**)։
+3. Եթե պետք է մենյուում՝ `app/components/site-nav.tsx`։
+4. Թարմացնել այս ֆայլի «Էջերի քարտեզը»։
+
+### Նոր աղյուսակ կամ սյունակ բազայում
+1. Նոր ֆայլ `migrations/00NN_name.sql` (հաջորդ համարը), երբեք չփոխել հինը։
+2. Լոկալ՝ `npm run db:migrate:local`։
+3. Կոդը պետք է աշխատի և՛ հին, և՛ նոր բազայի հետ (deploy-ը նախ migration է անում, հետո նոր կոդ)։
+4. Եթե անձնական տվյալ է (`user_id`)՝ ավելացնել `account-links.server.ts`-ի ցուցակում (Google↔Telegram միացման համար)։
+5. Թարմացնել «Բազա» բաժինը։
+
+### Նոր API
+`app/routes/my-api.ts` (միայն `loader`/`action`, առանց կոմպոնենտի) + `routes.ts`-ում `route("api/my-api", …)`։ Ձևերի համար՝ `requireSameOrigin`, իրավունքների համար՝ `requireOwner` / `requirePermission`։
+
+### Նոր տոն կամ ժամի փոփոխություն
+`app/utils/liturgy.ts` (`feastOn`, `sundayToAsk`) + `tests/liturgy.test.ts`։ Cron-ը՝ `wrangler.jsonc` (`triggers.crons`, երկու միջավայրում)։
+
+### Նոր գաղտնի բանալի (secret)
+Կոդում՝ `env.MY_SECRET`. արժեքը դնում է տերը Cloudflare-ում (Worker → Settings → Variables and Secrets)։ Երբեք ռեպոյում։ Նշել `docs/ENVIRONMENTS.md`-ում։
+
+### Ոճ, գույն, անիմացիա
+`app/app.css` (թեմաները՝ `:root[data-theme="light"|"dark"]`), Tailwind դասերը՝ անմիջապես կոմպոնենտներում։ Կիրակնօրյա պատուհանը՝ `.sunday-*`, սկիհը՝ `chalice-art.tsx`։
+
+### Ստուգել և թողարկել
+```bash
+npm run dev                      # լոկալ, http://localhost:5173
+npx tsx --test tests/*.test.ts   # թեստեր
+npx tsc -b                       # տիպերի ստուգում
+```
+Հետո՝ staging, իսկ տիրոջ «թողարկիր»-ից հետո՝ PR → main (բաժին 20)։
+
+```mermaid
+flowchart LR
+  A["1. Ճյուղ origin/main-ից"] --> B["2. Փոփոխություն + թեստ"] --> C["3. npm run dev՝ աչքով"] --> D["4. tsx --test, tsc -b"] --> E["5. staging"] --> F["6. «թողարկիր» → PR → main"] --> G["7. ARCHITECTURE.md թարմ է"]
+```
+
+## 26. Բառարան՝ նոր մարդու համար
+
+| Բառ | Ինչ է |
+| --- | --- |
+| **Worker** | Cloudflare-ի ծրագիր, որ պատասխանում է կայքի ամեն հարցմանը. մեր ամբողջ «սերվերը» |
+| **D1** | Cloudflare-ի SQL բազա (SQLite) |
+| **R2** | Cloudflare-ի ֆայլերի պահեստ |
+| **Durable Object** | Մեկ օրինակով աշխատող փոքր ծրագիր հիշողությամբ. մեզ մոտ՝ Clock զարթուցիչը |
+| **Cron** | Ժամանակացույցով գործարկում («ամեն կիրակի 09:07») |
+| **Migration** | Բազայի կառուցվածքի փոփոխության ֆայլ, կիրառվում է հերթականությամբ մեկ անգամ |
+| **Deploy** | Նոր կոդի տեղադրումը Cloudflare-ում |
+| **Staging** | Փորձարկման կայք, իր առանձին բազայով |
+| **Webhook** | Telegram-ը ինքն է կանչում մեր հասցեն, երբ բան է պատահում |
+| **SSR** | Էջը պատրաստվում է սերվերում, բրաուզերը ստանում է պատրաստ HTML |
+| **loader / action** | React Router-ի ֆունկցիաներ. տվյալ բերել / ձև ընդունել |
+| **Mini App** | Կայքը Telegram-ի ներսում բացված |
+| **initData** | Telegram-ի ստորագրված տվյալը, որով Mini App-ում մարդը ճանաչվում է առանց գաղտնաբառի |
+| **MTProto** | Telegram-ի հիմնական արձանագրությունը. թույլ է տալիս կարդալ խմբի ամբողջ պատմությունը |
+| **Web Push / VAPID** | Բրաուզերի ծանուցումներ և դրանց ստորագրման բանալին |
+| **Open Graph (og)** | Հղման նախադիտման նկար և վերնագիր |
+| **Epoch** | Թիվ, որի փոփոխությունը անվավեր է դարձնում ամբողջ քեշը |
+| **GitHub Actions** | GitHub-ի ավտոմատ աշխատանքներ (deploy, sync…) |
+| **PR (Pull Request)** | Փոփոխությունների առաջարկ մի ճյուղից մյուսը |
