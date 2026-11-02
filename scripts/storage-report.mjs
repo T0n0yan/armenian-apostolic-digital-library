@@ -90,6 +90,35 @@ for (const db of databases.filter((item) => /production|staging/.test(item.name)
   } catch (error) { say(`library_media՝ ${error.message}`); }
 }
 
+// ---------- Որբ ֆայլեր (R2-ում կա, բազայում չկա) — միայն հաշվետվություն, ոչինչ չի ջնջվում (A-13) ----------
+say("# Որբ ֆայլեր (R2-ում, բայց բազայում չհիշատակված)");
+async function referencedKeys(dbUuid) {
+  const keys = new Set();
+  const add = (value) => { if (typeof value === "string" && value) keys.add(value.replace(/^r2:/, "")); };
+  const addJson = (value) => { try { for (const k of JSON.parse(value || "[]")) add(k); } catch { /* ignore */ } };
+  for (const row of await query(dbUuid, "SELECT r2_key, thumbnail_r2_key FROM library_media")) { add(row.r2_key); add(row.thumbnail_r2_key); }
+  for (const row of await query(dbUuid, "SELECT r2_key FROM material_attachments")) add(row.r2_key);
+  for (const row of await query(dbUuid, "SELECT icon, video_url, photos_json FROM places")) { add(row.icon); add(row.video_url); addJson(row.photos_json); }
+  for (const row of await query(dbUuid, "SELECT photos_json FROM place_submissions")) addJson(row.photos_json);
+  return keys;
+}
+for (const bucket of buckets) {
+  const env = /production/.test(bucket.name) ? databases.find((d) => /production/.test(d.name)) : databases.find((d) => /staging/.test(d.name));
+  if (!env) continue;
+  const objects = [];
+  let cursor = "";
+  do { const body = await call(`/r2/buckets/${bucket.name}/objects?per_page=1000${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`); objects.push(...body.result); cursor = body.result_info?.is_truncated ? body.result_info.cursor : ""; } while (cursor);
+  const keep = await referencedKeys(env.uuid).catch((error) => { say(`${bucket.name}: բազան չկարդացվեց (${error.message})`); return null; });
+  if (!keep) continue;
+  // og/, search-ի ինդեքսը և public-index-ը ածանցյալ են (բազայում չեն հիշատակվում). որբ չեն համարվում։
+  const derived = (key) => key.startsWith("og/") || key.startsWith("public-index/") || key.startsWith("search/");
+  const orphans = objects.filter((o) => !derived(o.key) && !keep.has(o.key));
+  const bytes = orphans.reduce((n, o) => n + (o.size ?? 0), 0);
+  say(`## ${bucket.name} — ${orphans.length} որբ ֆայլ, ${gb(bytes)}`);
+  if (orphans.length) table(["Ֆայլ", "Չափ", "Ամսաթիվ"], orphans.sort((a, b) => b.size - a.size).slice(0, 30).map((o) => [`\`${o.key}\``, gb(o.size), String(o.last_modified ?? "").slice(0, 10)]));
+  else say("Որբ ֆայլ չկա։");
+}
+
 say("# Ամփոփում");
 table(["Բաքեթ", "Ֆայլ", "Չափ"], bucketTotals.map(([name, files, bytes]) => [name, files, gb(bytes)]));
 say(`R2 ընդհանուր՝ ${gb(bucketTotals.reduce((sum, item) => sum + item[2], 0))}`);
