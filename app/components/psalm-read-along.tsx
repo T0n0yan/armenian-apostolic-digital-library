@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { createPortal } from "react-dom";
 import { psalmLines, verseBody, verseLabel, verseNumber } from "../utils/psalm-verses";
 import { copyText, shareLink } from "./share-button";
+import { StoryShareSheet } from "./story-share-sheet";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
@@ -332,13 +333,15 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
     setCopied(true);
     copiedTimer.current = setTimeout(onClose, 900);
   };
-  const share = async () => {
+  // «Կիսվել»-ը բացում է նկարով կիսվելու պատուհանը, հղումով կիսվելը՝ նրա միջից։
+  const [storyOpen, setStoryOpen] = useState(false);
+  const shareByLink = async () => {
     onClose();
     if (await shareLink(url()) === "copied") onNotice("Հղումը պատճենվեց");
   };
   if (typeof document === "undefined") return null;
   // On the page's body: the reading panel's blur would otherwise hold a fixed popup inside it.
-  return createPortal(
+  return <>{createPortal(
     // Only the card takes taps: the strip around it lets them through (the menu button, the page).
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tg-inset-bottom,0px)+88px)] z-[80] flex justify-center px-3" role="dialog" aria-label={label}>
       <div className="install-toast pointer-events-auto grid w-full max-w-[440px] gap-2.5 rounded-[20px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]" data-verse-popup data-phase={phase}>
@@ -353,7 +356,7 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
               : <Copy aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" />}
             {copied ? "Պատճենվեց" : "Պատճենել"}
           </button>
-          <button className={popupTile} type="button" onClick={share}><Share2 aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> Կիսվել</button>
+          <button className={popupTile} type="button" onClick={() => setStoryOpen(true)}><Share2 aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> Կիսվել</button>
           <button className={popupTile} type="button" aria-pressed={saved} onClick={() => canSave ? onSave() : setNeedsSignIn(true)}>
             <Bookmark aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" fill={saved ? "currentColor" : "none"} /> {saved ? "Պահված է" : "Պահել"}
           </button>
@@ -367,5 +370,7 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
       </div>
     </div>,
     document.body,
-  );
+  )}
+  <StoryShareSheet open={storyOpen} onClose={() => { setStoryOpen(false); onClose(); }} content={{ section: "Սաղմոսներ", title: label, text }} url={url()} onLink={shareByLink} />
+  </>;
 }

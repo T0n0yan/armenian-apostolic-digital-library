@@ -1,12 +1,17 @@
 import { Check, Share2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { StoryContent } from "../utils/story-image";
+import { StoryShareSheet } from "./story-share-sheet";
+
 type ShareButtonProps = {
   /** This page in the library: what readers share and copy. */
   pageUrl: string;
   className: string;
   /** Shows a short "Կիսվել" label under the icon (material page toolbar). */
   label?: boolean;
+  /** Կա՝ սեղմելիս բացվում է նկարով կիսվելու պատուհանը (9:16), հղումը՝ նրա միջից։ */
+  story?: StoryContent;
 };
 
 export async function copyText(value: string) {
@@ -83,17 +88,22 @@ function siteUrl(pageUrl: string) {
  * on and needs no Telegram: the phone's share sheet when there is one (Android Quick Share, iOS
  * share sheet), otherwise the link is copied.
  */
-export function ShareButton({ pageUrl, className, label = false }: ShareButtonProps) {
+export function ShareButton({ pageUrl, className, label = false, story }: ShareButtonProps) {
   const [copied, markCopied] = useCopied();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const share = useCallback(async () => {
     if (await shareLink(siteUrl(pageUrl)) === "copied") markCopied();
   }, [markCopied, pageUrl]);
+  const closeSheet = useCallback(() => setSheetOpen(false), []);
 
   return (
-    <button className={className} type="button" onClick={share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>
+    <>
+    <button className={className} type="button" onClick={story ? () => setSheetOpen(true) : share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>
       {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
       {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
     </button>
+    {story ? <StoryShareSheet open={sheetOpen} onClose={closeSheet} content={story} url={typeof window === "undefined" ? pageUrl : siteUrl(pageUrl)} onLink={share} /> : null}
+    </>
   );
 }
