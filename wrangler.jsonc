@@ -47,7 +47,7 @@
 			"vars": {
 				"PUBLIC_URL": "https://staging.apostolic.am",
 				// Գլխավոր ադմինի հաշիվները (Google էլ. հասցե կամ @Telegram username). միշտ գլխավոր ադմին են (admin.server.ts)։
-				"OWNER_ACCOUNTS": "t0n0yan.contact@gmail.com,dav.tonoyan.90@gmail.com,@T0n0yan",
+				"OWNER_ACCOUNTS": "t0n0yan.contact@gmail.com,dav.tonoyan.90@gmail.com,telegram:570038355",
 				// Test data (places sent, «Եղել եմ», visits) is removed after this many days.
 				"TEST_DATA_DAYS": "3",
 				// Pictures and recordings straight from R2 behind the CDN (app/data/media-url.server.ts).
