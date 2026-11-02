@@ -15,6 +15,7 @@ import {
 } from "../components/telegram-content";
 import { leadingTitleLength, psalmBodyText, skipPsalmLabel } from "../utils/material-title";
 import { ShareButton } from "../components/share-button";
+import { storyFromMaterial } from "../utils/story-image";
 import { ReminderButton } from "../components/reminder-button";
 import { PsalmReadAlong } from "../components/psalm-read-along";
 import { ReadMark, readKindFor } from "../components/read-mark";
@@ -227,6 +228,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             className={actionTile}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
             label
+            story={storyFromMaterial({ title: material.title, section: material.categoryName, text: material.contentText || material.captionText, question: contentCategory === "category_bible_questions" })}
           />
         </div>
       </article>
