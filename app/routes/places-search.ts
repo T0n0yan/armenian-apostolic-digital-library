@@ -1,11 +1,14 @@
 import { env } from "cloudflare:workers";
 
+import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/rate-limit.server";
+
 import type { Route } from "./+types/places-search";
 import { listPublicPlaceSummaries } from "../data/places.server";
 import { placeMatches } from "../utils/places";
 
 /** The search page's «Սրբավայրեր» row: published places whose name or region matches, a few at most. */
 export async function loader({ request }: Route.LoaderArgs) {
+  if (!(await withinRateLimit((env as { READ_RATE_LIMIT?: RateLimiter }).READ_RATE_LIMIT, rateKey(request, "places-search")))) return tooMany();
   const query = (new URL(request.url).searchParams.get("q") ?? "").trim().slice(0, 120);
   const found = query.length < 2 ? [] : (await listPublicPlaceSummaries(env.DB)).filter((place) => placeMatches(place, query));
   return Response.json({
