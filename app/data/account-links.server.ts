@@ -1,5 +1,20 @@
-/** Tables whose rows belong to one reader (user_id); a joined Google account's rows move over. */
-const USER_TABLES = ["saved_materials", "saved_verses", "reading_reminders", "reminder_inbox", "reading_log", "poll_votes", "push_subscriptions"];
+/**
+ * Աղյուսակներ, որոնց տողերը պատկանում են մեկ ընթերցողի (user_id). Google-ը Telegram-ին միացնելիս
+ * դրանք բոլորը տեղափոխվում են։ Նոր աղյուսակ user_id-ով ավելացնելիս՝ ավելացնել այստեղ
+ * (tests/account-links.test.ts-ը ստուգում է, որ ոչ մեկը մոռացված չէ)։
+ */
+export const USER_TABLES = [
+  "saved_materials", "saved_verses", "reading_reminders", "reminder_inbox", "reading_log", "poll_votes", "push_subscriptions",
+  "place_visits", "liturgy_marks", "user_settings", "yearly_summaries", "place_submissions", "admin_access",
+];
+/** user_id ունեցող, բայց չտեղափոխվող աղյուսակներ (և պատճառը)։ */
+export const NOT_MOVED: Record<string, string> = {
+  app_users: "հաշիվն ինքը",
+  account_links: "միացումների ցուցակը",
+  site_presence: "այցերը անանուն են, հաշվի հետ չեն կապվում",
+  reading_log_next: "միգրացիայի ժամանակավոր աղյուսակ",
+  reading_reminders_next: "միգրացիայի ժամանակավոր աղյուսակ",
+};
 
 /**
  * Joins a Google account to the reader's Telegram account: its saved items, notes, reminders and
