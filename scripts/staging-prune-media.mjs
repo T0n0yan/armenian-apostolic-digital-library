@@ -7,8 +7,11 @@ const database = "armenian-apostolic-digital-library-staging";
 if (!account || !token) throw new Error("CLOUDFLARE_ACCOUNT_ID և CLOUDFLARE_API_TOKEN պետք են");
 if (/production/.test(bucket + database)) throw new Error("Պռոդը չի կարելի");
 const api = `https://api.cloudflare.com/client/v4/accounts/${account}`;
-async function call(path, init = {}) {
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function call(path, init = {}, attempt = 0) {
   const response = await fetch(`${api}${path}`, { ...init, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" } });
+  // Cloudflare-ը սահմանափակում է արագությունը (429). սպասել և կրկնել։
+  if ((response.status === 429 || response.status >= 500) && attempt < 8) { await wait(1000 * 2 ** attempt); return call(path, init, attempt + 1); }
   const body = await response.json().catch(() => ({}));
   if (!response.ok || body.success === false) throw new Error(`${path}: ${response.status} ${JSON.stringify(body.errors ?? body).slice(0, 300)}`);
   return body;
@@ -37,8 +40,9 @@ const remove = objects.filter((object) => {
 const bytes = remove.reduce((sum, object) => sum + object.size, 0);
 console.log(`Բազան պահում է ${keep.size} ֆայլ։ Ջնջվում է ${remove.length} ֆայլ՝ ${(bytes / 1e9).toFixed(2)} ԳԲ, մնում է ${objects.length - remove.length}։`);
 let done = 0;
-const queue = [...remove];
-await Promise.all(Array.from({ length: 8 }, async () => {
+// Նախ ամենամեծերը (տեսանյութերը)։
+const queue = [...remove].sort((a, b) => b.size - a.size);
+await Promise.all(Array.from({ length: 3 }, async () => {
   for (let object = queue.shift(); object; object = queue.shift()) {
     await call(`/r2/buckets/${bucket}/objects/${object.key.split("/").map(encodeURIComponent).join("/")}`, { method: "DELETE" });
     done += 1;
