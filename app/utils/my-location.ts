@@ -7,6 +7,25 @@
 type MyPosition = { latitude: number; longitude: number };
 export type LocationFailure = "denied" | "unavailable" | "unsupported";
 
+/** Ինչ սարքում/բրաուզերում ենք. տեղորոշումը միացնելու քայլերը տարբեր են։ */
+export type DeviceKind = "telegram" | "ios" | "android" | "desktop";
+export function deviceKind(): DeviceKind {
+  if (typeof window === "undefined") return "desktop";
+  if ((window as TelegramWindow).Telegram?.WebApp?.initData) return "telegram";
+  const agent = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(agent) || (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Android/i.test(agent)) return "android";
+  return "desktop";
+}
+
+/** Բրաուզերի թույլտվության վիճակը՝ առանց հարցնելու (եթե բրաուզերը դա ասում է)։ */
+export async function locationPermission(): Promise<"granted" | "denied" | "prompt" | "unknown"> {
+  try {
+    const status = await navigator.permissions?.query({ name: "geolocation" as PermissionName });
+    return status?.state ?? "unknown";
+  } catch { return "unknown"; }
+}
+
 type TelegramLocationManager = {
   isInited: boolean;
   isLocationAvailable: boolean;

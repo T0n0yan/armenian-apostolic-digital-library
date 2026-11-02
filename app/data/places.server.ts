@@ -13,6 +13,8 @@ export type Place = {
 export type PlaceSubmission = {
   id: number; senderName: string; placeName: string; fromSite: boolean; credit: boolean | null; creditName: string; latitude: number | null; longitude: number | null;
   notes: string; clergy: string; services: string; accessibility: string; kind: string; kindNote: string; region: string; active: string; liturgy: string; openHours: string; photos: string[]; videos: string[]; createdAt: string;
+  /** Լրացում արդեն քարտեզում եղած տեղի համար (ոչ թե նոր տեղ)։ */
+  placeId: string | null;
 };
 
 type PlaceRow = {
@@ -99,13 +101,13 @@ export async function listOpenSubmissions(db: D1Database): Promise<PlaceSubmissi
   const { results } = await db.prepare("SELECT * FROM place_submissions WHERE status = 'open' AND submitted_at IS NOT NULL ORDER BY submitted_at DESC LIMIT 50").all<{
     id: number; sender_name: string; place_name: string; credit: number | null; credit_name: string; latitude: number | null; longitude: number | null; notes: string;
     clergy: string; services: string; accessibility: string; kind: string; kind_note: string; region: string; active: string; liturgy: string; open_hours: string;
-    photos_json: string; videos_json: string; created_at: string; source?: string;
+    photos_json: string; videos_json: string; created_at: string; source?: string; place_id?: string | null;
   }>();
   return results.map((row) => ({
     id: row.id, senderName: row.sender_name, placeName: row.place_name ?? "", fromSite: row.source === "web", credit: row.credit === null ? null : Boolean(row.credit),
     creditName: row.credit_name ?? "", clergy: row.clergy ?? "", services: row.services ?? "", accessibility: row.accessibility ?? "",
     kind: row.kind ?? "", kindNote: row.kind_note ?? "", region: row.region ?? "", active: row.active ?? "", liturgy: row.liturgy ?? "", openHours: row.open_hours ?? "", latitude: row.latitude,
-    longitude: row.longitude, notes: row.notes, photos: list(row.photos_json), videos: list(row.videos_json), createdAt: row.created_at,
+    longitude: row.longitude, notes: row.notes, photos: list(row.photos_json), videos: list(row.videos_json), createdAt: row.created_at, placeId: row.place_id ?? null,
   }));
 }
 
@@ -244,4 +246,42 @@ export async function placeFromSubmission(db: D1Database, bucket: R2Bucket, toke
   await setPlacePictures(db, id, { photos, ...(video ? { videoUrl: video } : {}) });
   await db.prepare("UPDATE place_submissions SET status = 'used', place_id = ?, handled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(id, submissionId).run();
   return id;
+}
+
+/**
+ * Ընթերցողի լրացումը արդեն քարտեզում եղած տեղի համար. լրացված դաշտերը փոխարինում են տեղի դաշտերին,
+ * պատմությունը ավելանում է եղածին, նկարները ավելանում են տեղի նկարներին։ Ստուգված նշանը մնում է անջատված։
+ */
+export async function applySubmissionToPlace(db: D1Database, bucket: R2Bucket, token: string, submissionId: number) {
+  const submission = (await listOpenSubmissions(db)).find((item) => item.id === submissionId);
+  if (!submission?.placeId) return null;
+  const place = await getPlace(db, submission.placeId);
+  if (!place) return null;
+  const pick = (fresh: string, old: string) => fresh.trim() ? fresh : old;
+  const notes = submission.notes.trim();
+  await updatePlace(db, place.id, {
+    ...place,
+    kind: isPlaceKind(submission.kind) ? submission.kind : place.kind,
+    region: pick(submission.region, place.region),
+    description: notes && !place.description.includes(notes) ? [place.description, notes].filter(Boolean).join("\n\n") : place.description,
+    clergy: pick(submission.clergy, place.clergy), services: pick(submission.services, place.services), accessibility: pick(submission.accessibility, place.accessibility),
+    active: pick(submission.active, place.active), liturgy: pick(submission.liturgy, place.liturgy), openHours: pick(submission.openHours, place.openHours),
+    creditName: place.creditName || (submission.credit ? submission.creditName || submission.senderName : ""),
+    verified: false,
+  });
+  const photos = [...place.photos];
+  for (const fileId of submission.photos.slice(0, 12)) {
+    if (fileId.startsWith("r2:submissions/")) {
+      const object = await bucket.get(fileId.slice(3));
+      if (!object) continue;
+      photos.push(await storePlaceFile(bucket, place.id, "photo", await object.arrayBuffer(), object.httpMetadata?.contentType ?? "image/jpeg"));
+      await bucket.delete(fileId.slice(3));
+      continue;
+    }
+    const file = await fetchTelegramFile(token, fileId);
+    if (file) photos.push(await storePlaceFile(bucket, place.id, "photo", file.body, file.type));
+  }
+  if (photos.length !== place.photos.length) await setPlacePictures(db, place.id, { photos });
+  await db.prepare("UPDATE place_submissions SET status = 'used', handled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(submissionId).run();
+  return place.id;
 }
