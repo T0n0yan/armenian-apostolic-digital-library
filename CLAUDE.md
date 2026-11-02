@@ -4,7 +4,8 @@ The library site and Telegram Mini App for the group «Հայ Առաքելակա
 (t.me/armenian_apostolic_church). Production: https://apostolic.am, staging: https://staging.apostolic.am.
 How the pieces fit: `docs/ARCHITECTURE.md` (diagrams of everything), `docs/ENVIRONMENTS.md`.
 **Whenever you add or change a feature, page, table, workflow or service, update `docs/ARCHITECTURE.md`
-in the same branch** (the owner reads it to understand the site).
+in the same branch**, then rebuild the interactive page with `node scripts/build-architecture-page.mjs`
+(it writes `docs/architecture.html`; never edit the HTML by hand). The owner reads it to understand the site.
 
 ## Talking to the owner
 

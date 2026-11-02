@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="hy">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head>
+<body>
+<title>apostolic.am կառուցվածքը</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian:wght@400;500;600;700&family=Noto+Serif+Armenian:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Ձեռագրի էջ. ոսկի և գրչության կարմիր թանաքի վրա, ձախում՝ բովանդակություն, աջում՝ բաժինները քարտերով։ */
+:root {
+  --bg: #f5f1e8; --panel: #fffdf8; --sunk: #ede6d6; --ink: #24190f; --muted: #6d5c47; --line: #ddd0b4;
+  --gold: #9a6a17; --gold-soft: #e9cf8f; --red: #9c2f22; --code-bg: #2a2118; --code-ink: #f3e6c8;
+  --font-display: "Noto Serif Armenian", "Sylfaen", Georgia, serif;
+  --font-body: "Noto Sans Armenian", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141019; --panel: #1d1724; --sunk: #251e2d; --ink: #efe6d4; --muted: #b3a48c; --line: #3a3043;
+  --gold: #d9b468; --gold-soft: #5e4a24; --red: #e2786a; --code-bg: #0e0b12; --code-ink: #f3e6c8; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #141019; --panel: #1d1724; --sunk: #251e2d; --ink: #efe6d4; --muted: #b3a48c; --line: #3a3043;
+  --gold: #d9b468; --gold-soft: #5e4a24; --red: #e2786a; --code-bg: #0e0b12; --code-ink: #f3e6c8; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { background: var(--bg); color: var(--ink); font: 15.5px/1.65 var(--font-body); margin: 0; }
+a { color: var(--gold); }
+code { font-family: var(--font-mono); font-size: .86em; background: var(--sunk); padding: .1em .35em; border-radius: 5px; overflow-wrap: anywhere; }
+b { font-weight: 650; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 64px; }
+
+/* Վերնագիր և շարժվող ճանապարհը */
+.hero { padding-block: 40px 28px; display: grid; gap: 18px; border-bottom: 1px solid var(--line); }
+.hero h1 { font: 700 clamp(28px, 4.4vw, 46px)/1.15 var(--font-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+.hero h1 + p, .hero p { margin: 0; max-width: 68ch; color: var(--muted); }
+.hero p.note { color: var(--ink); border-left: 3px solid var(--red); padding: 4px 0 4px 12px; background: none; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted); }
+.meta span { border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-variant-numeric: tabular-nums; }
+.road { display: flex; align-items: center; gap: 0; overflow-x: auto; padding-block: 6px; }
+.stop-node { flex: none; display: grid; justify-items: center; gap: 2px; font-size: 12.5px; color: var(--muted); }
+.stop-node b { font: 600 14px var(--font-display); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; white-space: nowrap; }
+.lane { position: relative; flex: 1 0 44px; height: 2px; background: var(--line); margin: 0 6px 18px; }
+.lane::after { content: ""; position: absolute; top: -3px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px var(--gold); animation: travel 2.6s linear infinite; animation-delay: calc(var(--i) * .65s); }
+@keyframes travel { from { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } to { left: calc(100% - 8px); opacity: 0; } }
+
+/* Կողային բովանդակություն */
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 32px; padding-top: 24px; }
+.side { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); align-self: start; max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 10px; padding-right: 4px; }
+.search { width: 100%; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; padding: 9px 12px; font: inherit; }
+.side nav { display: grid; gap: 1px; }
+.side nav a { display: grid; grid-template-columns: 26px 1fr; gap: 6px; padding: 6px 8px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: 13.5px; line-height: 1.35; }
+.side nav a .n { color: var(--gold); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 1px; }
+.side nav a:hover { background: var(--sunk); color: var(--ink); }
+.side nav a.on { background: var(--sunk); color: var(--ink); box-shadow: inset 2px 0 0 var(--red); }
+.side nav a[hidden] { display: none; }
+.empty { color: var(--muted); font-size: 13px; }
+
+/* Բաժիններ */
+main { display: grid; gap: 22px; min-width: 0; }
+.part { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px clamp(16px, 3vw, 30px); display: grid; gap: 12px; min-width: 0; animation: rise .5s ease-out both; }
+.part:nth-child(n+4) { animation-delay: .08s; }
+@keyframes rise { from { transform: translateY(8px); } to { transform: none; } }
+.part > header { display: flex; align-items: baseline; gap: 12px; }
+.part > header .n { font: 700 13px var(--font-mono); color: var(--red); min-width: 24px; }
+.part h2 { margin: 0; font: 600 clamp(21px, 2.4vw, 26px)/1.25 var(--font-display); text-wrap: balance; }
+.part h3 { margin: 10px 0 0; font: 600 17px var(--font-display); color: var(--gold); }
+.part p { margin: 0; max-width: 78ch; }
+.part ul, .part ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; max-width: 80ch; }
+.part ol li::marker { color: var(--red); font-weight: 700; }
+.part ul li::marker { color: var(--gold); }
+.part p.note { border-left: 3px solid var(--red); padding-left: 12px; }
+.table { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+th { background: var(--sunk); font-weight: 600; font-size: 12.5px; letter-spacing: .03em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+pre.code { margin: 0; background: var(--code-bg); color: var(--code-ink); border-radius: 12px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--font-mono); }
+pre.code code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+
+/* Սխեմա */
+.diagram { margin: 4px 0; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); overflow: hidden; }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 13px; }
+.tools button, .tools a { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 4px 10px; cursor: pointer; text-decoration: none; line-height: 1.5; }
+.tools button:hover, .tools a:hover { border-color: var(--gold); }
+.tools .play { background: var(--gold); border-color: var(--gold); color: var(--panel); font-weight: 600; }
+.tools .spacer { flex: 1; }
+.steps { display: inline-flex; align-items: center; gap: 4px; }
+.steps output { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+.canvas { overflow-x: auto; padding: 14px; display: grid; justify-items: center; }
+.canvas { justify-items: start; }
+.canvas svg { height: auto; margin-inline: auto; }
+.canvas pre.src { margin: 0; color: var(--muted); font: 12px var(--font-mono); white-space: pre-wrap; }
+.diagram.stepping .canvas svg .flowchart-link, .diagram.stepping .canvas svg .edgeLabel, .diagram.stepping .canvas svg path.transition,
+.diagram.stepping .canvas svg .messageLine0, .diagram.stepping .canvas svg .messageLine1, .diagram.stepping .canvas svg .messageText,
+.diagram.stepping .canvas svg .relationshipLine, .diagram.stepping .canvas svg .relationshipLabel { opacity: .1; transition: opacity .35s; }
+.diagram.stepping .canvas svg .seen { opacity: .9 !important; }
+.diagram.stepping .canvas svg .now { opacity: 1 !important; stroke: var(--red) !important; stroke-width: 3px !important; stroke-dasharray: 1000; animation: draw .9s ease-out both; }
+.diagram.stepping .canvas svg .edgeLabel.now, .diagram.stepping .canvas svg .messageText.now { stroke: none !important; animation: none; }
+@keyframes draw { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+.copied { color: var(--gold); }
+
+/* Մեծացված սխեմա */
+dialog.big { width: min(1400px, 96vw); height: 92vh; max-height: 92vh; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: var(--ink); padding: 0; }
+dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
+.big-bar { display: flex; gap: 6px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+.big-bar button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+.big-bar .t { flex: 1; font: 600 15px var(--font-display); }
+.big-stage { overflow: auto; height: calc(100% - 52px); padding: 20px; }
+.big-stage svg { transform-origin: 0 0; max-width: none !important; }
+
+.foot { color: var(--muted); font-size: 13px; padding-top: 24px; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { position: static; max-height: none; }
+  .side nav { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; padding: 4px; background: var(--panel); }
+  .tools .spacer { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .part, .lane::after, .diagram.stepping .canvas svg .now { animation: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Ինչպես է կառուցված կայքը (apostolic.am)</h1>
+<p>Այս ֆայլը կայքի ամբողջական քարտեզն է՝ ինչից է բաղկացած, ինչպես են մասերը կապված, ինչ սկզբունքով է աշխատում։ Սխեմաները գրված են <b>Mermaid</b> լեզվով. GitHub-ը դրանք ինքն է նկարում, իսկ ցանկացած սխեմա կարելի է պատճենել <a href="https://mermaid.live" target="_blank" rel="noreferrer">https://mermaid.live</a> էջ և այնտեղ մեծացնել, խմբագրել, պահել որպես նկար։</p>
+<p class="note">Կանոն բոլոր չատերի համար. նոր հնարավորություն, աղյուսակ, էջ կամ ծառայություն ավելացնելիս թարմացնել այս ֆայլը նույն ճյուղում (տես CLAUDE.md)։ Վերջին թարմացումը՝ 2026-11-02։</p>
+    <div class="road" aria-label="Նյութի ճանապարհը">
+      <div class="stop-node"><b>Telegram խումբ</b>գրառում</div><div class="lane" style="--i:0"></div>
+      <div class="stop-node"><b>Clock</b>15 րոպե</div><div class="lane" style="--i:1"></div>
+      <div class="stop-node"><b>GitHub Actions</b>sync</div><div class="lane" style="--i:2"></div>
+      <div class="stop-node"><b>D1 + R2</b>բազա և ֆայլեր</div><div class="lane" style="--i:3"></div>
+      <div class="stop-node"><b>Worker</b>apostolic.am</div><div class="lane" style="--i:4"></div>
+      <div class="stop-node"><b>Ընթերցող</b>կայք / Mini App</div>
+    </div>
+    <div class="meta"><span>26 բաժին</span><span>22 սխեմա</span><span>թարմացված՝ 2026-11-02</span><span>աղբյուրը՝ docs/ARCHITECTURE.md</span></div>
+  </div>
+  <div class="layout">
+    <aside class="side">
+      <label for="find" class="empty">Փնտրել բաժիններում</label>
+      <input id="find" class="search" type="search" placeholder="օր.՝ հիշեցում, D1, տոն…" autocomplete="off">
+      <nav aria-label="Բաժիններ"><a href="#1-մեծ-պատկերը" data-nav="1-մեծ-պատկերը"><span class="n">1</span><span>Մեծ պատկերը</span></a><a href="#2-ինչ-տեխնոլոգիաներ-են-օգտագործված" data-nav="2-ինչ-տեխնոլոգիաներ-են-օգտագործված"><span class="n">2</span><span>Ինչ տեխնոլոգիաներ են օգտագործված</span></a><a href="#3-ինչպես-է-բացվում-մեկ-էջ" data-nav="3-ինչպես-է-բացվում-մեկ-էջ"><span class="n">3</span><span>Ինչպես է բացվում մեկ էջ</span></a><a href="#4-նյութերը-telegram-ից-կայք" data-nav="4-նյութերը-telegram-ից-կայք"><span class="n">4</span><span>Նյութերը. Telegram-ից կայք</span></a><a href="#5-էջերի-քարտեզը" data-nav="5-էջերի-քարտեզը"><span class="n">5</span><span>Էջերի քարտեզը</span></a><a href="#6-մուտք-և-հաշիվներ" data-nav="6-մուտք-և-հաշիվներ"><span class="n">6</span><span>Մուտք և հաշիվներ</span></a><a href="#7-որոնում" data-nav="7-որոնում"><span class="n">7</span><span>Որոնում</span></a><a href="#8-կարդացել-եմ--լսել-եմ--օրացույց" data-nav="8-կարդացել-եմ--լսել-եմ--օրացույց"><span class="n">8</span><span>Կարդացել եմ / Լսել եմ / Օրացույց</span></a><a href="#9-հիշեցումներ" data-nav="9-հիշեցումներ"><span class="n">9</span><span>Հիշեցումներ</span></a><a href="#10-կիրակնօրյա-հարց-և-իմ-տարին" data-nav="10-կիրակնօրյա-հարց-և-իմ-տարին"><span class="n">10</span><span>Կիրակնօրյա հարց և «Իմ տարին»</span></a><a href="#11-սրբավայրեր-և-քարտեզ" data-nav="11-սրբավայրեր-և-քարտեզ"><span class="n">11</span><span>Սրբավայրեր և քարտեզ</span></a><a href="#12-բոտը" data-nav="12-բոտը"><span class="n">12</span><span>Բոտը</span></a><a href="#13-բառարան" data-nav="13-բառարան"><span class="n">13</span><span>Բառարան</span></a><a href="#14-պահված-նյութեր-համարներ-հարցումներ" data-nav="14-պահված-նյութեր-համարներ-հարցումներ"><span class="n">14</span><span>Պահված նյութեր, համարներ, հարցումներ</span></a><a href="#15-կառավարում-ադմին" data-nav="15-կառավարում-ադմին"><span class="n">15</span><span>Կառավարում (ադմին)</span></a><a href="#16-ժամացույց-clock-և-cron-ներ" data-nav="16-ժամացույց-clock-և-cron-ներ"><span class="n">16</span><span>Ժամացույց (Clock) և cron-ներ</span></a><a href="#17-հղումների-նախադիտման-քարտեր" data-nav="17-հղումների-նախադիտման-քարտեր"><span class="n">17</span><span>Հղումների նախադիտման քարտեր</span></a><a href="#18-բազա-d1-բոլոր-աղյուսակները" data-nav="18-բազա-d1-բոլոր-աղյուսակները"><span class="n">18</span><span>Բազա (D1). բոլոր աղյուսակները</span></a><a href="#19-պահեստ-r2" data-nav="19-պահեստ-r2"><span class="n">19</span><span>Պահեստ (R2)</span></a><a href="#20-միջավայրեր-և-թողարկում" data-nav="20-միջավայրեր-և-թողարկում"><span class="n">20</span><span>Միջավայրեր և թողարկում</span></a><a href="#21-github-actions" data-nav="21-github-actions"><span class="n">21</span><span>GitHub Actions</span></a><a href="#22-արագություն-և-խնայողություն" data-nav="22-արագություն-և-խնայողություն"><span class="n">22</span><span>Արագություն և խնայողություն</span></a><a href="#23-թղթապանակների-քարտեզը" data-nav="23-թղթապանակների-քարտեզը"><span class="n">23</span><span>Թղթապանակների քարտեզը</span></a><a href="#24-կարևոր-բանաձևեր-և-ֆունկցիաներ" data-nav="24-կարևոր-բանաձևեր-և-ֆունկցիաներ"><span class="n">24</span><span>Կարևոր բանաձևեր և ֆունկցիաներ</span></a><a href="#25-ինչպես-փոխել-բաղադրատոմսեր" data-nav="25-ինչպես-փոխել-բաղադրատոմսեր"><span class="n">25</span><span>Ինչպես փոխել. բաղադրատոմսեր</span></a><a href="#26-բառարան-նոր-մարդու-համար" data-nav="26-բառարան-նոր-մարդու-համար"><span class="n">26</span><span>Բառարան՝ նոր մարդու համար</span></a></nav>
+      <p class="empty" id="none" hidden>Այդպիսի բան չգտնվեց։</p>
+    </aside>
+    <main>
+<section id="1-մեծ-պատկերը" class="part" data-text="1. մեծ պատկերը կայքը չունի սովորական սերվեր։ ամեն ինչ աշխատում է **cloudflare**-ում (worker՝ կոդը, d1՝ բազան, r2՝ ֆայլերը)։ նյութերի աղբյուրը **telegram խումբն** է. github-ը պարբերաբար դրանք պատճենում է կայք։  **սկզբունքը** ընթերցողը երբեք ուղիղ telegram-ից չի կարդում. ամեն ինչ արդեն կա d1-ում և r2-ում, դրա համար արագ է։ worker-ը ամեն հարցման համար աշխատում է cloudflare-ի մոտակա կետում (եվրոպա, երևանին մոտ)։ ամեն ինչ անվճար փաթեթի մեջ է. դրա համար շատ տեղ կա խնայողության հնարքներ (բաժին 22)։">
+  <header><span class="n">1</span><h2>Մեծ պատկերը</h2></header>
+  <p>Կայքը չունի սովորական սերվեր։ Ամեն ինչ աշխատում է <b>Cloudflare</b>-ում (Worker՝ կոդը, D1՝ բազան, R2՝ ֆայլերը)։ Նյութերի աղբյուրը <b>Telegram խումբն</b> է. GitHub-ը պարբերաբար դրանք պատճենում է կայք։</p>
+  <figure class="diagram" data-diagram="1">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  subgraph People[&quot;Մարդիկ&quot;]
+    R1[&quot;Ընթերցող՝ բրաուզեր&quot;]
+    R2[&quot;Ընթերցող՝ Telegram Mini App&quot;]
+    OW[&quot;Տերը / ադմիններ&quot;]
+  end
+  subgraph TG[&quot;Telegram&quot;]
+    G[&quot;Խումբ «Հայ Առաքելական Սուրբ Եկեղեցի»&lt;br/&gt;(նյութերի աղբյուրը)&quot;]
+    BOT[&quot;Բոտ @armenian_apostolic_church_bot&quot;]
+  end
+  subgraph CF[&quot;Cloudflare&quot;]
+    W[&quot;Worker (կայքի կոդը)&lt;br/&gt;React Router&quot;]
+    D1[(&quot;D1 բազա&lt;br/&gt;SQLite&quot;)]
+    R2S[(&quot;R2 պահեստ&lt;br/&gt;ձայն, տեսանյութ, նկար&quot;)]
+    CL[&quot;Clock&lt;br/&gt;(Durable Object, ժամացույց)&quot;]
+    CACHE[&quot;Cloudflare Cache&lt;br/&gt;(պատրաստ էջեր)&quot;]
+  end
+  subgraph GH[&quot;GitHub&quot;]
+    REPO[&quot;Ռեպո (կոդը)&quot;]
+    ACT[&quot;Actions&lt;br/&gt;deploy, sync, քարտեր, backup&quot;]
+  end
+  GOOG[&quot;Google (մուտք)&quot;]
+  PUSH[&quot;Բրաուզերի ծանուցումներ (Web Push)&quot;]
+
+  R1 &amp; R2 &amp; OW --&gt;|&quot;apostolic.am&quot;| W
+  W --&gt; CACHE
+  W &lt;--&gt; D1
+  W &lt;--&gt; R2S
+  W &lt;--&gt; CL
+  G --&gt;|&quot;նոր գրառում&quot;| BOT --&gt;|&quot;webhook&quot;| W
+  CL --&gt;|&quot;15 րոպե հետո՝ սկսիր sync&quot;| ACT
+  ACT --&gt;|&quot;կարդում է խումբը (MTProto)&quot;| G
+  ACT --&gt;|&quot;գրում է նյութերը&quot;| D1
+  ACT --&gt;|&quot;վերբեռնում է մեդիան&quot;| R2S
+  REPO --&gt;|&quot;push&quot;| ACT --&gt;|&quot;deploy&quot;| W
+  W &lt;--&gt;|&quot;OAuth&quot;| GOOG
+  W --&gt;|&quot;հիշեցումներ&quot;| PUSH
+  W --&gt;|&quot;հաղորդագրություններ&quot;| BOT</pre></div>
+</figure>
+  <p><b>Սկզբունքը</b></p>
+  <ul><li>Ընթերցողը երբեք ուղիղ Telegram-ից չի կարդում. ամեն ինչ արդեն կա D1-ում և R2-ում, դրա համար արագ է։</li><li>Worker-ը ամեն հարցման համար աշխատում է Cloudflare-ի մոտակա կետում (Եվրոպա, Երևանին մոտ)։</li><li>Ամեն ինչ անվճար փաթեթի մեջ է. դրա համար շատ տեղ կա խնայողության հնարքներ (բաժին 22)։</li></ul>
+</section>
+<section id="2-ինչ-տեխնոլոգիաներ-են-օգտագործված" class="part" data-text="2. ինչ տեխնոլոգիաներ են օգտագործված  | ինչ | ինչի համար | | --- | --- | | **react router v7** | ամեն էջ՝ `app/routes/*.tsx` ֆայլ. `loader`-ը բերում է տվյալը սերվերում, `action`-ը ընդունում է ձևերը։ էջը պատրաստվում է սերվերում (ssr), հետո բրաուզերում «կենդանանում» է։ | | **cloudflare worker** | կայքի ամբողջ սերվերը (`workers/app.ts`)։ չկա vps, չկա մշտական սերվեր։ | | **d1** | sqlite բազա ամպում. նյութեր, մարդիկ, նշումներ, հիշեցումներ, սրբավայրեր… (բաժին 18)։ | | **r2** | ֆայլեր. ձայնագրություններ, տեսանյութեր, նկարներ, քարտեր, որոնման ինդեքս (բաժին 19)։ | | **durable object «clock»** | միակ «զարթուցիչը». արթնանում է ճիշտ րոպեին (sync, հիշեցումներ, կիրակնօրյա ծանուցում)։ | | **teleproto (mtproto)** | github actions-ում կարդում է telegram խմբի ամբողջ պատմությունը (բոտը դա չի կարող)։ | | **maplibre** | սրբավայրերի քարտեզը։ | | **satori + resvg** | ամեն նյութի հղման նախադիտման նկարը (բաժին 17)։ |">
+  <header><span class="n">2</span><h2>Ինչ տեխնոլոգիաներ են օգտագործված</h2></header>
+  <figure class="diagram" data-diagram="2">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">mindmap
+  root((apostolic.am))
+    Կոդ
+      TypeScript
+      React 19
+      React Router v7 (էջեր, loader, action)
+      Tailwind CSS
+      Vite (հավաքում)
+    Cloudflare
+      Workers (կոդը)
+      D1 (SQLite բազա)
+      R2 (ֆայլեր)
+      Durable Objects (Clock)
+      Cron Triggers
+      Cache API
+      Analytics GraphQL (Կայքի վիճակը)
+    Telegram
+      Bot API (բոտ, webhook)
+      Mini App (initData)
+      MTProto (teleproto, sync)
+      Login Widget
+    Այլ
+      Google OAuth
+      Web Push (VAPID)
+      MapLibre GL (քարտեզ)
+      OpenStreetMap (եկեղեցիների ցանկ)
+      jose (ստորագրված cookie)
+      satori + resvg (քարտերի նկարում)
+      CSS Custom Highlight API (բառարան, որոնման լույս)
+    Ստուգում
+      node test (tsx)
+      Playwright (բրաուզերի թեստեր)
+      GitHub Actions</pre></div>
+</figure>
+  <div class="table"><table><tr><th>Ինչ</th><th>Ինչի համար</th></tr><tr><td><b>React Router v7</b></td><td>Ամեն էջ՝ <code>app/routes/*.tsx</code> ֆայլ. <code>loader</code>-ը բերում է տվյալը սերվերում, <code>action</code>-ը ընդունում է ձևերը։ Էջը պատրաստվում է սերվերում (SSR), հետո բրաուզերում «կենդանանում» է։</td></tr><tr><td><b>Cloudflare Worker</b></td><td>Կայքի ամբողջ սերվերը (<code>workers/app.ts</code>)։ Չկա VPS, չկա մշտական սերվեր։</td></tr><tr><td><b>D1</b></td><td>SQLite բազա ամպում. նյութեր, մարդիկ, նշումներ, հիշեցումներ, սրբավայրեր… (բաժին 18)։</td></tr><tr><td><b>R2</b></td><td>Ֆայլեր. ձայնագրություններ, տեսանյութեր, նկարներ, քարտեր, որոնման ինդեքս (բաժին 19)։</td></tr><tr><td><b>Durable Object «Clock»</b></td><td>Միակ «զարթուցիչը». արթնանում է ճիշտ րոպեին (sync, հիշեցումներ, կիրակնօրյա ծանուցում)։</td></tr><tr><td><b>teleproto (MTProto)</b></td><td>GitHub Actions-ում կարդում է Telegram խմբի ամբողջ պատմությունը (բոտը դա չի կարող)։</td></tr><tr><td><b>MapLibre</b></td><td>Սրբավայրերի քարտեզը։</td></tr><tr><td><b>satori + resvg</b></td><td>Ամեն նյութի հղման նախադիտման նկարը (բաժին 17)։</td></tr></table></div>
+</section>
+<section id="3-ինչպես-է-բացվում-մեկ-էջ" class="part" data-text="3. ինչպես է բացվում մեկ էջ  **թեմա, տառաչափ, շարժում** (`app/utils/preferences.ts`, `theme.ts`). պահվում են բրաուզերում, էջը բացվում է արդեն ճիշտ գույնով (առանց «թարթման»)։ **մոմի ներածություն** (`candle-loader.tsx`). միայն այցի առաջին բացումից։ **էջերի քեշ հեռախոսում** (`navigation-cache.ts`, `search-state.ts`). հեռախոսը պահում է էջերը, մինչև կայքի «բովանդակության տարբերակը» փոխվի (`/api/content-version`)։">
+  <header><span class="n">3</span><h2>Ինչպես է բացվում մեկ էջ</h2></header>
+  <figure class="diagram" data-diagram="3">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">sequenceDiagram
+  autonumber
+  participant B as Բրաուզեր / Mini App
+  participant W as Worker (workers/app.ts)
+  participant C as Cloudflare Cache
+  participant RR as React Router (app/routes)
+  participant D as D1
+  participant R as R2
+  B-&gt;&gt;W: GET /psalms/22
+  W-&gt;&gt;W: www/workers.dev → apostolic.am (redirect)
+  W-&gt;&gt;C: Կա՞ պատրաստ էջ (անանուն ընթերցողի համար)
+  alt Կա քեշում
+    C--&gt;&gt;B: Պատրաստ HTML (շատ արագ)
+  else Չկա
+    W-&gt;&gt;RR: handle(request)
+    RR-&gt;&gt;D: loader. նյութը, բլոկները, մեդիան
+    D--&gt;&gt;RR: տվյալ
+    RR--&gt;&gt;W: HTML (SSR)
+    W-&gt;&gt;C: պահել քեշում (մինչև նոր sync / «Թարմացնել կայքը»)
+    W--&gt;&gt;B: HTML
+  end
+  B-&gt;&gt;R: ձայն / նկար (ուղիղ R2-ից, երկար քեշով)
+  B-&gt;&gt;W: /api/... (նշումներ, պահվածներ, հիշեցումներ)</pre></div>
+</figure>
+  <ul><li><b>Թեմա, տառաչափ, շարժում</b> (<code>app/utils/preferences.ts</code>, <code>theme.ts</code>). պահվում են բրաուզերում, էջը բացվում է արդեն ճիշտ գույնով (առանց «թարթման»)։</li><li><b>Մոմի ներածություն</b> (<code>candle-loader.tsx</code>). միայն այցի առաջին բացումից։</li><li><b>Էջերի քեշ հեռախոսում</b> (<code>navigation-cache.ts</code>, <code>search-state.ts</code>). հեռախոսը պահում է էջերը, մինչև կայքի «բովանդակության տարբերակը» փոխվի (<code>/api/content-version</code>)։</li></ul>
+</section>
+<section id="4-նյութերը-telegram-ից-կայք" class="part" data-text="4. նյութերը. telegram-ից կայք  **բաժիններ** (telegram-ի թեմաներ → կայքի բաժիններ, `material-path.ts`). սաղմոսներ (`/psalms`), աղոթքներ (`/pray`), սրբերի վարք (`/saints`), ավետարանի ուսուցում (`/gospel`), օրվա ընթերցումներ (`/daily`), հարցեր աստվածաշնչից (`/questions`), գրառումներ (`/post`)։ հին հասցեները (`/pray_364`) 301-ով տանում են նորերին։ **նյութի էջը** (`material.tsx`). տեքստ (`rich-text`, `telegram-content`), մեդիա (`material-media`), սաղմոսի տող առ տող ընթերցում ձայնի հետ (`psalm-read-along`, `psalm_timings`), նախորդ/հաջորդ սաղմոս, կիսվել, պահել, «կարդացել եմ», հիշեցում, բառարանի բառեր, հարցման քվեարկություն։ կայքում ավելացված ձայնագրություններ (`material_attachments`), երբ telegram-ը չի կարող (երկար տեքստ)։">
+  <header><span class="n">4</span><h2>Նյութերը. Telegram-ից կայք</h2></header>
+  <figure class="diagram" data-diagram="4">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  P[&quot;Խմբում նոր կամ փոփոխված գրառում&quot;] --&gt; WH[&quot;Բոտը webhook-ով տեղեկացնում է Worker-ին&lt;br/&gt;/telegram/webhook&quot;]
+  WH --&gt; CLK[&quot;Clock. «sync 15 րոպե հետո»&lt;br/&gt;(ամեն նոր գրառում ժամանակը հետաձգում է)&quot;]
+  NIGHT[&quot;Cron 00:17 UTC (ամեն գիշեր)&lt;br/&gt;ամբողջական sync՝ ջնջվածների համար&quot;] --&gt; CLK
+  CLK --&gt;|&quot;GitHub API, GITHUB_SYNC_TOKEN&quot;| GA[&quot;GitHub Actions. cloud-sync.yml&quot;]
+  WEEK[&quot;GitHub-ի շաբաթական cron (պահուստ)&quot;] --&gt; GA
+  GA --&gt; MT[&quot;MTProto. կարդում է խմբի թեմաները և գրառումները&quot;]
+  MT --&gt; NORM[&quot;Մշակում. թեմա→բաժին, տեքստ→բլոկներ,&lt;br/&gt;ալբոմներ, հեղինակներ, սաղմոսի համար&quot;]
+  NORM --&gt; D1W[(&quot;D1. library_materials,&lt;br/&gt;library_material_blocks, library_media,&lt;br/&gt;library_search_documents&quot;)]
+  NORM --&gt; R2W[(&quot;R2. մեդիա ֆայլեր&lt;br/&gt;(անփոփոխ բանալի, փոփոխությունը՝ նոր բանալի)&quot;)]
+  D1W --&gt; VER[&quot;Բովանդակության տարբերակը փոխվում է&quot;]
+  VER --&gt; CC[&quot;Քեշերը թարմանում են (կայք և հեռախոսներ)&quot;]
+  VER --&gt; OG[&quot;Նոր քարտեր (og-cards, պռոդ)&quot;]</pre></div>
+</figure>
+  <p><b>Բաժիններ</b> (Telegram-ի թեմաներ → կայքի բաժիններ, <code>material-path.ts</code>). Սաղմոսներ (<code>/psalms</code>), Աղոթքներ (<code>/pray</code>), Սրբերի վարք (<code>/saints</code>), Ավետարանի ուսուցում (<code>/gospel</code>), Օրվա ընթերցումներ (<code>/daily</code>), Հարցեր Աստվածաշնչից (<code>/questions</code>), գրառումներ (<code>/post</code>)։ Հին հասցեները (<code>/pray_364</code>) 301-ով տանում են նորերին։</p>
+  <p><b>Նյութի էջը</b> (<code>material.tsx</code>). տեքստ (<code>rich-text</code>, <code>telegram-content</code>), մեդիա (<code>material-media</code>), սաղմոսի տող առ տող ընթերցում ձայնի հետ (<code>psalm-read-along</code>, <code>psalm_timings</code>), նախորդ/հաջորդ սաղմոս, կիսվել, պահել, «Կարդացել եմ», հիշեցում, բառարանի բառեր, հարցման քվեարկություն։ Կայքում ավելացված ձայնագրություններ (<code>material_attachments</code>), երբ Telegram-ը չի կարող (երկար տեքստ)։</p>
+</section>
+<section id="5-էջերի-քարտեզը" class="part" data-text="5. էջերի քարտեզը  **api-ներ** (բրաուզերը կանչում է ֆոնում). `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`, `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`, `/api/presence`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`, `/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`։ **ֆայլեր**. `/media/...` (r2-ի պահուստային ճանապարհ), `/place-media/...`, `/og/card/...`, `/sitemap.xml`։">
+  <header><span class="n">5</span><h2>Էջերի քարտեզը</h2></header>
+  <figure class="diagram" data-diagram="5">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  HOME[&quot;/ գլխավոր&lt;br/&gt;օրվա համար, բաժիններ, որոնում&quot;]
+  HOME --&gt; SEC[&quot;/:section&lt;br/&gt;բաժին (սաղմոսներ, աղոթքներ…)&quot;]
+  SEC --&gt; MAT[&quot;/:section/:item&lt;br/&gt;նյութ&quot;]
+  MAT --&gt; VERSE[&quot;/:section/:item/:verse&lt;br/&gt;սաղմոսի մեկ համար&quot;]
+  HOME --&gt; SEARCH[&quot;/search&quot;]
+  HOME --&gt; SAVED[&quot;/saved պահվածներ&quot;]
+  HOME --&gt; PLACES[&quot;/places քարտեզ&quot;]
+  PLACES --&gt; PLACE[&quot;/places/:id&quot;]
+  PLACES --&gt; PNEW[&quot;/places/new նոր սրբավայր&quot;]
+  HOME --&gt; MY[&quot;/my-year Իմ տարին&quot;]
+  HOME --&gt; SET[&quot;/settings&quot;]
+  HOME --&gt; INFO[&quot;/mer-masin · /kap · /privacy&quot;]
+  HOME --&gt; ADM[&quot;/admin Կառավարում&quot;]
+  ADM --&gt; A1[&quot;/admin/people&quot;]
+  ADM --&gt; A2[&quot;/admin/places&quot;]
+  ADM --&gt; A3[&quot;/admin/usage Կայքի վիճակը&quot;]
+  ADM --&gt; A4[&quot;/admin/glossary&quot;]
+  A3 --&gt; A5[&quot;/admin/media-inventory&quot;]</pre></div>
+</figure>
+  <p><b>API-ներ</b> (բրաուզերը կանչում է ֆոնում). <code>/api/search-page</code>, <code>/api/search-suggestions</code>, <code>/api/search-index</code>, <code>/api/content-version</code>, <code>/api/reading-log</code>, <code>/api/reminders</code>, <code>/api/calendar</code>, <code>/api/push</code>, <code>/api/saved-verses</code>, <code>/api/poll-vote</code>, <code>/api/psalm-timings</code>, <code>/api/presence</code>, <code>/api/place-visits</code>, <code>/api/places-search</code>, <code>/api/glossary</code>, <code>/api/sunday</code>, <code>/api/my-summary</code>, <code>/api/share-prepare</code>, <code>/api/telegram-link</code>, <code>/api/og-cards</code>, <code>/api/categories/:slug/posts</code>։ <b>Ֆայլեր</b>. <code>/media/...</code> (R2-ի պահուստային ճանապարհ), <code>/place-media/...</code>, <code>/og/card/...</code>, <code>/sitemap.xml</code>։</p>
+</section>
+<section id="6-մուտք-և-հաշիվներ" class="part" data-text="6. մուտք և հաշիվներ  մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։ **այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։">
+  <header><span class="n">6</span><h2>Մուտք և հաշիվներ</h2></header>
+  <figure class="diagram" data-diagram="6">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  subgraph Ways[&quot;Մուտքի 3 ձև&quot;]
+    MA[&quot;Telegram Mini App&lt;br/&gt;initData (ստորագրված Telegram-ի կողմից)&quot;]
+    TL[&quot;Telegram մուտք բրաուզերում&lt;br/&gt;/auth/telegram (oauth.telegram.org)&quot;]
+    GO[&quot;Google&lt;br/&gt;/auth/google → callback&quot;]
+  end
+  MA &amp; TL &amp; GO --&gt; CHK[&quot;Worker. ստուգում է ստորագրությունը&lt;br/&gt;(բոտի token / Google)&quot;]
+  CHK --&gt; U[(&quot;app_users&quot;)]
+  U --&gt; SES[&quot;Ստորագրված cookie (jose)&quot;]
+  GO -. &quot;կապել Telegram-ին&quot; .-&gt; LINK[(&quot;account_links&lt;br/&gt;Google-ի տվյալները տեղափոխվում են&quot;)]
+  U --&gt; ROLE{&quot;Ով է&quot;}
+  ROLE --&gt;|&quot;տեր (OWNER)&quot;| OWN[&quot;Ամեն ինչ&quot;]
+  ROLE --&gt;|&quot;admin_access&quot;| ADMN[&quot;Միայն տրված իրավունքները&lt;br/&gt;(սրբավայրեր, բառարան…)&quot;]
+  ROLE --&gt;|&quot;ընթերցող&quot;| RD[&quot;Իր նշումները, պահվածները, հիշեցումները&quot;]</pre></div>
+</figure>
+  <ul><li>Մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։</li><li><b>Այցերի վիճակագրությունը անանուն է</b> (<code>site_presence</code>). հաշվի հետ չի կապվում։</li></ul>
+</section>
+<section id="7-որոնում" class="part" data-text="7. որոնում  էջի ներսում որոնում (`page-find.tsx`). բաժնի ցուցակը նեղանում է մուտքագրելիս։">
+  <header><span class="n">7</span><h2>Որոնում</h2></header>
+  <figure class="diagram" data-diagram="7">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  Q[&quot;Մարդը գրում է «Սաղմոս 23»&quot;] --&gt; V[&quot;Ստուգում (search-validation)&lt;br/&gt;լատինատառը → հայերեն առաջարկներ&quot;]
+  V --&gt; LOC{&quot;Հեռախոսում կա՞ ինդեքսը&quot;}
+  LOC --&gt;|&quot;այո&quot;| IDX[&quot;Վերնագրերի ինդեքսը հեռախոսում&lt;br/&gt;(/api/search-index, R2-ում պատրաստ)&lt;br/&gt;ակնթարթային արդյունք&quot;]
+  LOC --&gt;|&quot;ամբողջ տեքստում&quot;| FTS[&quot;Սերվեր. D1 FTS&lt;br/&gt;(library_search_documents), դասավորում SQL-ում&quot;]
+  IDX &amp; FTS --&gt; RES[&quot;Արդյունքներ&quot;]
+  RES --&gt;|&quot;սեղմում&quot;| PAGE[&quot;Նյութի էջ + գտած բառը լուսավորված&lt;br/&gt;(find-flash, CSS Highlight)&quot;]
+  Q --&gt; AN[(&quot;search_query_aggregates&lt;br/&gt;ինչ են փնտրում (անանուն)&quot;)]</pre></div>
+</figure>
+  <p>Էջի ներսում որոնում (<code>page-find.tsx</code>). բաժնի ցուցակը նեղանում է մուտքագրելիս։</p>
+</section>
+<section id="8-կարդացել-եմ--լսել-եմ--օրացույց" class="part" data-text="8. կարդացել եմ / լսել եմ / օրացույց ">
+  <header><span class="n">8</span><h2>Կարդացել եմ / Լսել եմ / Օրացույց</h2></header>
+  <figure class="diagram" data-diagram="8">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  M[&quot;Նյութ&quot;] --&gt; T{&quot;Ինչ տեսակ&quot;}
+  T --&gt;|&quot;տեքստ&quot;| RD[&quot;«Կարդացել եմ»&quot;]
+  T --&gt;|&quot;ձայնագրություն&quot;| LS[&quot;«Լսել եմ» (ձայնի վերջում)&quot;]
+  T --&gt;|&quot;տեսանյութ&quot;| WT[&quot;«Դիտել եմ»&quot;]
+  RD &amp; LS &amp; WT --&gt; API[&quot;/api/reading-log&lt;br/&gt;(մարդու տեղական օրով)&quot;]
+  API --&gt; DB[(&quot;reading_log&quot;)]
+  DB --&gt; CAL[&quot;Ընթերցանության օրացույց&lt;br/&gt;(reading-calendar.tsx)՝ կարդացած օրերը ամսվա էջում&quot;]
+  DB --&gt; SUM[&quot;«Իմ տարին»-ի թվերը&quot;]</pre></div>
+</figure>
+</section>
+<section id="9-հիշեցումներ" class="part" data-text="9. հիշեցումներ ">
+  <header><span class="n">9</span><h2>Հիշեցումներ</h2></header>
+  <figure class="diagram" data-diagram="9">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  B[&quot;🔔 կոճակ նյութի վրա&lt;br/&gt;(reminder-button)&quot;] --&gt; CH{&quot;Ինչպես հիշեցնել&quot;}
+  CH --&gt;|&quot;calendar&quot;| ICS[&quot;Հեռախոսի օրացույց&lt;br/&gt;/api/calendar (.ics)&lt;br/&gt;հեռախոսն ինքն է զանգում&quot;]
+  CH --&gt;|&quot;push&quot;| SRV[(&quot;reading_reminders&lt;br/&gt;կրկնություն, հետաձգում&quot;)]
+  SRV --&gt; CLK[&quot;Clock-ը արթնանում է ճիշտ րոպեին&quot;]
+  CLK --&gt; TGM[&quot;Բոտի հաղորդագրություն&lt;br/&gt;(Telegram-ով մուտք գործածին)&quot;]
+  CLK --&gt; WP[&quot;Բրաուզերի ծանուցում&lt;br/&gt;(push_subscriptions, VAPID)&quot;]
+  CLK --&gt; INB[(&quot;reminder_inbox&quot;)]
+  INB --&gt; IND[&quot;Վերնագրի զանգակ (reminder-indicator)&lt;br/&gt;✓ կարդացել, կրկին, ջնջել&quot;]
+  INB --&gt; ALM[&quot;Բաց կայքում՝ ազդանշան (reminder-alarm)&quot;]</pre></div>
+</figure>
+</section>
+<section id="10-կիրակնօրյա-հարց-և-իմ-տարին" class="part" data-text="10. կիրակնօրյա հարց և «իմ տարին» ">
+  <header><span class="n">10</span><h2>Կիրակնօրյա հարց և «Իմ տարին»</h2></header>
+  <figure class="diagram" data-diagram="10">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  C1[&quot;Cron կիրակի 09:07 UTC = 13:07 Երևան&quot;] --&gt; CLK[&quot;Clock. «sunday» աշխատանք&quot;]
+  CLK --&gt; SN[&quot;Ծանուցում խմբերով (12 հոգի)&lt;br/&gt;բոտ + push՝ «Այսօր մասնակցե՞լ եք…»&quot;]
+  OPEN[&quot;Մուտք գործածը բացում է կայքը&lt;br/&gt;կիրակի 13:00-ից – երկուշաբթի վերջ&quot;] --&gt; ASK{&quot;/api/sunday&lt;br/&gt;պատասխանե՞լ է, անջատե՞լ է&quot;}
+  ASK --&gt;|&quot;հարցնել&quot;| UI[&quot;Ամբողջ էկրան. ոսկե սկիհ, արևի շողեր&lt;br/&gt;(sunday-prompt.tsx, chalice-art.tsx)&quot;]
+  UI --&gt; Q1[&quot;Այսօր/Երեկ մասնակցե՞լ եք Սուրբ Պատարագին&quot;]
+  Q1 --&gt;|&quot;Այո&quot;| Q2[&quot;Ստացե՞լ եք Սուրբ Հաղորդություն&quot;]
+  Q2 --&gt; PR[&quot;Հաղորդության աղոթքը՝ տառ առ տառ → «Ամէն»&quot;]
+  Q1 --&gt;|&quot;Չհարցնել այլևս&quot;| OFF[(&quot;user_settings&quot;)]
+  Q1 &amp; Q2 --&gt; LM[(&quot;liturgy_marks&lt;br/&gt;օր, մասնակցել, հաղորդվել, նշում&quot;)]
+  FEAST[&quot;Տոներ (liturgy.ts). Ս. Ծնունդ, Տյառնընդառաջ,&lt;br/&gt;Ավետում, Ավագ հինգշաբթի, Համբարձում…&quot;] --&gt; ASK
+  LM --&gt; MY[&quot;/my-year. տարվա և ամսվա ճանապարհը,&lt;br/&gt;ձեռքով նշում վերջին 30 օրվա համար&quot;]
+  LM --&gt; ARC[&quot;Տարեվերջին՝ yearly_summaries (մաքրում)&quot;]</pre></div>
+</figure>
+</section>
+<section id="11-սրբավայրեր-և-քարտեզ" class="part" data-text="11. սրբավայրեր և քարտեզ ">
+  <header><span class="n">11</span><h2>Սրբավայրեր և քարտեզ</h2></header>
+  <figure class="diagram" data-diagram="11">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  OSM[&quot;OpenStreetMap + Wikidata&lt;br/&gt;scripts/import-osm-places.py&quot;] --&gt; PL[(&quot;places&quot;)]
+  BOTP[&quot;Բոտի /place (քայլ առ քայլ հարցեր)&quot;] --&gt; DR[(&quot;bot_place_drafts&quot;)] --&gt; SUB[(&quot;place_submissions&quot;)]
+  WEB[&quot;/places/new ձևը կայքում&lt;br/&gt;(նկարները սեղմվում են հեռախոսում ≤1920px)&quot;] --&gt; SUB
+  SUB --&gt; TEAM[&quot;Թիմի «Սրբավայրեր» թեման Telegram-ում&quot;]
+  SUB --&gt; ADM[&quot;/admin/places. ընդունել / մերժել / խմբագրել&quot;]
+  ADM --&gt; PL
+  ADM --&gt; BL[(&quot;place_blocklist, place_rejected&quot;)]
+  ADM --&gt; VID[&quot;Տեսանյութ հեռախոսից → R2 places/ (≤95 ՄԲ)&quot;]
+  PL --&gt; MAP[&quot;/places քարտեզ (MapLibre)&lt;br/&gt;Հայաստանի եզրագիծը, «Իմ դիրքը»&quot;]
+  MAP --&gt; ONE[&quot;/places/:id. նկարներ, պատմություն,&lt;br/&gt;ինչպես հասնել, ով է ծառայում, ✓ հոգևորականի կողմից&quot;]
+  ONE --&gt; VIS[&quot;«Այցելել եմ» (place_visits)&quot;]</pre></div>
+</figure>
+</section>
+<section id="12-բոտը" class="part" data-text="12. բոտը ">
+  <header><span class="n">12</span><h2>Բոտը</h2></header>
+  <figure class="diagram" data-diagram="12">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  TGU[&quot;Telegram&quot;] --&gt;|&quot;webhook&quot;| WH[&quot;/telegram/webhook&quot;]
+  WH --&gt; G1[&quot;Խմբի նոր/փոփոխված գրառում → sync (բաժին 4)&quot;]
+  WH --&gt; G2[&quot;/place → սրբավայր ավելացնել&quot;]
+  WH --&gt; G3[&quot;Ընթերցողի հարց/հաղորդագրություն → թիմի փակ խումբ&lt;br/&gt;(support-relay), պատասխանը՝ ետ&quot;]
+  WH --&gt; G4[&quot;Կիսվել նյութով (share-prepare)&quot;]
+  WH --&gt; G5[&quot;Հարցումներ (poll)&quot;]
+  BOTOUT[&quot;Բոտը գրում է&quot;] --&gt; H[&quot;Հիշեցումներ, կիրակնօրյա հարց&quot;]</pre></div>
+</figure>
+</section>
+<section id="13-բառարան" class="part" data-text="13. բառարան ">
+  <header><span class="n">13</span><h2>Բառարան</h2></header>
+  <figure class="diagram" data-diagram="13">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  ADM[&quot;/admin/glossary&lt;br/&gt;բառ, ձևեր, բացատրություն, բաժին&lt;br/&gt;(բառ / անձնանուն / տեղանուն)&quot;] --&gt; GT[(&quot;glossary_terms&quot;)]
+  GT --&gt; API[&quot;/api/glossary (մեկ անգամ այցի համար)&quot;]
+  API --&gt; L[&quot;glossary-layer.tsx&lt;br/&gt;գտնում է բառերը ամեն տեքստում&lt;br/&gt;(վերջավորություններ, դասական ուղղագրություն)&quot;]
+  L --&gt; HL[&quot;Ընդգծում CSS Highlight API-ով&lt;br/&gt;(DOM-ը չի փոխվում)&quot;]
+  HL --&gt;|&quot;սեղմում&quot;| CARD[&quot;Պատուհան բացատրությամբ, ⚑ Ճշտել / ✓&quot;]</pre></div>
+</figure>
+</section>
+<section id="14-պահված-նյութեր-համարներ-հարցումներ" class="part" data-text="14. պահված նյութեր, համարներ, հարցումներ | ինչ | աղյուսակ | որտեղ է երևում | | --- | --- | --- | | պահված նյութեր և նշումներ | `saved_materials` | `/saved` | | պահված սաղմոսի համարներ | `saved_verses` | համարի պատուհան, `/saved` | | հարցման ձայներ | `poll_votes` | telegram-ի հարցումները կայքում | | սաղմոսի ժամանակացույց (տող↔ձայն) | `psalm_timings` | տող առ տող ընթերցում | | օրվա համար | `daily-verses.ts` | գլխավոր էջ | | տեղադրել որպես հավելված (pwa) | — | `install-prompt.tsx` |">
+  <header><span class="n">14</span><h2>Պահված նյութեր, համարներ, հարցումներ</h2></header>
+  <div class="table"><table><tr><th>Ինչ</th><th>Աղյուսակ</th><th>Որտեղ է երևում</th></tr><tr><td>Պահված նյութեր և նշումներ</td><td><code>saved_materials</code></td><td><code>/saved</code></td></tr><tr><td>Պահված սաղմոսի համարներ</td><td><code>saved_verses</code></td><td>համարի պատուհան, <code>/saved</code></td></tr><tr><td>Հարցման ձայներ</td><td><code>poll_votes</code></td><td>Telegram-ի հարցումները կայքում</td></tr><tr><td>Սաղմոսի ժամանակացույց (տող↔ձայն)</td><td><code>psalm_timings</code></td><td>տող առ տող ընթերցում</td></tr><tr><td>Օրվա համար</td><td><code>daily-verses.ts</code></td><td>գլխավոր էջ</td></tr><tr><td>Տեղադրել որպես հավելված (PWA)</td><td>—</td><td><code>install-prompt.tsx</code></td></tr></table></div>
+</section>
+<section id="15-կառավարում-ադմին" class="part" data-text="15. կառավարում (ադմին) ">
+  <header><span class="n">15</span><h2>Կառավարում (ադմին)</h2></header>
+  <figure class="diagram" data-diagram="14">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  A[&quot;/admin&quot;] --&gt; P[&quot;Մարդիկ՝ որոնում, Excel արտահանում&lt;br/&gt;(xlsx.ts առանց գրադարանի)&quot;]
+  A --&gt; R[&quot;Ադմինի իրավունքներ (admin_access)&quot;]
+  A --&gt; S[&quot;Սրբավայրեր, առաջարկներ&quot;]
+  A --&gt; G[&quot;Բառարան&quot;]
+  A --&gt; U[&quot;Կայքի վիճակը. Cloudflare-ի սահմաններ,&lt;br/&gt;պահեստն ըստ թղթապանակների, GitHub-ի րոպեներ&quot;]
+  A --&gt; RF[&quot;«Թարմացնել կայքը» (քեշի epoch)&quot;]
+  A --&gt; SP[&quot;Կիրակնօրյա պատուհան · Նախադիտում (ժամանակավոր)&quot;]
+  U --&gt; MI[&quot;Մեդիայի հաշվառում (առանց ջնջելու)&quot;]</pre></div>
+</figure>
+</section>
+<section id="16-ժամացույց-clock-և-cron-ներ" class="part" data-text="16. ժամացույց (clock) և cron-ներ  ոչինչ չի աշխատում «ամեն րոպե». clock-ը արթնանում է միայն այն պահին, երբ գործ կա (անվճար սահմանը օրական 100 000 հարցում է)։">
+  <header><span class="n">16</span><h2>Ժամացույց (Clock) և cron-ներ</h2></header>
+  <figure class="diagram" data-diagram="15">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  subgraph Cron[&quot;Cloudflare cron (wrangler.jsonc)&quot;]
+    N[&quot;17 0 * * * (ամեն գիշեր)&quot;]
+    S[&quot;7 9 * * SUN (կիրակի 13:07 Երևան)&quot;]
+  end
+  N --&gt; SYNC[&quot;Ամբողջական sync&quot;]
+  N --&gt; RET[&quot;Մաքրում (retention.server.ts).&lt;br/&gt;հին սևագրեր, staging-ի տվյալներ 3 օր,&lt;br/&gt;պռոդի առաջարկներ 30 օր, հին տարիներ&quot;]
+  S --&gt; SUN[&quot;Կիրակնօրյա ծանուցում&quot;]
+  WHK[&quot;Նոր գրառում&quot;] --&gt; CL[&quot;Clock (Durable Object)&lt;br/&gt;մեկ զարթուցիչ, աշխատանքի տեսակը պահված&quot;]
+  REM[&quot;Հիշեցման րոպե&quot;] --&gt; CL
+  SYNC &amp; SUN --&gt; CL
+  CL --&gt; J1[&quot;sync → GitHub&quot;]
+  CL --&gt; J2[&quot;reminders → բոտ/push&quot;]
+  CL --&gt; J3[&quot;sunday → խմբերով, մինչև ցուցակի վերջ&quot;]</pre></div>
+</figure>
+  <p>Ոչինչ չի աշխատում «ամեն րոպե». Clock-ը արթնանում է միայն այն պահին, երբ գործ կա (անվճար սահմանը օրական 100 000 հարցում է)։</p>
+</section>
+<section id="17-հղումների-նախադիտման-քարտեր" class="part" data-text="17. հղումների նախադիտման քարտեր երբ նյութի հղումն ուղարկում ես telegram-ով, whatsapp-ով, facebook-ով, հղման տակ երևում է **նկար-քարտ** (վերնագիր, տեքստի կտոր, խորհրդանիշ)։ դա «link-preview card» (open graph նկար) է։  նկարվում է github-ում, որովհետև մեկ քարտը ~1 վայրկյան cpu է ուզում, իսկ անվճար worker-ին թույլատրված է շատ ավելի քիչ։ նկարվում են միայն նոր կամ փոփոխված քարտերը։ 2026-11-02-ից՝ միայն պռոդի deploy-ից հետո։">
+  <header><span class="n">17</span><h2>Հղումների նախադիտման քարտեր</h2></header>
+  <p>Երբ նյութի հղումն ուղարկում ես Telegram-ով, WhatsApp-ով, Facebook-ով, հղման տակ երևում է <b>նկար-քարտ</b> (վերնագիր, տեքստի կտոր, խորհրդանիշ)։ Դա «Link-preview card» (Open Graph նկար) է։</p>
+  <figure class="diagram" data-diagram="16">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  D[&quot;Deploy պռոդում&quot;] --&gt; OG[&quot;GitHub Actions. og-cards.yml&quot;]
+  OG --&gt; L[&quot;/api/og-cards. ո՞ր քարտերն են նոր/փոփոխված&quot;]
+  L --&gt; DRAW[&quot;satori + resvg. նկարում է PNG&lt;br/&gt;(scripts/og-cards.ts)&quot;]
+  DRAW --&gt; R2[(&quot;R2 og/&quot;)]
+  SHARE[&quot;Մարդը կիսվում է հղումով&quot;] --&gt; TGP[&quot;Telegram/WhatsApp-ը կարդում է&lt;br/&gt;&amp;lt;meta og:image&amp;gt;&quot;] --&gt; CARD[&quot;/og/card/... → R2-ից պատրաստ նկար&quot;]</pre></div>
+</figure>
+  <p>Նկարվում է GitHub-ում, որովհետև մեկ քարտը ~1 վայրկյան CPU է ուզում, իսկ անվճար Worker-ին թույլատրված է շատ ավելի քիչ։ Նկարվում են միայն նոր կամ փոփոխված քարտերը։ 2026-11-02-ից՝ միայն պռոդի deploy-ից հետո։</p>
+</section>
+<section id="18-բազա-d1-բոլոր-աղյուսակները" class="part" data-text="18. բազա (d1). բոլոր աղյուսակները  | խումբ | աղյուսակներ | | --- | --- | | **գրադարան** (sync-ը լցնում է) | `library_sources`, `library_topics`, `library_materials`, `library_material_blocks`, `library_media`, `library_album_members`, `library_search_documents`, `library_publishers`, `library_post_authors`, `material_attachments`, `psalm_timings` | | **sync-ի հաշվառում** | `library_sync_cursors`, `library_sync_runs`, `library_sync_failures` | | **մարդիկ** | `app_users`, `account_links`, `admin_access`, `user_settings` | | **անձնական** | `saved_materials`, `saved_verses`, `reading_log`, `poll_votes`, `place_visits`, `liturgy_marks`, `yearly_summaries` | | **հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` | | **սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) | | **բառարան** | `glossary_terms` | | **կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates` | | **telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` | | **հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` | բազայի ամեն փոփոխություն՝ `migrations/00nn_*.sql` ֆայլ (այժմ 44 հատ), կիրառվում է deploy-ի ժամանակ։ **ինչպես նայել՝ ինչքան է լցված**. կառավարում → կայքի վիճակը → «d1 ընդհանուր պահեստ» (պետք է token-ին d1 read իրավունք), կամ cloudflare → storage &amp; databases → d1 → բազան → **metrics** (չափը) և **console** (աղյուսակներ)։">
+  <header><span class="n">18</span><h2>Բազա (D1). բոլոր աղյուսակները</h2></header>
+  <figure class="diagram" data-diagram="17">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">erDiagram
+  app_users ||--o{ saved_materials : &quot;պահում է&quot;
+  app_users ||--o{ saved_verses : &quot;պահում է&quot;
+  app_users ||--o{ reading_log : &quot;նշում է&quot;
+  app_users ||--o{ reading_reminders : &quot;դնում է&quot;
+  app_users ||--o{ reminder_inbox : &quot;ստանում է&quot;
+  app_users ||--o{ push_subscriptions : &quot;բրաուզերներ&quot;
+  app_users ||--o{ poll_votes : &quot;քվեարկում է&quot;
+  app_users ||--o{ place_visits : &quot;այցելել է&quot;
+  app_users ||--o{ liturgy_marks : &quot;Պատարագ&quot;
+  app_users ||--o| user_settings : &quot;կարգավորումներ&quot;
+  app_users ||--o{ yearly_summaries : &quot;տարվա ամփոփում&quot;
+  app_users ||--o{ account_links : &quot;Google↔Telegram&quot;
+  app_users ||--o| admin_access : &quot;իրավունքներ&quot;
+  app_users ||--o{ place_submissions : &quot;առաջարկում է&quot;
+  library_topics ||--o{ library_materials : &quot;բաժին&quot;
+  library_materials ||--o{ library_material_blocks : &quot;տեքստի բլոկներ&quot;
+  library_materials ||--o{ library_media : &quot;մեդիա&quot;
+  library_materials ||--o{ material_attachments : &quot;կայքից ավելացված&quot;
+  library_materials ||--|| library_search_documents : &quot;որոնում&quot;
+  library_materials ||--o{ psalm_timings : &quot;տող↔ձայն&quot;
+  places ||--o{ place_visits : &quot;&quot;
+  places ||--o{ place_submissions : &quot;փոփոխություններ&quot;</pre></div>
+</figure>
+  <div class="table"><table><tr><th>Խումբ</th><th>Աղյուսակներ</th></tr><tr><td><b>Գրադարան</b> (sync-ը լցնում է)</td><td><code>library_sources</code>, <code>library_topics</code>, <code>library_materials</code>, <code>library_material_blocks</code>, <code>library_media</code>, <code>library_album_members</code>, <code>library_search_documents</code>, <code>library_publishers</code>, <code>library_post_authors</code>, <code>material_attachments</code>, <code>psalm_timings</code></td></tr><tr><td><b>Sync-ի հաշվառում</b></td><td><code>library_sync_cursors</code>, <code>library_sync_runs</code>, <code>library_sync_failures</code></td></tr><tr><td><b>Մարդիկ</b></td><td><code>app_users</code>, <code>account_links</code>, <code>admin_access</code>, <code>user_settings</code></td></tr><tr><td><b>Անձնական</b></td><td><code>saved_materials</code>, <code>saved_verses</code>, <code>reading_log</code>, <code>poll_votes</code>, <code>place_visits</code>, <code>liturgy_marks</code>, <code>yearly_summaries</code></td></tr><tr><td><b>Հիշեցումներ</b></td><td><code>reading_reminders</code>, <code>reminder_inbox</code>, <code>reminder_sound_sent</code>, <code>push_subscriptions</code></td></tr><tr><td><b>Սրբավայրեր</b></td><td><code>places</code>, <code>place_submissions</code>, <code>bot_place_drafts</code>, <code>place_blocklist</code>, <code>place_rejected</code> (հին՝ <code>sacred_places</code>, <code>sacred_place_submissions</code>, <code>sacred_place_photos</code>)</td></tr><tr><td><b>Բառարան</b></td><td><code>glossary_terms</code></td></tr><tr><td><b>Կայք</b></td><td><code>site_settings</code> (քեշի epoch…), <code>site_presence</code> (անանուն այցեր), <code>search_query_aggregates</code></td></tr><tr><td><b>Telegram</b></td><td><code>telegram_bot_updates</code>, <code>telegram_group_integrations</code>, <code>telegram_review_items</code>, <code>telegram_hashtag_mappings</code>, <code>telegram_post_category_mappings</code></td></tr><tr><td><b>Հին (առաջին տարբերակից)</b></td><td><code>categories</code>, <code>materials</code>, <code>telegram_sources</code>, <code>telegram_topics</code>, <code>telegram_imports</code></td></tr></table></div>
+  <p>Բազայի ամեն փոփոխություն՝ <code>migrations/00NN_*.sql</code> ֆայլ (այժմ 44 հատ), կիրառվում է deploy-ի ժամանակ։ <b>Ինչպես նայել՝ ինչքան է լցված</b>. Կառավարում → Կայքի վիճակը → «D1 ընդհանուր պահեստ» (պետք է token-ին D1 Read իրավունք), կամ Cloudflare → Storage &amp; Databases → D1 → բազան → <b>Metrics</b> (չափը) և <b>Console</b> (աղյուսակներ)։</p>
+</section>
+<section id="19-պահեստ-r2" class="part" data-text="19. պահեստ (r2) | թղթապանակ | ինչ | | --- | --- | | մեդիա (sync-ից) | telegram-ի ձայնագրություններ, տեսանյութեր, նկարներ, դրանց մանրապատկերներ | | `places/` | սրբավայրերի նկարներ և տեսանյութեր | | `submissions/` | առաջարկների նկարներ (մաքրվում են 30 օր հետո) | | `og/` | հղումների քարտեր | | `search/` (կամ նման) | որոնման պատրաստ ինդեքսը հեռախոսների համար | ֆայլի բանալին չի փոխվում. փոփոխված ֆայլը ստանում է նոր բանալի, դրա համար ֆայլերը կարելի է անվերջ քեշել։ ճշգրիտ բաժանումը՝ կառավարում → կայքի վիճակը → «ինչով է լցված պահեստը»։ պահուստային պատճենները (d1, գաղտնագրված) առանձին փակ բաքեթում են։">
+  <header><span class="n">19</span><h2>Պահեստ (R2)</h2></header>
+  <div class="table"><table><tr><th>Թղթապանակ</th><th>Ինչ</th></tr><tr><td>մեդիա (sync-ից)</td><td>Telegram-ի ձայնագրություններ, տեսանյութեր, նկարներ, դրանց մանրապատկերներ</td></tr><tr><td><code>places/</code></td><td>Սրբավայրերի նկարներ և տեսանյութեր</td></tr><tr><td><code>submissions/</code></td><td>Առաջարկների նկարներ (մաքրվում են 30 օր հետո)</td></tr><tr><td><code>og/</code></td><td>Հղումների քարտեր</td></tr><tr><td><code>search/</code> (կամ նման)</td><td>Որոնման պատրաստ ինդեքսը հեռախոսների համար</td></tr></table></div>
+  <p>Ֆայլի բանալին չի փոխվում. փոփոխված ֆայլը ստանում է նոր բանալի, դրա համար ֆայլերը կարելի է անվերջ քեշել։ Ճշգրիտ բաժանումը՝ Կառավարում → Կայքի վիճակը → «Ինչով է լցված պահեստը»։ Պահուստային պատճենները (D1, գաղտնագրված) առանձին փակ բաքեթում են։</p>
+</section>
+<section id="20-միջավայրեր-և-թողարկում" class="part" data-text="20. միջավայրեր և թողարկում  մանրամասն՝ `docs/environments.md`, `docs/deployment-runbook.md`։ աշխատանքը բաժանված է 3 չատի միջև՝ `docs/work/`։">
+  <header><span class="n">20</span><h2>Միջավայրեր և թողարկում</h2></header>
+  <figure class="diagram" data-diagram="18">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  BR[&quot;Ճյուղ feat/… fix/… chore/…&quot;] --&gt;|&quot;թեստեր, tsc&quot;| ST[&quot;staging ճյուղ&quot;]
+  ST --&gt;|&quot;Deploy&quot;| STS[&quot;staging.apostolic.am&lt;br/&gt;իր D1 + R2&quot;]
+  STS --&gt;|&quot;տերը. «թողարկիր»&quot;| PR[&quot;PR → main&quot;]
+  PR --&gt;|&quot;Deploy. թեստեր → migrations → build → deploy&quot;| PROD[&quot;apostolic.am&lt;br/&gt;իր D1 + R2&quot;]</pre></div>
+</figure>
+  <p>Մանրամասն՝ <code>docs/ENVIRONMENTS.md</code>, <code>docs/deployment-runbook.md</code>։ Աշխատանքը բաժանված է 3 չատի միջև՝ <code>docs/work/</code>։</p>
+</section>
+<section id="21-github-actions" class="part" data-text="21. github actions | workflow | երբ | ինչ | | --- | --- | --- | | `deploy.yml` | push `main`/`staging` (ոչ `.md`, ոչ `docs/`) | թեստեր, migrations, build, deploy | | `og-cards.yml` | պռոդի deploy-ից հետո, ձեռքով | հղումների քարտեր | | `cloud-sync.yml` | clock-ից, շաբաթական, ձեռքով | telegram → d1/r2 | | `qa.yml` | pr | թեստեր | | `private-backup.yml` | շաբաթական | d1-ի գաղտնագրված պատճեն | | `diagnose-topic.yml` | ձեռքով | մեկ թեմայի ախտորոշում | | `staging-reset.yml`, `staging-osm-places.yml` | staging, հատուկ ֆայլի փոփոխություն | staging-ի մաքրում, osm ներմուծում | ռեպոն փակ է (2026-11-02-ից). անվճար սահմանը 2000 րոպե ամսական, երևում է «կայքի վիճակը» էջում։">
+  <header><span class="n">21</span><h2>GitHub Actions</h2></header>
+  <div class="table"><table><tr><th>Workflow</th><th>Երբ</th><th>Ինչ</th></tr><tr><td><code>deploy.yml</code></td><td>push <code>main</code>/<code>staging</code> (ոչ <code>.md</code>, ոչ <code>docs/</code>)</td><td>թեստեր, migrations, build, deploy</td></tr><tr><td><code>og-cards.yml</code></td><td>պռոդի deploy-ից հետո, ձեռքով</td><td>հղումների քարտեր</td></tr><tr><td><code>cloud-sync.yml</code></td><td>Clock-ից, շաբաթական, ձեռքով</td><td>Telegram → D1/R2</td></tr><tr><td><code>qa.yml</code></td><td>PR</td><td>թեստեր</td></tr><tr><td><code>private-backup.yml</code></td><td>շաբաթական</td><td>D1-ի գաղտնագրված պատճեն</td></tr><tr><td><code>diagnose-topic.yml</code></td><td>ձեռքով</td><td>մեկ թեմայի ախտորոշում</td></tr><tr><td><code>staging-reset.yml</code>, <code>staging-osm-places.yml</code></td><td>staging, հատուկ ֆայլի փոփոխություն</td><td>staging-ի մաքրում, OSM ներմուծում</td></tr></table></div>
+  <p>Ռեպոն փակ է (2026-11-02-ից). անվճար սահմանը 2000 րոպե ամսական, երևում է «Կայքի վիճակը» էջում։</p>
+</section>
+<section id="22-արագություն-և-խնայողություն" class="part" data-text="22. արագություն և խնայողություն անանուն էջերը քեշվում են cloudflare-ում, մինչև նոր sync կամ «թարմացնել կայքը»։ հեռախոսը պահում է էջերը և որոնման ինդեքսը, մինչև բովանդակության տարբերակը փոխվի։ մեդիան ուղիղ r2-ից, անփոփոխ բանալիներով, տարի քեշով։ sync-ը միայն նոր գրառումից 15 րոպե հետո (մի քանի գրառում՝ մեկ sync), գումարած գիշերը։ ոչ մի «ամեն րոպե» աշխատանք. clock-ը արթնանում է միայն գործ ունենալիս։ որոնման դասավորումը sql-ում, ոչ թե worker-ում (cpu)։ քարտերը նկարվում են github-ում, միայն փոփոխվածները։">
+  <header><span class="n">22</span><h2>Արագություն և խնայողություն</h2></header>
+  <ul><li>Անանուն էջերը քեշվում են Cloudflare-ում, մինչև նոր sync կամ «Թարմացնել կայքը»։</li><li>Հեռախոսը պահում է էջերը և որոնման ինդեքսը, մինչև բովանդակության տարբերակը փոխվի։</li><li>Մեդիան ուղիղ R2-ից, անփոփոխ բանալիներով, տարի քեշով։</li><li>Sync-ը միայն նոր գրառումից 15 րոպե հետո (մի քանի գրառում՝ մեկ sync), գումարած գիշերը։</li><li>Ոչ մի «ամեն րոպե» աշխատանք. Clock-ը արթնանում է միայն գործ ունենալիս։</li><li>Որոնման դասավորումը SQL-ում, ոչ թե Worker-ում (CPU)։</li><li>Քարտերը նկարվում են GitHub-ում, միայն փոփոխվածները։</li></ul>
+</section>
+<section id="23-թղթապանակների-քարտեզը" class="part" data-text="23. թղթապանակների քարտեզը ">
+  <header><span class="n">23</span><h2>Թղթապանակների քարտեզը</h2></header>
+  <figure class="diagram" data-diagram="19">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  ROOT[&quot;ռեպո&quot;] --&gt; APP[&quot;app/ — կայքը&quot;]
+  APP --&gt; RT[&quot;routes/ — էջեր և API (մեկ ֆայլ՝ մեկ հասցե)&quot;]
+  APP --&gt; CMP[&quot;components/ — էջերի մասեր (նավիգացիա, քարտեզ, սկիհ…)&quot;]
+  APP --&gt; DAT[&quot;data/ — բազայի և արտաքին ծառայությունների հետ աշխատանք (*.server.ts)&quot;]
+  APP --&gt; UT[&quot;utils/ — մաքուր հաշվարկներ (ամսաթիվ, ուղիներ, տոներ…)&quot;]
+  APP --&gt; AU[&quot;auth/ — մուտք, իրավունքներ&quot;]
+  APP --&gt; CSS[&quot;app.css — ոճեր, թեմաներ, անիմացիաներ&quot;]
+  ROOT --&gt; WK[&quot;workers/ — app.ts (մուտքի կետ), clock.ts (ժամացույց)&quot;]
+  ROOT --&gt; SH[&quot;shared/ — ընդհանուր կոդ&quot;]
+  ROOT --&gt; MG[&quot;migrations/ — բազայի փոփոխություններ&quot;]
+  ROOT --&gt; TS[&quot;tests/ — թեստեր&quot;]
+  ROOT --&gt; SC[&quot;scripts/ — sync, քարտեր, OSM, լոգո…&quot;]
+  ROOT --&gt; SV[&quot;services/ — Telegram Bridge (տեղական/MTProto)&quot;]
+  ROOT --&gt; GHW[&quot;.github/workflows/ — Actions&quot;]
+  ROOT --&gt; DOC[&quot;docs/ — փաստաթղթեր, docs/work/ — չատերի աշխատանքը&quot;]
+  ROOT --&gt; WR[&quot;wrangler.jsonc — Cloudflare-ի կարգավորումներ (D1, R2, cron)&quot;]</pre></div>
+</figure>
+</section>
+<section id="24-կարևոր-բանաձևեր-և-ֆունկցիաներ" class="part" data-text="24. կարևոր բանաձևեր և ֆունկցիաներ այստեղ կայքի «ուղեղի» փոքր, բայց կարևոր մասերն են. փոխելիս սկսեք այս ֆունկցիաներից և դրանց թեստերից (`tests/`)։ երևանի օրը ամբողջ կայքը օրերը հաշվում է երևանի ժամով (utc+4, առանց ամառային ժամի)։ `app/utils/liturgy.ts` const yerevan_ms = 4 * 3_600_000;
+export function yerevanday(now = date.now()) {
+  return new date(now + yerevan_ms).toisostring().slice(0, 10); // «2026-11-02»
+} զատիկի օրը (գաուսի/meeus-ի բանաձև) շարժական տոները հաշվվում են զատիկից։ `app/utils/liturgy.ts` · ⚑ ճշտել հոգևորականի հետ export function easterday(year: number) {
+  const a = year % 19, b = math.floor(year / 100), c = year % 100, d = math.floor(b / 4), e = b % 4;
+  const f = math.floor((b + 8) / 25), g = math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = math.floor((a + 11 * h + 22 * l) / 451);
+  const month = math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${month}-${day}`; // իրականում՝ երկնիշ ամիս/օր
+} տոները և «պատարագի օրը» // հաստատուն տոներ + զատիկ−3 (ավագ հինգշաբթի) + զատիկ+39 (համբարձում)
+export function feaston(day: string): string | null
+// կիրակի կամ տոն
+export function isliturgyday(day: string) {
+  return new date(`${day}t00:00:00z`).getutcday() === 0 || feaston(day) !== null;
+} նոր տոն ավելացնել՝ `feaston`-ի `fixed` ցուցակում («ամիս-օր»: «անուն») կամ զատիկից հեռավորությամբ։ ո՞ր օրվա մասին հարցնել export function sundaytoask(now = date.now()) {
+  const local = new date(now + yerevan_ms);
+  const today = local.toisostring().slice(0, 10);
+  if (local.getutchours() &gt;= 13 &amp;&amp; isliturgyday(today)) return today;   // «այսօր…»
+  const yesterday = shift(today, -1);
+  return isliturgyday(yesterday) ? yesterday : null;                     // «երեկ…»
+} ժամը (13) փոխել՝ այստեղ և cron-ը `wrangler.jsonc`-ում (`7 9 * * sun` = 09:07 utc = 13:07 երևան)։  ձեռքով նշում՝ վերջին 30 օրը export function canmarkday(day: string, now = date.now()) {
+  const today = yerevanday(now);
+  return day &lt;= today &amp;&amp; day &gt;= shift(today, -30); // ապագա՝ ոչ, 30 օրից հին՝ ոչ
+} sync-ի ուշացումը `workers/clock.ts` · `sync_delay_ms = 15 * 60_000`. ամեն նոր գրառում զարթուցիչը տանում է 15 րոպե առաջ, այնպես որ 10 գրառում իրար հետևից՝ մեկ sync։  քեշի «epoch» `app/data/site-refresh.server.ts` · `site_settings.cache_epoch`. թիվ, որը մտնում է քեշի բանալու մեջ։ «թարմացնել կայքը» կամ նոր sync-ը փոխում է այն → բոլոր հին պատրաստ էջերը այլևս չեն գտնվում և վերակառուցվում են։ բառարանի բառի նորմալացում `app/utils/glossary.ts`. դասական և նոր ուղղագրությունները բերում է նույն ձևի, որ «ամբարշտութիւն» և «ամբարշտություն» նույնը գտնվեն. export function normalizeword(word: string) {
+  return word.tolocalelowercase(&quot;hy&quot;)
+    .replace(/և/gu, &quot;եւ&quot;).replace(/ու/gu, &quot;\u0001&quot;).replace(/իւ/gu, &quot;յ\u0001&quot;)
+    .replace(/ւ/gu, &quot;վ&quot;).replace(/\u0001/gu, &quot;ու&quot;).replace(/է/gu, &quot;ե&quot;).replace(/օ/gu, &quot;ո&quot;);
+} սաղմոսի համարը `app/utils/psalm-number.ts`. փնտրում է «սաղմոս 41»-ը ձայնագրության անվան, վերնագրի, հետո տեքստի մեջ, ընդունում է 1–151։ github-ի րոպեները `app/data/github-usage.server.ts`. ամեն գործարկում՝ `ceil((ավարտ − սկիզբ) / 60 վ)`, գումարը այս ամսվա, սահմանը 2000։ պահպանման ժամկետներ (մաքրում) `app/data/retention.server.ts`, ամեն գիշեր. | ինչ | ժամկետ | | --- | --- | | չուղարկված սրբավայրի սևագիր | 1 օր | | թիմի կողմից մշակված առաջարկ (պռոդ) | 30 օր | | staging-ի թեստային տվյալներ | 3 օր (`test_data_days`) | | հին տարիների պատարագի նշումներ | ամփոփվում են `yearly_summaries`-ում |">
+  <header><span class="n">24</span><h2>Կարևոր բանաձևեր և ֆունկցիաներ</h2></header>
+  <p>Այստեղ կայքի «ուղեղի» փոքր, բայց կարևոր մասերն են. փոխելիս սկսեք այս ֆունկցիաներից և դրանց թեստերից (<code>tests/</code>)։</p>
+  <h3>Երևանի օրը</h3>
+  <p>Ամբողջ կայքը օրերը հաշվում է Երևանի ժամով (UTC+4, առանց ամառային ժամի)։ <code>app/utils/liturgy.ts</code></p>
+  <pre class="code"><code>const YEREVAN_MS = 4 * 3_600_000;
+export function yerevanDay(now = Date.now()) {
+  return new Date(now + YEREVAN_MS).toISOString().slice(0, 10); // «2026-11-02»
+}</code></pre>
+  <h3>Զատիկի օրը (Գաուսի/Meeus-ի բանաձև)</h3>
+  <p>Շարժական տոները հաշվվում են Զատիկից։ <code>app/utils/liturgy.ts</code> · ⚑ Ճշտել հոգևորականի հետ</p>
+  <pre class="code"><code>export function easterDay(year: number) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${year}-${month}-${day}`; // իրականում՝ երկնիշ ամիս/օր
+}</code></pre>
+  <h3>Տոները և «Պատարագի օրը»</h3>
+  <pre class="code"><code>// հաստատուն տոներ + Զատիկ−3 (Ավագ Հինգշաբթի) + Զատիկ+39 (Համբարձում)
+export function feastOn(day: string): string | null
+// կիրակի կամ տոն
+export function isLiturgyDay(day: string) {
+  return new Date(`${day}T00:00:00Z`).getUTCDay() === 0 || feastOn(day) !== null;
+}</code></pre>
+  <p>Նոր տոն ավելացնել՝ <code>feastOn</code>-ի <code>fixed</code> ցուցակում («ամիս-օր»: «անուն») կամ Զատիկից հեռավորությամբ։</p>
+  <h3>Ո՞ր օրվա մասին հարցնել</h3>
+  <pre class="code"><code>export function sundayToAsk(now = Date.now()) {
+  const local = new Date(now + YEREVAN_MS);
+  const today = local.toISOString().slice(0, 10);
+  if (local.getUTCHours() &gt;= 13 &amp;&amp; isLiturgyDay(today)) return today;   // «Այսօր…»
+  const yesterday = shift(today, -1);
+  return isLiturgyDay(yesterday) ? yesterday : null;                     // «Երեկ…»
+}</code></pre>
+  <p>Ժամը (13) փոխել՝ այստեղ և cron-ը <code>wrangler.jsonc</code>-ում (<code>7 9 * * SUN</code> = 09:07 UTC = 13:07 Երևան)։</p>
+  <figure class="diagram" data-diagram="20">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">stateDiagram-v2
+  state &quot;Հարց չկա&quot; as none
+  state &quot;«Այսօր մասնակցե՞լ եք…»&quot; as today
+  state &quot;«Երեկ մասնակցե՞լ եք…»&quot; as yesterday
+  state &quot;Պատասխանված&quot; as answered
+  state &quot;Անջատված&quot; as off
+  [*] --&gt; none
+  none --&gt; today: կիրակի կամ տոն, 13.00-ից
+  today --&gt; yesterday: կեսգիշեր (Երևան)
+  yesterday --&gt; none: հաջորդ կեսգիշեր
+  today --&gt; answered: Այո / Այս անգամ ոչ
+  yesterday --&gt; answered: Այո / Այս անգամ ոչ
+  today --&gt; off: Չհարցնել այլևս
+  answered --&gt; [*]</pre></div>
+</figure>
+  <h3>Ձեռքով նշում՝ վերջին 30 օրը</h3>
+  <pre class="code"><code>export function canMarkDay(day: string, now = Date.now()) {
+  const today = yerevanDay(now);
+  return day &lt;= today &amp;&amp; day &gt;= shift(today, -30); // ապագա՝ ոչ, 30 օրից հին՝ ոչ
+}</code></pre>
+  <h3>Sync-ի ուշացումը</h3>
+  <p><code>workers/clock.ts</code> · <code>SYNC_DELAY_MS = 15 * 60_000</code>. ամեն նոր գրառում զարթուցիչը տանում է 15 րոպե առաջ, այնպես որ 10 գրառում իրար հետևից՝ մեկ sync։</p>
+  <figure class="diagram" data-diagram="21">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">gantt
+  dateFormat HH:mm
+  axisFormat %H:%M
+  section Գրառումներ
+  Գրառում 1 :milestone, 10:00, 0m
+  Գրառում 2 :milestone, 10:05, 0m
+  Գրառում 3 :milestone, 10:09, 0m
+  section Զարթուցիչ
+  սպասում (ամեն գրառում վերսկսում է) :active, 10:00, 24m
+  Sync (մեկ անգամ) :crit, 10:24, 3m</pre></div>
+</figure>
+  <h3>Քեշի «epoch»</h3>
+  <p><code>app/data/site-refresh.server.ts</code> · <code>site_settings.cache_epoch</code>. թիվ, որը մտնում է քեշի բանալու մեջ։ «Թարմացնել կայքը» կամ նոր sync-ը փոխում է այն → բոլոր հին պատրաստ էջերը այլևս չեն գտնվում և վերակառուցվում են։</p>
+  <h3>Բառարանի բառի նորմալացում</h3>
+  <p><code>app/utils/glossary.ts</code>. դասական և նոր ուղղագրությունները բերում է նույն ձևի, որ «ամբարշտութիւն» և «ամբարշտություն» նույնը գտնվեն.</p>
+  <pre class="code"><code>export function normalizeWord(word: string) {
+  return word.toLocaleLowerCase(&quot;hy&quot;)
+    .replace(/և/gu, &quot;եւ&quot;).replace(/ու/gu, &quot;\u0001&quot;).replace(/իւ/gu, &quot;յ\u0001&quot;)
+    .replace(/ւ/gu, &quot;վ&quot;).replace(/\u0001/gu, &quot;ու&quot;).replace(/է/gu, &quot;ե&quot;).replace(/օ/gu, &quot;ո&quot;);
+}</code></pre>
+  <h3>Սաղմոսի համարը</h3>
+  <p><code>app/utils/psalm-number.ts</code>. փնտրում է «Սաղմոս 41»-ը ձայնագրության անվան, վերնագրի, հետո տեքստի մեջ, ընդունում է 1–151։</p>
+  <h3>GitHub-ի րոպեները</h3>
+  <p><code>app/data/github-usage.server.ts</code>. ամեն գործարկում՝ <code>ceil((ավարտ − սկիզբ) / 60 վ)</code>, գումարը այս ամսվա, սահմանը 2000։</p>
+  <h3>Պահպանման ժամկետներ (մաքրում)</h3>
+  <p><code>app/data/retention.server.ts</code>, ամեն գիշեր.</p>
+  <div class="table"><table><tr><th>Ինչ</th><th>Ժամկետ</th></tr><tr><td>Չուղարկված սրբավայրի սևագիր</td><td>1 օր</td></tr><tr><td>Թիմի կողմից մշակված առաջարկ (պռոդ)</td><td>30 օր</td></tr><tr><td>Staging-ի թեստային տվյալներ</td><td>3 օր (<code>TEST_DATA_DAYS</code>)</td></tr><tr><td>Հին տարիների Պատարագի նշումներ</td><td>ամփոփվում են <code>yearly_summaries</code>-ում</td></tr></table></div>
+</section>
+<section id="25-ինչպես-փոխել-բաղադրատոմսեր" class="part" data-text="25. ինչպես փոխել. բաղադրատոմսեր նոր էջ ստեղծել `app/routes/my-page.tsx` (`loader` տվյալի համար, `default` կոմպոնենտ էջի համար, `meta` վերնագրի համար)։ գրանցել `app/routes.ts`-ում՝ `route(&quot;my-page&quot;, &quot;routes/my-page.tsx&quot;)` (**կոնկրետ հասցեները՝ `:section`-ից առաջ**)։ եթե պետք է մենյուում՝ `app/components/site-nav.tsx`։ թարմացնել այս ֆայլի «էջերի քարտեզը»։ նոր աղյուսակ կամ սյունակ բազայում նոր ֆայլ `migrations/00nn_name.sql` (հաջորդ համարը), երբեք չփոխել հինը։ լոկալ՝ `npm run db:migrate:local`։ կոդը պետք է աշխատի և՛ հին, և՛ նոր բազայի հետ (deploy-ը նախ migration է անում, հետո նոր կոդ)։ եթե անձնական տվյալ է (`user_id`)՝ ավելացնել `account-links.server.ts`-ի ցուցակում (google↔telegram միացման համար)։ թարմացնել «բազա» բաժինը։ նոր api `app/routes/my-api.ts` (միայն `loader`/`action`, առանց կոմպոնենտի) + `routes.ts`-ում `route(&quot;api/my-api&quot;, …)`։ ձևերի համար՝ `requiresameorigin`, իրավունքների համար՝ `requireowner` / `requirepermission`։ նոր տոն կամ ժամի փոփոխություն `app/utils/liturgy.ts` (`feaston`, `sundaytoask`) + `tests/liturgy.test.ts`։ cron-ը՝ `wrangler.jsonc` (`triggers.crons`, երկու միջավայրում)։ նոր գաղտնի բանալի (secret) կոդում՝ `env.my_secret`. արժեքը դնում է տերը cloudflare-ում (worker → settings → variables and secrets)։ երբեք ռեպոյում։ նշել `docs/environments.md`-ում։ ոճ, գույն, անիմացիա `app/app.css` (թեմաները՝ `:root[data-theme=&quot;light&quot;|&quot;dark&quot;]`), tailwind դասերը՝ անմիջապես կոմպոնենտներում։ կիրակնօրյա պատուհանը՝ `.sunday-*`, սկիհը՝ `chalice-art.tsx`։ ստուգել և թողարկել npm run dev                      # լոկալ, http://localhost:5173
+npx tsx --test tests/*.test.ts   # թեստեր
+npx tsc -b                       # տիպերի ստուգում հետո՝ staging, իսկ տիրոջ «թողարկիր»-ից հետո՝ pr → main (բաժին 20)։ ">
+  <header><span class="n">25</span><h2>Ինչպես փոխել. բաղադրատոմսեր</h2></header>
+  <h3>Նոր էջ</h3>
+  <ol><li>Ստեղծել <code>app/routes/my-page.tsx</code> (<code>loader</code> տվյալի համար, <code>default</code> կոմպոնենտ էջի համար, <code>meta</code> վերնագրի համար)։</li><li>Գրանցել <code>app/routes.ts</code>-ում՝ <code>route(&quot;my-page&quot;, &quot;routes/my-page.tsx&quot;)</code> (<b>կոնկրետ հասցեները՝ <code>:section</code>-ից առաջ</b>)։</li><li>Եթե պետք է մենյուում՝ <code>app/components/site-nav.tsx</code>։</li><li>Թարմացնել այս ֆայլի «Էջերի քարտեզը»։</li></ol>
+  <h3>Նոր աղյուսակ կամ սյունակ բազայում</h3>
+  <ol><li>Նոր ֆայլ <code>migrations/00NN_name.sql</code> (հաջորդ համարը), երբեք չփոխել հինը։</li><li>Լոկալ՝ <code>npm run db:migrate:local</code>։</li><li>Կոդը պետք է աշխատի և՛ հին, և՛ նոր բազայի հետ (deploy-ը նախ migration է անում, հետո նոր կոդ)։</li><li>Եթե անձնական տվյալ է (<code>user_id</code>)՝ ավելացնել <code>account-links.server.ts</code>-ի ցուցակում (Google↔Telegram միացման համար)։</li><li>Թարմացնել «Բազա» բաժինը։</li></ol>
+  <h3>Նոր API</h3>
+  <p><code>app/routes/my-api.ts</code> (միայն <code>loader</code>/<code>action</code>, առանց կոմպոնենտի) + <code>routes.ts</code>-ում <code>route(&quot;api/my-api&quot;, …)</code>։ Ձևերի համար՝ <code>requireSameOrigin</code>, իրավունքների համար՝ <code>requireOwner</code> / <code>requirePermission</code>։</p>
+  <h3>Նոր տոն կամ ժամի փոփոխություն</h3>
+  <p><code>app/utils/liturgy.ts</code> (<code>feastOn</code>, <code>sundayToAsk</code>) + <code>tests/liturgy.test.ts</code>։ Cron-ը՝ <code>wrangler.jsonc</code> (<code>triggers.crons</code>, երկու միջավայրում)։</p>
+  <h3>Նոր գաղտնի բանալի (secret)</h3>
+  <p>Կոդում՝ <code>env.MY_SECRET</code>. արժեքը դնում է տերը Cloudflare-ում (Worker → Settings → Variables and Secrets)։ Երբեք ռեպոյում։ Նշել <code>docs/ENVIRONMENTS.md</code>-ում։</p>
+  <h3>Ոճ, գույն, անիմացիա</h3>
+  <p><code>app/app.css</code> (թեմաները՝ <code>:root[data-theme=&quot;light&quot;|&quot;dark&quot;]</code>), Tailwind դասերը՝ անմիջապես կոմպոնենտներում։ Կիրակնօրյա պատուհանը՝ <code>.sunday-*</code>, սկիհը՝ <code>chalice-art.tsx</code>։</p>
+  <h3>Ստուգել և թողարկել</h3>
+  <pre class="code"><code>npm run dev                      # լոկալ, http://localhost:5173
+npx tsx --test tests/*.test.ts   # թեստեր
+npx tsc -b                       # տիպերի ստուգում</code></pre>
+  <p>Հետո՝ staging, իսկ տիրոջ «թողարկիր»-ից հետո՝ PR → main (բաժին 20)։</p>
+  <figure class="diagram" data-diagram="22">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart LR
+  A[&quot;1. Ճյուղ origin/main-ից&quot;] --&gt; B[&quot;2. Փոփոխություն + թեստ&quot;] --&gt; C[&quot;3. npm run dev՝ աչքով&quot;] --&gt; D[&quot;4. tsx --test, tsc -b&quot;] --&gt; E[&quot;5. staging&quot;] --&gt; F[&quot;6. «թողարկիր» → PR → main&quot;] --&gt; G[&quot;7. ARCHITECTURE.md թարմ է&quot;]</pre></div>
+</figure>
+</section>
+<section id="26-բառարան-նոր-մարդու-համար" class="part" data-text="26. բառարան՝ նոր մարդու համար | բառ | ինչ է | | --- | --- | | **worker** | cloudflare-ի ծրագիր, որ պատասխանում է կայքի ամեն հարցմանը. մեր ամբողջ «սերվերը» | | **d1** | cloudflare-ի sql բազա (sqlite) | | **r2** | cloudflare-ի ֆայլերի պահեստ | | **durable object** | մեկ օրինակով աշխատող փոքր ծրագիր հիշողությամբ. մեզ մոտ՝ clock զարթուցիչը | | **cron** | ժամանակացույցով գործարկում («ամեն կիրակի 09:07») | | **migration** | բազայի կառուցվածքի փոփոխության ֆայլ, կիրառվում է հերթականությամբ մեկ անգամ | | **deploy** | նոր կոդի տեղադրումը cloudflare-ում | | **staging** | փորձարկման կայք, իր առանձին բազայով | | **webhook** | telegram-ը ինքն է կանչում մեր հասցեն, երբ բան է պատահում | | **ssr** | էջը պատրաստվում է սերվերում, բրաուզերը ստանում է պատրաստ html | | **loader / action** | react router-ի ֆունկցիաներ. տվյալ բերել / ձև ընդունել | | **mini app** | կայքը telegram-ի ներսում բացված | | **initdata** | telegram-ի ստորագրված տվյալը, որով mini app-ում մարդը ճանաչվում է առանց գաղտնաբառի | | **mtproto** | telegram-ի հիմնական արձանագրությունը. թույլ է տալիս կարդալ խմբի ամբողջ պատմությունը | | **web push / vapid** | բրաուզերի ծանուցումներ և դրանց ստորագրման բանալին | | **open graph (og)** | հղման նախադիտման նկար և վերնագիր | | **epoch** | թիվ, որի փոփոխությունը անվավեր է դարձնում ամբողջ քեշը | | **github actions** | github-ի ավտոմատ աշխատանքներ (deploy, sync…) | | **pr (pull request)** | փոփոխությունների առաջարկ մի ճյուղից մյուսը |">
+  <header><span class="n">26</span><h2>Բառարան՝ նոր մարդու համար</h2></header>
+  <div class="table"><table><tr><th>Բառ</th><th>Ինչ է</th></tr><tr><td><b>Worker</b></td><td>Cloudflare-ի ծրագիր, որ պատասխանում է կայքի ամեն հարցմանը. մեր ամբողջ «սերվերը»</td></tr><tr><td><b>D1</b></td><td>Cloudflare-ի SQL բազա (SQLite)</td></tr><tr><td><b>R2</b></td><td>Cloudflare-ի ֆայլերի պահեստ</td></tr><tr><td><b>Durable Object</b></td><td>Մեկ օրինակով աշխատող փոքր ծրագիր հիշողությամբ. մեզ մոտ՝ Clock զարթուցիչը</td></tr><tr><td><b>Cron</b></td><td>Ժամանակացույցով գործարկում («ամեն կիրակի 09:07»)</td></tr><tr><td><b>Migration</b></td><td>Բազայի կառուցվածքի փոփոխության ֆայլ, կիրառվում է հերթականությամբ մեկ անգամ</td></tr><tr><td><b>Deploy</b></td><td>Նոր կոդի տեղադրումը Cloudflare-ում</td></tr><tr><td><b>Staging</b></td><td>Փորձարկման կայք, իր առանձին բազայով</td></tr><tr><td><b>Webhook</b></td><td>Telegram-ը ինքն է կանչում մեր հասցեն, երբ բան է պատահում</td></tr><tr><td><b>SSR</b></td><td>Էջը պատրաստվում է սերվերում, բրաուզերը ստանում է պատրաստ HTML</td></tr><tr><td><b>loader / action</b></td><td>React Router-ի ֆունկցիաներ. տվյալ բերել / ձև ընդունել</td></tr><tr><td><b>Mini App</b></td><td>Կայքը Telegram-ի ներսում բացված</td></tr><tr><td><b>initData</b></td><td>Telegram-ի ստորագրված տվյալը, որով Mini App-ում մարդը ճանաչվում է առանց գաղտնաբառի</td></tr><tr><td><b>MTProto</b></td><td>Telegram-ի հիմնական արձանագրությունը. թույլ է տալիս կարդալ խմբի ամբողջ պատմությունը</td></tr><tr><td><b>Web Push / VAPID</b></td><td>Բրաուզերի ծանուցումներ և դրանց ստորագրման բանալին</td></tr><tr><td><b>Open Graph (og)</b></td><td>Հղման նախադիտման նկար և վերնագիր</td></tr><tr><td><b>Epoch</b></td><td>Թիվ, որի փոփոխությունը անվավեր է դարձնում ամբողջ քեշը</td></tr><tr><td><b>GitHub Actions</b></td><td>GitHub-ի ավտոմատ աշխատանքներ (deploy, sync…)</td></tr><tr><td><b>PR (Pull Request)</b></td><td>Փոփոխությունների առաջարկ մի ճյուղից մյուսը</td></tr></table></div>
+</section>
+      <p class="foot">Այս էջը կառուցվում է <code>docs/ARCHITECTURE.md</code>-ից՝ <code>node scripts/build-architecture-page.mjs</code>։ Փոփոխությունները անել md ֆայլում։</p>
+    </main>
+  </div>
+</div>
+
+<dialog class="big" id="big" aria-label="Մեծացված սխեմա">
+  <div class="big-bar"><span class="t" id="big-title"></span><button type="button" id="zoom-out" aria-label="Փոքրացնել">−</button><button type="button" id="zoom-in" aria-label="Մեծացնել">+</button><button type="button" id="big-close">Փակել</button></div>
+  <div class="big-stage" id="big-stage"></div>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+(() => {
+  const figures = [...document.querySelectorAll(".diagram")];
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Սխեմաների գույները՝ էջի թեմայից։
+  function config() {
+    return {
+      startOnLoad: false, securityLevel: "strict", theme: "base",
+      flowchart: { curve: "basis", htmlLabels: true }, sequence: { mirrorActors: false },
+      themeVariables: {
+        fontFamily: css("--font-body"), fontSize: "15px",
+        background: css("--bg"), primaryColor: css("--panel"), primaryTextColor: css("--ink"), primaryBorderColor: css("--gold"),
+        secondaryColor: css("--sunk"), tertiaryColor: css("--sunk"), lineColor: css("--muted"), textColor: css("--ink"),
+        clusterBkg: css("--sunk"), clusterBorder: css("--line"), edgeLabelBackground: css("--panel"),
+        actorBkg: css("--panel"), actorBorder: css("--gold"), actorTextColor: css("--ink"), signalColor: css("--muted"), signalTextColor: css("--ink"),
+        noteBkgColor: css("--gold-soft"), noteTextColor: css("--ink"), labelBoxBkgColor: css("--panel"), labelTextColor: css("--ink"),
+      },
+    };
+  }
+
+  async function renderAll() {
+    if (!window.mermaid) return;
+    mermaid.initialize(config());
+    for (const figure of figures) {
+      const code = figure.dataset.code ?? figure.querySelector("pre.src").textContent;
+      figure.dataset.code = code;
+      try {
+        const { svg } = await mermaid.render(`m${figure.dataset.diagram}-${Date.now()}`, code);
+        const canvas = figure.querySelector(".canvas");
+        canvas.innerHTML = svg;
+        // Կարդացվող չափ. մեծ սխեման չի սեղմվում մանր տառերի, այլ պտտվում է կողքի վրա (կամ «Մեծացնել»)։
+        const element = canvas.querySelector("svg");
+        const natural = element.viewBox.baseVal?.width || 0;
+        if (natural) {
+          element.style.maxWidth = "none";
+          element.setAttribute("width", String(Math.round(Math.min(natural, Math.max(canvas.clientWidth - 28, natural * 0.72)))));
+        }
+      } catch (error) {
+        figure.querySelector(".canvas").innerHTML = `<pre class="src">Սխեման չնկարվեց. ${String(error.message).slice(0, 200)}</pre>`;
+      }
+      const link = figure.querySelector(".live");
+      const state = JSON.stringify({ code, mermaid: JSON.stringify({ theme: "default" }), autoSync: true, updateDiagram: true });
+      link.href = "https://mermaid.live/edit#base64:" + btoa(unescape(encodeURIComponent(state)));
+      stop(figure);
+    }
+  }
+
+  // Քայլ առ քայլ. սլաքները հայտնվում են այն հերթականությամբ, որով գրված են սխեմայում։
+  function parts(figure) {
+    const svg = figure.querySelector(".canvas svg");
+    if (!svg) return [];
+    const lines = [...svg.querySelectorAll(".flowchart-link, path.transition, .messageLine0, .messageLine1, .relationshipLine")];
+    const labels = [...svg.querySelectorAll(".edgeLabels .edgeLabel, .messageText, .relationshipLabel")];
+    return lines.map((line, index) => [line, labels[index]].filter(Boolean));
+  }
+  function show(figure, step) {
+    const all = parts(figure);
+    if (!all.length) return;
+    figure._step = Math.max(1, Math.min(step, all.length));
+    all.forEach((group, index) => group.forEach((element) => {
+      element.classList.toggle("seen", index < figure._step - 1);
+      element.classList.remove("now");
+      if (index === figure._step - 1) { void element.getBoundingClientRect(); element.classList.add("now"); }
+    }));
+    figure.querySelector(".count").value = `${figure._step}/${all.length}`;
+  }
+  function start(figure) {
+    if (!parts(figure).length) { figure.querySelector(".play").textContent = "Քայլեր չկան"; return; }
+    figure.classList.add("stepping");
+    figure.querySelector(".steps").hidden = false;
+    show(figure, 1);
+    clearInterval(figure._timer);
+    if (!reduced) figure._timer = setInterval(() => {
+      if (figure._step >= parts(figure).length) return clearInterval(figure._timer);
+      show(figure, figure._step + 1);
+    }, 1300);
+  }
+  function stop(figure) {
+    clearInterval(figure._timer);
+    figure.classList.remove("stepping");
+    figure.querySelector(".steps").hidden = true;
+    figure.querySelectorAll(".seen, .now").forEach((element) => element.classList.remove("seen", "now"));
+  }
+
+  const dialog = document.getElementById("big");
+  const stage = document.getElementById("big-stage");
+  let scale = 1;
+  const applyScale = () => { const svg = stage.querySelector("svg"); if (svg) svg.style.transform = `scale(${scale})`; };
+
+  for (const figure of figures) {
+    figure.querySelector(".play").addEventListener("click", () => start(figure));
+    figure.querySelector(".next").addEventListener("click", () => { clearInterval(figure._timer); show(figure, figure._step + 1); });
+    figure.querySelector(".prev").addEventListener("click", () => { clearInterval(figure._timer); show(figure, figure._step - 1); });
+    figure.querySelector(".stop").addEventListener("click", () => stop(figure));
+    figure.querySelector(".copy").addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      try { await navigator.clipboard.writeText(figure.dataset.code); button.textContent = "Պատճենված է ✓"; }
+      catch { const range = document.createRange(); const pre = document.createElement("pre"); pre.textContent = figure.dataset.code; figure.querySelector(".canvas").append(pre); range.selectNodeContents(pre); getSelection().removeAllRanges(); getSelection().addRange(range); button.textContent = "Ընտրված է, սեղմեք Ctrl+C"; }
+      button.classList.add("copied");
+      setTimeout(() => { button.textContent = "Պատճենել կոդը"; button.classList.remove("copied"); }, 1800);
+    });
+    figure.querySelector(".zoom").addEventListener("click", () => {
+      const svg = figure.querySelector(".canvas svg");
+      if (!svg) return;
+      stage.replaceChildren(svg.cloneNode(true));
+      const svgCopy = stage.querySelector("svg");
+      svgCopy.removeAttribute("style");
+      svgCopy.setAttribute("width", svg.viewBox.baseVal.width || svg.getBoundingClientRect().width);
+      svgCopy.setAttribute("height", svg.viewBox.baseVal.height || svg.getBoundingClientRect().height);
+      document.getElementById("big-title").textContent = figure.closest(".part").querySelector("h2").textContent;
+      scale = 1; applyScale();
+      dialog.showModal();
+    });
+  }
+  document.getElementById("zoom-in").addEventListener("click", () => { scale = Math.min(4, scale * 1.25); applyScale(); });
+  document.getElementById("zoom-out").addEventListener("click", () => { scale = Math.max(.3, scale / 1.25); applyScale(); });
+  document.getElementById("big-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+
+  // Որոնում բաժիններում։
+  const find = document.getElementById("find");
+  const sections = [...document.querySelectorAll(".part")];
+  find.addEventListener("input", () => {
+    const query = find.value.trim().toLowerCase();
+    let shown = 0;
+    for (const section of sections) {
+      const match = !query || section.dataset.text.includes(query);
+      section.hidden = !match;
+      document.querySelector(`[data-nav="${section.id}"]`).hidden = !match;
+      if (match) shown += 1;
+    }
+    document.getElementById("none").hidden = shown > 0;
+  });
+
+  // Ընթացիկ բաժինը մենյուում։
+  const links = new Map([...document.querySelectorAll("[data-nav]")].map((link) => [link.dataset.nav, link]));
+  const spy = new IntersectionObserver((entries) => {
+    for (const entry of entries) if (entry.isIntersecting) {
+      links.forEach((link) => link.classList.remove("on"));
+      links.get(entry.target.id)?.classList.add("on");
+    }
+  }, { rootMargin: "-20% 0px -70% 0px" });
+  sections.forEach((section) => spy.observe(section));
+
+  // Թեման փոխվելիս սխեմաները նորից են նկարվում։
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+  new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  renderAll();
+})();
+</script>
+
+</body>
+</html>
