@@ -993,6 +993,7 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   const searchSource = readFileSync(resolve(ROOT, "app/routes/search.tsx"), "utf8");
   const infiniteSource = readFileSync(resolve(ROOT, "app/components/infinite-load-controls.tsx"), "utf8");
   const rootSource = readFileSync(resolve(ROOT, "app/root.tsx"), "utf8");
+  const bootSource = readFileSync(resolve(ROOT, "app/utils/boot-script.ts"), "utf8");
   assert.match(categorySource, /clientLoader\.hydrate = true/u);
   assert.match(searchSource, /clientLoader\.hydrate = true/u);
   assert.doesNotMatch(categorySource, /sessionStorage|window\.scrollTo/u);
@@ -1007,7 +1008,7 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.equal(resolveTheme("system", false, "dark"), "dark");
   assert.equal(resolveTheme("light", true, "dark"), "light");
   assert.equal(resolveTheme("dark", false, "light"), "dark");
-  assert.match(rootSource, /dataset\.themePreference = preference/u);
+  assert.match(bootSource, /dataset\.themePreference = preference/u);
   assert.match(rootSource, /if \(!webApp\.initData/u);
   assert.match(rootSource, /onEvent\?\.\("viewportChanged", handleSafeArea\)/u);
   assert.match(rootSource, /onEvent\?\.\("themeChanged", handleTheme\)/u);

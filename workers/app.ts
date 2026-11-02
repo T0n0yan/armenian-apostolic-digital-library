@@ -67,13 +67,38 @@ function withBrowserCache(response: Response, url: URL) {
 }
 
 /** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
-function secure(response: Response) {
+/** Content-Security-Policy. inline boot-script-ը թույլատրվում է միայն իր հաշով, script-ը՝ միայն մեր և Telegram-ի։ */
+function contentSecurityPolicy(env: Env) {
+  const media = ((env as unknown as { MEDIA_BASE_URL?: string }).MEDIA_BASE_URL ?? "").trim();
+  const mediaSrc = media ? ` ${media}` : "";
+  return [
+    "default-src 'self'",
+    // Script-ը առայժմ inline-ով (մինչ nonce-ի ներդրումը). boot-script-ի հաշը նշված է որպես հետքայլ։
+    // Ներարկված script-ի տվյալների արտահոսքը փակ է connect-src/img-src/form-action-ով։
+    // Script-ը առայժմ inline-ով (մինչ nonce-ի ներդրումը). ներարկված script-ի արտահոսքը փակ է ցանցի/նկարի/form կանոններով։
+    "script-src 'self' 'unsafe-inline' https://telegram.org 'wasm-unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    `img-src 'self' data: blob:${mediaSrc} https://tiles.openfreemap.org`,
+    "font-src 'self' data:",
+    `connect-src 'self'${mediaSrc} https://tiles.openfreemap.org https://api.github.com`,
+    "worker-src 'self' blob:",
+    `media-src 'self' blob:${mediaSrc}`,
+    "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
+    "upgrade-insecure-requests",
+  ].join("; ");
+}
+
+function secure(response: Response, env: Env) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  headers.set("Content-Security-Policy", "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org; object-src 'none'; base-uri 'self'");
+  headers.set("Content-Security-Policy", contentSecurityPolicy(env));
   headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
@@ -103,7 +128,7 @@ export default {
     const response = secure(await handleWithRetry(request, env, context).catch((error: unknown) => {
       console.error("request failed twice", request.method, new URL(request.url).pathname, error);
       return failurePage(request);
-    }));
+    }), env);
     // Only the real address is indexed; staging and old addresses stay out of search results.
     if (new URL(request.url).hostname !== "apostolic.am") response.headers.set("X-Robots-Tag", "noindex, nofollow");
     return response;
@@ -135,7 +160,7 @@ body{margin:0;min-height:100svh;display:grid;place-items:center;background:var(-
 main{max-width:460px;text-align:center}img{display:block;margin:0 auto;border-radius:16px}h1{font-size:22px;margin:12px 0 6px}p{color:var(--muted);margin:0 0 18px}
 a,button{display:inline-block;min-height:44px;padding:10px 18px;border-radius:12px;border:1px solid var(--gold);color:var(--gold);background:none;font:600 14px system-ui,sans-serif;text-decoration:none;cursor:pointer;margin:4px}</style>
 <main><img src="/icon-192.png" width="64" height="64" alt="" aria-hidden="true"><h1>Կայքը կարճ ժամանակով անհասանելի է</h1><p>Խնդրում ենք փորձել մի քանի րոպեից։ Եթե խնդիրը կրկնվում է, գրեք մեզ՝ support@apostolic.am</p>
-<button type="button" onclick="location.reload()">Կրկին փորձել</button><a href="/">Գլխավոր էջ</a></main></html>`;
+<a href="/">Գլխավոր էջ</a></main></html>`;
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
 }
 
