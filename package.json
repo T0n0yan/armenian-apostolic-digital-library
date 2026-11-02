@@ -58,7 +58,7 @@
 		"jpeg-js": "^0.4.4",
 		"miniflare": "5.20261006.1-alpha",
 		"playwright": "1.56.1",
-		"satori": "0.15.2",
+		"satori": "0.33.5",
 		"tailwindcss": "^4.2.2",
 		"tsx": "^4.23.15",
 		"typescript": "^5.9.3",
