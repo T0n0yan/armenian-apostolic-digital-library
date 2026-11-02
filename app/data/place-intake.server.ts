@@ -116,17 +116,31 @@ async function discard(db: D1Database, reader: number, draft: Draft | null) {
  * Coordinates from a pasted link or numbers. Short share links (maps.app.goo.gl, goo.gl/maps) carry
  * none until followed: up to three redirects are read for the full Google Maps address.
  */
+/** Վստահելի maps-domain դեպի. ցանկացած այլ hostname, ոչ-https, կամ ներքին IP՝ մերժվում է (A-10)։ */
+const MAPS_HOSTS = /(^|\.)(google\.[a-z.]+|goo\.gl|g\.co|apple\.com|icloud\.com|yandex\.(ru|com|am))$/u;
+function safeRedirectTarget(value: string): boolean {
+  let url: URL;
+  try { url = new URL(value); } catch { return false; }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+  const host = url.hostname.toLowerCase();
+  if (/^(\d{1,3}\.){3}\d{1,3}$/u.test(host) || host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) return false;
+  return MAPS_HOSTS.test(host);
+}
+
 export async function pointFromText(text: string, fetcher: typeof fetch = fetch): Promise<Point | null> {
   const direct = parseCoordinates(text);
   if (direct) return direct;
   let url = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs|maps\.apple(?:\.com)?\/p|yandex\.(?:ru|com|am)\/maps\/-)\/[^\s]+/u.exec(text)?.[0];
   for (let hop = 0; url && hop < 3; hop += 1) {
+    if (!safeRedirectTarget(url)) return null;                 // ամեն hop-ում ստուգում ենք hostname/protocol (A-10)
     const response = await fetcher(url, { redirect: "manual" }).catch(() => null);
     const next = response?.headers.get("location");
     if (!next) return null;
-    const point = parseCoordinates(decodeURIComponent(next));
+    let decoded: string;
+    try { decoded = decodeURIComponent(next); } catch { decoded = next; } // malformed %-ից չփլվի
+    const point = parseCoordinates(decoded);
     if (point) return point;
-    url = new URL(next, url).toString();
+    try { url = new URL(next, url).toString(); } catch { return null; }
   }
   return null;
 }
