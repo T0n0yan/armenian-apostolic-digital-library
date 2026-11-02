@@ -1,10 +1,10 @@
 -- Staging only (.github/workflows/staging-reset.yml): trims the library to two materials per
--- section and empties the places map, so the owner can try things on a small, clean site.
+-- section (plus one video and one recording) and empties the places map, so the owner can try things on a small, clean site.
 -- Materials are taken down the way the sync does it (sync_state 'deleted'); a hand-started
 -- staging sync brings them back. Never run on production.
 
--- Each section keeps its introduction (the oldest post of the sections that show one) and two
--- materials: the first two psalms by number, the newest two elsewhere.
+-- Ամեն բաժնից մնում է ներածությունը և մեկ նյութ (առաջին սաղմոսը, մյուսներում՝ ամենանորը),
+-- գումարած մեկ տեսանյութով և մեկ ձայնագրությամբ նյութ, որ ամեն տեսակից փորձելու բան լինի։
 DROP TABLE IF EXISTS staging_keep;
 CREATE TABLE staging_keep AS
 WITH live AS (
@@ -25,7 +25,11 @@ ranked AS (
   FROM live WHERE NOT (intro_topic AND oldest)
 )
 SELECT chat_id, message_id FROM live WHERE intro_topic AND oldest
-UNION SELECT chat_id, message_id FROM ranked WHERE position <= 2;
+UNION SELECT chat_id, message_id FROM ranked WHERE position <= 1
+UNION SELECT * FROM (SELECT md.chat_id, md.message_id FROM library_media md JOIN live l ON l.chat_id = md.chat_id AND l.message_id = md.message_id
+  WHERE md.kind = 'video' AND md.status = 'ready' ORDER BY md.size_bytes ASC LIMIT 1)
+UNION SELECT * FROM (SELECT md.chat_id, md.message_id FROM library_media md JOIN live l ON l.chat_id = md.chat_id AND l.message_id = md.message_id
+  WHERE md.kind = 'audio' AND md.status = 'ready' ORDER BY md.size_bytes ASC LIMIT 1);
 
 UPDATE library_materials
 SET sync_state = 'deleted', deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
