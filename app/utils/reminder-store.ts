@@ -105,11 +105,15 @@ export function markReminderRung(materialId: string) {
   return posted;
 }
 
+// Սերվերում՝ միշտ նույն դատարկ ցանկը (նոր [] ամեն անգամ React-ը համարում է փոփոխություն)։
+const serverSnapshot = () => EMPTY;
+const EMPTY: never[] = [];
+
 export function useActiveReminders() {
   return useSyncExternalStore(
     (listener) => { listeners.add(listener); return () => listeners.delete(listener); },
     () => reminders,
-    () => [],
+    serverSnapshot,
   );
 }
 
@@ -117,7 +121,7 @@ export function useMissedReminders() {
   return useSyncExternalStore(
     (listener) => { listeners.add(listener); return () => listeners.delete(listener); },
     () => missed,
-    () => [],
+    serverSnapshot,
   );
 }
 

@@ -534,7 +534,9 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 /* Sacred places map (/places): Armenia alone, cut to its border and standing free on the page (no
    frame), in the site's light or dark colours; a card slides up when a church is tapped. */
 /* Its own layer: the map's card and controls stay inside it, under the site menu. */
-.places-map-free, .places-map-small { position: relative; isolation: isolate; }
+/* min-width: 0. քարտեզի min-height-ը aspect-ratio-ով դառնում է նվազագույն լայնություն (220px × 16/10 = 352px),
+   ու նեղ հեռախոսում քարտեզը ամբողջ էջը լայնացնում էր (աջից կպչում էր պատին)։ */
+.places-map-free, .places-map-small { position: relative; isolation: isolate; min-width: 0; }
 .places-map-free .places-map {
   width: 100%;
   aspect-ratio: 1 / 0.92;
