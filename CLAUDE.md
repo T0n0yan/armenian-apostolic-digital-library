@@ -50,11 +50,11 @@ belong in `docs/ARCHITECTURE.md`; keep "Կարևոր մյուսների համա
    fail without build/typegen and dump 30–70 KB of noise. `git add` must include every
    changed directory (`app`, `workers`, `shared`, `migrations`, `tests`, `wrangler.jsonc`) —
    a missed `workers/app.ts` once broke the staging build.
-3. Staging: `git checkout staging && git pull && git merge --no-edit <branch> && git push`.
-   Never force-push `staging` or `main`; other chats merge there too. If the push trigger lags,
-   `gh workflow run deploy.yml --ref staging`. Check the result on staging.apostolic.am.
-4. **Production only after the owner writes «թողարկիր».** Then a PR from your branch into
-   `main`, merge it, watch the deploy, check apostolic.am.
+3. **Owner's decision (2026-11-03): every change goes straight to production.** No staging review
+   step and no waiting for «թողարկիր»: PR from your branch into `main`, merge it, watch the deploy,
+   check apostolic.am. Then also merge the branch into `staging` (`git checkout staging && git pull &&
+   git merge --no-edit <branch> && git push`), so both stay in sync. Never force-push `staging` or `main`.
+4. If the push trigger lags, `gh workflow run deploy.yml --ref main`.
 5. Docs-only changes (`*.md`, `docs/**`) don't trigger deploys.
 
 ## Saving tokens (the owner's weekly limit runs out)

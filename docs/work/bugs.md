@@ -1,7 +1,6 @@
 # Բագեր
 
 ## Հիմա
-- Սրբավայրի նկարների շարքը թռթռում էր թերթելիս + նկարները WebP՝ `claude/gallant-archimedes-js1l47` (staging)։
 - GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 ## Հերթ
@@ -9,6 +8,7 @@
 - Story-ի 9:16 նկարով կիսվել (հրեշտակներ անկյուններում, ներքևում apostolic.am, «նկարով թե հղումով» հարց) — սպասում է դիզայնի համաձայնեցման։
 
 ## Արված
+- 2026-11-03 — Սրբավայրի նկարների թռթռոցը ուղղված է, նկարները՝ WebP ([PR #100](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/100))։ Հին նկարները՝ /admin/places-ի կոճակով։
 - 2026-10-21 — Android/Telegram-ում աուդիոյի «ձևաչափը չի աջակցվում» սխալը՝ իրականում բեռնման խափանում. ավելացվեց պահեստային հասցե, կրկնակի փորձ, ճիշտ հաղորդագրություն ([#20](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/20))։
 - 2026-10-22 — Սխալի էջեր (404/403/500/503), /admin առանց իրավունքի → գլխավոր էջ ([#21](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/21))։
 - 2026-10-23 — 404 էջի ներդիրում մեկ ճիշտ վերնագիր («Էջը չի գտնվել») ([#24](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/24))։
