@@ -355,11 +355,22 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       mapRef.current = map;
       const m = map;
 
-      // The whole page is the frame: everything outside Armenia's border is cut away.
+      // Armenia's border shapes the map, but with a CSS mask, not clip-path: clip-path also cuts
+      // the hit region, so dragging/pinching just outside the silhouette did nothing (a dead zone
+      // with the normal cursor). A mask keeps the same silhouette yet lets the whole rectangle
+      // receive pointer events, so panning works anywhere over the map.
       const clip = () => {
         if (focus || !container.current) return;
+        const el = container.current;
+        const w = Math.max(1, el.clientWidth);
+        const h = Math.max(1, el.clientHeight);
         const d = ARMENIA_BORDER.map((ring) => `M${ring.map(([lat, lng]) => { const p = m.project([lng, lat]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join("L")}Z`).join("");
-        container.current.style.clipPath = `path('${d}')`;
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><path d='${d}' fill='white'/></svg>`;
+        const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+        el.style.webkitMaskImage = url;
+        el.style.maskImage = url;
+        el.style.webkitMaskRepeat = el.style.maskRepeat = "no-repeat";
+        el.style.webkitMaskSize = el.style.maskSize = "100% 100%";
       };
 
       m.once("idle", () => { if (!cancelled) setReady(true); });
