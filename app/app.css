@@ -515,38 +515,14 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 4px 14px rgb(0 0 0 / 30%);
 }
 
-/* «Կարդացել եմ / Լսել եմ / Դիտել եմ»՝ էջի գլխավոր կոճակը, լցված ոսկեգույն, որ պարզ լինի՝ սեղմվում է։ */
-.read-mark {
-  border: 1px solid #8a5a18;
-  background: linear-gradient(180deg, #c99a4a, #a8752a);
-  color: #fffaf0;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%), 0 5px 14px rgb(120 80 20 / 32%);
-  text-shadow: 0 1px 1px rgb(80 50 10 / 35%);
-}
-.read-mark:hover { background: linear-gradient(180deg, #d3a656, #b07d30); }
+/* «Կարդացել եմ / Լսել եմ / Դիտել եմ»՝ նույն տեսքը, ինչ մյուս կոճակները (.action-tile), նշվածը՝ կանաչ։ */
 .read-mark.is-done {
-  border-color: rgb(74 160 96 / 50%);
+  border: 1px solid rgb(74 160 96 / 50%);
   background: rgb(74 160 96 / 14%);
   color: rgb(52 130 74);
-  box-shadow: none;
-  text-shadow: none;
-}
-:root[data-theme="dark"] .read-mark:not(.is-done) {
-  border-color: #f0d397;
-  background: linear-gradient(180deg, #e6c27e, #c99a4a);
-  color: #2a1708;
-  text-shadow: none;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), 0 6px 16px rgb(0 0 0 / 40%);
 }
 :root[data-theme="dark"] .read-mark.is-done { color: rgb(120 200 140); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .read-mark:not(.is-done) {
-    border-color: #f0d397;
-    background: linear-gradient(180deg, #e6c27e, #c99a4a);
-    color: #2a1708;
-    text-shadow: none;
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), 0 6px 16px rgb(0 0 0 / 40%);
-  }
   :root:not([data-theme]) .read-mark.is-done { color: rgb(120 200 140); }
 }
 

@@ -46,13 +46,13 @@ export function ReadMark({ materialId, kind, marks }: { materialId: string; kind
   const { mark, done: doneText, icon: Icon } = TEXT[kind];
   return (
     <button
-      className={`read-mark flex min-h-[58px] w-full cursor-pointer items-center justify-center gap-3 rounded-[16px] border px-4 py-2 text-[15.5px] font-bold transition-[background,border-color,transform,translate,scale,color,box-shadow] duration-200 active:scale-[.97] ${done ? "is-done" : ""}`}
+      className={`read-mark flex min-h-[58px] w-full cursor-pointer items-center justify-center gap-3 rounded-[16px] border px-4 py-2 text-[15.5px] font-bold transition-[background,border-color,transform,translate,scale,color,box-shadow] duration-200 active:scale-[.97] ${done ? "is-done" : "action-tile"}`}
       type="button"
       onClick={toggle}
       aria-pressed={done}
       aria-busy={busy}
     >
-      {busy ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={21} /> : done ? <Check aria-hidden="true" size={21} strokeWidth={2.4} /> : <Icon aria-hidden="true" size={21} strokeWidth={2.2} />}
+      {busy ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={21} /> : done ? <Check aria-hidden="true" size={21} strokeWidth={2.4} /> : <Icon aria-hidden="true" size={21} strokeWidth={1.9} />}
       {/* Տակի փոքր տողը բացատրում է, թե ինչ կլինի սեղմելիս։ */}
       <span className="flex flex-col items-start leading-tight">
         <span>{done ? doneText : mark}</span>
