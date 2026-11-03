@@ -3,10 +3,37 @@ import { useEffect, useState } from "react";
 // Intro on the first visit of a session: the unlit candle (0.7 s), a spark and the flame catching
 // (~0.9 s), then the light settles and welcomes the reader before the page opens (3.6 s at least,
 // so it is felt even on fast connections), and finally the light swells from the flame over the
-// whole screen and lifts to show the page. The page keeps loading underneath meanwhile.
+// whole screen and lifts to show the page. Մոմի տակ տառ առ տառ գրվում է խոսքը, և վերջին տառից
+// կես վայրկյան հետո է սկսվում լույսի ալիքը։ The page keeps loading underneath meanwhile.
 const LIGHT_AT_MS = 700;
-const MINIMUM_VISIBLE_MS = 3_600;
 const EXIT_MS = 2_000;
+
+// Մոմի տակ տառ առ տառ գրվող խոսքը՝ Մատթ. 28:20, Էջմիածնի Աստվածաշնչից (տերը ստուգել է գրքով)։
+// Երկու տող՝ ստորակետից հետո դադարով, ինչպես կարդալիս։
+const VERSE_LINES = ["«…Ես ձեզ հետ եմ բոլոր օրերին,", "մինչև աշխարհի վախճանը»"];
+const VERSE_REF = "Մատթ. 28:20";
+// Գրելը սկսվում է, երբ բոցը արդեն բռնկվել է։
+const VERSE_START_MS = 900;
+const LETTER_STEP_MS = 52;
+const SPACE_PAUSE_MS = 80;
+const LINE_PAUSE_MS = 450;
+const LETTER_MS = 650;
+// Վերջին տառից կես վայրկյան հետո լույսը բացում է էջը։
+const AFTER_VERSE_MS = 500;
+
+// Ամեն տառի սկսելու պահը (մոմի վառվելուց հաշված)՝ տող → բառ → տառ։
+const VERSE = (() => {
+  let at = VERSE_START_MS;
+  return VERSE_LINES.map((line, lineIndex) => {
+    if (lineIndex > 0) at += LINE_PAUSE_MS;
+    return line.split(" ").map((word, wordIndex) => {
+      if (wordIndex > 0) at += SPACE_PAUSE_MS;
+      return Array.from(word).map((letter) => { const delay = at; at += LETTER_STEP_MS; return { letter, delay }; });
+    });
+  });
+})();
+const LAST_LETTER_DELAY = VERSE.at(-1)!.at(-1)!.at(-1)!.delay;
+const MINIMUM_VISIBLE_MS = LIGHT_AT_MS + LAST_LETTER_DELAY + LETTER_MS + AFTER_VERSE_MS;
 const SESSION_KEY = "library-loader-seen-v4";
 
 type Phase = "unlit" | "lit" | "hidden" | "removed";
@@ -27,9 +54,10 @@ html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overf
 .candle-loader__dawn{z-index:5}
 .candle-loader__scene>svg{transition:opacity .7s ease}
 .candle-loader[data-phase="hidden"] .candle-loader__scene>svg{opacity:0}
-.candle-loader__scene{position:relative;width:120px;height:170px;transform:scale(.9)}
+/* Մոմը բարձրացված է, որ մոմը և տակի խոսքը միասին լինեն էկրանի կենտրոնում։ */
+.candle-loader__scene{position:relative;width:120px;height:170px;transform:scale(.9);margin-bottom:130px}
 /* On tall phones the eye's centre sits above the geometric one. */
-@media(max-aspect-ratio:10/17){.candle-loader__scene{margin-bottom:min(12svh,110px)}}
+@media(max-aspect-ratio:10/17){.candle-loader__scene{margin-bottom:min(30svh,220px)}}
 .candle-loader__light{position:absolute;left:50%;top:40px;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
   background:radial-gradient(circle,rgb(255 190 100/34%) 0%,rgb(255 150 60/14%) 22%,rgb(120 60 20/6%) 42%,transparent 62%);animation:candle-glow 3s ease-in-out infinite}
 .candle-loader__glow{position:absolute;left:50%;top:22px;width:110px;height:110px;margin-left:-55px;border-radius:50%;background:radial-gradient(circle,rgb(255 214 140/55%),rgb(255 170 60/16%) 45%,transparent 70%);animation:candle-glow 2.4s ease-in-out infinite}
@@ -41,6 +69,21 @@ html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overf
 .candle-loader__spark{position:absolute;left:50%;top:70px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#fff3c4;box-shadow:0 0 12px 4px rgb(255 200 110/80%);opacity:0}
 .candle-loader[data-phase="lit"] .candle-loader__spark{animation:candle-spark .7s ease-out forwards}
 @keyframes candle-spark{0%{opacity:0;transform:translateY(8px) scale(.4)}35%{opacity:1;transform:translateY(-4px) scale(1.4)}100%{opacity:0;transform:translateY(-14px) scale(.2)}}
+/* Խոսքը. ոսկեգույն, ամեն տառը մոմի լույսից է «վառվում»։ Դրված է scene-ի մեջ, որ լույսի ալիքը (dawn) ծածկի այն։ */
+.candle-loader__verse{position:absolute;left:50%;top:196px;width:min(88vw,560px);translate:-50% 0;margin:0;text-align:center;
+  font-family:"Arian Grqi","Noto Serif Armenian",Georgia,serif;font-weight:400;font-size:clamp(19px,5.4vw,30px);line-height:1.45;letter-spacing:.02em;
+  color:#e6c27a;text-wrap:balance;text-shadow:0 0 14px rgb(255 196 110/28%)}
+.candle-loader__line{display:block}
+.candle-loader__word{display:inline-block;white-space:nowrap}
+.candle-loader__letter{display:inline-block;opacity:0}
+.candle-loader[data-phase]:not([data-phase="unlit"]) .candle-loader__letter{animation:verse-letter .65s cubic-bezier(.2,.7,.2,1) both}
+@keyframes verse-letter{
+  0%{opacity:0;transform:translateY(.35em) scale(.9);filter:blur(6px);color:#fff6dc;text-shadow:0 0 22px rgb(255 214 140/90%)}
+  45%{opacity:1;color:#fff1c8;text-shadow:0 0 18px rgb(255 206 120/75%)}
+  100%{opacity:1;transform:none;filter:blur(0);color:#e6c27a;text-shadow:0 0 14px rgb(255 196 110/28%)}}
+.candle-loader__ref{display:block;margin-top:10px;font-family:"Noto Serif Armenian",Georgia,serif;font-size:13px;letter-spacing:.22em;color:#a8874f;opacity:0}
+.candle-loader[data-phase]:not([data-phase="unlit"]) .candle-loader__ref{animation:verse-ref .9s ease both}
+@keyframes verse-ref{from{opacity:0;transform:translateY(4px)}to{opacity:.85;transform:none}}
 @media(prefers-reduced-motion:reduce){.candle-loader__flame,.candle-loader__glow,.candle-loader__light{animation:none}}
 `;
 
@@ -79,13 +122,30 @@ export function CandleLoader() {
 
   if (phase === "removed") return null;
   return (
-      <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label="Բարի գալուստ գրադարան" aria-hidden={phase === "hidden"}>
+      <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label={`Բարի գալուստ գրադարան. ${VERSE_LINES.join(" ")} (${VERSE_REF})`} aria-hidden={phase === "hidden"}>
         <style>{styles}</style>
         <noscript><style>{".candle-loader{display:none!important}"}</style></noscript>
         <div className="candle-loader__scene" aria-hidden="true">
           <span className="candle-loader__light" />
           <span className="candle-loader__glow" />
           <span className="candle-loader__spark" />
+          <p className="candle-loader__verse">
+            {VERSE.map((line, lineIndex) => (
+              <span key={lineIndex} className="candle-loader__line">
+                {line.map((word, wordIndex) => (
+                  <span key={wordIndex}>
+                    {wordIndex > 0 && " "}
+                    <span className="candle-loader__word">
+                      {word.map(({ letter, delay }, letterIndex) => (
+                        <span key={letterIndex} className="candle-loader__letter" style={{ animationDelay: `${delay}ms` }}>{letter}</span>
+                      ))}
+                    </span>
+                  </span>
+                ))}
+              </span>
+            ))}
+            <span className="candle-loader__ref" style={{ animationDelay: `${LAST_LETTER_DELAY}ms` }}>{VERSE_REF}</span>
+          </p>
           <span className="candle-loader__dawn" />
           <svg className="candle-loader__flame" viewBox="0 0 18 34">
             <defs>
