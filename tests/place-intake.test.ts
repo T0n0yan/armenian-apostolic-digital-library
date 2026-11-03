@@ -6,6 +6,7 @@ import test from "node:test";
 import { addServant, answerPlaceCallback, continuePlace, pointFromText, setAccessPart, startPlace } from "../app/data/place-intake.server";
 import { insideArmenia, parseCoordinates } from "../app/utils/places";
 import { PLACE_CHOICES, PLACE_TEXT } from "../app/utils/support-relay";
+import { ACCESS_HINT, ACCESS_PARTS, accessText, accessValue } from "../app/utils/place-answers";
 import { removeOldData } from "../app/data/retention.server";
 
 // The map's region lookup (Nominatim) answers from here; a test may swap in its own.
@@ -66,7 +67,7 @@ async function upToReview(tg: ReturnType<typeof telegram>, db: D1Database) {
   await continuePlace(tg.call, db, topic, message({ photo: [{ file_id: "small" }, { file_id: "big" }] }));
   for (const text of [PLACE_TEXT.next, "Այո, գործող է", "Ամեն կիրակի", PLACE_TEXT.yes, "Ամեն օր 09:30 և 17:00",
     "Արքեպիսկոպոս", "Սիոն Ադամյան", "Հոգևոր հովիվ", "Տեր Ա", "Հոգևոր հովիվ", "Տեր Բ", PLACE_TEXT.done,
-    "Ամեն օր 09:00–18:00", "🚗 Մեքենայով՝ մինչև եկեղեցի", "Մի քանի աստիճան", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
+    "Ամեն օր 09:00–18:00", "Այո, մինչև եկեղեցի", "Հարթ, ասֆալտապատ", "Չկա", "Մի քանի աստիճան", PLACE_TEXT.skip, "Այո՝ «Անի»"]) await continuePlace(tg.call, db, topic, name(text));
 }
 
 test("people serving are kept one role to a line", () => {
@@ -128,11 +129,16 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   await continuePlace(tg.call, db, topic, name(PLACE_TEXT.done));
   ends(tg, PLACE_TEXT.askHours);
   await continuePlace(tg.call, db, topic, name("Միշտ բաց է"));
-  ends(tg, PLACE_TEXT.askAccess);
+  // Ճանապարհը և մուտքը՝ 4 հարց. կոճակը պահվում է փոքրատառով, ձեռքով գրածը՝ ինչպես կա։
+  const [car, road, ramp, entrance] = ACCESS_PARTS;
+  ends(tg, `${car.ask}\n${ACCESS_HINT}`);
+  await continuePlace(tg.call, db, topic, name("Մասամբ, վերջին մասը՝ ոտքով"));
+  ends(tg, `${road.ask}\n${ACCESS_HINT}`);
   await continuePlace(tg.call, db, topic, name("Քարքարոտ արահետ, 200 մ"));
-  // The entrance is its own question: a flat road can still end at steps.
-  ends(tg, PLACE_TEXT.askEntrance);
-  await continuePlace(tg.call, db, topic, name("Մի քանի աստիճան"));
+  ends(tg, `${ramp.ask}\n${ACCESS_HINT}`);
+  await continuePlace(tg.call, db, topic, name("Առկա է"));
+  ends(tg, `${entrance.ask}\n${ACCESS_HINT}`);
+  await continuePlace(tg.call, db, topic, name("Մեկ աստիճան, հնարավոր է օգնության անհրաժեշտություն"));
   ends(tg, PLACE_TEXT.askHistory);
   // «Չգիտեմ» skips any question.
   await continuePlace(tg.call, db, topic, name("Չգիտեմ"));
@@ -151,7 +157,7 @@ test("/place asks one thing at a time and sends nothing until the reader confirm
   assert.equal(row.services, "Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30");
   assert.equal(row.clergy, "Արքեպիսկոպոս՝ Գերաշնորհ Տ. Սիոն արք. Ադամյան\nՀոգևոր հովիվ՝ Տեր Ա, Տեր Բ\nՍարկավագ՝ Բարեշնորհ Արամ սրկ. Պետրոսյան");
   assert.equal(row.open_hours, "Միշտ բաց է");
-  assert.equal(row.accessibility, "Ճանապարհը՝ Քարքարոտ արահետ, 200 մ\nՄուտքը՝ Մի քանի աստիճան");
+  assert.equal(row.accessibility, "Մեքենայով հասանելիություն՝ մասամբ, վերջին մասը՝ ոտքով\nՃանապարհ՝ Քարքարոտ արահետ, 200 մ\nԹեքահարթակ՝ առկա է\nՄուտք՝ մեկ աստիճան, հնարավոր է օգնության անհրաժեշտություն");
   assert.equal(row.notes, "");
   assert.equal(row.credit_name, "Անի");
   assert.equal(JSON.parse(String(row.photos_json)).length, 10);
@@ -236,8 +242,8 @@ test("a place under renovation isn't asked for opening hours; the team gets it i
   for (const text of ["Սուրբ Նարեկ", "⛪ Եկեղեցի"]) await continuePlace(tg.call, db, topic, name(text));
   await continuePlace(tg.call, db, topic, message({ location: { latitude: 40.1585, longitude: 44.0389 } }));
   for (const text of [PLACE_TEXT.noPhotos, "Վերանորոգվում է"]) await continuePlace(tg.call, db, topic, name(text));
-  ends(tg, PLACE_TEXT.askAccess);
-  for (const text of [PLACE_TEXT.unknown, PLACE_TEXT.unknown, PLACE_TEXT.skip, PLACE_TEXT.anonymous]) await continuePlace(tg.call, db, topic, name(text));
+  ends(tg, `${ACCESS_PARTS[0].ask}\n${ACCESS_HINT}`);
+  for (const text of [PLACE_TEXT.unknown, PLACE_TEXT.unknown, PLACE_TEXT.unknown, PLACE_TEXT.unknown, PLACE_TEXT.skip, PLACE_TEXT.anonymous]) await continuePlace(tg.call, db, topic, name(text));
   // The places topic refuses (it doesn't exist): the summary goes to the group itself.
   const refusing = async (method: string, body: unknown) => {
     const thread = (body as { message_thread_id?: number }).message_thread_id;
@@ -289,10 +295,16 @@ test("old data is removed: unsent drafts after a day, handled submissions after 
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM site_presence").get()?.n, 1);
 });
 
-test("the road and the entrance keep one line each, road first", () => {
-  assert.equal(setAccessPart("", "Մուտքը", "Կա թեքահարթակ"), "Մուտքը՝ Կա թեքահարթակ");
-  assert.equal(setAccessPart("Մուտքը՝ Կա թեքահարթակ", "Ճանապարհը", "Հարթ"), "Ճանապարհը՝ Հարթ\nՄուտքը՝ Կա թեքահարթակ");
-  // Answering again replaces that part only; an old unlabelled answer gives way.
-  assert.equal(setAccessPart("Ճանապարհը՝ Հարթ\nՄուտքը՝ Կա թեքահարթակ", "Ճանապարհը", "Դժվար"), "Ճանապարհը՝ Դժվար\nՄուտքը՝ Կա թեքահարթակ");
-  assert.equal(setAccessPart("Կան աստիճաններ", "Մուտքը", "Շատ աստիճաններ"), "Մուտքը՝ Շատ աստիճաններ");
+test("ճանապարհի և մուտքի 4 պատասխանը՝ ամեն մեկը իր տողով, միշտ նույն հերթականությամբ", () => {
+  assert.equal(setAccessPart("", "entrance", "մի քանի աստիճան"), "Մուտք՝ մի քանի աստիճան");
+  assert.equal(setAccessPart("Մուտք՝ մի քանի աստիճան", "access", "այո, մինչև եկեղեցի"), "Մեքենայով հասանելիություն՝ այո, մինչև եկեղեցի\nՄուտք՝ մի քանի աստիճան");
+  // Նորից պատասխանելը փոխում է միայն այդ մասը. հին ազատ տեքստը տեղ է տալիս։
+  assert.equal(setAccessPart("Թեքահարթակ՝ չկա\nՄուտք՝ մի քանի աստիճան", "ramp", "առկա է"), "Թեքահարթակ՝ առկա է\nՄուտք՝ մի քանի աստիճան");
+  assert.equal(setAccessPart("Կան աստիճաններ", "road", "քարքարոտ և անհարթ"), "Ճանապարհ՝ քարքարոտ և անհարթ");
+  assert.equal(accessValue("ramp", "Առկա է"), "առկա է");
+  assert.equal(accessValue("road", "Կես կիլոմետր հողե"), "Կես կիլոմետր հողե");
+  // Ցուցադրումը՝ նշաններով. հին «Ճանապարհը՝ …» տողերն էլ են կարդացվում։
+  assert.equal(accessText("Մեքենայով հասանելիություն՝ այո, մինչև եկեղեցի\nԹեքահարթակ՝ առկա է"), "🚗 Մեքենայով հասանելիություն՝ այո, մինչև եկեղեցի\n♿ Թեքահարթակ՝ առկա է");
+  assert.equal(accessText("Ճանապարհը՝ Հարթ\nՄուտքը՝ Կա թեքահարթակ"), "🛣 Ճանապարհը՝ Հարթ\n🚪 Մուտքը՝ Կա թեքահարթակ");
+  assert.equal(accessText("Կան աստիճաններ"), "♿ Ճանապարհը և մուտքը՝ Կան աստիճաններ");
 });

@@ -1,4 +1,4 @@
-import { addServant, ENTRANCE, ROAD, setAccessPart } from "./place-answers";
+import { ACCESS_PARTS, addServant, setAccessPart } from "./place-answers";
 import { insideArmenia, isPlaceKind, parseCoordinates } from "./places";
 import { PLACE_CHOICES } from "./support-relay";
 
@@ -29,11 +29,11 @@ export function readWebPlace(form: FormData) {
   const roles = form.getAll("clergyRole").map((value) => clean(value, 40));
   const names = form.getAll("clergyName").map((value) => clean(value, 160));
   const clergy = roles.reduce((text, role, index) => (names[index] && (PLACE_CHOICES.clergy as readonly string[]).includes(role) ? addServant(text, role, names[index]) : text), "");
-  const road = clean(form.get("road"), 300);
-  const entrance = clean(form.get("entrance"), 300);
-  // «Ճանապարհը՝ …» and «Մուտքը՝ …» lines, only for what was picked.
-  const withRoad = road ? setAccessPart("", ROAD, road) : "";
-  const accessibility = entrance ? setAccessPart(withRoad, ENTRANCE, entrance) : withRoad;
+  // Միայն պատրաստի տարբերակները. «Մեքենայով հասանելիություն՝ …» և այլն, ամեն մեկը իր տողով։
+  const accessibility = ACCESS_PARTS.reduce((text, part) => {
+    const picked = clean(form.get(`access-${part.key}`), 300);
+    return (part.options as readonly string[]).includes(picked) ? setAccessPart(text, part.key, picked) : text;
+  }, "");
   const photos = form.getAll("photos").filter((value): value is File => value instanceof File && value.size > 0);
   if (photos.length > WEB_PHOTO_LIMIT) errors.photos = `Առավելագույնը ${WEB_PHOTO_LIMIT} նկար։`;
   else if (photos.some((file) => !PHOTO_TYPES[file.type] || file.size > PHOTO_BYTES)) errors.photos = "Նկարները պետք է լինեն JPG, PNG կամ WebP, յուրաքանչյուրը մինչև 8 ՄԲ։";
