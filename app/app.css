@@ -538,6 +538,7 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 .places-map-free .places-map {
   width: 100%;
   aspect-ratio: 1 / 0.92;
+  touch-action: none; /* մատով քաշելը շարժում է քարտեզը, ոչ թե ոլորում էջը */
   max-height: min(78svh, 720px);
   min-height: 320px;
   /* The cut-out shape casts a soft shadow, like a paper map laid on the page. */
@@ -546,7 +547,7 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 /* On a wide screen the map stays a comfortable size in the middle, not the whole width. */
 @media (min-width: 860px) { .places-map-free { width: 100%; max-width: 1040px; margin-inline: auto; } .places-map-free .places-map { min-height: 560px; max-height: min(72svh, 780px); } }
 .places-map-small .places-map {
-  width: 100%; aspect-ratio: 16 / 10; min-height: 220px; max-height: 360px;
+  width: 100%; aspect-ratio: 16 / 10; touch-action: none; min-height: 220px; max-height: 360px;
   overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: 18px;
 }
 /* Shown in the map's place until its first tiles are drawn: Armenia's outline, shimmering. */

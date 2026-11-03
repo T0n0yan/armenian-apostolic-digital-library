@@ -76,8 +76,8 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             {place.photos.map((key, index) => (
               // Each photo whole, in its own proportions (never cropped); a tap opens them one by one.
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
-                className={`shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 ${place.photos.length === 1 ? "max-w-full" : "max-w-[88%]"}`}>
-                <img className="reveal-img block h-auto max-h-[min(68svh,560px)] w-auto max-w-full rounded-[18px] shadow-card" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} />
+                className={`reveal-frame flex min-h-[min(60svh,420px)] shrink-0 cursor-zoom-in snap-center items-center justify-center overflow-hidden rounded-[18px] border-0 bg-subtle p-0 shadow-card ${place.photos.length === 1 ? "max-w-full" : "max-w-[88%]"}`}>
+                <img className="reveal-img block h-auto max-h-[min(68svh,560px)] w-auto max-w-full rounded-[18px]" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} decoding="async" />
               </button>
             ))}
             {/* The uploaded video beside the photos, played in place. */}

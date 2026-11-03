@@ -58,7 +58,7 @@ export async function action({ request }: Route.ActionArgs) {
 const SERVING_KINDS = new Set<PlaceKind>(["church", "monastery", "complex"]);
 const PHOTO_SIDE = 1920;
 
-/** A phone photo made lighter before it is sent: at most 1920 px on its long side, as JPEG. */
+/** A phone photo made lighter before it is sent: at most 1920 px on its long side, as WebP (fallback JPEG). */
 async function lighter(file: File): Promise<Blob> {
   if (!file.type.startsWith("image/")) return file;
   try {
@@ -69,7 +69,9 @@ async function lighter(file: File): Promise<Blob> {
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    // WebP՝ ավելի փոքր ու արագ. եթե բրաուզերը չի աջակցում, JPEG։
+    const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    const blob = webp?.type === "image/webp" ? webp : await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
     return blob && blob.size < file.size ? blob : file;
   } catch {
     return file;

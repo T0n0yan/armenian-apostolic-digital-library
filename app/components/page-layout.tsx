@@ -63,9 +63,11 @@ export function PageShell({children, width = "content"}: PageShellProps) {
         {/* A quiet line at the very bottom of the page, however short the content: it should not draw the eye. */}
         <footer className="mt-auto grid pt-12 justify-items-center gap-1 text-center text-[12px] leading-relaxed text-muted">
             <span>© {new Date().getFullYear()} Հոգևոր ժառանգություն։ Բոլոր իրավունքները պաշտպանված են։</span>
-            <nav className="flex flex-wrap justify-center gap-x-2" aria-label="Կայքի մասին">
-              <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/mer-masin">Մեր մասին</Link>·
-              <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/kap">Կապ</Link>·
+            <nav className="flex flex-wrap items-center justify-center gap-x-2" aria-label="Կայքի մասին">
+              <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/mer-masin">Մեր մասին</Link>
+              <span aria-hidden="true" className="text-faint select-none">·</span>
+              <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/kap">Կապ</Link>
+              <span aria-hidden="true" className="text-faint select-none">·</span>
               <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/privacy">Գաղտնիություն</Link>
             </nav>
         </footer>
