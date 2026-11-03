@@ -18,6 +18,7 @@ import {
 import { formatArmenianDate } from "../utils/armenian-date";
 import { convertPlacePhotos, oldPhotos } from "../utils/image-webp";
 import { ACTIVE_LABELS, blockedWords, isPlaceKind, parseCoordinates, placeMatches, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+import { accessText } from "../utils/place-answers";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket; TELEGRAM_BOT_TOKEN?: string };
 
@@ -216,7 +217,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
                 </div>
               ) : <p className="m-0 flex items-center gap-1.5 text-[13px] text-faint"><ImageOff aria-hidden="true" size={15} /> Նկար չկա</p>}
               {submission.videos.length ? <p className="m-0 text-[13px] text-muted">🎬 Տեսանյութ՝ {submission.videos.length}</p> : null}
-              {([["Տեսակը", isPlaceKind(submission.kind) ? PLACE_KINDS[submission.kind] : submission.kindNote], ["Մարզը", submission.region], ["Գործո՞ղ է", ACTIVE_LABELS[submission.active] ?? ""], ["Սուրբ Պատարագ", submission.liturgy], ["Ժամերգություններ", submission.services], ["Ծառայողներ", submission.clergy], ["Բաց է", submission.openHours], ["Ճանապարհը և մուտքը", submission.accessibility], ["Պատմությունը", submission.notes]] as const).map(([label, value]) => value ? (
+              {([["Տեսակը", isPlaceKind(submission.kind) ? PLACE_KINDS[submission.kind] : submission.kindNote], ["Մարզը", submission.region], ["Գործո՞ղ է", ACTIVE_LABELS[submission.active] ?? ""], ["Սուրբ Պատարագ", submission.liturgy], ["Ժամերգություններ", submission.services], ["Ծառայողներ", submission.clergy], ["Բաց է", submission.openHours], ["Ճանապարհը և մուտքը", submission.accessibility ? `\n${accessText(submission.accessibility)}` : ""], ["Պատմությունը", submission.notes]] as const).map(([label, value]) => value ? (
                 <p key={label} className="m-0 whitespace-pre-line text-[14px] leading-relaxed text-ink"><span className="font-semibold text-muted">{label}՝ </span>{value}</p>
               ) : null)}
               {submission.latitude !== null && submission.longitude !== null ? (
