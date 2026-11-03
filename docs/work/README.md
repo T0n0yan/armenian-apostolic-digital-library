@@ -11,6 +11,7 @@
 | Ինտեգրացիաներ | Telegram խումբ և բոտ, BotFather, Google, Cloudflare, էլ. փոստ | [integrations.md](integrations.md) |
 
 ## Ընդհանուր որոշումներ (բոլորը պետք է իմանան)
+- 2026-11-03 (տիրոջ որոշում). ամեն փոփոխություն միանգամից production՝ PR → main, հետո նաև staging (որ երկուսը համընկնեն)։ Staging-ում սպասել և «թողարկիր» պետք չէ։
 
 - Միշտ նախ staging, production՝ միայն տիրոջ «թողարկիր»-ից հետո։
 - Հասցեները ընթեռնելի են՝ `/saghmosner/22`, `/aghotkner/364-…` (`app/utils/material-path.ts`). հին հասցեները 301-ով տանում են նորերին։
