@@ -8,26 +8,31 @@ import { useEffect, useState } from "react";
 const LIGHT_AT_MS = 700;
 const EXIT_MS = 2_000;
 
-// Մոմի տակ տառ առ տառ գրվող խոսքը (⚑ Ճշտել թարգմանության ճշգրիտ ձևը)։
-const VERSE = "Ես ձեզ հետ եմ մինչև աշխարհի վախճանը";
+// Մոմի տակ տառ առ տառ գրվող խոսքը՝ Մատթ. 28:20, Էջմիածնի Աստվածաշնչից (տերը ստուգել է գրքով)։
+// Երկու տող՝ ստորակետից հետո դադարով, ինչպես կարդալիս։
+const VERSE_LINES = ["«…Ես ձեզ հետ եմ բոլոր օրերին,", "մինչև աշխարհի վախճանը»"];
 const VERSE_REF = "Մատթ. 28:20";
 // Գրելը սկսվում է, երբ բոցը արդեն բռնկվել է։
 const VERSE_START_MS = 900;
-const LETTER_STEP_MS = 70;
-const SPACE_PAUSE_MS = 110;
+const LETTER_STEP_MS = 52;
+const SPACE_PAUSE_MS = 80;
+const LINE_PAUSE_MS = 450;
 const LETTER_MS = 650;
 // Վերջին տառից կես վայրկյան հետո լույսը բացում է էջը։
 const AFTER_VERSE_MS = 500;
 
-// Ամեն տառի սկսելու պահը (մոմի վառվելուց հաշված)։
-const VERSE_WORDS = (() => {
+// Ամեն տառի սկսելու պահը (մոմի վառվելուց հաշված)՝ տող → բառ → տառ։
+const VERSE = (() => {
   let at = VERSE_START_MS;
-  return VERSE.split(" ").map((word, index) => {
-    if (index > 0) at += SPACE_PAUSE_MS;
-    return Array.from(word).map((letter) => { const delay = at; at += LETTER_STEP_MS; return { letter, delay }; });
+  return VERSE_LINES.map((line, lineIndex) => {
+    if (lineIndex > 0) at += LINE_PAUSE_MS;
+    return line.split(" ").map((word, wordIndex) => {
+      if (wordIndex > 0) at += SPACE_PAUSE_MS;
+      return Array.from(word).map((letter) => { const delay = at; at += LETTER_STEP_MS; return { letter, delay }; });
+    });
   });
 })();
-const LAST_LETTER_DELAY = VERSE_WORDS.at(-1)!.at(-1)!.delay;
+const LAST_LETTER_DELAY = VERSE.at(-1)!.at(-1)!.at(-1)!.delay;
 const MINIMUM_VISIBLE_MS = LIGHT_AT_MS + LAST_LETTER_DELAY + LETTER_MS + AFTER_VERSE_MS;
 const SESSION_KEY = "library-loader-seen-v4";
 
@@ -66,8 +71,9 @@ html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overf
 @keyframes candle-spark{0%{opacity:0;transform:translateY(8px) scale(.4)}35%{opacity:1;transform:translateY(-4px) scale(1.4)}100%{opacity:0;transform:translateY(-14px) scale(.2)}}
 /* Խոսքը. ոսկեգույն, ամեն տառը մոմի լույսից է «վառվում»։ Դրված է scene-ի մեջ, որ լույսի ալիքը (dawn) ծածկի այն։ */
 .candle-loader__verse{position:absolute;left:50%;top:196px;width:min(88vw,560px);translate:-50% 0;margin:0;text-align:center;
-  font-family:"Arian Grqi","Noto Serif Armenian",Georgia,serif;font-weight:400;font-size:clamp(23px,6.4vw,32px);line-height:1.45;letter-spacing:.02em;
+  font-family:"Arian Grqi","Noto Serif Armenian",Georgia,serif;font-weight:400;font-size:clamp(19px,5.4vw,30px);line-height:1.45;letter-spacing:.02em;
   color:#e6c27a;text-wrap:balance;text-shadow:0 0 14px rgb(255 196 110/28%)}
+.candle-loader__line{display:block}
 .candle-loader__word{display:inline-block;white-space:nowrap}
 .candle-loader__letter{display:inline-block;opacity:0}
 .candle-loader[data-phase]:not([data-phase="unlit"]) .candle-loader__letter{animation:verse-letter .65s cubic-bezier(.2,.7,.2,1) both}
@@ -116,7 +122,7 @@ export function CandleLoader() {
 
   if (phase === "removed") return null;
   return (
-      <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label="Բարի գալուստ գրադարան" aria-hidden={phase === "hidden"}>
+      <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label={`Բարի գալուստ գրադարան. ${VERSE_LINES.join(" ")} (${VERSE_REF})`} aria-hidden={phase === "hidden"}>
         <style>{styles}</style>
         <noscript><style>{".candle-loader{display:none!important}"}</style></noscript>
         <div className="candle-loader__scene" aria-hidden="true">
@@ -124,14 +130,18 @@ export function CandleLoader() {
           <span className="candle-loader__glow" />
           <span className="candle-loader__spark" />
           <p className="candle-loader__verse">
-            {VERSE_WORDS.map((word, wordIndex) => (
-              <span key={wordIndex}>
-                {wordIndex > 0 && " "}
-                <span className="candle-loader__word">
-                  {word.map(({ letter, delay }, letterIndex) => (
-                    <span key={letterIndex} className="candle-loader__letter" style={{ animationDelay: `${delay}ms` }}>{letter}</span>
-                  ))}
-                </span>
+            {VERSE.map((line, lineIndex) => (
+              <span key={lineIndex} className="candle-loader__line">
+                {line.map((word, wordIndex) => (
+                  <span key={wordIndex}>
+                    {wordIndex > 0 && " "}
+                    <span className="candle-loader__word">
+                      {word.map(({ letter, delay }, letterIndex) => (
+                        <span key={letterIndex} className="candle-loader__letter" style={{ animationDelay: `${delay}ms` }}>{letter}</span>
+                      ))}
+                    </span>
+                  </span>
+                ))}
               </span>
             ))}
             <span className="candle-loader__ref" style={{ animationDelay: `${LAST_LETTER_DELAY}ms` }}>{VERSE_REF}</span>
