@@ -17,7 +17,7 @@ import { rateKey, tooMany, withinRateLimit, type RateLimiter } from "../utils/ra
 import { clergyName, CLERGY_RANKS } from "../utils/clergy-titles";
 import { findMyPosition, type LocationFailure } from "../utils/my-location";
 import { ACTIVE_LABELS, parseCoordinates, PLACE_KINDS, type PlaceKind } from "../utils/places";
-import { PLACE_CHOICES } from "../utils/support-relay";
+import { ACCESS_PARTS, accessButton, type AccessKey } from "../utils/place-answers";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
 
@@ -117,8 +117,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
   const [photos, setPhotos] = useState<Array<{ file: File; url: string }>>([]);
   useEffect(() => () => photos.forEach((photo) => URL.revokeObjectURL(photo.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
   const [clergy, setClergy] = useState<Array<{ role: string; name: string }>>([]);
-  const [road, setRoad] = useState("");
-  const [entrance, setEntrance] = useState("");
+  const [access, setAccess] = useState<Partial<Record<AccessKey, string>>>({});
   const [credit, setCredit] = useState<"name" | "anonymous">("name");
   const [preparing, setPreparing] = useState(false);
   const top = useRef<HTMLDivElement>(null);
@@ -278,14 +277,14 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
 
         <Step number={serving ? 6 : 5} title="Այցելություն">
           {active !== "renovation" ? <label className="grid gap-1.5 text-[13.5px] font-semibold text-ink">Բաց է<input className={fieldControl} name="openHours" placeholder="Օր.՝ Ամեն օր 09:00–18:00" maxLength={300} /></label> : null}
-          <div className="grid gap-1.5">
-            <span className="text-[13.5px] font-semibold text-ink">Ճանապարհը դեպի եկեղեցի</span>
-            <Choices name="road" value={road} onChange={setRoad} options={PLACE_CHOICES.access.map(([label]) => [label, label])} />
-          </div>
-          <div className="grid gap-1.5">
-            <span className="text-[13.5px] font-semibold text-ink">Մուտքը</span>
-            <Choices name="entrance" value={entrance} onChange={setEntrance} options={PLACE_CHOICES.entrance.map(([label]) => [label, label])} />
-          </div>
+          {/* Ճանապարհը և մուտքը՝ 4 հարց, ինչպես բոտում։ */}
+          {ACCESS_PARTS.map((part) => (
+            <div key={part.key} className="grid gap-1.5">
+              <span className="text-[13.5px] font-semibold text-ink">{part.icon} {part.label}</span>
+              <Choices name={`access-${part.key}`} value={access[part.key] ?? ""} onChange={(value) => setAccess({ ...access, [part.key]: value })}
+                options={part.options.map((option) => [option, accessButton(option)])} />
+            </div>
+          ))}
         </Step>
 
         <Step number={serving ? 7 : 6} title="Պատմություն և այն, ինչ գիտեք" note="Կառուցման տարին, հիշարժան դեպքեր, խաչքարեր, ավանդություններ։">

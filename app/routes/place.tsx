@@ -16,6 +16,7 @@ import { SiteNav } from "../components/site-nav";
 import { getPlace } from "../data/places.server";
 import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 import { MAP_ATTRIBUTION } from "../utils/map-style";
+import { readAccess } from "../utils/place-answers";
 import { seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
@@ -110,11 +111,10 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           <section className={panel}>
             <h2 className={heading}>Այցելություն</h2>
             {place.openHours ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Բաց է՝ </strong>{place.openHours}</p> : null}
-            {/* «Ճանապարհը՝ …» and «Մուտքը՝ …» each on its line (from the bot); older text as one line. */}
-            {place.accessibility.split("\n").filter(Boolean).map((line) => {
-              const [label, ...rest] = /^(Ճանապարհը|Մուտքը)՝ /u.test(line) ? line.split("՝ ") : ["Ճանապարհը և մուտքը", line];
-              return <p key={line} className="m-0 whitespace-pre-line"><strong className="font-semibold">{label}՝ </strong>{rest.join("՝ ")}</p>;
-            })}
+            {/* Ամեն պատասխանը՝ իր նշանով և տողով (հին «Ճանապարհը՝ …» տողերն էլ)։ */}
+            {readAccess(place.accessibility).map((line) => (
+              <p key={`${line.label}${line.value}`} className="m-0 whitespace-pre-line"><span aria-hidden="true">{line.icon} </span><strong className="font-semibold">{line.label}՝ </strong>{line.value}</p>
+            ))}
           </section>
         ) : null}
         {embed ? <iframe className="aspect-video w-full rounded-[18px] border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}

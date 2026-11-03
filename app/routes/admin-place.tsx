@@ -261,7 +261,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           <label className={fieldLabel}>Ժամերգություններ<textarea className={textarea} name="services" defaultValue={place.services} rows={2} placeholder="Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30" /></label>
           <label className={fieldLabel}>Ծառայողներ (մեկ դեր՝ մեկ տող)<textarea className={textarea} name="clergy" defaultValue={place.clergy} rows={3} placeholder={"Թեմի Առաջնորդ՝ Տեր … Սրբազան\nՔահանա՝ Տեր …, Տեր …\nՍարկավագ՝ …"} /></label>
           <label className={fieldLabel}>Բաց է<input className={fieldControl} name="openHours" defaultValue={place.openHours} placeholder="Ամեն օր 09:00–18:00" /></label>
-          <label className={fieldLabel}>Ճանապարհը և մուտքը<textarea className={fieldControl} name="accessibility" rows={2} defaultValue={place.accessibility} placeholder={"Ճանապարհը՝ մեքենայով՝ մինչև եկեղեցի\nՄուտքը՝ մի քանի աստիճան"} /></label>
+          <label className={fieldLabel}>Ճանապարհը և մուտքը<textarea className={fieldControl} name="accessibility" rows={4} defaultValue={place.accessibility} placeholder={"Մեքենայով հասանելիություն՝ այո, մինչև եկեղեցի\nՃանապարհ՝ քարքարոտ և անհարթ\nԹեքահարթակ՝ առկա է\nՄուտք՝ մեկ աստիճան, հնարավոր է օգնության անհրաժեշտություն"} /></label>
           {/* An uploaded video (from the phone, below with the photos) keeps its key here; otherwise a YouTube link. */}
           {place.videoUrl.startsWith("places/") ? <input type="hidden" name="videoUrl" value={place.videoUrl} /> : (
             <label className={fieldLabel}>Տեսանյութի հղում (YouTube)
