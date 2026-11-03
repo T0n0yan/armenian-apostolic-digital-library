@@ -2,7 +2,7 @@ import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { env } from "cloudflare:workers";
 import { Ban, Check, ClipboardCopy, Download, Eye, EyeOff, Footprints, ImageOff, MapPin, Plus, Trash2, X } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
-import { data, Form, Link, redirect, useNavigation } from "react-router";
+import { data, Form, Link, redirect, useNavigation, useRevalidator } from "react-router";
 
 import type { Route } from "./+types/admin-places";
 import { can, requirePermission, requireSameOrigin } from "../auth/admin.server";
@@ -16,6 +16,7 @@ import {
   removeBlocklistWord, setPlacesPublished, setVisited, type Place,
 } from "../data/places.server";
 import { formatArmenianDate } from "../utils/armenian-date";
+import { convertPlacePhotos, oldPhotos } from "../utils/image-webp";
 import { ACTIVE_LABELS, blockedWords, isPlaceKind, parseCoordinates, placeMatches, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket; TELEGRAM_BOT_TOKEN?: string };
@@ -145,6 +146,31 @@ function downloadCsv(places: Place[], visited: Set<string>) {
   URL.revokeObjectURL(link.href);
 }
 
+/** Բոլոր տեղերի հին (JPEG/PNG) նկարները WebP՝ բրաուզերում, մեկ առ մեկ։ Էջը բաց պետք է մնա մինչև վերջ։ */
+function ConvertAllPhotos({ places }: { places: { id: string; photos: string[] }[] }) {
+  const revalidator = useRevalidator();
+  const [progress, setProgress] = useState<string | null>(null);
+  const queue = places.map((place) => ({ id: place.id, keys: oldPhotos(place.photos) })).filter((entry) => entry.keys.length);
+  const total = queue.reduce((sum, entry) => sum + entry.keys.length, 0);
+  if (!total && progress === null) return null;
+  const working = progress !== null && !progress.startsWith("Պատրաստ");
+  const run = async () => {
+    let done = 0;
+    let failed = 0;
+    for (const entry of queue) {
+      failed += await convertPlacePhotos(entry.id, entry.keys, placeMediaUrl, (index) => setProgress(`${done + index + 1} / ${total} (էջը մի փակեք)`));
+      done += entry.keys.length;
+    }
+    setProgress(failed ? `Պատրաստ է, ${failed} նկար չհաջողվեց` : "Պատրաստ է");
+    void revalidator.revalidate();
+  };
+  return (
+    <button className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink disabled:opacity-60" type="button" disabled={working || !total} onClick={() => void run()}>
+      {progress ?? `Բոլոր նկարները դարձնել WebP (${total} նկար)`}
+    </button>
+  );
+}
+
 export default function AdminPlaces({ loaderData, actionData }: Route.ComponentProps) {
   const { submissions, places, blocklist, canVisit, canDelete, isOwner } = loaderData;
   const visitedSet = new Set(loaderData.visited);
@@ -262,6 +288,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
             <input ref={filterInput} className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել անունով կամ մարզով (նաև լատինատառ)…" aria-label="Փնտրել տեղերը" />
           </div>
           <ExportPanel places={shown} visited={visitedSet} />
+          <ConvertAllPhotos places={places} />
           <div className="grid gap-2">
             {shown.slice(0, 150).map((place) => {
               const blocked = blockedWords(place.name, blocklist);

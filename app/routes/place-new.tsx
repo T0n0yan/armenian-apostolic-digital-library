@@ -3,6 +3,7 @@ import { Check, ImagePlus, LoaderCircle, LocateFixed, LogIn, MapPin, Plus, Send,
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { data, Link, useActionData, useNavigation, useSubmit } from "react-router";
 
+import { photoName, toWebp } from "../utils/image-webp";
 import type { Route } from "./+types/place-new";
 import { getOptionalTelegramUser, requireSameOriginUserRequest, requireTelegramUser } from "../auth/telegram-user.server";
 import { RouteErrorPage } from "../components/error-page";
@@ -56,27 +57,6 @@ export async function action({ request }: Route.ActionArgs) {
 
 // The kinds that can be working churches (a chapel or shrine isn't asked about the Liturgy).
 const SERVING_KINDS = new Set<PlaceKind>(["church", "monastery", "complex"]);
-const PHOTO_SIDE = 1920;
-
-/** A phone photo made lighter before it is sent: at most 1920 px on its long side, as WebP (fallback JPEG). */
-async function lighter(file: File): Promise<Blob> {
-  if (!file.type.startsWith("image/")) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    // WebP՝ ավելի փոքր ու արագ. եթե բրաուզերը չի աջակցում, JPEG։
-    const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
-    const blob = webp?.type === "image/webp" ? webp : await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-    return blob && blob.size < file.size ? blob : file;
-  } catch {
-    return file;
-  }
-}
 
 const LOCATION_FAILURES: Record<LocationFailure, string> = {
   denied: "Տեղորոշման թույլտվություն չկա։ Տեղադրեք Google Maps-ի հղումը ներքևում։",
@@ -198,8 +178,8 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
     form.delete("photos");
     setPreparing(true);
     for (const photo of photos) {
-      const blob = await lighter(photo.file);
-      form.append("photos", blob, blob === photo.file ? photo.file.name : "photo.jpg");
+      const blob = await toWebp(photo.file);
+      form.append("photos", blob, blob === photo.file ? photo.file.name : photoName(blob));
     }
     setPreparing(false);
     void submit(form, { method: "post", encType: "multipart/form-data", preventScrollReset: true });
@@ -260,7 +240,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
           {photos.length < WEB_PHOTO_LIMIT ? (
             <label className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[14px] border border-dashed border-[rgb(217_181_111/55%)] px-4 text-[14px] font-semibold text-gold-bright">
               <ImagePlus aria-hidden="true" size={17} /> Ընտրել նկարներ
-              <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { addPhotos(event.currentTarget.files); event.currentTarget.value = ""; }} />
+              <input className="sr-only" type="file" accept="image/*" multiple onChange={(event) => { addPhotos(event.currentTarget.files); event.currentTarget.value = ""; }} />
             </label>
           ) : null}
           {problem(errors.photos)}

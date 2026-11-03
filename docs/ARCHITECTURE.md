@@ -317,11 +317,12 @@ flowchart TD
 flowchart TD
   OSM["OpenStreetMap + Wikidata<br/>scripts/import-osm-places.py"] --> PL[("places")]
   BOTP["Բոտի /place (քայլ առ քայլ հարցեր)"] --> DR[("bot_place_drafts")] --> SUB[("place_submissions")]
-  WEB["/places/new ձևը կայքում<br/>(նկարները սեղմվում են հեռախոսում ≤1920px)"] --> SUB
+  WEB["/places/new ձևը կայքում<br/>(նկարները բրաուզերում դառնում են WebP ≤1920px)"] --> SUB
   SUB --> TEAM["Թիմի «Սրբավայրեր» թեման Telegram-ում"]
   SUB --> ADM["/admin/places. ընդունել / մերժել / խմբագրել"]
   ADM --> PL
   ADM --> BL[("place_blocklist, place_rejected")]
+  ADM --> WEBP["Ադմինի նկարները նույնպես WebP (app/utils/image-webp.ts).<br/>«Դարձնել WebP» կոճակը՝ հին JPEG/PNG-ները (intent=replace-photo)"]
   ADM --> VID["Տեսանյութ հեռախոսից → R2 places/ (≤95 ՄԲ)"]
   PL --> MAP["/places քարտեզ (MapLibre)<br/>Հայաստանի եզրագիծը, «Իմ դիրքը»"]
   MAP --> ONE["/places/:id. նկարներ, պատմություն,<br/>ինչպես հասնել, ով է ծառայում, ✓ հոգևորականի կողմից"]

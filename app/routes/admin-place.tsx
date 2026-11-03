@@ -2,7 +2,7 @@ import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { env } from "cloudflare:workers";
 import { Check, Copy, ImagePlus, Star, Trash2, Upload, Video } from "lucide-react";
 import { useState } from "react";
-import { data, Form, Link, redirect, useNavigation, useRevalidator, useSearchParams } from "react-router";
+import { data, Form, Link, redirect, useNavigation, useRevalidator, useSearchParams, useSubmit } from "react-router";
 
 import type { Route } from "./+types/admin-place";
 import { can, requirePermission, requireSameOrigin } from "../auth/admin.server";
@@ -13,6 +13,7 @@ import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, fieldLabel, panelSection, primaryButton } from "../components/ui-styles";
 import { deletePlace, getPlace, setPlacePictures, storePlaceFile, updatePlace } from "../data/places.server";
 import { sniffImageType } from "../utils/image-magic";
+import { convertPlacePhotos, oldPhotos, photoName, toWebp } from "../utils/image-webp";
 import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
@@ -68,6 +69,19 @@ async function performAction({ request, params }: Route.ActionArgs) {
     }
     await setPlacePictures(DB, place.id, { photos: [...place.photos, ...added] });
     return redirect(`/admin/places/${place.id}`);
+  }
+  // Հին նկարը փոխարինվում է իր WebP տարբերակով՝ նույն տեղում (հերթականությունը, գլխավորը մնում են)։
+  if (intent === "replace-photo") {
+    const key = text("key");
+    const file = files("photo")[0];
+    if (!place.photos.includes(key) || !file || file.size > 15_000_000) return data({ error: "Նկարը չհաջողվեց փոխարինել։" }, { status: 400 });
+    const buffer = await file.arrayBuffer();
+    const type = sniffImageType(new Uint8Array(buffer));
+    if (type !== "image/webp" && type !== "image/jpeg") return data({ error: "Նկարը չհաջողվեց փոխարինել։" }, { status: 400 });
+    const fresh = await storePlaceFile(MEDIA, place.id, "photo", buffer, type);
+    await setPlacePictures(DB, place.id, { photos: place.photos.map((photo) => photo === key ? fresh : photo) });
+    await MEDIA.delete(key);
+    return data({ error: "" });
   }
   if (intent === "icon") {
     const [file] = files("icon");
@@ -163,6 +177,52 @@ function VideoUpload({ placeId, hasVideo }: { placeId: string; hasVideo: boolean
 const smallButton = "inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
 const textarea = `${fieldControl} min-h-[110px] resize-y leading-relaxed`;
 
+/** Նկարների վերբեռնում. ամեն նկար բրաուզերում դառնում է WebP, հետո միայն ուղարկվում։ */
+function PhotoUpload({ disabled }: { disabled: boolean }) {
+  const submit = useSubmit();
+  const [preparing, setPreparing] = useState(false);
+  const pick = async (list: FileList | null) => {
+    const picked = [...(list ?? [])].slice(0, 12);
+    if (!picked.length) return;
+    setPreparing(true);
+    const form = new FormData();
+    form.set("intent", "photos");
+    for (const file of picked) {
+      const blob = await toWebp(file);
+      form.append("photos", blob, blob === file ? file.name : photoName(blob));
+    }
+    setPreparing(false);
+    void submit(form, { method: "post", encType: "multipart/form-data", preventScrollReset: true });
+  };
+  const off = disabled || preparing;
+  return (
+    <label className={`${smallButton} ${off ? "opacity-60" : ""}`}>
+      <ImagePlus aria-hidden="true" size={14} /> {preparing ? "Պատրաստվում է…" : disabled ? "Վերբեռնվում է…" : "Ավելացնել նկարներ"}
+      <input className="sr-only" type="file" accept="image/*" multiple disabled={off}
+        onChange={(event) => { const list = event.currentTarget.files; void pick(list).finally(() => { event.currentTarget.value = ""; }); }} />
+    </label>
+  );
+}
+
+/** Հին նկարները WebP դարձնելու կոճակ (մանրամասները՝ `convertPlacePhotos`)։ */
+function ConvertPhotos({ placeId, photos }: { placeId: string; photos: string[] }) {
+  const revalidator = useRevalidator();
+  const [progress, setProgress] = useState<string | null>(null);
+  const old = oldPhotos(photos);
+  if (!old.length && progress === null) return null;
+  const working = progress !== null && !progress.startsWith("Պատրաստ");
+  const run = async () => {
+    const failed = await convertPlacePhotos(placeId, old, placeMediaUrl, (index) => setProgress(`${index + 1} / ${old.length}`));
+    setProgress(failed ? `Պատրաստ է, ${failed} նկար չհաջողվեց` : "Պատրաստ է");
+    void revalidator.revalidate();
+  };
+  return (
+    <button className={smallButton} type="button" disabled={working || !old.length} onClick={() => void run()}>
+      <Upload aria-hidden="true" size={14} /> {progress ?? `Դարձնել WebP (${old.length} նկար)`}
+    </button>
+  );
+}
+
 /** One place: its text, location, photos, map drawing, and whether it is on the public map. */
 export default function AdminPlace({ loaderData, actionData }: Route.ComponentProps) {
   const { place } = loaderData;
@@ -254,7 +314,8 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            <UploadButton name="photos" intent="photos" accept="image/jpeg,image/png,image/webp" multiple label="Ավելացնել նկարներ" icon={<ImagePlus aria-hidden="true" size={14} />} disabled={busy} />
+            <PhotoUpload disabled={busy} />
+            <ConvertPhotos placeId={place.id} photos={place.photos} />
             <VideoUpload placeId={place.id} hasVideo={place.videoUrl.startsWith("places/")} />
           </div>
           {place.videoUrl.startsWith("places/") ? (
