@@ -56,7 +56,8 @@ export function ReadMark({ materialId, kind, marks }: { materialId: string; kind
       {/* Տակի փոքր տողը բացատրում է, թե ինչ կլինի սեղմելիս։ */}
       <span className="flex flex-col items-start leading-tight">
         <span>{done ? doneText : mark}</span>
-        <span className="text-[11.5px] font-semibold opacity-80">{done ? "Սեղմեք՝ չեղարկելու" : "Սեղմեք՝ նշելու օրացույցում"}</span>
+        {/* Նշելուց հետո բացատրությունը պետք չէ. նորից սեղմելը պարզապես չեղարկում է։ */}
+        {done ? null : <span className="text-[11.5px] font-semibold opacity-80">Սեղմեք օրացույցում ավելացնելու համար</span>}
       </span>
     </button>
   );
