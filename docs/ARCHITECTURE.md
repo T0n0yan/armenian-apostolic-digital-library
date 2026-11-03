@@ -686,14 +686,14 @@ export function normalizeWord(word: string) {
 ### Ստուգել և թողարկել
 ```bash
 npm run dev                      # լոկալ, http://localhost:5173
-npx tsx --test tests/*.test.ts   # թեստեր
-npx tsc -b                       # տիպերի ստուգում
+bash scripts/check.sh            # կախվածություններ, build, թեստեր, tsc՝ կարճ ելքով
+node scripts/work-brief.mjs      # մյուս չաթերի աշխատանքը (docs/work/), առանց «Արված»-ի
 ```
 Հետո՝ staging, իսկ տիրոջ «թողարկիր»-ից հետո՝ PR → main (բաժին 20)։
 
 ```mermaid
 flowchart LR
-  A["1. Ճյուղ origin/main-ից"] --> B["2. Փոփոխություն + թեստ"] --> C["3. npm run dev՝ աչքով"] --> D["4. tsx --test, tsc -b"] --> E["5. staging"] --> F["6. «թողարկիր» → PR → main"] --> G["7. ARCHITECTURE.md թարմ է"]
+  A["1. Ճյուղ origin/main-ից"] --> B["2. Փոփոխություն + թեստ"] --> C["3. npm run dev՝ աչքով"] --> D["4. scripts/check.sh"] --> E["5. staging"] --> F["6. «թողարկիր» → PR → main"] --> G["7. ARCHITECTURE.md թարմ է"]
 ```
 
 ## 26. Բառարան՝ նոր մարդու համար

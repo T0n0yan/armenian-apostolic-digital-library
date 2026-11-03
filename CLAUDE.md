@@ -3,9 +3,10 @@
 The library site and Telegram Mini App for the group «Հայ Առաքելական Սուրբ Եկեղեցի»
 (t.me/armenian_apostolic_church). Production: https://apostolic.am, staging: https://staging.apostolic.am.
 How the pieces fit: `docs/ARCHITECTURE.md` (diagrams of everything), `docs/ENVIRONMENTS.md`.
+Read them only when the task needs it, and only the needed section (see "Saving tokens").
 **Whenever you add or change a feature, page, table, workflow or service, update `docs/ARCHITECTURE.md`
 in the same branch**, then rebuild the interactive page with `node scripts/build-architecture-page.mjs`
-(it writes `docs/architecture.html`; never edit the HTML by hand). The owner reads it to understand the site.
+(it writes `docs/architecture.html`; never read or edit the HTML by hand). The owner reads it to understand the site.
 
 ## Talking to the owner
 
@@ -27,22 +28,26 @@ Each chat has one lane and one work file in `docs/work/`:
 `docs/work/README.md` is the shared overview (lanes, decisions everyone must know).
 
 **Before starting any task:**
-1. `git fetch origin` and read all four files in `docs/work/` from `origin/main`
-   (`git show origin/main:docs/work/bugs.md`, …) — another chat may have changed something
-   that affects you.
+1. Run `node scripts/work-brief.mjs` — it fetches `origin/main` and prints README plus every lane's
+   "Հիմա", "Հերթ" and "Կարևոր մյուսների համար" (another chat may have changed something that
+   affects you). It skips the "Արված" history; use `--all` only if you really need it.
 2. Put your task under "Հիմա" in **your own file** (one line: what, branch name).
 3. If the task belongs to another lane, don't do it: add it to that lane's "Հերթ" list in your
    commit and tell the owner which chat should take it.
 
 **After finishing:** move the line to "Արված" with the date and PR link, and note anything other
 chats must know under "Կարևոր մյուսների համար". Edit only your own file (and README only for
-shared decisions), so the chats never conflict.
+shared decisions), so the chats never conflict. Keep "Արված" to the latest 8 lines: move older ones
+to the top of `docs/work/archive/<lane>.md`. Permanent facts (tables, routes, how things work)
+belong in `docs/ARCHITECTURE.md`; keep "Կարևոր մյուսների համար" for short, current notes.
 
 ## How changes travel (never skip)
 
 1. Branch from the latest `origin/main`: `fix/…` for bugs, `feat/…` for features, `chore/…`
    for integrations.
-2. Tests: `npx tsx --test tests/*.test.ts` and `npx tsc -b`. `git add` must include every
+2. Checks: `bash scripts/check.sh` (installs deps, typegen, build, tests, `tsc -b`; prints one line
+   when green, only the failing tail otherwise). Don't run the raw commands: in a fresh container they
+   fail without build/typegen and dump 30–70 KB of noise. `git add` must include every
    changed directory (`app`, `workers`, `shared`, `migrations`, `tests`, `wrangler.jsonc`) —
    a missed `workers/app.ts` once broke the staging build.
 3. Staging: `git checkout staging && git pull && git merge --no-edit <branch> && git push`.
@@ -51,6 +56,16 @@ shared decisions), so the chats never conflict.
 4. **Production only after the owner writes «թողարկիր».** Then a PR from your branch into
    `main`, merge it, watch the deploy, check apostolic.am.
 5. Docs-only changes (`*.md`, `docs/**`) don't trigger deploys.
+
+## Saving tokens (the owner's weekly limit runs out)
+
+Same work, smaller context. Armenian text costs several times more tokens than English.
+- Long files: find the place first (`grep -n "^## " docs/ARCHITECTURE.md`, `grep -n`), then read
+  only that range (Read with offset/limit). Don't re-read a file you already have in context.
+- Long command output: always cut it (`| tail -n 30`, `--stat`, `--oneline`, `-q`, `--reporter=silent`).
+  `git diff --stat` before a full diff; a full diff only for the files you need.
+- No subagents (Agent/Explore) unless the owner asks: each one starts from zero and re-reads everything.
+- One task per chat. After the task is released, tell the owner to open a new chat for the next one.
 
 ## Safety
 
