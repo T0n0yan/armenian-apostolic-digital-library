@@ -486,11 +486,12 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   <div class="canvas"><pre class="src">flowchart TD
   OSM[&quot;OpenStreetMap + Wikidata&lt;br/&gt;scripts/import-osm-places.py&quot;] --&gt; PL[(&quot;places&quot;)]
   BOTP[&quot;Բոտի /place (քայլ առ քայլ հարցեր)&quot;] --&gt; DR[(&quot;bot_place_drafts&quot;)] --&gt; SUB[(&quot;place_submissions&quot;)]
-  WEB[&quot;/places/new ձևը կայքում&lt;br/&gt;(նկարները սեղմվում են հեռախոսում ≤1920px)&quot;] --&gt; SUB
+  WEB[&quot;/places/new ձևը կայքում&lt;br/&gt;(նկարները բրաուզերում դառնում են WebP ≤1920px)&quot;] --&gt; SUB
   SUB --&gt; TEAM[&quot;Թիմի «Սրբավայրեր» թեման Telegram-ում&quot;]
   SUB --&gt; ADM[&quot;/admin/places. ընդունել / մերժել / խմբագրել&quot;]
   ADM --&gt; PL
   ADM --&gt; BL[(&quot;place_blocklist, place_rejected&quot;)]
+  ADM --&gt; WEBP[&quot;Ադմինի նկարները նույնպես WebP (app/utils/image-webp.ts).&lt;br/&gt;«Դարձնել WebP» կոճակը՝ հին JPEG/PNG-ները (intent=replace-photo)&quot;]
   ADM --&gt; VID[&quot;Տեսանյութ հեռախոսից → R2 places/ (≤95 ՄԲ)&quot;]
   PL --&gt; MAP[&quot;/places քարտեզ (MapLibre)&lt;br/&gt;Հայաստանի եզրագիծը, «Իմ դիրքը»&quot;]
   MAP --&gt; ONE[&quot;/places/:id. նկարներ, պատմություն,&lt;br/&gt;ինչպես հասնել, ով է ծառայում, ✓ հոգևորականի կողմից&quot;]

@@ -73,13 +73,13 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
       {/* Մեկ սյուն, որ ոչ մի մաս (քարտեզ, նկար) էջը չլայնացնի ու աջից պատին չկպցնի։ */}
       <article className="grid grid-cols-[minmax(0,1fr)] gap-4">
         {place.photos.length || video ? (
-          <div className={`-mx-1 flex snap-x snap-mandatory items-center gap-2.5 overflow-x-auto px-1 pb-1 ${place.photos.length + (video ? 1 : 0) === 1 ? "justify-center" : ""}`}>
+          <div className={`-mx-1 flex snap-x snap-mandatory items-center gap-2.5 overflow-x-auto overscroll-x-contain px-1 pb-1 [-webkit-overflow-scrolling:touch] ${place.photos.length + (video ? 1 : 0) === 1 ? "justify-center" : ""}`}>
             {place.photos.map((key, index) => (
-              // Each photo whole, in its own proportions (never cropped); a tap opens them one by one.
-              // Շրջանակը նկարից առաջ ունի իր չափը, որ նկարը բեռնվելիս էջը չցատկի։
+              // Ամբողջ նկարը (չկտրված), բայց շրջանակը ունի հաստատուն չափ. առաջ շրջանակի լայնությունը
+              // փոխվում էր նկարը բեռնվելիս, և snap-ը թերթելու ժամանակ ցատկում ու թռթռում էր։
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
-                className={`reveal-frame flex h-[min(62svh,480px)] min-w-[min(72%,300px)] shrink-0 cursor-zoom-in snap-center items-center justify-center overflow-hidden rounded-[18px] border-0 bg-subtle p-0 shadow-card ${place.photos.length === 1 ? "max-w-full" : "max-w-[88%]"}`}>
-                <img className="reveal-img block h-auto max-h-full w-auto max-w-full rounded-[18px]" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index === 0 ? "eager" : "lazy"} decoding="async" />
+                className={`reveal-frame flex h-[min(62svh,480px)] shrink-0 cursor-zoom-in snap-center items-center justify-center overflow-hidden rounded-[18px] border-0 bg-subtle p-0 shadow-card [contain:layout_paint] ${place.photos.length === 1 && !video ? "w-full max-w-[640px]" : "w-[min(84%,380px)]"}`}>
+                <img className="reveal-img block size-full object-contain" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} loading={index < 3 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
               </button>
             ))}
             {/* The uploaded video beside the photos, played in place. */}
