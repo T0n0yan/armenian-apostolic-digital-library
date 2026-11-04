@@ -4,15 +4,16 @@ import { HIGHLIGHTS_PER_USER, NOTE_MAX, type Highlight, type HighlightKind } fro
 type Row = {
   id: string; chat_id: string; message_id: number; kind: HighlightKind; quote: string; prefix: string; suffix: string;
   emoji: string; note: string; answer: string; answered_at: string | null; section: string; title: string; path: string; created_at: string;
+  verse: number | null;
 };
 
-const COLUMNS = "id, chat_id, message_id, kind, quote, prefix, suffix, emoji, note, answer, answered_at, section, title, path, created_at";
+const COLUMNS = "id, chat_id, message_id, kind, quote, prefix, suffix, emoji, note, answer, answered_at, section, title, path, created_at, verse";
 
 function toHighlight(row: Row): Highlight {
   return {
     id: row.id, materialId: createMaterialId(row.chat_id, row.message_id), kind: row.kind, quote: row.quote,
     prefix: row.prefix, suffix: row.suffix, emoji: row.emoji, note: row.note, answer: row.answer, answeredAt: row.answered_at,
-    section: row.section, title: row.title, path: row.path, createdAt: row.created_at,
+    section: row.section, title: row.title, path: row.path, createdAt: row.created_at, verse: row.verse ?? null,
   };
 }
 
@@ -44,21 +45,21 @@ export async function getHighlight(db: D1Database, userId: string, id: string) {
 
 export type NewHighlight = {
   chatId: string; messageId: number; kind: HighlightKind; quote: string; prefix: string; suffix: string;
-  emoji: string; note: string; section: string; title: string; path: string;
+  emoji: string; note: string; section: string; title: string; path: string; verse?: number | null;
 };
 
 /** Նոր նշում. null, եթե մարդն արդեն ունի առավելագույն թվով նշում։ Նույն տեղի կրկնակի նշումը չի կրկնվում։ */
 export async function createHighlight(db: D1Database, userId: string, item: NewHighlight, id = crypto.randomUUID()) {
-  const same = await db.prepare(`SELECT ${COLUMNS} FROM highlights WHERE user_id = ? AND chat_id = ? AND message_id = ? AND quote = ? AND prefix = ? LIMIT 1`)
-    .bind(userId, item.chatId, item.messageId, item.quote, item.prefix).first<Row>();
+  const same = await db.prepare(`SELECT ${COLUMNS} FROM highlights WHERE user_id = ? AND chat_id = ? AND message_id = ? AND quote = ? AND prefix = ? AND kind = ? LIMIT 1`)
+    .bind(userId, item.chatId, item.messageId, item.quote, item.prefix, item.kind).first<Row>();
   if (same) return toHighlight(same);
   const count = await db.prepare("SELECT COUNT(*) AS count FROM highlights WHERE user_id = ?").bind(userId).first<{ count: number }>();
   if ((count?.count ?? 0) >= HIGHLIGHTS_PER_USER) return null;
   await db.prepare(
-    `INSERT INTO highlights (id, user_id, chat_id, message_id, kind, quote, prefix, suffix, emoji, note, section, title, path)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO highlights (id, user_id, chat_id, message_id, kind, quote, prefix, suffix, emoji, note, section, title, path, verse)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(id, userId, item.chatId, item.messageId, item.kind, item.quote, item.prefix, item.suffix, item.emoji,
-    item.note.slice(0, NOTE_MAX), item.section.slice(0, 120), item.title.slice(0, 300), item.path.slice(0, 300)).run();
+    item.note.slice(0, NOTE_MAX), item.section.slice(0, 120), item.title.slice(0, 300), item.path.slice(0, 300), item.verse ?? null).run();
   return getHighlight(db, userId, id);
 }
 
@@ -83,4 +84,23 @@ export async function updateHighlight(db: D1Database, userId: string, id: string
 
 export async function deleteHighlight(db: D1Database, userId: string, id: string) {
   await db.prepare("DELETE FROM highlights WHERE user_id = ? AND id = ?").bind(userId, id).run();
+}
+
+/** Սաղմոսի այն համարները, որոնք մարդը նշել է (համարի պատուհանի «Նշված է»-ի համար)։ */
+export async function listMarkedVerses(db: D1Database, userId: string, chatId: string, messageId: number) {
+  const { results } = await db.prepare("SELECT DISTINCT verse FROM highlights WHERE user_id = ? AND chat_id = ? AND message_id = ? AND kind = 'mark' AND verse IS NOT NULL")
+    .bind(userId, chatId, messageId).all<{ verse: number }>();
+  return results.map((row) => row.verse);
+}
+
+/** Համարի պատուհանից. «Նշել» (ամբողջ համարը) կամ նշումը հանել։ */
+export async function setVerseMarked(db: D1Database, userId: string, item: Omit<NewHighlight, "kind" | "prefix" | "suffix" | "emoji" | "note"> & { verse: number }, marked: boolean) {
+  if (!marked) {
+    await db.prepare("DELETE FROM highlights WHERE user_id = ? AND chat_id = ? AND message_id = ? AND verse = ? AND kind = 'mark'").bind(userId, item.chatId, item.messageId, item.verse).run();
+    return null;
+  }
+  const existing = await db.prepare(`SELECT ${COLUMNS} FROM highlights WHERE user_id = ? AND chat_id = ? AND message_id = ? AND verse = ? AND kind = 'mark' LIMIT 1`)
+    .bind(userId, item.chatId, item.messageId, item.verse).first<Row>();
+  if (existing) return toHighlight(existing);
+  return createHighlight(db, userId, { ...item, kind: "mark", prefix: "", suffix: "", emoji: "", note: "" });
 }

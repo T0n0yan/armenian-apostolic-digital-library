@@ -743,6 +743,8 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 ::highlight(user-mark) { background-color: rgb(250 214 92 / 46%); }
 ::highlight(user-question) { background-color: rgb(120 170 235 / 30%); }
 ::highlight(user-flash) { background-color: rgb(226 194 126 / 70%); }
+/* Ընտրված, դեռ չպահված նախադասությունը (մեկ սեղմումով)։ */
+::highlight(user-pending) { background-color: rgb(217 181 111 / 26%); text-decoration-line: underline; text-decoration-color: rgb(176 125 46 / 90%); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 :root[data-theme="dark"] ::highlight(user-mark) { background-color: rgb(217 181 111 / 34%); }
 :root[data-theme="dark"] ::highlight(user-question) { background-color: rgb(120 165 230 / 30%); }
 @media (prefers-color-scheme: dark) {
