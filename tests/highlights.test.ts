@@ -107,3 +107,13 @@ test("migration 0048 moves saved psalm verses into notes", async () => {
   await setVerseMarked(db, "old", { chatId: "-1", messageId: 22, verse: 3, quote: "", section: "", title: "", path: "" }, false);
   assert.deepEqual(await listMarkedVerses(db, "old", "-1", 22), []);
 });
+
+test("last place: section of a path and «time ago» in Armenian", async () => {
+  const { sectionOfPath, timeAgo } = await import("../app/utils/last-place");
+  assert.equal(sectionOfPath("/psalms/25"), "psalms");
+  const now = Date.parse("2026-11-04T12:00:00Z");
+  assert.equal(timeAgo(now - 30_000, now), "հենց հիմա");
+  assert.equal(timeAgo(now - 5 * 60_000, now), "5 րոպե առաջ");
+  assert.equal(timeAgo(now - 3 * 3_600_000, now), "3 ժամ առաջ");
+  assert.equal(timeAgo(now - 26 * 3_600_000, now), "երեկ");
+});

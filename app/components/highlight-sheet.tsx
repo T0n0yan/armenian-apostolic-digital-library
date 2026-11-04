@@ -173,7 +173,7 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
 
       <div className="grid grid-cols-2 gap-2">
         <button className={chip} type="button" onClick={() => void send({ kind: question ? "mark" : "question" })}>
-          {question ? <><Highlighter aria-hidden="true" size={16} /> Դարձնել պարզ նշում</> : <><HelpCircle aria-hidden="true" size={16} /> Դարձնել հարց</>}
+          {question ? <><Highlighter aria-hidden="true" size={16} /> Տեղափոխել «Խոսքեր»</> : <><HelpCircle aria-hidden="true" size={16} /> Տեղափոխել «Հարցեր»</>}
         </button>
         <button className={chip} type="button" onClick={() => void copy()}><Copy aria-hidden="true" size={16} /> Պատճենել</button>
         {showOpen ? (

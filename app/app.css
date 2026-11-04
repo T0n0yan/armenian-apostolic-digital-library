@@ -490,6 +490,8 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
 .date-field::-webkit-date-and-time-value { text-align: left; }
 
 /* Bottom sheets: the dimmed page fades in and out with the sheet. */
+/* Բացված պատուհանի ետևը մի փոքր մշուշվում է, որ պարզ լինի՝ ինչ-որ բան է բացվել։ */
+.sheet-scrim { -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
 .sheet-scrim[data-phase="in"] { animation: sheet-scrim-in 240ms ease-out both; }
 .sheet-scrim[data-phase="out"] { animation: sheet-scrim-out 380ms ease-in both; }
 @keyframes sheet-scrim-in { from { opacity: 0; } to { opacity: 1; } }
@@ -753,11 +755,17 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 }
 .highlight-bar { animation: highlight-bar-in 200ms cubic-bezier(.2, .8, .2, 1); }
 @keyframes highlight-bar-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.highlight-pop { animation: highlight-pop 240ms cubic-bezier(.2, .9, .3, 1.15) both; }
-@keyframes highlight-pop { from { opacity: 0; transform: translateY(-6px) scale(.86); } to { opacity: 1; transform: none; } }
-.highlight-pop[data-side="above"] { animation-name: highlight-pop-up; }
-@keyframes highlight-pop-up { from { opacity: 0; transform: translateY(6px) scale(.86); } to { opacity: 1; transform: none; } }
+/* Պատուհանը «դուրս է գալիս» նախադասության վերջից (transform-origin՝ սլաքի կետը) և հետ է «մտնում» այնտեղ։ */
+.highlight-pop { animation: highlight-pop 380ms cubic-bezier(.18, .9, .28, 1.18) both; }
+@keyframes highlight-pop { 0% { opacity: 0; transform: scale(.12); filter: blur(3px); } 55% { opacity: 1; filter: none; } 100% { opacity: 1; transform: none; } }
+.highlight-pop-out { animation: highlight-pop-out 320ms cubic-bezier(.5, 0, .75, .3) both; }
+@keyframes highlight-pop-out { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(.1); filter: blur(2px); } }
 /* Պատուհանը փոքրանում է կլոր կոճակի՝ նախադասության վերջում։ */
 .highlight-dot { animation: highlight-dot-in 360ms cubic-bezier(.2, .9, .3, 1.3) both; }
 @keyframes highlight-dot-in { from { opacity: 0; transform: scale(.3); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .highlight-bar, .highlight-pop, .highlight-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .highlight-bar, .highlight-pop, .highlight-pop-out, .highlight-dot { animation: none; } }
+
+/* «Շարունակել» քարտը (components/continue-reading.tsx)՝ մեղմ հայտնվում է։ */
+.continue-card { animation: continue-in 520ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes continue-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .continue-card { animation: none; } }
