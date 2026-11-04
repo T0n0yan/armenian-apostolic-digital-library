@@ -8,6 +8,7 @@ import { MAP_PALETTES, mapStyle, type MapTheme } from "../utils/map-style";
 import { circleRing, directionLinks, PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
 import { useSignedIn } from "../utils/place-visits";
 import { SignInSheet } from "./sign-in-sheet";
+import { ShareButton } from "./share-button";
 
 export type MapPlace = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
@@ -46,6 +47,7 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
             <Navigation aria-hidden="true" size={13} /> {link.label.replace(" Maps", "")}
           </a>
         ))}
+        <ShareButton pageUrl={`/places/${place.id}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-[11px] border border-glass-border bg-subtle px-2.5 text-gold-bright" />
       </div>
     </div>
   );
