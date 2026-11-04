@@ -179,7 +179,7 @@ const CORNER_TABS: Array<{ id: CornerTab; label: string; icon: typeof Bookmark }
 const TAB_HINTS: Record<CornerTab, string> = {
   saved: "🔖 Ամբողջ նյութեր, որ պահել եք՝ նորից կարդալու համար։",
   reading: "📖 Ինչ և երբ եք կարդացել, Ձեր տարին և ամիսը։",
-  notes: "🖍 Տողեր նյութերի ներսից՝ Ձեր մտքերով և հարցերով։",
+  notes: "",
 };
 function isCornerTab(value: string | null): value is CornerTab {
   return value === "saved" || value === "reading" || value === "notes";
@@ -270,7 +270,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
           <CornerTabs tab={tab} onChoose={chooseTab} notes={"notes" in loaderData ? loaderData.notes.highlights : []} saved={loaderData.total} />
-          <p className="m-0 -mt-1 px-1 text-[12.5px] leading-snug text-faint">{TAB_HINTS[tab]}</p>
+          {TAB_HINTS[tab] ? <p className="m-0 -mt-1 px-1 text-[12.5px] leading-snug text-faint">{TAB_HINTS[tab]}</p> : null}
 
           {tab === "reading" ? (
             <>

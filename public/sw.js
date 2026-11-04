@@ -170,7 +170,7 @@ ${links ? `<nav class="kept" aria-labelledby="kept"><h2 id="kept">Կարդալ �
 </main><script>addEventListener("online",function(){location.reload()})</script></body></html>`;
 }
 
-const PRIVATE = /^\/(api\/(reminders|push|poll-vote|reading-log|share-prepare|psalm-timings)|auth\/|telegram\/|admin|saved)/u;
+const PRIVATE = /^\/(api\/(reminders|push|poll-vote|reading-log|share-prepare|psalm-timings|highlights|saved-verses|my-summary|sunday)|auth\/|telegram\/|admin|saved|notes)/u;
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
