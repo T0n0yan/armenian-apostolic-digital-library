@@ -11,7 +11,7 @@ const SHOWN_KEY = "church-nudge-day";
 const RADIUS_KM = 1;
 const SHOW_MS = 5000;
 
-/** Միացվա՞ծ է այս սարքում «Հուշել, երբ մոտ եմ եկեղեցուն» (`/notes`-ի «Հարցեր» ներդիրից)։ */
+/** Միացվա՞ծ է այս սարքում «Հուշել, երբ մոտ եմ եկեղեցուն» («Իմ նշումները» → «Հարցեր»)։ */
 export function churchNudgeEnabled() {
   try { return localStorage.getItem(ENABLED_KEY) === "on"; } catch { return false; }
 }
@@ -66,7 +66,7 @@ export function ChurchNudge() {
   if (!nudge || typeof document === "undefined") return null;
   return createPortal(
     <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2060] flex justify-center px-3" role="status">
-      <Link to="/notes?tab=questions" onClick={() => setPhase("out")} data-phase={phase}
+      <Link to="/saved?tab=notes&kind=questions" onClick={() => setPhase("out")} data-phase={phase}
         className="install-toast pointer-events-auto grid w-full max-w-[420px] gap-0.5 rounded-[18px] border border-[rgb(120_165_230/45%)] bg-[var(--page-bg)] px-4 py-3 text-ink no-underline shadow-[0_18px_44px_rgb(40_20_10/26%)]">
         <strong className="text-[14px]">❓ Դուք ունեք {nudge.questions === 1 ? "հարց" : `${nudge.questions} հարց`}</strong>
         <span className="text-[13px] leading-snug text-muted">⛪ Մոտակայքում՝ {nudge.church} ({formatDistance(nudge.km)})։ Կարող եք հարցնել հոգևորականին։</span>

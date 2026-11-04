@@ -84,7 +84,7 @@ export async function personalSummary(db: D1Database, userId: string, period: st
     db.prepare("SELECT DISTINCT day FROM reading_log WHERE user_id = ? AND day BETWEEN ? AND ?").bind(...between).all<{ day: string }>(),
     db.prepare("SELECT COUNT(*) AS count FROM place_visits WHERE user_id = ? AND substr(visited_at, 1, 10) BETWEEN ? AND ?").bind(...between).first<{ count: number }>(),
     db.prepare("SELECT COUNT(*) AS count FROM saved_materials WHERE user_id = ? AND substr(saved_at, 1, 10) BETWEEN ? AND ?").bind(...between).first<{ count: number }>(),
-    db.prepare("SELECT COUNT(*) AS count FROM saved_verses WHERE user_id = ? AND substr(saved_at, 1, 10) BETWEEN ? AND ?").bind(...between).first<{ count: number }>().catch(() => ({ count: 0 })),
+    db.prepare("SELECT COUNT(*) AS count FROM highlights WHERE user_id = ? AND substr(created_at, 1, 10) BETWEEN ? AND ?").bind(...between).first<{ count: number }>().catch(() => ({ count: 0 })),
   ]);
   const byKind = new Map(reading.results.map((row) => [row.kind, row.count]));
   const summary: PersonalSummary = {

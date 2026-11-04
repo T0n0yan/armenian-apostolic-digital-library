@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, ChevronDown, ChevronRight, NotebookPen, Search, X } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { BookOpenCheck, Bookmark, ChevronDown, Highlighter, Search } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo } from "react";
+import { Link, useSearchParams } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -31,7 +31,9 @@ import {
   type SavedMaterialGroup,
 } from "../data/saved-materials.server";
 import { getCloudLibraryPost } from "../data/cloud-library.server";
-import { listSavedVerses, type SavedVerse } from "../data/saved-verses.server";
+import { listHighlights } from "../data/highlights.server";
+import type { Highlight } from "../utils/highlights";
+import { NotesPanel } from "../components/notes-panel";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { RouteErrorPage } from "../components/error-page";
@@ -59,12 +61,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
-  const [readingLog, joinedAt, verses, notes] = await Promise.all([
+  const [readingLog, joinedAt, notes] = await Promise.all([
     readingDays(env.DB, user.id).catch(() => ({} as Record<string, number>)),
     env.DB.prepare("SELECT created_at FROM app_users WHERE id = ?").bind(user.id).first<{ created_at: string }>().then((row) => row?.created_at ?? null).catch(() => null),
-    query ? Promise.resolve([] as SavedVerse[]) : listSavedVerses(env.DB, user.id).catch(() => [] as SavedVerse[]),
-    env.DB.prepare("SELECT COUNT(*) AS total, COALESCE(SUM(kind = 'question' AND answered_at IS NULL), 0) AS questions FROM highlights WHERE user_id = ?")
-      .bind(user.id).first<{ total: number; questions: number }>().catch(() => null),
+    listHighlights(env.DB, user.id).then((highlights) => ({ highlights, failed: false })).catch(() => ({ highlights: [] as Highlight[], failed: true })),
   ]);
   try {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
@@ -85,8 +85,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     signInFailed,
     readingLog,
     joinedAt,
-    verses,
-    notes: { total: notes?.total ?? 0, questions: notes?.questions ?? 0 },
+    notes,
   };
 }
 
@@ -170,52 +169,54 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   );
 });
 
-/** Verses saved from a psalm's verse popup; each opens its own page. */
-function SavedVerses({ verses }: { verses: SavedVerse[] }) {
-  const [removed, setRemoved] = useState<Set<string>>(() => new Set());
-  const shown = verses.filter((verse) => !removed.has(verse.path));
-  if (shown.length === 0) return null;
-  const remove = async (verse: SavedVerse) => {
-    setRemoved((current) => new Set(current).add(verse.path));
-    const response = await fetch("/api/saved-verses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId: verse.materialId, verse: verse.verse, saved: false }) }).catch(() => null);
-    if (!response?.ok) setRemoved((current) => { const next = new Set(current); next.delete(verse.path); return next; });
-  };
-  return (
-    <>
-      <div className={sectionHeader}>
-        <h2 className={sectionTitle}>Պահված համարներ</h2>
-        <span className={countBadge}>{shown.length}</span>
-      </div>
-      <ol className="m-0 grid list-none gap-2 p-0">
-        {shown.map((verse) => (
-          <li className="relative frosted-panel animate-glass-enter" key={verse.path}>
-            <Link className="grid gap-1 px-4 py-3 pr-11 text-ink no-underline" to={verse.path}>
-              <strong className="text-[12px] text-gold-bright">{verse.label}</strong>
-              <span className="prayer-text line-clamp-3 text-[14.5px] leading-[1.6]">«{verse.text}»</span>
-            </Link>
-            <button className="absolute top-2 right-2 grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={() => remove(verse)} aria-label={`Հանել ${verse.label}-ը`} title="Հանել"><X aria-hidden="true" size={16} /></button>
-          </li>
-        ))}
-      </ol>
-    </>
-  );
+type CornerTab = "saved" | "reading" | "notes";
+const TAB_KEY = "corner-tab";
+const CORNER_TABS: Array<{ id: CornerTab; label: string; icon: typeof Bookmark }> = [
+  { id: "saved", label: "Պահված նյութեր", icon: Bookmark },
+  { id: "reading", label: "Իմ ընթերցանությունը", icon: BookOpenCheck },
+  { id: "notes", label: "Իմ նշումները", icon: Highlighter },
+];
+const TAB_HINTS: Record<CornerTab, string> = {
+  saved: "🔖 Ամբողջ նյութեր, որ պահել եք՝ նորից կարդալու համար։",
+  reading: "📖 Ինչ և երբ եք կարդացել, Ձեր տարին և ամիսը։",
+  notes: "🖍 Տողեր նյութերի ներսից՝ Ձեր մտքերով և հարցերով։",
+};
+function isCornerTab(value: string | null): value is CornerTab {
+  return value === "saved" || value === "reading" || value === "notes";
 }
 
-/** «Իմ նշումները»՝ պահված խոսքեր, հարցեր, նոթեր (/notes)։ */
-function NotesLink({ total, questions }: { total: number; questions: number }) {
+/** «Իմ անկյունը»-ի 3 ներդիրը. նշումների վրա՝ նաև պատասխանի սպասող հարցերի թիվը։ */
+function CornerTabs({ tab, onChoose, notes, saved }: { tab: CornerTab; onChoose: (tab: CornerTab) => void; notes: Highlight[]; saved: number }) {
+  const questions = notes.filter((item) => item.kind === "question" && !item.answeredAt).length;
+  const count: Record<CornerTab, string> = { saved: saved ? String(saved) : "", reading: "", notes: notes.length ? String(notes.length) : "" };
   return (
-    <Link className="frosted-panel flex items-center gap-3 px-4 py-3 text-ink no-underline animate-glass-enter" to="/notes">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/40%)] bg-[rgb(250_214_92/16%)] text-gold-bright"><NotebookPen aria-hidden="true" size={19} /></span>
-      <span className="grid min-w-0 flex-1 gap-0.5">
-        <strong className="text-[15px]">Իմ նշումները</strong>
-        <span className="text-[12.5px] leading-snug text-muted">{total ? `${total} նշում${questions ? ` · ❓ ${questions} հարց սպասում է պատասխանի` : ""}` : "Պահեք Ձեզ դուր եկած տողերը, հարցերը և Ձեր նոթերը"}</span>
-      </span>
-      <ChevronRight aria-hidden="true" size={18} className="text-muted" />
-    </Link>
+    <div className="grid grid-cols-3 gap-1 rounded-[18px] border border-glass-border bg-subtle p-1" role="tablist" aria-label="Իմ անկյունը">
+      {CORNER_TABS.map(({ id, label, icon: Icon }) => (
+        <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => onChoose(id)}
+          className={`relative grid min-h-[58px] cursor-pointer justify-items-center gap-0.5 rounded-[14px] border-0 px-1 py-1.5 text-[12px] leading-tight font-semibold ${tab === id ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`}>
+          <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
+          <span>{label}{count[id] ? <span className="ml-1 tabular-nums opacity-70">{count[id]}</span> : null}</span>
+          {id === "notes" && questions ? <span className="absolute top-1 right-1.5 rounded-full bg-[rgb(120_165_230/22%)] px-1.5 text-[10.5px] font-bold text-[rgb(70_120_200)]">❓ {questions}</span> : null}
+        </button>
+      ))}
+    </div>
   );
 }
 
 export default function Saved({ loaderData }: Route.ComponentProps) {
+  const [params, setParams] = useSearchParams();
+  const tab: CornerTab = loaderData.query ? "saved" : isCornerTab(params.get("tab")) ? params.get("tab") as CornerTab : "saved";
+  const chooseTab = useCallback((next: CornerTab) => {
+    try { localStorage.setItem(TAB_KEY, next); } catch { /* պահեստը փակ է */ }
+    setParams(next === "saved" ? {} : { tab: next }, { replace: true, preventScrollReset: true });
+  }, [setParams]);
+  // Վերջին բացած ներդիրը՝ եթե հասցեում ներդիր չկա։
+  useEffect(() => {
+    if (params.get("tab") || loaderData.query) return;
+    let last: string | null = null;
+    try { last = localStorage.getItem(TAB_KEY); } catch { /* պահեստը փակ է */ }
+    if (isCornerTab(last) && last !== "saved") setParams({ tab: last }, { replace: true, preventScrollReset: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <PageShell>
       <SiteNav />
@@ -228,7 +229,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         searchAction="/saved"
         searchLabel="Փնտրել իմ պահած նյութերում"
         searchPlaceholder="Փնտրել իմ պահած նյութերում…"
-        showSearch={Boolean(loaderData.user)}
+        showSearch={Boolean(loaderData.user) && tab === "saved"}
       />
 
       {loaderData.errorKind ? (
@@ -268,12 +269,18 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         </section>
       ) : (
         <section className="grid gap-3" aria-labelledby="saved-title">
-          {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
-          <MyYearLinks />
-          {"notes" in loaderData && loaderData.notes && !loaderData.query ? <NotesLink total={loaderData.notes.total} questions={loaderData.notes.questions} /> : null}
+          <CornerTabs tab={tab} onChoose={chooseTab} notes={"notes" in loaderData ? loaderData.notes.highlights : []} saved={loaderData.total} />
+          <p className="m-0 -mt-1 px-1 text-[12.5px] leading-snug text-faint">{TAB_HINTS[tab]}</p>
 
-          {"verses" in loaderData && loaderData.verses ? <SavedVerses verses={loaderData.verses} /> : null}
-
+          {tab === "reading" ? (
+            <>
+              {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
+              <MyYearLinks />
+            </>
+          ) : tab === "notes" ? (
+            <NotesPanel highlights={"notes" in loaderData ? loaderData.notes.highlights : []} failed={"notes" in loaderData ? loaderData.notes.failed : false} />
+          ) : (
+          <>
           <div className={sectionHeader}>
             <h2 className={sectionTitle} id="saved-title">
               {loaderData.query ? "Գտնված նյութեր" : "Պահված նյութեր"}
@@ -309,6 +316,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
                 />
               ))}
             </div>
+          )}
+          </>
           )}
           {loaderData.user?.source === "google" ? (
             // Joining moves this account's saved items to the Telegram account, so the Mini App shows them too.
