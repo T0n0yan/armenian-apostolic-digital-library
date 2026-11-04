@@ -21,6 +21,7 @@ type Psalm = { verse: number; audio: boolean; path: string | null } | null;
 type Place = { top: number; left: number; width: number; arrow: number; above: boolean; dotTop: number; dotLeft: number };
 /** Բացված պատուհանը 1 վայրկյան հետո փոքրանում է կլոր կոճակի՝ նախադասության վերջում։ */
 const COLLAPSE_MS = 1000;
+const CLOSE_MS = 320;
 const DOT = 38;
 const PENDING_KEY = "pending-highlight";
 const HINT_KEY = "highlight-hint";
@@ -94,6 +95,7 @@ export function HighlightLayer() {
   const [psalm, setPsalm] = useState<Psalm>(null);
   const [place, setPlace] = useState<Place | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [closing, setClosing] = useState(false);
   const collapseTimer = useRef<number | undefined>(undefined);
   const [open, setOpen] = useState<Highlight | null>(null);
   const [askSignIn, setAskSignIn] = useState(false);
@@ -113,16 +115,22 @@ export function HighlightLayer() {
 
   const clearSpans = useCallback(() => {
     window.clearTimeout(collapseTimer.current);
-    setSpans([]); setFocus(null); setPsalm(null); setExpanded(false);
+    setSpans([]); setFocus(null); setPsalm(null); setExpanded(false); setClosing(false);
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) selection.removeAllRanges();
   }, []);
 
+  // Պատուհանը սահուն փոքրանում է դեպի նախադասության վերջը, հետո այնտեղ «ծնվում» է կլոր կոճակը։
+  const collapse = useCallback(() => {
+    setClosing(true);
+    collapseTimer.current = window.setTimeout(() => { setExpanded(false); setClosing(false); }, CLOSE_MS);
+  }, []);
   const openBriefly = useCallback(() => {
     window.clearTimeout(collapseTimer.current);
+    setClosing(false);
     setExpanded(true);
-    collapseTimer.current = window.setTimeout(() => setExpanded(false), COLLAPSE_MS);
-  }, []);
+    collapseTimer.current = window.setTimeout(collapse, COLLAPSE_MS);
+  }, [collapse]);
   useEffect(() => () => window.clearTimeout(collapseTimer.current), []);
 
   // Էջը փոխելիս (նույնիսկ նույն նյութի մեջ)՝ ընտրվածը չեղարկվում է։
@@ -301,7 +309,7 @@ export function HighlightLayer() {
         setFocus(added ? sentence : next[next.length - 1] ?? null);
         setPsalm(added ? psalmAt(caret.node) : next.length ? psalm : null);
         // Առաջին անգամ պատուհանը մի պահ բաց է, հետո դառնում է կլոր կոճակ. հաջորդ նշումները այն չեն բացում։
-        if (first) openBriefly(); else { window.clearTimeout(collapseTimer.current); setExpanded(false); }
+        if (first) openBriefly(); else { window.clearTimeout(collapseTimer.current); setExpanded(false); setClosing(false); }
       });
     };
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && spansRef.current.length) clearSpans(); };
@@ -335,7 +343,9 @@ export function HighlightLayer() {
     const list = sources();
     if (!list.length || !materialId || busy) return;
     if (!signedIn) {
+      // Մուտքը առաջնային է. նշելու պատուհանը փակվում է, ընտրվածը պահվում է մուտքից հետո։
       writePending({ materialId, kind, sources: list });
+      clearSpans();
       setAskSignIn(true);
       return;
     }
@@ -389,8 +399,8 @@ export function HighlightLayer() {
   if (typeof document === "undefined") return null;
   return (
     <>
-      {spans.length && place && !open && !expanded ? createPortal(
-        <button type="button" data-highlight-bar onClick={() => { window.clearTimeout(collapseTimer.current); setExpanded(true); }}
+      {spans.length && place && !open && !askSignIn && !expanded ? createPortal(
+        <button type="button" data-highlight-bar onClick={() => { window.clearTimeout(collapseTimer.current); setClosing(false); setExpanded(true); }}
           className="highlight-dot absolute z-[2040] grid cursor-pointer place-items-center rounded-full border border-[rgb(217_181_111/70%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] p-0 text-[#2a1708] shadow-[0_8px_22px_rgb(120_80_20/35%)]"
           style={{ top: place.dotTop, left: place.dotLeft, width: DOT, height: DOT }} aria-label={`Ընտրված է ${spans.length} նախադասություն. բացել՝ պահելու համար`}>
           <Highlighter aria-hidden="true" size={18} strokeWidth={2} />
@@ -399,9 +409,9 @@ export function HighlightLayer() {
         document.body,
       ) : null}
 
-      {spans.length && place && !open && expanded ? createPortal(
+      {spans.length && place && !open && !askSignIn && expanded ? createPortal(
         <div className="absolute z-[2040]" style={{ top: place.top, left: place.left, width: place.width, transform: place.above ? "translateY(-100%)" : undefined }} data-highlight-bar>
-          <div className="highlight-pop relative" data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
+          <div className={`${closing ? "highlight-pop-out" : "highlight-pop"} relative`} data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
             <span className="absolute size-3.5 rotate-45 border-[rgb(217_181_111/55%)] bg-[var(--page-bg)]" aria-hidden="true"
               style={{ left: place.arrow - 7, ...(place.above ? { bottom: -7, borderRightWidth: 1, borderBottomWidth: 1 } : { top: -7, borderLeftWidth: 1, borderTopWidth: 1 }) }} />
             <div className="relative grid gap-1.5 rounded-[18px] border border-[rgb(217_181_111/55%)] bg-[var(--page-bg)] p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
@@ -409,7 +419,6 @@ export function HighlightLayer() {
               {tooLong ? <p className="m-0 px-1 text-center text-[11.5px] text-muted">Շատ երկար է. ընտրեք ավելի կարճ (մինչև {QUOTE_MAX} նշան)։</p> : null}
               <div className="flex items-center gap-1">
                 <button className={`${main} bg-[rgb(250_214_92/34%)]`} type="button" disabled={tooLong || busy} onClick={() => void save("mark")}><Highlighter aria-hidden="true" size={17} /> Պահել</button>
-                <button className={`${main} bg-[rgb(120_165_230/22%)]`} type="button" disabled={tooLong || busy} onClick={() => void save("question")}><HelpCircle aria-hidden="true" size={17} /> Հարց</button>
                 <button className={icon} type="button" onClick={() => void copy()} aria-label="Պատճենել" title="Պատճենել"><Copy aria-hidden="true" size={17} /></button>
                 {single && psalm?.path ? <button className={icon} type="button" onClick={() => void share()} aria-label="Կիսվել համարով" title="Կիսվել"><Share2 aria-hidden="true" size={17} /></button> : null}
                 {single && psalm?.audio ? <button className={`${icon} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={listen} aria-label="Լսել այստեղից" title="Լսել այստեղից"><Play aria-hidden="true" size={17} /></button> : null}
