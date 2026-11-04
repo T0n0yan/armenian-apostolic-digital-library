@@ -18,7 +18,10 @@ type Painted = { item: Highlight; range: Range };
 type Pending = { materialId: string; kind: HighlightKind; sources: Source[] };
 /** Սաղմոսի տողի հնարավորությունները (համարը, ձայնը, համարի էջը)։ */
 type Psalm = { verse: number; audio: boolean; path: string | null } | null;
-type Place = { top: number; left: number; width: number; arrow: number; above: boolean };
+type Place = { top: number; left: number; width: number; arrow: number; above: boolean; dotTop: number; dotLeft: number };
+/** Բացված պատուհանը 1 վայրկյան հետո փոքրանում է կլոր կոճակի՝ նախադասության վերջում։ */
+const COLLAPSE_MS = 1000;
+const DOT = 38;
 const PENDING_KEY = "pending-highlight";
 const HINT_KEY = "highlight-hint";
 const POPUP_WIDTH = 360;
@@ -64,6 +67,9 @@ function placeAt(range: Range): Place | null {
     top: window.scrollY + (above ? last.top - 12 : last.bottom + 12),
     left: left + window.scrollX, width, above,
     arrow: Math.min(Math.max(point - left, 22), width - 22),
+    // Կլոր կոճակը՝ նախադասության վերջին տառից աջ, տողի մեջտեղում։
+    dotTop: window.scrollY + last.top + last.height / 2 - DOT / 2,
+    dotLeft: window.scrollX + Math.min(last.right + 6, window.innerWidth - DOT - 8),
   };
 }
 
@@ -87,6 +93,8 @@ export function HighlightLayer() {
   const [focus, setFocus] = useState<Span | null>(null);
   const [psalm, setPsalm] = useState<Psalm>(null);
   const [place, setPlace] = useState<Place | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const collapseTimer = useRef<number | undefined>(undefined);
   const [open, setOpen] = useState<Highlight | null>(null);
   const [askSignIn, setAskSignIn] = useState(false);
   const [toast, setToast] = useState<{ text: string; item?: Highlight } | null>(null);
@@ -104,10 +112,21 @@ export function HighlightLayer() {
   }, []);
 
   const clearSpans = useCallback(() => {
-    setSpans([]); setFocus(null); setPsalm(null);
+    window.clearTimeout(collapseTimer.current);
+    setSpans([]); setFocus(null); setPsalm(null); setExpanded(false);
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) selection.removeAllRanges();
   }, []);
+
+  const openBriefly = useCallback(() => {
+    window.clearTimeout(collapseTimer.current);
+    setExpanded(true);
+    collapseTimer.current = window.setTimeout(() => setExpanded(false), COLLAPSE_MS);
+  }, []);
+  useEffect(() => () => window.clearTimeout(collapseTimer.current), []);
+
+  // Էջը փոխելիս (նույնիսկ նույն նյութի մեջ)՝ ընտրվածը չեղարկվում է։
+  useEffect(() => { clearSpans(); }, [location.key, clearSpans]);
 
   // Ո՞ր նյութի էջում ենք (article[data-highlight-material])։
   useEffect(() => {
@@ -236,12 +255,14 @@ export function HighlightLayer() {
       const anchor = anchorFor(map.text, start, end);
       if (anchor.quote.length < 2) return;
       const span = { start: anchor.start, end: anchor.end };
+      const first = !spansRef.current.length;
       setSpans([span]); setFocus(span); setPsalm(psalmAt(range.startContainer));
+      if (first) openBriefly();
     };
     const onChange = () => { window.clearTimeout(timer); timer = window.setTimeout(read, 150); };
     document.addEventListener("selectionchange", onChange);
     return () => { document.removeEventListener("selectionchange", onChange); window.clearTimeout(timer); };
-  }, [materialId]);
+  }, [materialId, openBriefly]);
 
   // Սեղմում տեքստի վրա։
   useEffect(() => {
@@ -274,10 +295,13 @@ export function HighlightLayer() {
       const added = next.length > spansRef.current.length;
       lastTap.current = Date.now();
       // Էջը փոխվում է հենց սեղմման պահին. այդ դեպքում Chrome-ը չի բացում իր «Touch to Search»-ը։
+      const first = !spansRef.current.length;
       flushSync(() => {
         setSpans(next);
         setFocus(added ? sentence : next[next.length - 1] ?? null);
         setPsalm(added ? psalmAt(caret.node) : next.length ? psalm : null);
+        // Առաջին անգամ պատուհանը մի պահ բաց է, հետո դառնում է կլոր կոճակ. հաջորդ նշումները այն չեն բացում։
+        if (first) openBriefly(); else { window.clearTimeout(collapseTimer.current); setExpanded(false); }
       });
     };
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && spansRef.current.length) clearSpans(); };
@@ -295,7 +319,7 @@ export function HighlightLayer() {
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("highlight-open-at", onOpenAt);
     };
-  }, [materialId, clearSpans, psalm]);
+  }, [materialId, clearSpans, openBriefly, psalm]);
 
   /** Ընտրվածների տեքստը. իրար կպածները՝ մեկ կտոր։ */
   const sources = (): Source[] => {
@@ -365,7 +389,17 @@ export function HighlightLayer() {
   if (typeof document === "undefined") return null;
   return (
     <>
-      {spans.length && place && !open ? createPortal(
+      {spans.length && place && !open && !expanded ? createPortal(
+        <button type="button" data-highlight-bar onClick={() => { window.clearTimeout(collapseTimer.current); setExpanded(true); }}
+          className="highlight-dot absolute z-[2040] grid cursor-pointer place-items-center rounded-full border border-[rgb(217_181_111/70%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] p-0 text-[#2a1708] shadow-[0_8px_22px_rgb(120_80_20/35%)]"
+          style={{ top: place.dotTop, left: place.dotLeft, width: DOT, height: DOT }} aria-label={`Ընտրված է ${spans.length} նախադասություն. բացել՝ պահելու համար`}>
+          <Highlighter aria-hidden="true" size={18} strokeWidth={2} />
+          {spans.length > 1 ? <span className="absolute -top-1.5 -right-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[var(--page-bg)] px-1 text-[11px] font-bold text-gold-bright shadow-card">{spans.length}</span> : null}
+        </button>,
+        document.body,
+      ) : null}
+
+      {spans.length && place && !open && expanded ? createPortal(
         <div className="absolute z-[2040]" style={{ top: place.top, left: place.left, width: place.width, transform: place.above ? "translateY(-100%)" : undefined }} data-highlight-bar>
           <div className="highlight-pop relative" data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
             <span className="absolute size-3.5 rotate-45 border-[rgb(217_181_111/55%)] bg-[var(--page-bg)]" aria-hidden="true"
