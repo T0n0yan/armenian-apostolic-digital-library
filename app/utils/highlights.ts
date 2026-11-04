@@ -99,33 +99,46 @@ export function highlightCopyText(item: Pick<Highlight, "quote" | "title" | "pat
   return `«${item.quote.replace(/\s*\n\s*/g, " ").trim()}»\n— ${item.title}\n${origin}${item.path}`;
 }
 
-/** Նախադասության վերջը. «։», «:», «.», «!», «?», «…» կամ նոր տող («՞»-ն բառի մեջ է, վերջ չէ)։ */
-const SENTENCE_END = /[։:.!?…\n]/u;
+/**
+ * Նախադասության վերջը. վերջակետ «։» (և նրա տեղը դրվող «:»), «!», «?», «…» կամ «\u2029»՝ վերնագրի,
+ * սաղմոսի վերնագրի և առանձին տեքստերի սահմանը (`buildTextMap`)։ Միջակետը «.» և «՞»-ն վերջ չեն,
+ * պարզ նոր տողն էլ չէ (սաղմոսի համարը կարող է երկու տող լինել)։
+ */
+const SENTENCE_END = /[։:!?…\u2029]/u;
 
-/** Այն նախադասությունը, որի վրա սեղմել են (դիրք տեքստում) → { start, end }՝ վերջակետով։ */
+/** Այն նախադասությունը, որի վրա սեղմել են (դիրք տեքստում) → { start, end }՝ վերջակետով, առանց համարի։ */
 export function sentenceAt(text: string, offset: number) {
   if (offset < 0 || offset > text.length) return null;
   let start = offset;
   while (start > 0 && !SENTENCE_END.test(text[start - 1])) start -= 1;
   let end = offset;
   while (end < text.length && !SENTENCE_END.test(text[end])) end += 1;
-  // Վերջակետը (և նրան կպած փակագիծ/չակերտ) նախադասության մասն է, նոր տողը՝ ոչ։
-  while (end < text.length && text[end] !== "\n" && /[։:.!?…»"')\]]/u.test(text[end])) end += 1;
-  while (start < end && /\s/.test(text[start])) start += 1;
+  // Վերջակետը (և նրան կպած փակագիծ/չակերտ) նախադասության մասն է։
+  while (end < text.length && /[։:!?…»"')\]]/u.test(text[end])) end += 1;
+  while (start < end && /[\s»"')\]]/u.test(text[start])) start += 1;
+  // Սաղմոսի համարը («3 », «3. ») տողի մաս չէ։
+  const number = /^\d{1,3}[.)]?\s+/u.exec(text.slice(start, end));
+  if (number) start += number[0].length;
   while (end > start && /\s/.test(text[end - 1])) end -= 1;
   return end - start >= 2 ? { start, end } : null;
 }
 
-/** Ընտրված տիրույթին ավելացնում է նախադասությունը. հարևանը միանում է, ներսինը՝ հանվում է, հեռուն փոխարինում է։ */
-export function extendSelection(current: { start: number; end: number } | null, sentence: { start: number; end: number }, text: string) {
-  if (!current) return sentence;
-  if (sentence.start >= current.start && sentence.end <= current.end) {
-    if (sentence.start === current.start && sentence.end === current.end) return null;
-    if (sentence.start === current.start) return anchorFor(text, sentence.end, current.end);
-    if (sentence.end === current.end) return anchorFor(text, current.start, sentence.start);
-    return null;
+export type Span = { start: number; end: number };
+
+/** Ընտրված նախադասությունների ցանկում. նորը ավելանում է, արդեն ընտրվածը՝ հանվում (ցանկացած տեղից, ցանկացած հերթով)։ */
+export function toggleSentence(spans: Span[], sentence: Span) {
+  const inside = spans.findIndex((span) => sentence.start < span.end && sentence.end > span.start);
+  if (inside >= 0) return spans.filter((_, index) => index !== inside);
+  return [...spans, sentence].sort((a, b) => a.start - b.start);
+}
+
+/** Պահելիս՝ իրար կպած նախադասությունները դառնում են մեկ նշում, մնացածը՝ առանձին։ */
+export function mergeSpans(spans: Span[], text: string) {
+  const merged: Span[] = [];
+  for (const span of [...spans].sort((a, b) => a.start - b.start)) {
+    const last = merged[merged.length - 1];
+    if (last && /^[\s\d.։:!?…,;«»"'()-]*$/u.test(text.slice(last.end, span.start)) && !text.slice(last.end, span.start).includes("\u2029")) last.end = Math.max(last.end, span.end);
+    else merged.push({ ...span });
   }
-  const gap = sentence.start >= current.end ? text.slice(current.end, sentence.start) : sentence.end <= current.start ? text.slice(sentence.end, current.start) : "";
-  if (/^[\s։:.!?…,;«»"'()-]*$/u.test(gap)) return { start: Math.min(current.start, sentence.start), end: Math.max(current.end, sentence.end) };
-  return sentence;
+  return merged;
 }

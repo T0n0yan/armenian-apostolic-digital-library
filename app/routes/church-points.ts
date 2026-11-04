@@ -10,7 +10,7 @@ import { listPublicPlaceSummaries } from "../data/places.server";
 export async function loader(_: Route.LoaderArgs) {
   const places = await listPublicPlaceSummaries(env.DB);
   return Response.json(
-    { places: places.map((place) => ({ id: place.id, name: place.name, latitude: place.latitude, longitude: place.longitude })) },
+    { places: places.map((place) => ({ id: place.id, name: place.name, latitude: place.latitude, longitude: place.longitude, cover: place.cover ?? place.icon ?? null })) },
     { headers: { "cache-control": "public, max-age=3600" } },
   );
 }

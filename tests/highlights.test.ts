@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { anchorFor, cleanEmoji, extendSelection, findQuote, highlightCopyText, sentenceAt } from "../app/utils/highlights";
+import { anchorFor, cleanEmoji, findQuote, highlightCopyText, mergeSpans, sentenceAt, toggleSentence } from "../app/utils/highlights";
 import { createHighlight, deleteHighlight, listHighlights, listMarkedVerses, listMaterialHighlights, openQuestionCount, setVerseMarked, updateHighlight } from "../app/data/highlights.server";
 
 function database() {
@@ -81,19 +81,18 @@ test("findQuote matches across line breaks (a psalm verse saved as one line)", (
   assert.deepEqual(found, { start: 3, end: text.indexOf(" ասում") });
 });
 
-test("sentenceAt: a tap selects its sentence; «՞» does not end it", () => {
-  const text = "Տէր, ողորմեա։ Ինչո՞ւ ես հեռու կանգնած, Տէր։ Ամէն";
-  const tap = text.indexOf("հեռու");
-  const sentence = sentenceAt(text, tap);
-  assert.ok(sentence);
-  assert.equal(text.slice(sentence.start, sentence.end), "Ինչո՞ւ ես հեռու կանգնած, Տէր։");
-  const first = sentenceAt(text, 2)!;
-  const joined = extendSelection(first, sentence, text)!;
-  assert.equal(text.slice(joined.start, joined.end), "Տէր, ողորմեա։ Ինչո՞ւ ես հեռու կանգնած, Տէր։");
-  // Նորից սեղմելը եզրի նախադասությունը հանում է, միակը՝ մաքրում։
-  const shrunk = extendSelection(joined, sentence, text)!;
-  assert.equal(text.slice(shrunk.start, shrunk.end), "Տէր, ողորմեա։");
-  assert.equal(extendSelection(first, first, text), null);
+test("sentenceAt: from «։» to «։»; «.» and «՞» do not end it, a verse number is left out", () => {
+  const text = "\u20292 Տէր, ինչո՞ւ բազմացան ինձ հալածողները, եւ\nշատերը ելան իմ դէմ։\n3 Ես ննջեցի ու քուն մտայ. զարթնեցի, եւ Տէրն իմ ապաւէնն է։";
+  const first = sentenceAt(text, text.indexOf("հալածողները"))!;
+  assert.equal(text.slice(first.start, first.end), "Տէր, ինչո՞ւ բազմացան ինձ հալածողները, եւ\nշատերը ելան իմ դէմ։");
+  const second = sentenceAt(text, text.indexOf("զարթնեցի"))!;
+  assert.equal(text.slice(second.start, second.end), "Ես ննջեցի ու քուն մտայ. զարթնեցի, եւ Տէրն իմ ապաւէնն է։");
+  // Ցանկացած տեղից և հերթով. նորից սեղմելը հանում է։
+  let spans = toggleSentence([], second);
+  spans = toggleSentence(spans, first);
+  assert.deepEqual(spans, [first, second]);
+  assert.equal(mergeSpans(spans, text).length, 1);
+  assert.deepEqual(toggleSentence(spans, second), [first]);
 });
 
 test("migration 0048 moves saved psalm verses into notes", async () => {

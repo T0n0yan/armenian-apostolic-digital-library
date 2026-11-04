@@ -20,9 +20,16 @@ export function readingBodies(root: Element) {
 export function buildTextMap(bodies: Element[]): TextMap {
   let text = "";
   const entries: Entry[] = [];
-  const breakLine = () => { if (text && !text.endsWith("\n")) text += "\n"; };
+  // «\n»՝ պարզ տող/պարբերություն, «\u2029»՝ կոշտ սահման (նախադասությունը չի անցնում դրա վրայով)։
+  const breakLine = (hard = false) => {
+    if (!text) return;
+    if (hard) { text = text.replace(/\n$/u, ""); if (!text.endsWith("\u2029")) text += "\u2029"; }
+    else if (!/[\n\u2029]$/u.test(text)) text += "\n";
+  };
+  let afterHeading = false;
   for (const body of bodies) {
-    breakLine();
+    breakLine(true);
+    afterHeading = false;
     const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => node instanceof Element && node.matches(SKIP) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
     });
@@ -31,7 +38,12 @@ export function buildTextMap(bodies: Element[]): TextMap {
         if (!node.data) continue;
         entries.push({ node, start: text.length });
         text += node.data;
-      } else if (node instanceof Element && (node.tagName === "BR" || BLOCKS.has(node.tagName))) breakLine();
+      } else if (node instanceof Element && (node.tagName === "BR" || BLOCKS.has(node.tagName))) {
+        // Վերնագրի առաջ և հետո՝ կոշտ սահման, որ վերնագիրը չկպչի նախադասությանը։
+        const heading = /^H[1-6]$/u.test(node.tagName) || node.classList.contains("psalm-superscription");
+        breakLine(heading || afterHeading);
+        if (node.tagName !== "BR") afterHeading = heading;
+      }
     }
   }
   return { text, entries };
