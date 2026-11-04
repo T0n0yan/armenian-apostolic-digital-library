@@ -1,8 +1,5 @@
-import { Check, Copy, HelpCircle, Highlighter, PencilLine, Play, RotateCcw, Share2, SkipForward, X } from "lucide-react";
-import { Link } from "react-router";
-import { createPortal } from "react-dom";
-import { psalmLines, verseBody, verseLabel, verseNumber } from "../utils/psalm-verses";
-import { copyText, shareLink } from "./share-button";
+import { Check, PencilLine, RotateCcw, SkipForward, X } from "lucide-react";
+import { psalmLines, verseNumber } from "../utils/psalm-verses";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
@@ -29,7 +26,7 @@ function currentAudio() {
  * /psalms/22/3), save in «Իմ անկյունը», and listen from this verse. A shared verse opens the
  * psalm at "#3", which lights that verse and opens its popup.
  */
-export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMark = false, psalmPath, title, hasAudio = false, canSave = false, savedVerses = [], numbered = true }: {
+export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMark = false, psalmPath, title, hasAudio = false, numbered = true }: {
   text: string; materialId: string; timings?: Timings | null; canMark?: boolean;
   psalmPath: string; title: string; hasAudio?: boolean; canSave?: boolean; savedVerses?: number[];
   /** false՝ համարներ չունեցող տեքստ (աղոթք). ամեն տողը առանձին մաս է, որը հետևում է ձայնին։ */
@@ -158,34 +155,19 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     setMessage(starts ? "Պահված է։ Հիմա տեքստը կհետևի ձայնին ճշգրիտ։" : "Նշումները ջնջված են։");
   };
 
-  // The verse whose popup is open (an index into the numbered verses).
+  // The verse lit for a moment (a shared link «/psalms/22#3»), an index into the numbered verses.
   const [selected, setSelected] = useState<number | null>(null);
-  // The popup slides down before it goes ("out"), then the verse is let go.
-  const [popupPhase, setPopupPhase] = useState<"in" | "out">("in");
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closePopup = useCallback(() => {
-    setPopupPhase("out");
     if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => { setSelected(null); setPopupPhase("in"); }, 380);
+    closeTimer.current = setTimeout(() => setSelected(null), 380);
   }, []);
   const openPopup = useCallback((index: number) => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
-    setPopupPhase("in");
     setSelected(index);
   }, []);
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
-  const [saved, setSaved] = useState(() => new Set(savedVerses));
-  const [notice, setNotice] = useState<string | null>(null);
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flash = useCallback((value: string) => {
-    setNotice(value);
-    if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), 2_200);
-  }, []);
-  useEffect(() => () => { if (noticeTimer.current) clearTimeout(noticeTimer.current); }, []);
-  useEffect(() => setNotice(null), [selected]);
 
-  const verseText = (index: number) => lines.filter((_, line) => verseOf[line] === index).map((line, part) => part === 0 ? verseBody(line) : line).join(" ");
 
   const listenFrom = (index: number) => {
     const audio = currentAudio();
@@ -197,14 +179,26 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     else { audio.addEventListener("loadedmetadata", seek, { once: true }); void audio.play().catch(() => undefined); }
   };
 
-  // A shared verse ("/psalms/22#3"): light it and open its popup.
+  // A shared verse ("/psalms/22#3"): light it for a moment.
   useEffect(() => {
     const number = Number(window.location.hash.slice(1));
     const index = Number.isInteger(number) && number > 0 ? verseNumbers.indexOf(number) : -1;
     if (index < 0) return;
     openPopup(index);
     lineRefs.current[verseOf.indexOf(index)]?.scrollIntoView({ block: "center" });
-  }, [openPopup, verseNumbers, verseOf]);
+    const timer = setTimeout(closePopup, 3_000);
+    return () => clearTimeout(timer);
+  }, [closePopup, openPopup, verseNumbers, verseOf]);
+
+  // Նշման պատուհանի «▶ Լսել» (components/highlight-layer.tsx)՝ այս համարից։
+  useEffect(() => {
+    const onListen = (event: Event) => {
+      const index = verseNumbers.indexOf(Number((event as CustomEvent<{ verse: number }>).detail?.verse));
+      if (index >= 0) listenFrom(index);
+    };
+    window.addEventListener("psalm-listen", onListen);
+    return () => window.removeEventListener("psalm-listen", onListen);
+  });
 
   // A tap outside the verses and the popup, or Escape, closes the popup.
   useEffect(() => {
@@ -229,12 +223,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
       setDraft((current) => { const next = [...current]; next[index] = Math.round(audio.currentTime * 100) / 100; return next; });
       return;
     }
-    // Selecting words to copy them is not a tap on the verse.
-    if (window.getSelection()?.toString().trim()) return;
-    // Առանց համարների տեքստում (աղոթք) տողի վրա սեղմելը ձայնը տանում է այդ տողին։
-    if (!numbered) { if (hasAudio) listenFrom(index); return; }
-    if (selected === index && popupPhase === "in") closePopup();
-    else openPopup(index);
+    // Մնացած սեղմումները՝ նշման պատուհանինն են (նախադասություն, Պահել, Հարց, Լսել, Կիսվել)։
   };
 
   const following = active >= 0;
@@ -252,7 +241,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
       ) : null}
       {message ? <p className="m-0 text-center font-sans text-[12.5px] text-gold-bright" role="status">{message}</p> : null}
 
-      <div className="psalm-lines grid gap-1">
+      <div className="psalm-lines grid gap-1" data-psalm-audio={hasAudio ? "1" : undefined} data-psalm-path={numbered ? psalmPath : undefined}>
         {lines.map((line, index) => (
           <p
             key={index}
@@ -267,35 +256,6 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
         ))}
       </div>
 
-      {selected !== null && !marking ? (
-        <VersePopup
-          label={verseLabel(psalmPath, title, verseNumbers[selected])}
-          text={verseText(selected)}
-          path={`${psalmPath}/${verseNumbers[selected]}`}
-          hasAudio={hasAudio}
-          canSave={canSave}
-          saved={saved.has(verseNumbers[selected])}
-          notice={notice}
-          phase={popupPhase}
-          onClose={closePopup}
-          onNotice={flash}
-          onListen={() => { listenFrom(selected); closePopup(); }}
-          onQuestion={() => {
-            // Հարցը բացում է նշման քարտը (components/highlight-layer.tsx), մուտք չգործածին՝ մուտքը։
-            window.dispatchEvent(new CustomEvent("highlight-request", { detail: { quote: verseText(selected), kind: "question", verse: verseNumbers[selected] } }));
-            closePopup();
-          }}
-          onSave={async () => {
-            const number = verseNumbers[selected];
-            const next = !saved.has(number);
-            setSaved((current) => { const copy = new Set(current); if (next) copy.add(number); else copy.delete(number); return copy; });
-            const response = await fetch("/api/saved-verses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, verse: number, saved: next }) }).catch(() => null);
-            if (response?.ok) { window.dispatchEvent(new Event("highlights-changed")); flash(next ? "Նշված է «Իմ նշումները»-ում" : "Նշումը հանված է"); return; }
-            setSaved((current) => { const copy = new Set(current); if (next) copy.delete(number); else copy.add(number); return copy; });
-            flash("Չհաջողվեց պահել։ Փորձեք նորից։");
-          }}
-        />
-      ) : null}
 
       {marking ? (
         <div className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-[18px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
@@ -316,62 +276,3 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
   );
 }
 
-const popupTile = "flex min-h-[62px] cursor-pointer flex-col items-center justify-center gap-1 rounded-[14px] border-0 bg-subtle px-1 font-sans text-[11.5px] font-bold text-ink no-underline active:scale-[.96]";
-
-/** The verse popup: copy, share the verse's page, save it, listen from it. */
-function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase, onClose, onNotice, onListen, onSave, onQuestion }: {
-  label: string; text: string; path: string; hasAudio: boolean; canSave: boolean; saved: boolean; notice: string | null; phase: "in" | "out";
-  onClose: () => void; onNotice: (value: string) => void; onListen: () => void; onSave: () => void; onQuestion: () => void;
-}) {
-  const [needsSignIn, setNeedsSignIn] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => { setNeedsSignIn(false); setCopied(false); }, [path]);
-  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
-  const url = () => `${window.location.origin}${path}`;
-  const copy = async () => {
-    if (copied) return;
-    // Only the link: the verse shows in its preview card.
-    await copyText(url());
-    // The button turns into a check mark, then the popup goes.
-    setCopied(true);
-    copiedTimer.current = setTimeout(onClose, 900);
-  };
-  const share = async () => {
-    onClose();
-    if (await shareLink(url()) === "copied") onNotice("Հղումը պատճենվեց");
-  };
-  if (typeof document === "undefined") return null;
-  // On the page's body: the reading panel's blur would otherwise hold a fixed popup inside it.
-  return createPortal(
-    // Only the card takes taps: the strip around it lets them through (the menu button, the page).
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tg-inset-bottom,0px)+88px)] z-[80] flex justify-center px-3" role="dialog" aria-label={label}>
-      <div className="install-toast pointer-events-auto grid w-full max-w-[440px] gap-2.5 rounded-[20px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]" data-verse-popup data-phase={phase}>
-        <div className="flex items-center justify-between gap-2 pl-1">
-          <strong className="text-[13px] text-gold-bright">{label}</strong>
-          <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
-        </div>
-        <div className={`grid gap-1.5 ${hasAudio ? "grid-cols-5" : "grid-cols-4"}`}>
-          <button className={`${popupTile} transition-colors duration-300 ${copied ? "bg-[rgb(74_160_96/16%)] text-[rgb(52_130_74)]" : ""}`} type="button" onClick={copy} aria-live="polite">
-            {copied
-              ? <Check aria-hidden="true" size={21} strokeWidth={2.4} className="verse-check" />
-              : <Copy aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" />}
-            {copied ? "Պատճենվեց" : "Պատճենել"}
-          </button>
-          <button className={popupTile} type="button" onClick={share}><Share2 aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> Կիսվել</button>
-          <button className={popupTile} type="button" aria-pressed={saved} onClick={() => canSave ? onSave() : setNeedsSignIn(true)}>
-            <Highlighter aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> {saved ? "Նշված է" : "Նշել"}
-          </button>
-          <button className={popupTile} type="button" onClick={onQuestion}><HelpCircle aria-hidden="true" size={19} strokeWidth={1.9} className="text-[rgb(90_140_215)]" /> Հարց</button>
-          {hasAudio ? (
-            <button className={`${popupTile} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={onListen}><Play aria-hidden="true" size={19} strokeWidth={2} /> Լսել</button>
-          ) : null}
-        </div>
-        {needsSignIn ? (
-          <p className="m-0 text-center text-[12px] text-muted">Նշելու համար մուտք գործեք՝ <Link className="font-bold text-gold-bright" to="/saved">Իմ անկյունը</Link></p>
-        ) : notice ? <p className="m-0 text-center text-[12px] font-bold text-gold-bright" role="status">{notice}</p> : null}
-      </div>
-    </div>,
-    document.body,
-  );
-}
