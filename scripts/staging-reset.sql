@@ -43,6 +43,7 @@ DELETE FROM library_search_documents WHERE NOT EXISTS (SELECT 1 FROM staging_kee
 DELETE FROM saved_materials WHERE NOT EXISTS (SELECT 1 FROM staging_keep k WHERE k.chat_id = saved_materials.chat_id AND k.message_id = saved_materials.message_id);
 DELETE FROM reading_reminders WHERE NOT EXISTS (SELECT 1 FROM staging_keep k WHERE k.chat_id = reading_reminders.chat_id AND k.message_id = reading_reminders.message_id);
 DELETE FROM saved_verses WHERE NOT EXISTS (SELECT 1 FROM staging_keep k WHERE k.chat_id = saved_verses.chat_id AND k.message_id = saved_verses.message_id);
+DELETE FROM highlights WHERE NOT EXISTS (SELECT 1 FROM staging_keep k WHERE k.chat_id = highlights.chat_id AND k.message_id = highlights.message_id);
 DELETE FROM poll_votes WHERE NOT EXISTS (SELECT 1 FROM staging_keep k WHERE k.chat_id = poll_votes.chat_id AND k.message_id = poll_votes.message_id);
 DROP TABLE staging_keep;
 

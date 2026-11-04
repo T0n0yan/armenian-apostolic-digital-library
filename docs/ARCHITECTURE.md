@@ -206,6 +206,7 @@ flowchart LR
   MAT --> VERSE["/:section/:item/:verse<br/>սաղմոսի մեկ համար"]
   HOME --> SEARCH["/search"]
   HOME --> SAVED["/saved պահվածներ"]
+  SAVED --> NOTES["/notes Իմ նշումները"]
   HOME --> PLACES["/places քարտեզ"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
@@ -223,7 +224,7 @@ flowchart LR
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
 `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`,
-`/api/presence`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
+`/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
 `/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`։
 **Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/og/card/...`, `/sitemap.xml`։
 
@@ -369,10 +370,30 @@ flowchart LR
 | --- | --- | --- |
 | Պահված նյութեր և նշումներ | `saved_materials` | `/saved` |
 | Պահված սաղմոսի համարներ | `saved_verses` | համարի պատուհան, `/saved` |
+| Նշումներ տեքստում (պահված խոսք, ❓ հարց, սմայլիկ, նոթ, պատասխան) | `highlights` | ամեն նյութի տեքստում, `/notes` («Իմ նշումները») |
 | Հարցման ձայներ | `poll_votes` | Telegram-ի հարցումները կայքում |
 | Սաղմոսի ժամանակացույց (տող↔ձայն) | `psalm_timings` | տող առ տող ընթերցում |
 | Օրվա համար | `daily-verses.ts` | գլխավոր էջ |
 | Տեղադրել որպես հավելված (PWA) | — | `install-prompt.tsx` |
+
+### Նշումներ տեքստում (highlights)
+
+```mermaid
+flowchart TD
+  SEL["Ընթերցողը ընտրում է տողը<br/>(.reading-body, article[data-highlight-material])"] --> BAR["Ներքևի վահանակ.<br/>Պահել · ❓ Հարց · Պատճենել"]
+  BAR -->|"մուտք չկա"| SIGN["Մուտքի պատուհան (Telegram / Google)<br/>տողը պահվում է sessionStorage-ում և պահվում մուտքից հետո"]
+  BAR --> API["/api/highlights"] --> DB[("highlights<br/>տող + շրջակա բառեր, սմայլիկ, նոթ, պատասխան")]
+  DB --> PAINT["Էջում ներկվում է CSS Highlight API-ով<br/>դեղին՝ պահված, կապտավուն՝ հարց"]
+  PAINT -->|"սեղմում"| SHEET["Նշման քարտ. սմայլիկ, նոթ, հարց/պատասխան,<br/>🔔 հիշեցում, պատճենել, ջնջել"]
+  DB --> NOTES["/notes. Պահված խոսքեր · ❓ Հարցեր · Նոթերով<br/>ըստ բաժնի, ֆիլտր ըստ սմայլիկի"]
+  SHEET -->|"🔔"| REM[("reading_reminders<br/>հաղորդագրության մեջ՝ հարցը")]
+  DB --> NUDGE["Կայք մտնելիս (օրը 1 անգամ, եթե միացված է).<br/>❓ ունեք հարց + ⛪ եկեղեցի 1 կմ-ի մեջ"]
+```
+
+- Տողը գտնվում է իր տեքստով և 32 նշան առաջ/հետո (`app/utils/highlights.ts` `findQuote`). նյութը փոխվելիս նշումը մնում է `/notes`-ում։
+- Բառարանի կետագիծը և նշման ետնագույնը իրար չեն խանգարում. կարճ սեղմումը բառարանի բառի վրա բացում է բառարանը, և այնտեղ կա «📌 բացել նշումը»։
+- Եկեղեցու հուշումը. դիրքը չի գնում կայք, `/api/church-points`-ից եկեղեցիների ցանկը բեռնվում է, և հեռավորությունը հաշվում է բրաուզերը (`components/church-nudge.tsx`)։ Միացնում է մարդը `/notes`-ի «Հարցեր» ներդիրում։
+- Մեկ մարդուն՝ մինչև 2000 նշում, տողը՝ մինչև 1200 նշան։
 
 ## 15. Կառավարում (ադմին)
 
@@ -432,6 +453,7 @@ flowchart LR
 erDiagram
   app_users ||--o{ saved_materials : "պահում է"
   app_users ||--o{ saved_verses : "պահում է"
+  app_users ||--o{ highlights : "նշում է"
   app_users ||--o{ reading_log : "նշում է"
   app_users ||--o{ reading_reminders : "դնում է"
   app_users ||--o{ reminder_inbox : "ստանում է"
@@ -459,7 +481,7 @@ erDiagram
 | **Գրադարան** (sync-ը լցնում է) | `library_sources`, `library_topics`, `library_materials`, `library_material_blocks`, `library_media`, `library_album_members`, `library_search_documents`, `library_publishers`, `library_post_authors`, `material_attachments`, `psalm_timings` |
 | **Sync-ի հաշվառում** | `library_sync_cursors`, `library_sync_runs`, `library_sync_failures` |
 | **Մարդիկ** | `app_users`, `account_links`, `admin_access`, `user_settings` |
-| **Անձնական** | `saved_materials`, `saved_verses`, `reading_log`, `poll_votes`, `place_visits`, `liturgy_marks`, `yearly_summaries` |
+| **Անձնական** | `saved_materials`, `saved_verses`, `highlights`, `reading_log`, `poll_votes`, `place_visits`, `liturgy_marks`, `yearly_summaries` |
 | **Հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` |
 | **Սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) |
 | **Բառարան** | `glossary_terms` |

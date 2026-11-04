@@ -199,7 +199,20 @@ export async function sendBellSoundOnce(database: D1Database, token: string, tel
   if (!result.ok) await database.prepare("DELETE FROM reminder_sound_sent WHERE telegram_id = ?").bind(telegramId).run();
 }
 
-type DueRow = { user_id: string; telegram_id: string; chat_id: string; message_id: number; title: string | null; category_name: string | null };
+type DueRow = { user_id: string; telegram_id: string; chat_id: string; message_id: number; title: string | null; category_name: string | null; question: string | null };
+
+/** Եթե նյութում մարդն ունի չպատասխանված հարց (highlights), հիշեցումը նրա մասին է՝ հարցնել հոգևորականին։ */
+function questionOf(row: DueRow) {
+  if (!row.question) return null;
+  try {
+    const value = JSON.parse(row.question) as { quote?: string; note?: string };
+    return { quote: (value.quote ?? "").replace(/\s+/g, " ").trim(), note: (value.note ?? "").trim() };
+  } catch { return null; }
+}
+
+function clip(text: string, max: number) {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
 
 /** Sends a reminder to every browser the reader allowed notifications in; true if any got it. */
 async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow, publicUrl: string) {
@@ -208,9 +221,10 @@ async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow,
   const materialId = createMaterialId(row.chat_id, row.message_id);
   let delivered = false;
   for (const subscription of results) {
+    const question = questionOf(row);
     const outcome = await sendWebPush(subscription, {
-      title: "🔔 Ժամանակն է կարդալու",
-      body: row.title?.trim() || "Հոգևոր ժառանգություն",
+      title: question ? "❓ Հարցրեք հոգևորականին" : "🔔 Ժամանակն է կարդալու",
+      body: question ? clip(question.note || `«${question.quote}»`, 180) : row.title?.trim() || "Հոգևոր ժառանգություն",
       url: `${publicUrl}${materialPath(materialId, row.category_name, { title: row.title })}?reminder=1`,
       tag: `reminder-${materialId}`,
       category: row.category_name,
@@ -230,7 +244,10 @@ export async function sendDueReminders(database: D1Database, options: { token: s
   const nowIso = new Date(now).toISOString();
   const { results } = await database.prepare(
     `SELECT reminders.user_id, reminders.telegram_id, reminders.chat_id, reminders.message_id, materials.title,
-       topics.title AS category_name
+       topics.title AS category_name,
+       (SELECT json_object('quote', h.quote, 'note', h.note) FROM highlights AS h
+         WHERE h.user_id = reminders.user_id AND h.chat_id = reminders.chat_id AND h.message_id = reminders.message_id
+           AND h.kind = 'question' AND h.answered_at IS NULL ORDER BY h.created_at DESC LIMIT 1) AS question
      FROM reading_reminders AS reminders
      LEFT JOIN library_materials AS materials
        ON materials.chat_id = reminders.chat_id AND materials.message_id = reminders.message_id
@@ -252,9 +269,13 @@ export async function sendDueReminders(database: D1Database, options: { token: s
     if (options.token && canMessage(row.telegram_id)) {
       const materialId = createMaterialId(row.chat_id, row.message_id);
       const title = row.title?.trim() || "Հոգևոր ժառանգություն";
+      const question = questionOf(row);
+      const text = question
+        ? `❓ Հիշեցում. հարցրեք հոգևորականին\n\n«${clip(question.quote, 600)}»${question.note ? `\n\nՁեր հարցը՝ ${clip(question.note, 1500)}` : ""}\n\n${title}`
+        : `🔔 Ժամանակն է կարդալու\n\n${title}`;
       const result = await callBot(options.token, "sendMessage", {
         chat_id: Number(row.telegram_id),
-        text: `🔔 Ժամանակն է կարդալու\n\n${title}`,
+        text,
         reply_markup: { inline_keyboard: [[{ text: "📖 Կարդալ", web_app: { url: `${options.publicUrl}${materialPath(materialId, row.category_name, { title: row.title })}` } }]] },
       });
       // A blocked bot or a missing chat can never deliver; anything else is retried next minute.

@@ -737,3 +737,18 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
   animation: sunday-in 700ms ease-out both;
 }
 :root[data-theme="light"] .sunday-glass { background: rgb(255 252 242 / 62%); }
+
+/* Ընթերցողի նշումները տեքստում (components/highlight-layer.tsx). ետնագույն, որ չշփոթվի բառարանի
+   կետագծի հետ։ Պահված խոսքը՝ մեղմ դեղին (մուգում՝ ոսկեգույն), հարցը՝ մեղմ կապտավուն։ */
+::highlight(user-mark) { background-color: rgb(250 214 92 / 46%); }
+::highlight(user-question) { background-color: rgb(120 170 235 / 30%); }
+::highlight(user-flash) { background-color: rgb(226 194 126 / 70%); }
+:root[data-theme="dark"] ::highlight(user-mark) { background-color: rgb(217 181 111 / 34%); }
+:root[data-theme="dark"] ::highlight(user-question) { background-color: rgb(120 165 230 / 30%); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) ::highlight(user-mark) { background-color: rgb(217 181 111 / 34%); }
+  :root:not([data-theme]) ::highlight(user-question) { background-color: rgb(120 165 230 / 30%); }
+}
+.highlight-bar { animation: highlight-bar-in 200ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes highlight-bar-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .highlight-bar { animation: none; } }
