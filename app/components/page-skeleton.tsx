@@ -33,6 +33,7 @@ function kindOf(pathname: string): Kind {
   const [first = ""] = parts;
   if (!parts.length) return { page: "home" };
   if (first === "search" || first === "saved" || first === "settings" || first === "admin") return { page: first };
+  if (first === "notes") return { page: "saved" };
   if (first === "places") return { page: parts.length > 1 ? "place" : "places" };
   if (TEXT_PAGES[first]) return { page: "text", title: TEXT_PAGES[first] };
   if (first === "materials") return { page: "material", section: "other" };

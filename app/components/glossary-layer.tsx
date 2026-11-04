@@ -123,6 +123,17 @@ export function GlossaryLayer() {
   return createPortal(<GlossaryCard open={open} onClose={close} />, document.body);
 }
 
+/** Բառը ընթերցողի պահված նշման (components/highlight-layer.tsx) մեջ է՞։ */
+function inUserHighlight(range: Range) {
+  const registry = typeof CSS !== "undefined" && "highlights" in CSS ? CSS.highlights : null;
+  return ["user-mark", "user-question"].some((name) => {
+    const highlight = registry?.get(name);
+    if (!highlight) return false;
+    for (const item of highlight) if (item instanceof Range && item.isPointInRange(range.startContainer, range.startOffset)) return true;
+    return false;
+  });
+}
+
 /** Բացատրության պատուհանը՝ բառի վերևում (կամ ներքևում, եթե վերևում տեղ չկա), սլաքով դեպի բառը։ */
 function GlossaryCard({ open, onClose }: { open: Open; onClose: () => void }) {
   const { term, rect } = open;
@@ -152,6 +163,10 @@ function GlossaryCard({ open, onClose }: { open: Open; onClose: () => void }) {
           <p className="m-0 text-[15px] leading-relaxed text-ink">{term.meaning}</p>
           {term.note ? <p className="m-0 text-[13px] leading-relaxed text-muted italic">{term.note}</p> : null}
           {!term.verified ? <span className="w-fit rounded-full bg-subtle px-2.5 py-0.5 text-[11px] text-faint">⚑ Ճշտել՝ սպասում է հոգևորականի ստուգմանը</span> : null}
+          {inUserHighlight(open.range) ? (
+            <button className="w-fit cursor-pointer rounded-full border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/12%)] px-3 py-1 text-[12px] font-bold text-gold-bright" type="button"
+              onClick={() => { const range = open.range; onClose(); window.dispatchEvent(new CustomEvent("highlight-open-at", { detail: range })); }}>📌 Այս տողը պահված է՝ բացել նշումը</button>
+          ) : null}
         </div>
       </div>
     </div>

@@ -108,7 +108,7 @@ function Wheel({ count, value, onChange, label }: { count: number; value: number
  * is due the bell rings in the library; with the library closed, a notification or the Telegram
  * bot reminds instead.
  */
-export function ReminderButton({ materialId, title, className, label = false, path }: { materialId: string; title: string; className: string; label?: boolean; path?: string }) {
+export function ReminderButton({ materialId, title, className, label = false, path, heading = "Հիշեցնել կարդալու մասին", buttonText = "Հիշեցնել" }: { materialId: string; title: string; className: string; label?: boolean; path?: string; heading?: string; buttonText?: string }) {
   const [open, setOpen] = useState(false);
   // Notifications first; the phone's own calendar is the other way.
   const [channel, setChannel] = useState<Channel>("push");
@@ -228,13 +228,13 @@ export function ReminderButton({ materialId, title, className, label = false, pa
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">
         <Icon aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} fill={hasReminder ? "currentColor" : "none"} />
-        {label ? <span>{hasReminder ? "Դրված է" : "Հիշեցնել"}</span> : null}
+        {label ? <span>{hasReminder ? (buttonText === "Հիշեցնել" ? "Դրված է" : "Հիշեցումը դրված է") : buttonText}</span> : null}
       </button>
       <BottomSheet open={open} onClose={close} label="Հիշեցում" className="gap-3.5 p-4">
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-gold-bright"><BellRing aria-hidden="true" size={19} /></span>
           <div className="grid min-w-0 flex-1 gap-0.5">
-            <strong className="text-[15px] text-ink">Հիշեցնել կարդալու մասին</strong>
+            <strong className="text-[15px] text-ink">{heading}</strong>
             <span className="line-clamp-1 text-[12.5px] text-muted">{title}</span>
           </div>
           <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={close} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
