@@ -1,4 +1,5 @@
 import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { clearPersonalStorage } from "../utils/personal-storage";
 import { lockScroll } from "../utils/scroll-lock";
 import { memo, useEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
@@ -186,13 +187,13 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             ) : null}
             {account && (account.source === "google" || !inMiniApp) ? (
               <div className="grid gap-1.5 border-t border-glass-border px-2 pt-3">
-                <Form className="flex items-center justify-between gap-3 text-[12.5px] text-muted" method="post" action="/auth/logout" onSubmit={() => setIsOpen(false)}>
+                <Form className="flex items-center justify-between gap-3 text-[12.5px] text-muted" method="post" action="/auth/logout" onSubmit={() => { clearPersonalStorage(); setIsOpen(false); }}>
                   <span className="min-w-0 truncate">{account.name} <span className="text-faint">· {account.source === "google" ? "Google" : "Telegram"}</span></span>
                   <button className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-3.5 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit" tabIndex={isOpen ? 0 : -1}>
                     <LogOut aria-hidden="true" size={15} /> Ելք
                   </button>
                 </Form>
-                <Form method="post" action="/auth/logout" onSubmit={(event) => { if (!window.confirm("Դուրս գալ բոլոր սարքերից (հեռախոս, համակարգիչ, Telegram)։")) event.preventDefault(); else setIsOpen(false); }}>
+                <Form method="post" action="/auth/logout" onSubmit={(event) => { if (!window.confirm("Դուրս գալ բոլոր սարքերից (հեռախոս, համակարգիչ, Telegram)։")) event.preventDefault(); else { clearPersonalStorage(); setIsOpen(false); } }}>
                   <input type="hidden" name="scope" value="all" />
                   <button className="cursor-pointer border-0 bg-transparent p-0 text-[11.5px] text-faint underline underline-offset-2" type="submit" tabIndex={isOpen ? 0 : -1}>Ելք բոլոր սարքերից</button>
                 </Form>

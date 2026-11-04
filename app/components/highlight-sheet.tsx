@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { BottomSheet } from "./bottom-sheet";
 import { ReminderButton } from "./reminder-button";
 import { formatYerevanDateTime } from "../utils/armenian-date";
-import { NOTE_MAX, QUICK_EMOJIS, cleanEmoji, highlightCopyText, type Highlight } from "../utils/highlights";
+import { NOTE_MAX, QUICK_EMOJIS, cleanEmoji, firstEmoji, highlightCopyText, type Highlight } from "../utils/highlights";
 
 type Change = Partial<Pick<Highlight, "kind" | "emoji" | "note" | "answer">> & { answered?: boolean };
 
@@ -36,7 +36,7 @@ const field = "min-h-[96px] w-full resize-y rounded-[14px] border border-glass-b
 
 /**
  * Նշման քարտը. տողը, սմայլիկը, նոթը (կամ հարցը և պատասխանը), հիշեցումը, պատճենել, ջնջել։
- * Նոթը պահվում է ինքնաբերաբար՝ գրելուց մի պահ անց և փակելիս։
+ * Նշումը պահվում է «Պահել» կոճակով (փակելիս էլ, որ չկորչի)։
  */
 export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = false }: {
   item: Highlight | null; onClose: () => void; onChange: (item: Highlight) => void; onDelete: (id: string) => void; showOpen?: boolean;
@@ -47,13 +47,14 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
   const [customEmoji, setCustomEmoji] = useState("");
   const [status, setStatus] = useState<"" | "saving" | "saved" | "error" | "copied">("");
   const [myEmojis, setMyEmojis] = useState<string[]>([]);
+  const [dirty, setDirty] = useState(false);
   useEffect(() => setMyEmojis(readMyEmojis()), []);
   const timer = useRef<number | undefined>(undefined);
   const pending = useRef<Change>({});
 
   useEffect(() => {
     if (!item) return;
-    setCurrent(item); setNote(item.note); setAnswer(item.answer); setCustomEmoji(""); setStatus("");
+    setCurrent(item); setNote(item.note); setAnswer(item.answer); setCustomEmoji(""); setStatus(""); setDirty(false);
     pending.current = {};
   }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -72,14 +73,15 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
     if (Object.keys(change).length) void send(change);
   }, [send]);
 
+  // Նշումը (և պատասխանը) պահվում է «Պահել» սեղմելիս (փակելիս էլ՝ որ չկորչի)։
   const later = (change: Change) => {
     pending.current = { ...pending.current, ...change };
-    window.clearTimeout(timer.current);
-    setStatus("saving");
-    timer.current = window.setTimeout(flush, 900);
+    setDirty(true);
+    setStatus("");
   };
+  const saveText = () => { setDirty(false); flush(); };
 
-  const close = () => { flush(); onClose(); };
+  const close = () => { setDirty(false); flush(); onClose(); };
 
   if (!current) return <BottomSheet open={false} onClose={onClose} label="Նշում">{null}</BottomSheet>;
   const question = current.kind === "question";
@@ -111,7 +113,7 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
     <BottomSheet open={Boolean(item)} onClose={close} label={question ? "Հարց" : "Նշում"} className="gap-3 p-4">
       <div className="flex items-start gap-3">
         <span className={`grid size-10 shrink-0 place-items-center rounded-full border text-[18px] ${question ? "border-[rgb(120_165_230/45%)] bg-[rgb(120_165_230/14%)] text-[rgb(70_120_200)]" : "border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-gold-bright"}`}>
-          {current.emoji || (question ? "❓" : <Highlighter aria-hidden="true" size={18} />)}
+          {firstEmoji(current.emoji) || (question ? "❓" : <Highlighter aria-hidden="true" size={18} />)}
         </span>
         <div className="grid min-w-0 flex-1 gap-0.5">
           <strong className="text-[15px] text-ink">{question ? (answered ? "Հարց · պատասխանված" : "Հարց") : "Պահված խոսք"}</strong>
@@ -142,27 +144,32 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
             </span>
           ) : null}
         </div>
-        {customEmoji && !cleanEmoji(customEmoji) ? <span className="text-[11.5px] text-faint">Գրեք միայն սմայլիկ (1–3 հատ)։</span> : null}
+        {customEmoji && !cleanEmoji(customEmoji) ? <span className="text-[11.5px] text-faint">Գրեք մեկ սմայլիկ։</span> : null}
       </div>
 
       <label className="grid gap-1.5">
         <span className="text-[12px] font-bold text-muted">{question ? "❓ Ձեր հարցը" : "✎ Ինչ տվեց Ձեզ այս խոսքը"}</span>
         <textarea className={field} value={note} maxLength={NOTE_MAX}
           placeholder={question ? "Օրինակ՝ ինչո՞ւ է այստեղ այսպես ասվում…" : "Ձեր միտքը, աղոթքը կամ ինչը դուր եկավ…"}
-          onChange={(event) => { setNote(event.target.value); later({ note: event.target.value }); }} onBlur={flush} />
+          onChange={(event) => { setNote(event.target.value); later({ note: event.target.value }); }} />
       </label>
+      {dirty ? (
+        <button className={`${chip} w-full animate-glass-enter border-[rgb(217_181_111/55%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={saveText}>
+          <Check aria-hidden="true" size={16} /> Պահել
+        </button>
+      ) : null}
 
       {question ? (
         <div className="grid gap-2 rounded-[16px] border border-glass-border bg-subtle p-3">
           {!answered ? (
             <ReminderButton materialId={current.materialId} title={current.title} path={current.path} label
-              heading="Հիշեցնել հարցնել հոգևորականին" buttonText="🔔 Հիշեցնել հարցնել հոգևորականին" className={`${chip} w-full`} />
+              heading="Հիշեցնել հարցնել հոգևորականին" buttonText="Հիշեցնել հարցնել հոգևորականին" className={`${chip} w-full`} />
           ) : null}
           {answered ? (
             <label className="grid gap-1.5">
               <span className="text-[12px] font-bold text-[rgb(52_130_74)]">✓ Պատասխանը</span>
               <textarea className={field} value={answer} maxLength={NOTE_MAX} placeholder="Ինչ ասաց հոգևորականը…"
-                onChange={(event) => { setAnswer(event.target.value); later({ answer: event.target.value }); }} onBlur={flush} />
+                onChange={(event) => { setAnswer(event.target.value); later({ answer: event.target.value }); }} />
             </label>
           ) : null}
           <button className={`${chip} w-full ${answered ? "" : "border-[rgb(74_160_96/50%)] bg-[rgb(74_160_96/12%)] text-[rgb(52_130_74)]"}`} type="button" onClick={() => void send({ answered: !answered })}>

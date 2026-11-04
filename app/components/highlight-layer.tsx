@@ -234,8 +234,14 @@ export function HighlightLayer() {
       const rect = entry.range.getBoundingClientRect();
       window.scrollTo({ top: window.scrollY + rect.top - window.innerHeight / 3, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
       const registry = highlightRegistry();
+      // Մի պահ վառ, հետո սահուն մարում է դեպի նշման սովորական գույնը (find-flash-0…5, app.css)։
       registry?.set("user-flash", new Highlight(entry.range));
-      window.setTimeout(() => registry?.delete("user-flash"), 2600);
+      const steps = ["find-flash-0", "find-flash-1", "find-flash-2", "find-flash-3", "find-flash-4", "find-flash-5"];
+      steps.forEach((name, index) => window.setTimeout(() => {
+        registry?.delete(index ? steps[index - 1] : "user-flash");
+        registry?.set(name, new Highlight(entry.range));
+      }, 1500 + index * 160));
+      window.setTimeout(() => registry?.delete(steps[steps.length - 1]), 1500 + steps.length * 160);
       const url = new URL(window.location.href);
       url.searchParams.delete("hl");
       window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
@@ -437,7 +443,7 @@ export function HighlightLayer() {
             <span className="py-1.5">{toast.text}</span>
             {toast.item ? (
               <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1 rounded-full border-0 bg-[rgb(217_181_111/16%)] px-3 text-[12.5px] font-bold text-gold-bright" type="button"
-                onClick={() => { setOpen(toast.item ?? null); setToast(null); }}><PencilLine aria-hidden="true" size={14} /> Նոթ</button>
+                onClick={() => { setOpen(toast.item ?? null); setToast(null); }}><PencilLine aria-hidden="true" size={14} /> Նշում</button>
             ) : null}
           </div>
         </div>,

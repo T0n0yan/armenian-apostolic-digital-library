@@ -6,13 +6,13 @@ import { churchNudgeEnabled, setChurchNudgeEnabled } from "./church-nudge";
 import { HighlightSheet, formatNoteDate } from "./highlight-sheet";
 import { countBadge, sectionHeader, sectionTitle } from "./ui-styles";
 import { findMyPosition } from "../utils/my-location";
-import type { Highlight } from "../utils/highlights";
+import { firstEmoji, type Highlight } from "../utils/highlights";
 
 type Kind = "marks" | "questions" | "notes";
 const KINDS: Array<{ id: Kind; label: string }> = [
   { id: "marks", label: "Խոսքեր" },
   { id: "questions", label: "❓ Հարցեր" },
-  { id: "notes", label: "Նոթերով" },
+  { id: "notes", label: "Նշումներով" },
 ];
 
 function isKind(value: string | null): value is Kind {
@@ -35,7 +35,7 @@ function NoteCard({ item, onOpen }: { item: Highlight; onOpen: () => void }) {
     <li>
       <button className={`frosted-panel grid w-full cursor-pointer gap-1.5 border-l-4 px-4 py-3 text-left text-ink animate-glass-enter ${question ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} type="button" onClick={onOpen}>
         <span className="flex items-start gap-2">
-          {item.emoji || question ? <span className="text-[18px] leading-none" aria-hidden="true">{item.emoji || "❓"}</span> : null}
+          {item.emoji || question ? <span className="text-[18px] leading-none" aria-hidden="true">{firstEmoji(item.emoji) || "❓"}</span> : null}
           <span className="prayer-text line-clamp-4 flex-1 text-[15px] leading-[1.65]">«{item.quote}»</span>
         </span>
         {item.note ? <span className="line-clamp-2 rounded-[10px] bg-subtle px-2.5 py-1.5 text-[13px] leading-snug text-muted">{question ? "" : "✎ "}{item.note}</span> : null}
@@ -70,7 +70,7 @@ function ChurchToggle() {
           <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] ${on ? "left-[22px]" : "left-0.5"}`} />
         </span>
       </button>
-      <p className="m-0 text-[12px] leading-snug text-faint">{message || "Ձեր դիրքը չի ուղարկվում կայք. հեռավորությունը հաշվում է հեռախոսը։"}</p>
+      {message ? <p className="m-0 text-[12px] leading-snug text-faint">{message}</p> : null}
     </div>
   );
 }
@@ -89,8 +89,8 @@ export function NotesPanel({ highlights, failed }: { highlights: Highlight[]; fa
     notes: items.filter((item) => item.note.trim()).length,
   }), [items]);
   const inTab = items.filter((item) => kind === "marks" ? item.kind === "mark" : kind === "questions" ? item.kind === "question" : Boolean(item.note.trim()));
-  const emojis = [...new Set(inTab.map((item) => item.emoji).filter(Boolean))];
-  const shown = emoji ? inTab.filter((item) => item.emoji === emoji) : inTab;
+  const emojis = [...new Set(inTab.map((item) => firstEmoji(item.emoji)).filter(Boolean))];
+  const shown = emoji ? inTab.filter((item) => firstEmoji(item.emoji) === emoji) : inTab;
   const waiting = shown.filter((item) => item.kind === "question" && !item.answeredAt);
   const answered = shown.filter((item) => item.kind === "question" && item.answeredAt);
 
@@ -137,7 +137,7 @@ export function NotesPanel({ highlights, failed }: { highlights: Highlight[]; fa
       ) : shown.length === 0 ? (
         empty(kind === "marks"
           ? "Պահված խոսք դեռ չկա։ Կարդալիս սեղմեք Ձեզ դուր եկած նախադասության վրա և ընտրեք «Պահել»։"
-          : "Նոթով նշում դեռ չկա։ Բացեք պահված խոսքը և գրեք, թե ինչ տվեց այն Ձեզ։")
+          : "Նշումով խոսք դեռ չկա։ Բացեք պահված խոսքը և գրեք, թե ինչ տվեց այն Ձեզ։")
       ) : groups(shown)}
 
       {items.length === 0 && kind === "marks" ? (

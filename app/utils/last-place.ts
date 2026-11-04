@@ -1,5 +1,6 @@
 /**
- * «Որտեղ էիք կանգնել». ամեն բաժնի համար վերջին կարդացած կամ լսած նյութը (այս սարքում, localStorage)։
+ * «Որտեղ էիք կանգնել». ամեն բաժնի համար վերջին կարդացած, լսած կամ դիտած նյութը (այս սարքում,
+ * localStorage, միայն մուտք գործածների համար. ելքի ժամանակ մաքրվում է՝ `clearPersonalStorage`)։
  * Ընդհանուր է բոլոր բաժինների համար (հետագայում՝ նաև Աստվածաշունչ). բաժինը հասցեի առաջին մասն է
  * («/psalms/25» → «psalms»)։ «Օրվա ընթերցումները» (փոխվում են ամեն օր) և սրբավայրերը չեն հիշվում։
  */
@@ -8,11 +9,13 @@ export type LastPlace = {
   sectionName: string;
   path: string;
   title: string;
-  kind: "read" | "listen";
+  kind: "read" | "listen" | "watch";
   /** Երբ (ms)։ */
   at: number;
   /** Որքան էր թերթել էջը (0–1)։ */
   progress: number;
+  /** Տեսանյութի կանգնած վայրկյանը (միայն «watch»)։ */
+  mediaTime?: number;
 };
 
 const KEY = "last-places";
@@ -59,4 +62,13 @@ export function timeAgo(at: number, now = Date.now()) {
   if (hours < 24) return `${hours} ժամ առաջ`;
   const days = Math.round(hours / 24);
   return days === 1 ? "երեկ" : `${days} օր առաջ`;
+}
+
+/** «12:05» */
+export function formatMediaTime(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = String(total % 60).padStart(2, "0");
+  return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }

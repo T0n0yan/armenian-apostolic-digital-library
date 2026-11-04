@@ -32,13 +32,22 @@ export const HIGHLIGHTS_PER_USER = 2000;
 /** Արագ ընտրության սմայլիկներ. մարդը կարող է դնել նաև ստեղնաշարի ցանկացածը։ */
 export const QUICK_EMOJIS = ["🙏", "❤️", "✨", "💡", "🕊️", "🔥", "📖", "😢"];
 
-/** Միայն սմայլիկ (1–3 հատ), առանց տառերի. դատարկը նշանակում է «առանց սմայլիկի»։ */
+/** Առաջին սմայլիկը (հին նշումներում կարող էին լինել մի քանիսը)։ */
+export function firstEmoji(value: string) {
+  if (!value) return "";
+  const Segmenter = (Intl as { Segmenter?: typeof Intl.Segmenter }).Segmenter;
+  return Segmenter ? ([...new Segmenter().segment(value)][0]?.segment ?? "") : [...value][0] ?? "";
+}
+
+/** Միայն մեկ սմայլիկ, առանց տառերի. դատարկը նշանակում է «առանց սմայլիկի»։ */
 export function cleanEmoji(value: unknown) {
   if (typeof value !== "string") return null;
   const text = value.trim();
   if (!text) return "";
   if (text.length > 16 || !/^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|[‍️⃣#*0-9])+$/u.test(text)) return null;
   if (!/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(text)) return null;
+  // Մեկ հատ (մի քանի սմայլիկը քանդում էր դասավորությունը)։
+  if (firstEmoji(text) !== text) return null;
   return text;
 }
 

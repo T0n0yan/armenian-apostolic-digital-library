@@ -117,3 +117,11 @@ test("last place: section of a path and «time ago» in Armenian", async () => {
   assert.equal(timeAgo(now - 3 * 3_600_000, now), "3 ժամ առաջ");
   assert.equal(timeAgo(now - 26 * 3_600_000, now), "երեկ");
 });
+
+test("only one emoji per note; old notes show their first one", async () => {
+  const { firstEmoji } = await import("../app/utils/highlights");
+  assert.equal(cleanEmoji("😁😁😁"), null);
+  assert.equal(cleanEmoji("🕊️"), "🕊️");
+  assert.equal(cleanEmoji("👍🏽"), "👍🏽");
+  assert.equal(firstEmoji("🕊️🕊️"), "🕊️");
+});

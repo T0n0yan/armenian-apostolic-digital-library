@@ -32,6 +32,7 @@ import { GlossaryLayer } from "./components/glossary-layer";
 import { HighlightLayer } from "./components/highlight-layer";
 import { ChurchNudge } from "./components/church-nudge";
 import { PlaceTracker } from "./components/continue-reading";
+import { clearPersonalStorage } from "./utils/personal-storage";
 import { SundayPrompt } from "./components/sunday-prompt";
 import "./app.css";
 
@@ -230,6 +231,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ loaderData }: Route.ComponentProps) {
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
+  // Մուտք չգործածի մոտ այս սարքում անձնական ոչինչ չի մնում (վերջին կարդացածը, սմայլիկները…)։
+  useEffect(() => { if (!loaderData.signedIn) clearPersonalStorage({ session: false }); }, [loaderData.signedIn]);
   // The phone's title search and page keeping follow the content version (utils/local-search.ts).
   setContentVersion(loaderData.contentVersion);
   setRootSearchState({ signedIn: Boolean(loaderData.signedIn), categories: loaderData.categories });
