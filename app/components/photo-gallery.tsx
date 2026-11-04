@@ -25,7 +25,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
   const image = useRef<HTMLImageElement>(null);
   // Active pointers (one → drag/swipe, two → pinch) and the gesture's running state.
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ startX: number; startY: number; baseOffset: { x: number; y: number }; baseScale: number; startDist: number; moved: boolean }>(
+  const gesture = useRef<{ startX: number; startY: number; baseOffset: { x: number; y: number }; baseScale: number; startDist: number; moved: boolean; pinched?: boolean }>(
     { startX: 0, startY: 0, baseOffset: { x: 0, y: 0 }, baseScale: 1, startDist: 0, moved: false },
   );
 
@@ -37,9 +37,10 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
     const box = image.current?.getBoundingClientRect();
     const area = stage.current?.getBoundingClientRect();
     if (!box || !area) return { x: 0, y: 0 };
-    const base = next / scale; // box is already scaled by `scale`; read its unscaled size.
-    const w = (box.width / scale) * base;
-    const h = (box.height / scale) * base;
+    // box-ը արդեն `scale`-ով մեծացված է. չափը `next`-ի դեպքում՝ box / scale * next
+    // (առաջ scale-ը երկու անգամ էր բաժանվում, և սահմանը 0 էր դառնում՝ նկարը չէր շարժվում)։
+    const w = (box.width / scale) * next;
+    const h = (box.height / scale) * next;
     return { x: Math.max(0, (w - area.width) / 2), y: Math.max(0, (h - area.height) / 2) };
   }, [scale]);
 
@@ -71,7 +72,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
   const onPointerDown = (event: React.PointerEvent) => {
     (event.target as Element).setPointerCapture?.(event.pointerId);
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    gesture.current = { startX: event.clientX, startY: event.clientY, baseOffset: offset, baseScale: scale, startDist: pointers.current.size === 2 ? dist() : 0, moved: false };
+    gesture.current = { startX: event.clientX, startY: event.clientY, baseOffset: offset, baseScale: scale, startDist: pointers.current.size === 2 ? dist() : 0, moved: false, pinched: pointers.current.size === 2 };
   };
 
   const onPointerMove = (event: React.PointerEvent) => {
@@ -95,15 +96,19 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
   };
 
   const onPointerUp = (event: React.PointerEvent) => {
-    const start = pointers.current.get(event.pointerId);
     pointers.current.delete(event.pointerId);
-    if (pointers.current.size > 0) return; // still pinching
+    if (pointers.current.size > 0) {
+      // Երկու մատից մեկը բաց թողնվեց. մնացած մատը շարունակում է տեղաշարժը իր դիրքից՝ առանց ցատկի։
+      const [rest] = [...pointers.current.values()];
+      gesture.current = { ...gesture.current, startX: rest.x, startY: rest.y, baseOffset: offset, baseScale: scale, startDist: 0, pinched: true };
+      return;
+    }
     // pointercancel-ը կարող է գալ առանց նոր կոորդինատի. այդ դեպքում վերջին հայտնի շեղումն ենք վերցնում։
-    const dx = event.type === "pointercancel" ? swipe : event.clientX - (start?.x ?? gesture.current.startX);
+    const dx = event.type === "pointercancel" ? swipe : event.clientX - gesture.current.startX;
     setSwipe(0);
     // Բնական չափում հորիզոնական սահեցումը (≥ 50px կամ էկրանի 15%-ը) փոխում է նկարը։
     const enough = Math.abs(dx) > Math.min(50, window.innerWidth * 0.15);
-    if (scale === 1 && gesture.current.moved && enough && count > 1) go(dx < 0 ? 1 : -1);
+    if (scale === 1 && gesture.current.moved && !gesture.current.pinched && enough && count > 1) go(dx < 0 ? 1 : -1);
   };
 
   const round = "grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white backdrop-blur-md disabled:cursor-default disabled:opacity-40";
