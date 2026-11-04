@@ -1,94 +1,36 @@
 {
-  "project": "Apostolic • Ուսուցողական հոլովակներ",
-  "screen_recording": "source-demo.mp4",
-  "fps": 24,
-  "duration": 23,
-  "style": {
-    "name": "Apostolic Soft Ivory",
-    "aspect_ratio": "9:16",
-    "resolution": "1080x1920",
-    "background": "warm ivory with faint lavender",
-    "accent": "deep plum + antique gold",
-    "fonts": "Noto Serif Armenian, Noto Sans Armenian",
+  "project": "apostolic.am tutorial series",
+  "version": 2,
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 24,
     "audio": false
   },
-  "source_clip": {
-    "freeze_until": 2,
-    "freeze_frame": 2.35,
-    "freeze_from": 17.2
+  "design": {
+    "background": "subtle parchment matching light site theme",
+    "topBrand": false,
+    "ornamentalArcs": false,
+    "extraUI": false,
+    "footer": "apostolic.am",
+    "tapEffect": "no additional ripples; capture-only"
   },
-  "phone": {
-    "crop": {
-      "x": 199,
-      "y": 473,
-      "width": 677,
-      "height": 1414
-    },
-    "placement": {
-      "x": 223,
-      "y": 468,
-      "width": 634,
-      "height": 1265
-    }
+  "tutorial": {
+    "title": "Տառատեսակ և տառաչափ",
+    "scenes": [
+      "Բացիր մենյուն",
+      "Բացիր կարգավորումները",
+      "Ընտրիր տառատեսակը",
+      "Փոխիր տառաչափը",
+      "Ընտրիր վերնագրերի չափը",
+      "Պատրաստ է"
+    ],
+    "headingChoices": [
+      "Փոքր",
+      "Միջին",
+      "Մեծ"
+    ],
+    "note": "Heading-size demo is reconstructed from app/components/settings-panel.tsx; it was not captured in the supplied original footage."
   },
-  "scenes": [
-    {
-      "start": 0,
-      "end": 2,
-      "label": "Անձնավորիր ընթերցումը",
-      "hint": "Փոխիր տառատեսակը մի քանի հպումով"
-    },
-    {
-      "start": 2,
-      "end": 4.7,
-      "label": "Բացիր մենյուն",
-      "hint": "Սեղմիր էջի ներքևի աջ կոճակը"
-    },
-    {
-      "start": 4.7,
-      "end": 8.2,
-      "label": "Գնա կարգավորումներ",
-      "hint": "Ընտրիր «Թեմա, տառաչափ…» բաժինը"
-    },
-    {
-      "start": 8.2,
-      "end": 14.9,
-      "label": "Ընտրիր տառատեսակը",
-      "hint": "Փորձիր տարբեր ոճերն ու ընտրիր հարմարը"
-    },
-    {
-      "start": 14.9,
-      "end": 23,
-      "label": "Պատրաստ է",
-      "hint": "Կարդա՛ քեզ հարմար տառատեսակով",
-      "final": true
-    }
-  ],
-  "clicks": [
-    {
-      "time": 3.82,
-      "x": 826,
-      "y": 1810
-    },
-    {
-      "time": 5.36,
-      "x": 486,
-      "y": 1546
-    },
-    {
-      "time": 9.32,
-      "x": 560,
-      "y": 1010
-    },
-    {
-      "time": 12.16,
-      "x": 445,
-      "y": 1018
-    },
-    {
-      "time": 14.26,
-      "x": 688,
-      "y": 1012
-    }
-  ]
+  "source": "user original 03-taratesak.mp4; editable render_v2.py and assets in the downloadable ZIP"
 }
