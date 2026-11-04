@@ -1,4 +1,4 @@
-import { Bookmark, Check, Copy, PencilLine, Play, RotateCcw, Share2, SkipForward, X } from "lucide-react";
+import { Check, Copy, HelpCircle, Highlighter, PencilLine, Play, RotateCcw, Share2, SkipForward, X } from "lucide-react";
 import { Link } from "react-router";
 import { createPortal } from "react-dom";
 import { psalmLines, verseBody, verseLabel, verseNumber } from "../utils/psalm-verses";
@@ -281,12 +281,17 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
           onClose={closePopup}
           onNotice={flash}
           onListen={() => { listenFrom(selected); closePopup(); }}
+          onQuestion={() => {
+            // Հարցը բացում է նշման քարտը (components/highlight-layer.tsx), մուտք չգործածին՝ մուտքը։
+            window.dispatchEvent(new CustomEvent("highlight-request", { detail: { quote: verseText(selected), kind: "question", verse: verseNumbers[selected] } }));
+            closePopup();
+          }}
           onSave={async () => {
             const number = verseNumbers[selected];
             const next = !saved.has(number);
             setSaved((current) => { const copy = new Set(current); if (next) copy.add(number); else copy.delete(number); return copy; });
             const response = await fetch("/api/saved-verses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, verse: number, saved: next }) }).catch(() => null);
-            if (response?.ok) { flash(next ? "Պահված է «Իմ անկյունը»-ում" : "Հանված է «Իմ անկյունը»-ից"); return; }
+            if (response?.ok) { window.dispatchEvent(new Event("highlights-changed")); flash(next ? "Նշված է «Իմ նշումները»-ում" : "Նշումը հանված է"); return; }
             setSaved((current) => { const copy = new Set(current); if (next) copy.delete(number); else copy.add(number); return copy; });
             flash("Չհաջողվեց պահել։ Փորձեք նորից։");
           }}
@@ -315,9 +320,9 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 const popupTile = "flex min-h-[62px] cursor-pointer flex-col items-center justify-center gap-1 rounded-[14px] border-0 bg-subtle px-1 font-sans text-[11.5px] font-bold text-ink no-underline active:scale-[.96]";
 
 /** The verse popup: copy, share the verse's page, save it, listen from it. */
-function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase, onClose, onNotice, onListen, onSave }: {
+function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase, onClose, onNotice, onListen, onSave, onQuestion }: {
   label: string; text: string; path: string; hasAudio: boolean; canSave: boolean; saved: boolean; notice: string | null; phase: "in" | "out";
-  onClose: () => void; onNotice: (value: string) => void; onListen: () => void; onSave: () => void;
+  onClose: () => void; onNotice: (value: string) => void; onListen: () => void; onSave: () => void; onQuestion: () => void;
 }) {
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -349,7 +354,7 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
           <strong className="text-[13px] text-gold-bright">{label}</strong>
           <button className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
         </div>
-        <div className={`grid gap-1.5 ${hasAudio ? "grid-cols-4" : "grid-cols-3"}`}>
+        <div className={`grid gap-1.5 ${hasAudio ? "grid-cols-5" : "grid-cols-4"}`}>
           <button className={`${popupTile} transition-colors duration-300 ${copied ? "bg-[rgb(74_160_96/16%)] text-[rgb(52_130_74)]" : ""}`} type="button" onClick={copy} aria-live="polite">
             {copied
               ? <Check aria-hidden="true" size={21} strokeWidth={2.4} className="verse-check" />
@@ -358,14 +363,15 @@ function VersePopup({ label, text, path, hasAudio, canSave, saved, notice, phase
           </button>
           <button className={popupTile} type="button" onClick={() => setStoryOpen(true)}><Share2 aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> Կիսվել</button>
           <button className={popupTile} type="button" aria-pressed={saved} onClick={() => canSave ? onSave() : setNeedsSignIn(true)}>
-            <Bookmark aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" fill={saved ? "currentColor" : "none"} /> {saved ? "Պահված է" : "Պահել"}
+            <Highlighter aria-hidden="true" size={19} strokeWidth={1.9} className="text-gold" /> {saved ? "Նշված է" : "Նշել"}
           </button>
+          <button className={popupTile} type="button" onClick={onQuestion}><HelpCircle aria-hidden="true" size={19} strokeWidth={1.9} className="text-[rgb(90_140_215)]" /> Հարց</button>
           {hasAudio ? (
             <button className={`${popupTile} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={onListen}><Play aria-hidden="true" size={19} strokeWidth={2} /> Լսել</button>
           ) : null}
         </div>
         {needsSignIn ? (
-          <p className="m-0 text-center text-[12px] text-muted">Պահելու համար մուտք գործեք՝ <Link className="font-bold text-gold-bright" to="/saved">Իմ անկյունը</Link></p>
+          <p className="m-0 text-center text-[12px] text-muted">Նշելու համար մուտք գործեք՝ <Link className="font-bold text-gold-bright" to="/saved">Իմ անկյունը</Link></p>
         ) : notice ? <p className="m-0 text-center text-[12px] font-bold text-gold-bright" role="status">{notice}</p> : null}
       </div>
     </div>,

@@ -3,13 +3,19 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { anchorFor, cleanEmoji, findQuote, highlightCopyText } from "../app/utils/highlights";
-import { createHighlight, deleteHighlight, listHighlights, listMaterialHighlights, openQuestionCount, updateHighlight } from "../app/data/highlights.server";
+import { anchorFor, cleanEmoji, extendSelection, findQuote, highlightCopyText, sentenceAt } from "../app/utils/highlights";
+import { createHighlight, deleteHighlight, listHighlights, listMarkedVerses, listMaterialHighlights, openQuestionCount, setVerseMarked, updateHighlight } from "../app/data/highlights.server";
 
 function database() {
   const sqlite = new DatabaseSync(":memory:");
-  sqlite.exec("CREATE TABLE app_users (id TEXT PRIMARY KEY);");
+  sqlite.exec(`CREATE TABLE app_users (id TEXT PRIMARY KEY);
+    CREATE TABLE library_topics (id TEXT PRIMARY KEY, title TEXT);
+    CREATE TABLE library_materials (chat_id TEXT, message_id INTEGER, topic_key TEXT);`);
+  sqlite.exec(readFileSync("migrations/0026_saved_verses.sql", "utf8"));
+  sqlite.exec("INSERT INTO app_users (id) VALUES ('old'); INSERT INTO library_topics VALUES ('t', 'Սաղմոսներ'); INSERT INTO library_materials VALUES ('-1', 22, 't');");
+  sqlite.exec("INSERT INTO saved_verses (user_id, chat_id, message_id, verse, verse_text, label, path) VALUES ('old', '-1', 22, 3, 'Տէրն է իմ հովիւը', 'Սաղմոս 22:3', '/psalms/22/3')");
   sqlite.exec(readFileSync("migrations/0047_highlights.sql", "utf8"));
+  sqlite.exec(readFileSync("migrations/0048_highlight_verses.sql", "utf8"));
   const statement = (sql: string, values: unknown[] = []) => ({
     bind: (...next: unknown[]) => statement(sql, next),
     run: async () => { sqlite.prepare(sql).run(...(values as never[])); return { success: true }; },
@@ -67,4 +73,38 @@ test("highlights store: create, dedupe, question answered, delete", async () => 
   assert.equal((await listMaterialHighlights(db, "u1", "-100", 7)).length, 2);
   await deleteHighlight(db, "u1", mark.id);
   assert.deepEqual((await listHighlights(db, "u1")).map((item) => item.id), [question.id]);
+});
+
+test("findQuote matches across line breaks (a psalm verse saved as one line)", () => {
+  const text = "2. Յույս դրի Տիրոջ վրայ.\nինչո՞ւ էք ասում ինձ";
+  const found = findQuote(text, { quote: "Յույս դրի Տիրոջ վրայ. ինչո՞ւ էք", prefix: "", suffix: "" });
+  assert.deepEqual(found, { start: 3, end: text.indexOf(" ասում") });
+});
+
+test("sentenceAt: a tap selects its sentence; «՞» does not end it", () => {
+  const text = "Տէր, ողորմեա։ Ինչո՞ւ ես հեռու կանգնած, Տէր։ Ամէն";
+  const tap = text.indexOf("հեռու");
+  const sentence = sentenceAt(text, tap);
+  assert.ok(sentence);
+  assert.equal(text.slice(sentence.start, sentence.end), "Ինչո՞ւ ես հեռու կանգնած, Տէր։");
+  const first = sentenceAt(text, 2)!;
+  const joined = extendSelection(first, sentence, text)!;
+  assert.equal(text.slice(joined.start, joined.end), "Տէր, ողորմեա։ Ինչո՞ւ ես հեռու կանգնած, Տէր։");
+  // Նորից սեղմելը եզրի նախադասությունը հանում է, միակը՝ մաքրում։
+  const shrunk = extendSelection(joined, sentence, text)!;
+  assert.equal(text.slice(shrunk.start, shrunk.end), "Տէր, ողորմեա։");
+  assert.equal(extendSelection(first, first, text), null);
+});
+
+test("migration 0048 moves saved psalm verses into notes", async () => {
+  const { db } = database();
+  const [moved] = await listHighlights(db, "old");
+  assert.equal(moved.quote, "Տէրն է իմ հովիւը");
+  assert.equal(moved.title, "Սաղմոս 22:3");
+  assert.equal(moved.path, "/psalms/22");
+  assert.equal(moved.section, "Սաղմոսներ");
+  assert.equal(moved.verse, 3);
+  assert.deepEqual(await listMarkedVerses(db, "old", "-1", 22), [3]);
+  await setVerseMarked(db, "old", { chatId: "-1", messageId: 22, verse: 3, quote: "", section: "", title: "", path: "" }, false);
+  assert.deepEqual(await listMarkedVerses(db, "old", "-1", 22), []);
 });

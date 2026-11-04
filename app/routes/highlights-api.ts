@@ -35,7 +35,7 @@ function text(value: unknown, max: number) {
 }
 
 /**
- * POST { action: "create", materialId, quote, prefix, suffix, kind, emoji?, note? }
+ * POST { action: "create", materialId, quote, prefix, suffix, kind, emoji?, note?, verse? }
  * POST { action: "update", id, kind?, emoji?, note?, answer?, answered? }
  * POST { action: "delete", id }
  */
@@ -60,6 +60,7 @@ export async function action({ request }: Route.ActionArgs) {
       prefix: text(body.prefix, CONTEXT_LENGTH) ?? "", suffix: text(body.suffix, CONTEXT_LENGTH) ?? "",
       emoji, note: text(body.note, NOTE_MAX) ?? "",
       section: material.categoryName ?? "", title: material.title, path: canonicalMaterialPath(material),
+      verse: typeof body.verse === "number" && Number.isInteger(body.verse) && body.verse > 0 && body.verse < 1000 ? body.verse : null,
     });
     if (!highlight) return Response.json({ ok: false, reason: "limit" }, { status: 409 });
     return Response.json({ ok: true, highlight });

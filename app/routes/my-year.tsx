@@ -100,7 +100,7 @@ export default function MyYear({ loaderData }: Route.ComponentProps) {
             <div className="grid grid-cols-3 gap-2">
               <Stat value={summary.places} label="սրբավայր" />
               <Stat value={summary.saved} label="պահված նյութ" />
-              <Stat value={summary.savedVerses} label="պահված համար" />
+              <Stat value={summary.savedVerses} label="նշում" />
             </div>
           </section>
           {summary.months ? (
