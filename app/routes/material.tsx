@@ -144,7 +144,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       />
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath}>
+      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath} data-section-name={material.categoryName}>
         {psalmView ? <MaterialMediaGallery media={material.media} /> : material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
         {psalmView ? null : material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 

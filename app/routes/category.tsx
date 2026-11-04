@@ -18,6 +18,8 @@ import {
   getCategoryImage,
   SectionHeader,
 } from "../components/section-header";
+import { ContinueCard } from "../components/continue-reading";
+import { sectionOfPath } from "../utils/last-place";
 import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug, listActiveCategories } from "../data/categories.server";
@@ -529,6 +531,9 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         searchPlaceholder={searchPlaceholder}
         onSearch={(query) => void findInSection(query)}
       />
+
+      {/* Վերջին կարդացածը/լսածը այս բաժնում («Օրվա ընթերցումները» չեն հիշվում)։ */}
+      <ContinueCard className="mb-3" section={sectionOfPath(sectionPath(category))} />
 
       {finding || found ? (() => {
         const count = found?.ids.length ?? 0;
