@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Bookmark, ChevronDown, Search, X } from "lucide-react";
+import { Bookmark, ChevronDown, ChevronRight, NotebookPen, Search, X } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { Link } from "react-router";
 
@@ -59,10 +59,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     return { user, authStatus: auth.status, errorKind: "database" as const, groups: [], query, total: 0, googleAvailable, signInFailed };
   }
   let materials;
-  const [readingLog, joinedAt, verses] = await Promise.all([
+  const [readingLog, joinedAt, verses, notes] = await Promise.all([
     readingDays(env.DB, user.id).catch(() => ({} as Record<string, number>)),
     env.DB.prepare("SELECT created_at FROM app_users WHERE id = ?").bind(user.id).first<{ created_at: string }>().then((row) => row?.created_at ?? null).catch(() => null),
     query ? Promise.resolve([] as SavedVerse[]) : listSavedVerses(env.DB, user.id).catch(() => [] as SavedVerse[]),
+    env.DB.prepare("SELECT COUNT(*) AS total, COALESCE(SUM(kind = 'question' AND answered_at IS NULL), 0) AS questions FROM highlights WHERE user_id = ?")
+      .bind(user.id).first<{ total: number; questions: number }>().catch(() => null),
   ]);
   try {
     materials = await listSavedMaterials(env.DB, user.id, query, undefined, request.signal);
@@ -84,6 +86,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     readingLog,
     joinedAt,
     verses,
+    notes: { total: notes?.total ?? 0, questions: notes?.questions ?? 0 },
   };
 }
 
@@ -198,6 +201,20 @@ function SavedVerses({ verses }: { verses: SavedVerse[] }) {
   );
 }
 
+/** «Իմ նշումները»՝ պահված խոսքեր, հարցեր, նոթեր (/notes)։ */
+function NotesLink({ total, questions }: { total: number; questions: number }) {
+  return (
+    <Link className="frosted-panel flex items-center gap-3 px-4 py-3 text-ink no-underline animate-glass-enter" to="/notes">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/40%)] bg-[rgb(250_214_92/16%)] text-gold-bright"><NotebookPen aria-hidden="true" size={19} /></span>
+      <span className="grid min-w-0 flex-1 gap-0.5">
+        <strong className="text-[15px]">Իմ նշումները</strong>
+        <span className="text-[12.5px] leading-snug text-muted">{total ? `${total} նշում${questions ? ` · ❓ ${questions} հարց սպասում է պատասխանի` : ""}` : "Պահեք Ձեզ դուր եկած տողերը, հարցերը և Ձեր նոթերը"}</span>
+      </span>
+      <ChevronRight aria-hidden="true" size={18} className="text-muted" />
+    </Link>
+  );
+}
+
 export default function Saved({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
@@ -253,6 +270,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         <section className="grid gap-3" aria-labelledby="saved-title">
           {"readingLog" in loaderData && loaderData.readingLog ? <ReadingCalendar days={loaderData.readingLog} joinedAt={"joinedAt" in loaderData ? loaderData.joinedAt ?? null : null} /> : null}
           <MyYearLinks />
+          {"notes" in loaderData && loaderData.notes && !loaderData.query ? <NotesLink total={loaderData.notes.total} questions={loaderData.notes.questions} /> : null}
 
           {"verses" in loaderData && loaderData.verses ? <SavedVerses verses={loaderData.verses} /> : null}
 

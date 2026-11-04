@@ -5,7 +5,7 @@
  */
 export const USER_TABLES = [
   "saved_materials", "saved_verses", "reading_reminders", "reminder_inbox", "reading_log", "poll_votes", "push_subscriptions",
-  "place_visits", "liturgy_marks", "user_settings", "yearly_summaries", "place_submissions", "admin_access",
+  "place_visits", "liturgy_marks", "user_settings", "yearly_summaries", "place_submissions", "admin_access", "highlights",
 ];
 /** user_id ունեցող, բայց չտեղափոխվող աղյուսակներ (և պատճառը)։ */
 export const NOT_MOVED: Record<string, string> = {

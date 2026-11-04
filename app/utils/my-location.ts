@@ -80,3 +80,18 @@ export function openLocationSettings() {
   manager.openSettings();
   return true;
 }
+
+/**
+ * Մարդը արդեն թույլ տվե՞լ է դիրքը (Telegram-ում կամ բրաուզերում)։ Ոչինչ չի հարցնում. օգտագործվում
+ * է լուռ ստուգումների համար («Դուք ունեք հարց, մոտակայքում կա եկեղեցի»)։
+ */
+export async function hasLocationAccess(): Promise<boolean> {
+  const manager = typeof window === "undefined" ? null : telegramLocation();
+  if (manager) {
+    return new Promise((resolve) => {
+      const check = () => resolve(manager.isLocationAvailable && manager.isAccessGranted);
+      if (manager.isInited) check(); else manager.init(check);
+    });
+  }
+  return (await locationPermission()) === "granted";
+}
