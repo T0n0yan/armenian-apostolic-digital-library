@@ -21,6 +21,16 @@ export function formatNoteDate(iso: string) {
   return formatYerevanDateTime(iso).replace(/,\s*\d{2}:\d{2}$/, "");
 }
 
+const MY_EMOJIS_KEY = "my-emojis";
+function readMyEmojis(): string[] {
+  try { const value = JSON.parse(localStorage.getItem(MY_EMOJIS_KEY) ?? "[]"); return Array.isArray(value) ? value.filter((item) => typeof item === "string" && cleanEmoji(item)).slice(0, 8) : []; } catch { return []; }
+}
+function rememberEmoji(emoji: string) {
+  const next = [emoji, ...readMyEmojis().filter((item) => item !== emoji && !QUICK_EMOJIS.includes(item))].filter((item) => !QUICK_EMOJIS.includes(item)).slice(0, 8);
+  try { localStorage.setItem(MY_EMOJIS_KEY, JSON.stringify(next)); } catch { /* պահեստը փակ է */ }
+  return next;
+}
+
 const chip = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
 const field = "min-h-[96px] w-full resize-y rounded-[14px] border border-glass-border bg-control px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-[rgb(217_181_111/60%)]";
 
@@ -36,13 +46,14 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
   const [answer, setAnswer] = useState(item?.answer ?? "");
   const [customEmoji, setCustomEmoji] = useState("");
   const [status, setStatus] = useState<"" | "saving" | "saved" | "error" | "copied">("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [myEmojis, setMyEmojis] = useState<string[]>([]);
+  useEffect(() => setMyEmojis(readMyEmojis()), []);
   const timer = useRef<number | undefined>(undefined);
   const pending = useRef<Change>({});
 
   useEffect(() => {
     if (!item) return;
-    setCurrent(item); setNote(item.note); setAnswer(item.answer); setCustomEmoji(""); setStatus(""); setConfirmDelete(false);
+    setCurrent(item); setNote(item.note); setAnswer(item.answer); setCustomEmoji(""); setStatus("");
     pending.current = {};
   }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -80,8 +91,16 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
     setStatus(ok ? "copied" : "error");
   };
   const pickEmoji = (emoji: string) => void send({ emoji: current.emoji === emoji ? "" : emoji });
+  // Մարդու իր սմայլիկը. դրվում է նշմանը և մնում արագ ցանկում (այս սարքում)։
+  const addEmoji = () => {
+    const emoji = cleanEmoji(customEmoji);
+    if (!emoji) return;
+    void send({ emoji });
+    setCustomEmoji("");
+    setMyEmojis(rememberEmoji(emoji));
+  };
+  // Մեկ սեղմումով. նշումն անմիջապես հեռացվում է։
   const remove = async () => {
-    if (!confirmDelete) { setConfirmDelete(true); return; }
     window.clearTimeout(timer.current);
     pending.current = {};
     const result = await highlightRequest({ action: "delete", id: current.id });
@@ -109,14 +128,21 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
       <div className="grid gap-1.5">
         <span className="text-[12px] font-bold text-muted">Սմայլիկ (ըստ ցանկության)</span>
         <div className="flex flex-wrap items-center gap-1.5">
-          {QUICK_EMOJIS.map((emoji) => (
+          {[...myEmojis, ...QUICK_EMOJIS.filter((emoji) => !myEmojis.includes(emoji))].map((emoji) => (
             <button key={emoji} type="button" onClick={() => pickEmoji(emoji)} aria-pressed={current.emoji === emoji}
               className={`grid size-10 cursor-pointer place-items-center rounded-full border text-[19px] ${current.emoji === emoji ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)]" : "border-glass-border bg-subtle"}`}>{emoji}</button>
           ))}
           <input className="h-10 w-[74px] rounded-full border border-glass-border bg-control px-3 text-center text-[17px] text-ink outline-none" value={customEmoji} inputMode="text" maxLength={16}
             placeholder="այլ" aria-label="Ձեր սմայլիկը" onChange={(event) => setCustomEmoji(event.target.value)}
-            onBlur={() => { const emoji = cleanEmoji(customEmoji); if (emoji) { void send({ emoji }); setCustomEmoji(""); } }} />
+            onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addEmoji(); } }} />
+          {customEmoji ? (
+            <span className="flex items-center gap-1 animate-glass-enter">
+              <button className="grid size-10 cursor-pointer place-items-center rounded-full border-0 bg-[rgb(74_160_96/16%)] text-[rgb(52_130_74)] disabled:opacity-40" type="button" disabled={!cleanEmoji(customEmoji)} onClick={addEmoji} aria-label="Ավելացնել սմայլիկը"><Check aria-hidden="true" size={18} /></button>
+              <button className="grid size-10 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted" type="button" onClick={() => setCustomEmoji("")} aria-label="Չեղարկել"><X aria-hidden="true" size={17} /></button>
+            </span>
+          ) : null}
         </div>
+        {customEmoji && !cleanEmoji(customEmoji) ? <span className="text-[11.5px] text-faint">Գրեք միայն սմայլիկ (1–3 հատ)։</span> : null}
       </div>
 
       <label className="grid gap-1.5">
@@ -153,8 +179,8 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
         {showOpen ? (
           <Link className={`${chip} no-underline`} to={`${current.path}?hl=${encodeURIComponent(current.id)}`} onClick={close}><ExternalLink aria-hidden="true" size={16} /> Բացել տեքստում</Link>
         ) : null}
-        <button className={`${chip} ${confirmDelete ? "border-[rgb(205_70_55/55%)] bg-[rgb(205_70_55/12%)] text-[rgb(190_60_45)]" : ""} ${showOpen ? "" : "col-span-2"}`} type="button" onClick={() => void remove()}>
-          <Trash2 aria-hidden="true" size={16} /> {confirmDelete ? "Հաստատել ջնջումը" : "Ջնջել"}
+        <button className={`${chip} text-[rgb(190_60_45)] ${showOpen ? "" : "col-span-2"}`} type="button" onClick={() => void remove()}>
+          <Trash2 aria-hidden="true" size={16} /> Ջնջել
         </button>
       </div>
 
