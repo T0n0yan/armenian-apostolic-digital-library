@@ -1,4 +1,5 @@
 import { searchValidation } from "../utils/search-validation";
+import { firstEmoji, type Highlight } from "../utils/highlights";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { listCloudLibraryCategories } from "../data/cloud-library.server";
 import { materialPath, sectionPath } from "../utils/material-path";
@@ -661,6 +662,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         </p>
       ) : null}
 
+      {filters.query && !filters.categoryId && filters.scope === "library" && loaderData.canSave ? <NoteMatches query={filters.query} /> : null}
       {filters.query && !filters.categoryId && filters.scope === "library" ? <PlaceMatches query={filters.query} /> : null}
 
       <section className="mt-4 grid gap-3" aria-live="polite" aria-busy={isRefreshing || undefined}>
@@ -752,6 +754,40 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ) : null}
       </section>
     </PageShell>
+  );
+}
+
+/** Մուտք գործածի իր նշումները (տող, նշում, պատասխան), որոնք պարունակում են որոնվածը։ */
+function NoteMatches({ query }: { query: string }) {
+  const [found, setFound] = useState<{ query: string; total: number; highlights: Highlight[] } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/highlights?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() as Promise<{ total?: number; highlights?: Highlight[] }> : null))
+      .then((data) => { if (data) setFound({ query, total: data.total ?? 0, highlights: data.highlights ?? [] }); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [query]);
+  if (!found || found.query !== query || !found.total) return null;
+  return (
+    <section className="mt-4 grid gap-2" aria-labelledby="note-search-results">
+      <div className={sectionHeader}>
+        <h2 className={sectionTitle} id="note-search-results">Իմ նշումները</h2>
+        <span className={countBadge}>{found.total}</span>
+      </div>
+      <ul className="m-0 grid list-none gap-2 p-0">
+        {found.highlights.map((item) => (
+          <li key={item.id}>
+            <Link className={`frosted-card grid gap-1 border-l-4 px-3.5 py-2.5 text-inherit no-underline ${item.kind === "question" ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} to={`${item.path}?hl=${encodeURIComponent(item.id)}`}>
+              <span className="line-clamp-2 text-[14px] leading-snug text-ink">{firstEmoji(item.emoji) || (item.kind === "question" ? "❓" : "")} «{item.quote}»</span>
+              {item.note ? <span className="line-clamp-1 text-[12.5px] text-muted">✎ {item.note}</span> : null}
+              <span className="truncate text-[11.5px] font-semibold text-gold-bright">{item.title}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {found.total > found.highlights.length ? <Link className="w-fit text-[13px] font-semibold text-gold-bright" to="/saved?tab=notes">Բոլոր նշումները →</Link> : null}
+    </section>
   );
 }
 

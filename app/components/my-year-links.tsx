@@ -4,7 +4,7 @@ import { Link } from "react-router";
 
 import { monthToShow, yearToShow } from "../utils/liturgy";
 
-const MONTHS = ["Հունվարը", "Փետրվարը", "Մարտը", "Ապրիլը", "Մայիսը", "Հունիսը", "Հուլիսը", "Օգոստոսը", "Սեպտեմբերը", "Հոկտեմբերը", "Նոյեմբերը", "Դեկտեմբերը"];
+const MONTHS = ["Հունվար", "Փետրվար", "Մարտ", "Ապրիլ", "Մայիս", "Հունիս", "Հուլիս", "Օգոստոս", "Սեպտեմբեր", "Հոկտեմբեր", "Նոյեմբեր", "Դեկտեմբեր"];
 
 /**
  * «Իմ անկյունը»-ում. միշտ՝ «Իմ տարին» հղումը, ամսվա առաջին 7 օրը՝ նախորդ ամսվա քարտը,
@@ -27,10 +27,15 @@ export function MyYearLinks() {
       {month ? (
         <Link className={card} to={`/my-year?period=${month}`}>
           <CalendarHeart aria-hidden="true" size={20} className="shrink-0 text-gold" />
-          <span className="grid gap-0.5"><strong className="text-[14.5px] text-ink">Ձեր {MONTHS[Number(month.slice(5)) - 1]}</strong><span className="text-[12.5px] text-muted">Ամսվա ամփոփումը</span></span>
+          <span className="grid gap-0.5"><strong className="text-[14.5px] text-ink">{MONTHS[Number(month.slice(5)) - 1]}</strong><span className="text-[12.5px] text-muted">Ամսվա ամփոփումը</span></span>
         </Link>
       ) : null}
-      {!year ? <Link className="w-fit px-1 text-[13px] font-semibold text-gold-bright" to="/my-year">Իմ տարին →</Link> : null}
+      {!year ? (
+        <Link className={card} to="/my-year">
+          <Sparkles aria-hidden="true" size={20} className="shrink-0 text-gold" />
+          <span className="grid gap-0.5"><strong className="text-[14.5px] text-ink">Իմ տարին</strong><span className="text-[12.5px] text-muted">Պատարագներ, Հաղորդություններ, կարդացածներ</span></span>
+        </Link>
+      ) : null}
     </div>
   );
 }

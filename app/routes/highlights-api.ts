@@ -5,18 +5,25 @@ import { getOptionalTelegramUser, requireSameOriginUserRequest, requireTelegramU
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath } from "../data/material-page.server";
 import {
-  createHighlight, deleteHighlight, listMaterialHighlights, openQuestionCount, updateHighlight, type HighlightChange,
+  createHighlight, deleteHighlight, listHighlights, listMaterialHighlights, openQuestionCount, updateHighlight, type HighlightChange,
 } from "../data/highlights.server";
 import { CONTEXT_LENGTH, NOTE_MAX, QUOTE_MAX, cleanEmoji, type HighlightKind } from "../utils/highlights";
 import { parseMaterialId } from "../../shared/telegram-bridge-contract";
 
 const noStore = { "cache-control": "private, no-store" };
 
-/** GET ?materialId=… — մեկ նյութի նշումները. GET ?questions=1 — չպատասխանված հարցերի թիվը։ */
+/** GET ?materialId=… — մեկ նյութի նշումները. ?questions=1 — չպատասխանված հարցերի թիվը. ?q=… — որոնում նշումներում։ */
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getOptionalTelegramUser(request);
   if (!user) return Response.json({ ok: false, signedIn: false, highlights: [], openQuestions: 0 }, { headers: noStore });
   const url = new URL(request.url);
+  // Որոնում իմ նշումներում (տող, նշում, պատասխան, նյութի անուն)։
+  const query = (url.searchParams.get("q") ?? "").trim().toLocaleLowerCase("hy").slice(0, 120);
+  if (query.length >= 2) {
+    const found = (await listHighlights(env.DB, user.id)).filter((item) =>
+      [item.quote, item.note, item.answer, item.title].some((text) => text.toLocaleLowerCase("hy").includes(query)));
+    return Response.json({ ok: true, total: found.length, highlights: found.slice(0, 6) }, { headers: noStore });
+  }
   if (url.searchParams.get("questions")) {
     return Response.json({ ok: true, openQuestions: await openQuestionCount(env.DB, user.id) }, { headers: noStore });
   }

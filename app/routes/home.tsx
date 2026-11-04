@@ -10,7 +10,6 @@ import {PlacesIcon} from "../components/topic-icons";
 import { PageShell } from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
 import {DailyVerseCard} from "../components/daily-verse";
-import {ContinueCard} from "../components/continue-reading";
 import {SearchSuggestions} from "../components/search-suggestions";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
@@ -187,7 +186,6 @@ export default function Home({loaderData}: Route.ComponentProps) {
         </div>
         <HomeTitle/>
         <div className="hero-rise hero-rise-delay-2 mt-2"><DailyVerseCard/></div>
-        <ContinueCard className="mt-3"/>
         <HomeSearch/>
         <section className="mt-4 grid gap-3" aria-labelledby="categories-title">
             <h2 className="m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase" id="categories-title">
