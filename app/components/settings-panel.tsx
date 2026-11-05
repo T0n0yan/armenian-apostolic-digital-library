@@ -120,7 +120,7 @@ export function SettingsPanel() {
 
   return (
       <div className="grid gap-3">
-        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Թեմա" hint={theme === "sun" ? sunText ?? "Ցերեկը բաց, երեկոյից մուգ" : theme === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}>
+        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Կայքի լուսավորություն" hint={theme === "sun" ? sunText ?? "Ցերեկը բաց, երեկոյից մուգ" : theme === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}>
           <Choice columns={4} value={theme} onChange={chooseTheme} options={[
             { value: "system", label: "Սարքի պես", icon: <Monitor aria-hidden="true" size={17} /> },
             { value: "sun", label: "Ըստ ժամի", icon: <SunMoon aria-hidden="true" size={17} /> },

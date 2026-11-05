@@ -160,7 +160,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
               <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")}>
                 <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings2 aria-hidden="true" size={17} /></span>
-                <span className="flex-1">Թեմա, տառաչափ, տառատեսակ…</span>
+                <span className="flex-1">Կայքի լուսավորություն, տառաչափ, տառատեսակ…</span>
                 <ChevronRight aria-hidden="true" size={17} className="text-faint" />
               </button>
               {canInstall ? (
