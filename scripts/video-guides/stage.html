@@ -49,7 +49,9 @@ body{position:relative;font-family:"NSA",serif;
 for(let i=0;i<d.data.length;i+=4){const v=150+r()*105;d.data[i]=v;d.data[i+1]=v*.93;d.data[i+2]=v*.82;d.data[i+3]=255}x.putImageData(d,0,0)})();
 const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));const ease=k=>{k=clamp(k);return k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2};
 let PLAN=null;
-window.setup=(plan)=>{PLAN=plan;document.getElementById('title').innerHTML=plan.title;
+window.setup=(plan)=>{PLAN=plan;const T=document.getElementById('title');T.innerHTML=plan.title;
+ // Երկտողանի վերնագիր՝ <br>-ով. մի փոքր փոքր տառ, գիծը՝ ցածր
+ if(plan.title.includes('<br>')){T.style.fontSize='50px';T.style.lineHeight='1.16';T.style.top='78px';document.getElementById('rule').style.top='232px';}
  const box=document.getElementById('pills');
  plan.steps.forEach((s,i)=>{const p=document.createElement('div');p.className='pill'+(s.done?' done':'');p.id='pill'+i;
   p.innerHTML=`<span class="coin">${s.done?'✓':s.n}</span><span>${s.text}</span>`;box.appendChild(p);

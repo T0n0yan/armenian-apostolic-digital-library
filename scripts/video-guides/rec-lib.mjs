@@ -27,8 +27,32 @@ export async function startRecorder({ out, base = 'http://127.0.0.1:5174', debug
     wait: (ms) => p.waitForTimeout(ms),
     mark: (name) => events.push({ type: 'step', name, t: now() }),
     dbg: async (name) => { if (debug) await p.screenshot({ path: `${out}/dbg_${shot++}_${name}.png` }); },
+    // Սահուն թերթել (էջը կամ մենյուի պես ներքին պատուհանը), մինչև տարրը հանգիստ երևա, ոչ թե միանգամից թռնել
+    async reveal(loc, { top = 100, bottom = 170 } = {}) {
+      await loc.waitFor({ state: 'visible' });
+      const moved = await loc.evaluate(async (el, [mTop, mBottom]) => {
+        let box = el.parentElement;
+        while (box && box !== document.body && box !== document.documentElement) {
+          const st = getComputedStyle(box);
+          if (/(auto|scroll)/.test(st.overflowY) && box.scrollHeight > box.clientHeight + 2) break;
+          box = box.parentElement;
+        }
+        const win = !box || box === document.body || box === document.documentElement;
+        const view = win ? { top: 0, height: innerHeight } : { top: box.getBoundingClientRect().top, height: box.clientHeight };
+        const r = el.getBoundingClientRect();
+        if (r.top >= view.top + mTop && r.bottom <= view.top + view.height - mBottom) return 0;
+        const start = win ? scrollY : box.scrollTop;
+        const max = win ? document.documentElement.scrollHeight - innerHeight : box.scrollHeight - box.clientHeight;
+        const target = Math.max(0, Math.min(max, start + (r.top + r.height / 2) - (view.top + view.height * 0.45)));
+        const d = target - start; if (Math.abs(d) < 2) return 0;
+        const ms = Math.min(1300, Math.max(550, 380 + Math.abs(d) * 0.7)), t0 = performance.now();
+        await new Promise((res) => { const f = (t) => { const k = Math.min(1, (t - t0) / ms); const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; const y = start + d * e; if (win) scrollTo(0, y); else box.scrollTop = y; k < 1 ? requestAnimationFrame(f) : res(); }; requestAnimationFrame(f); });
+        return d;
+      }, [top, bottom]);
+      if (moved) await p.waitForTimeout(350);
+    },
     async tap(loc, label) {
-      await loc.scrollIntoViewIfNeeded();
+      await r.reveal(loc);
       const bx = await loc.boundingBox();
       const x = bx.x + bx.width / 2, y = bx.y + bx.height / 2;
       events.push({ type: 'tap', label, x, y, t: now() });

@@ -1,6 +1,6 @@
 // 09 Հարց հոգևորականին՝ տեղական կայքից. նշումը դառնում է «Հարց», հետո՝ «Իմ նշումները» → Հարցեր
 import { startRecorder } from './rec-lib.mjs';
-const r = await startRecorder({ out: process.argv[2], debug: process.argv[3] === 'debug', warm: ['/pray/90211', '/saved?tab=notes'], start: '/pray/90211', init: () => { try { localStorage.setItem('highlight-hint', '1'); localStorage.removeItem('corner-tab'); } catch {} } });
+const r = await startRecorder({ out: process.argv[2], debug: process.argv[3] === 'debug', warm: ['/pray/90211', '/saved?tab=notes'], start: '/pray/90211', permissions: ['geolocation'], geolocation: { latitude: 40.16285, longitude: 44.29245, accuracy: 20 }, init: () => { try { localStorage.setItem('highlight-hint', '1'); if (!sessionStorage.getItem('rec-init')) { sessionStorage.setItem('rec-init', '1'); localStorage.removeItem('corner-tab'); localStorage.removeItem('church-nudge'); localStorage.removeItem('church-nudge-day'); } } catch {} } });
 const { p, wait, mark, tap, dbg } = r;
 await wait(1200);
 mark('pick'); await wait(500);
@@ -24,5 +24,13 @@ await p.waitForURL('**/saved**', { waitUntil: 'commit' }); await wait(1100);
 await r.scrollTo(300, 900); await wait(400);
 await tap(p.getByRole('tab', { name: /նշումները/ }), 'tab'); await wait(1100);
 await tap(p.getByRole('button', { name: /Հարցեր/ }).filter({ visible: true }).first(), 'questions'); await wait(1600); await dbg('list');
+// Եկեղեցու հուշումը. միացնել, հետո կայքը նորից բացել (հուշումը գալիս է էջը բացելիս)
+mark('nudge-on'); await wait(300);
+await tap(p.getByText('Հուշել, երբ մոտ եմ եկեղեցուն', { exact: false }).filter({ visible: true }).first(), 'toggle'); await wait(1600); await dbg('toggle');
+mark('reopen'); await wait(300);
+await p.goto(r.base + '/', { waitUntil: 'domcontentloaded' });
+await p.getByRole('dialog', { name: /Մոտակայքում կա եկեղեց/ }).waitFor({ timeout: 15000 }); await wait(1800); await dbg('nudge');
+mark('church'); await wait(300);
+await tap(p.getByRole('button', { name: /Դեպի եկեղեցի/ }), 'church'); await wait(2600); await dbg('church');
 mark('done'); await wait(3400); await dbg('done');
 await r.finish();

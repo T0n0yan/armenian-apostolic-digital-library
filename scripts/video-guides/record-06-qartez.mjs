@@ -1,41 +1,9 @@
-// Իրական UI-ի նկարահանում. CDP screencast + սեղմումների ժամանակները
-import { chromium } from 'playwright';
-import { writeFileSync, mkdirSync } from 'node:fs';
-const OUT = process.argv[2]; const DEBUG = process.argv[3] === 'debug';
-mkdirSync(OUT + '/raw', { recursive: true });
-const BASE = 'http://127.0.0.1:5174';
-const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'hy-AM', timezoneId: 'Asia/Yerevan' });
-await c.addInitScript(() => {
-  // Ադմինի կոճակները սովորական մարդը չի տեսնում. վիդեոյում էլ՝ ոչ
-  document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = 'a[href^="/admin"]{display:none!important}'; document.head.appendChild(s); });
-  try { sessionStorage.setItem('library-loader-seen-v4', '1'); localStorage.setItem('install-prompt-dismissed','1'); } catch {} });
-const p = await c.newPage();
-// տաքացում՝ vite-ը առաջին անգամ դանդաղ է
-for (const u of ['/', '/places', '/places/mayr-ator-surb-ejmiatsin']) { await p.goto(BASE + u, { waitUntil: 'networkidle' }); }
-await p.goto(BASE + '/', { waitUntil: 'networkidle' }); await p.waitForTimeout(800);
-await p.evaluate(() => { localStorage.removeItem('places-view'); });
-const frames = []; const events = []; let n = 0;
-const cdp = await c.newCDPSession(p);
-cdp.on('Page.screencastFrame', async (f) => { const name = `raw/${String(n++).padStart(5, '0')}.jpg`; writeFileSync(OUT + '/' + name, Buffer.from(f.data, 'base64')); frames.push({ t: f.metadata.timestamp, file: name }); await cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {}); });
-await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 95, maxWidth: 780, maxHeight: 1688, everyNthFrame: 1 });
-const now = () => Date.now() / 1000;
-const mark = (name) => events.push({ type: 'step', name, t: now() });
-let shot = 0;
-const dbg = async (n) => { if (DEBUG) await p.screenshot({ path: `${OUT}/dbg_${shot++}_${n}.png` }); };
-async function tap(loc, label) {
-  await loc.scrollIntoViewIfNeeded();
-  const bx = await loc.boundingBox();
-  const x = bx.x + bx.width / 2, y = bx.y + bx.height / 2;
-  events.push({ type: 'tap', label, x, y, t: now() });
-  await p.touchscreen.tap(x, y);
-}
-async function tapAt(pt, label) { events.push({ type: 'tap', label, x: pt.x, y: pt.y, t: now() }); await p.touchscreen.tap(pt.x, pt.y); }
-async function smoothScrollTo(y, ms = 900) {
-  await p.evaluate(async ([y, ms]) => { const s = scrollY, d = y - s, t0 = performance.now(); await new Promise(r => { const f = (t) => { const k = Math.min(1, (t - t0) / ms); const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; scrollTo(0, s + d * e); k < 1 ? requestAnimationFrame(f) : r(); }; requestAnimationFrame(f); }); }, [y, ms]);
-}
-const scrollToEl = async (loc, top, ms) => { const b = await loc.boundingBox(); await smoothScrollTo((await p.evaluate(() => scrollY)) + b.y - top, ms); };
-const wait = (ms) => p.waitForTimeout(ms);
+// 06 Սրբավայրեր քարտեզում՝ տեղական կայքից (Մայր Աթոռ, seed-place.py)
+import { startRecorder } from './rec-lib.mjs';
+const r = await startRecorder({ out: process.argv[2], debug: process.argv[3] === 'debug', warm: ['/places', '/places/mayr-ator-surb-ejmiatsin'], start: '/',
+  init: () => { try { localStorage.removeItem('places-view'); } catch {} } });
+const { p, wait, mark, tap, tapAt, dbg } = r;
+const scrollToEl = (loc, top, ms) => r.scrollToEl(loc, top, ms);
 // Քարտեզի կարմիր կետը (նշանը)՝ էկրանի կոորդինատներով
 async function pinPoint() {
   const cb = await p.locator('canvas.maplibregl-canvas').first().boundingBox();
@@ -69,8 +37,4 @@ await scrollToEl(p.getByRole('heading', { name: 'Այցելություն' }), 1
 mark('route'); await wait(200);
 await scrollToEl(p.getByRole('heading', { name: 'Ինչպես հասնել' }), 120, 1100); await wait(3200); await dbg('route');
 mark('done'); await wait(3400); await dbg('done');
-await cdp.send('Page.stopScreencast');
-await wait(300);
-writeFileSync(OUT + '/timeline.json', JSON.stringify({ frames, events }, null, 1));
-console.log('frames', frames.length, 'dur', (frames.at(-1).t - frames[0].t).toFixed(1));
-await b.close();
+await r.finish();

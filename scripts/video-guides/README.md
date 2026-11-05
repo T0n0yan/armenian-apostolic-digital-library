@@ -18,6 +18,8 @@
 
 `stage.html`-ում է ամբողջ դիզայնը՝ ֆոն, վերնագիր, քայլի պիտակ, հեռախոս, սեղմման նշան, `apostolic.am`։
 Էկրանը կտրվում է կլոր անկյուններով հենց առաջին կադրից (`overflow:hidden` + `border-radius`)։
+`rec-lib.mjs`-ի `tap()`-ը սեղմելուց առաջ **սահուն** թերթում է էջը կամ ներքին պատուհանը (մենյու), մինչև կոճակը երևա (`reveal`). մի՛ օգտագործիր `scrollIntoViewIfNeeded`, այն թռցնում է կադրը։
+Երկտողանի վերնագիր՝ plan-ի `title`-ում `<br>`։
 
 `fix-corners.py`՝ հին (ChatGPT-ով արված) վիդեոների սկզբի քառակուսի անկյունները կլորացնելու համար
 (`python3 fix-corners.py in.mp4 out.mp4 <առաջին կադր> <վերջին կադր> <ճիշտ կադրի համար>`)։
@@ -34,7 +36,7 @@
 | 06 | Սրբավայրեր քարտեզում (Մայր Աթոռ) | տեղական + `seed-place.py` | `record-06-qartez.mjs` |
 | 07 | Ավելացնել սրբավայր (Ս. Հռիփսիմե) | տեղական | `record-07-avelacnel.mjs` (`PHOTO=...`) |
 | 08 | Ինչպես մուտք գործել | apostolic.am | `record-08-mutq.mjs` |
-| 09 | Հարց հոգևորականին | տեղական | `record-09-harc.mjs` |
+| 09 | Պահել հարցը՝ հոգևորականին հարցնելու համար (+ ⛪ եկեղեցին մոտ է հուշումը) | տեղական | `record-09-harc.mjs` |
 | 10 | Հիշեցում կարդալու մասին | տեղական* | `record-10-hishecnel.mjs` |
 | 11 | Լսել սաղմոսը | apostolic.am | `record-11-lsel.mjs` |
 | 12 | Անծանոթ բառեր (բառարան) | apostolic.am | `record-12-bararan.mjs` |
@@ -45,5 +47,5 @@ apostolic.am-ից՝ `BASE` փոփոխականով կարելի է փոխել (օ
 այդ ստուգումը ժամանակավոր հանվում է, հետո `git checkout app/routes/reminders.ts` (commit չանել)։
 08. Telegram-ի էջը չի նկարվում. cloud-ից այն ցույց է տալիս սերվերի երկիրը (+1)։
 
-**Նկարների հեղինակներ** (հրապարակելիս նշել). 06՝ Wikimedia Commons, CC0 (Antisyntagmatarchos), հեղինակ նշել պետք չէ.
+**Նկարների հեղինակներ** (հրապարակելիս նշել). 06 (2025)՝ Lohen11 (CC BY 4.0), Yerevantsi (CC BY 4.0), Jaba1977 (CC BY-SA 4.0), Wikimedia Commons.
 07՝ «Saint Hripsime Church.jpg», MSyuzan, CC BY-SA 4.0, Wikimedia Commons։
