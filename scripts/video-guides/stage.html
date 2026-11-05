@@ -51,7 +51,7 @@ const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));const ease=k=>{k=clamp(k);ret
 let PLAN=null;
 window.setup=(plan)=>{PLAN=plan;const T=document.getElementById('title');T.innerHTML=plan.title;
  // Երկտողանի վերնագիր՝ <br>-ով. մի փոքր փոքր տառ, գիծը՝ ցածր
- if(plan.title.includes('<br>')){T.style.fontSize='50px';T.style.lineHeight='1.16';T.style.top='78px';document.getElementById('rule').style.top='232px';}
+ if(plan.title.includes('<br>')){T.style.fontSize='50px';T.style.lineHeight='1.16';T.style.top='94px';document.getElementById('rule').style.top='242px';}
  const box=document.getElementById('pills');
  plan.steps.forEach((s,i)=>{const p=document.createElement('div');p.className='pill'+(s.done?' done':'');p.id='pill'+i;
   p.innerHTML=`<span class="coin">${s.done?'✓':s.n}</span><span>${s.text}</span>`;box.appendChild(p);
