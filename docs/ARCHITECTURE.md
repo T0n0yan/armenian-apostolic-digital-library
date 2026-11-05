@@ -434,14 +434,14 @@ flowchart TD
   ADM["/admin/help (իրավունք՝ help)"] -->|"ֆայլը՝ հարցման մարմնով, ≤95 ՄԲ"| UP["/admin/help/:id/video"] --> R2[("R2 help/&lt;id&gt;-&lt;նոր անուն&gt;.mp4")]
   UP --> SET[("site_settings «help_videos»<br/>files + onboarding")]
   ADM -->|"«Ցույց տալ նոր այցելուներին»"| SET
-  SET --> PAGE["/ognutyun. 13 վերնագիր (utils/help-videos.ts),<br/>չվերբեռնվածը՝ «Շուտով»"]
+  SET --> PAGE["/ognutyun. ցանկը՝ site_settings-ից (սկզբում՝ HELP_DEFAULTS),<br/>չվերբեռնվածը՝ «Շուտով»"]
   SET --> API["/api/help-videos (միայն երբ միացված է)"]
   API --> ONB["HelpOnboarding (root). նոր սարքում մեկ անգամ,<br/>մոմի անիմացիայից հետո, «Բաց թողնել», «3 / 13»"]
   PAGE & ONB --> SHEET["HelpVideoSheet. տեսանյութ, համարիչ, կետեր, Նախորդը/Հաջորդը"]
   R2 --> MEDIA["/help-media/:file (range)"] --> SHEET
 ```
 
-- Վերնագրերն ու կարգը՝ `app/utils/help-videos.ts` (`HELP_VIDEOS`). նոր տեսանյութ ավելացնելու համար՝ նոր տող այնտեղ։
+- Ցանկը (վերնագրեր, կարգ) ադմինն է խմբագրում `/admin/help`-ում՝ ավելացնել, անվանել, ↑↓, «Հանել ցանկից» (տեսանյութն էլ է ջնջվում)։ Պահվում է `site_settings.help_videos.items`-ում. մինչ առաջին խմբագրումը՝ `HELP_DEFAULTS` (`app/utils/help-videos.ts`)։ Նոր տարրի id-ն՝ `v-…`։
 - Նոր ֆայլը ստանում է նոր անուն, նախորդը R2-ից ջնջվում է (`setHelpVideo`), ուստի `/help-media/`-ը քեշվում է անվերջ։
 - Ուղեցույցը ցույց է տրվել՝ `localStorage` `help-onboarding-seen` (այս սարքում)։ Չի բացվում `/admin`, `/auth`, `/ognutyun` էջերում։
 - Տեսանյութերը պատրաստվում են `scripts/video-guides/`-ով (README)։

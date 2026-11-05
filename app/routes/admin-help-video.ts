@@ -2,8 +2,8 @@ import { env } from "cloudflare:workers";
 
 import type { Route } from "./+types/admin-help-video";
 import { requirePermission, requireSameOrigin } from "../auth/admin.server";
-import { setHelpVideo } from "../data/help-videos.server";
-import { isHelpVideoId } from "../utils/help-videos";
+import { helpItemExists, setHelpVideo } from "../data/help-videos.server";
+import { isHelpId } from "../utils/help-videos";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
 
@@ -16,7 +16,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   await requirePermission(request, env.DB, "help");
   requireSameOrigin(request);
   const { DB, MEDIA } = env as unknown as Bindings;
-  if (!isHelpVideoId(params.id)) return Response.json({ error: "Այդպիսի տեսանյութ չկա։" }, { status: 404 });
+  if (!isHelpId(params.id) || !(await helpItemExists(DB, params.id))) return Response.json({ error: "Այդպիսի տեսանյութ չկա։" }, { status: 404 });
   const type = (request.headers.get("content-type") ?? "").split(";")[0].trim();
   const size = Number(request.headers.get("content-length"));
   if (!TYPES[type]) return Response.json({ error: "Տեսանյութը պետք է լինի MP4, MOV կամ WebM։" }, { status: 400 });
