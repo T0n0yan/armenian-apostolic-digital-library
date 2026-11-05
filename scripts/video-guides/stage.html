@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="hy"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:"NSA";src:url("../../app/assets/fonts/NotoSerifArmenian-Regular.woff2");font-weight:400}
+@font-face{font-family:"NSA";src:url("../../app/assets/fonts/NotoSerifArmenian-Medium.woff2");font-weight:500}
+@font-face{font-family:"NSA";src:url("../../app/assets/fonts/NotoSerifArmenian-SemiBold.woff2");font-weight:600}
+@font-face{font-family:"NSA";src:url("../../app/assets/fonts/NotoSerifArmenian-Bold.woff2");font-weight:700}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden}
+body{position:relative;font-family:"NSA",serif;
+ background:
+  radial-gradient(ellipse 75% 32% at 50% 8%, #fdf4e0 0%, rgba(253,244,224,0) 100%),
+  radial-gradient(ellipse 120% 60% at 50% 45%, rgba(0,0,0,0) 40%, rgba(120,90,40,.10) 100%),
+  linear-gradient(180deg,#f6e9cf 0%,#ead6ad 45%,#dcc292 80%,#d5b886 100%);}
+#grain{position:absolute;inset:0;opacity:.08;mix-blend-mode:multiply;pointer-events:none}
+#head{position:absolute;left:0;right:0;top:0;text-align:center}
+#brand{position:absolute;top:58px;left:0;right:0;font-size:25px;letter-spacing:9px;color:#a77a33;font-weight:500}
+#title{position:absolute;top:100px;left:0;right:0;font-size:62px;font-weight:700;color:#3a2614;letter-spacing:.5px}
+#title b{color:#a8792f;font-weight:700}
+#rule{position:absolute;top:218px;left:50%;width:470px;height:2px;margin-left:-235px;background:linear-gradient(90deg,rgba(176,125,46,0),rgba(176,125,46,.55),rgba(176,125,46,0))}
+.pill{position:absolute;left:50%;top:290px;height:100px;display:flex;align-items:center;gap:22px;padding:0 44px 0 14px;border-radius:60px;white-space:nowrap;
+ background:linear-gradient(180deg,#fffaf0,#f6ead2);box-shadow:0 10px 30px rgba(110,78,30,.16),0 1px 0 rgba(255,255,255,.9) inset,0 0 0 1.5px rgba(214,184,128,.45);
+ font-size:40px;font-weight:500;color:#3a2614;transform-origin:50% 50%}
+.coin{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;font-size:36px;font-weight:700;color:#3a2614;
+ background:radial-gradient(circle at 35% 30%,#f1d79c,#c99a4b 60%,#a87a32);box-shadow:0 0 0 6px rgba(226,196,140,.35),0 3px 8px rgba(110,78,30,.25) inset}
+.pill.done{background:none;box-shadow:none;padding:0;gap:18px}
+.pill.done .coin{width:62px;height:62px;font-size:34px;box-shadow:0 0 0 5px rgba(226,196,140,.35)}
+.sub{position:absolute;left:0;right:0;top:412px;text-align:center;font-size:31px;color:#a8792f;font-weight:500;white-space:nowrap}
+.sub i{font-style:normal;color:#7a5524}
+#phone{position:absolute;left:209px;top:486px;width:662px;height:1388px;transform-origin:50% 40%}
+#shadow{position:absolute;inset:0;border-radius:80px;box-shadow:0 40px 80px rgba(90,62,20,.35),0 12px 26px rgba(90,62,20,.22)}
+#bezel{position:absolute;inset:0;border-radius:80px;background:#0b0805;box-shadow:0 0 0 2px #c8a660,0 0 0 3.5px rgba(255,236,190,.5)}
+#screen{position:absolute;left:19px;top:19px;width:624px;height:1350px;border-radius:60px;overflow:hidden;background:#efe2c6;isolation:isolate}
+#screen img{position:absolute;left:0;top:0;width:624px;height:1350px;display:block}
+#cam{position:absolute;left:50%;top:22px;width:26px;height:26px;margin-left:-13px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#2b3442,#050505 60%);box-shadow:0 0 0 2px rgba(0,0,0,.6);z-index:3}
+#tap{position:absolute;width:96px;height:96px;margin:-48px 0 0 -48px;border-radius:50%;z-index:4;opacity:0;pointer-events:none;
+ background:radial-gradient(circle,#fff 0 22px,rgba(255,252,242,.55) 23px 34px,rgba(232,206,150,.35) 35px 46px,rgba(232,206,150,0) 48px);
+ box-shadow:0 0 0 2px rgba(255,255,255,.75),0 6px 18px rgba(80,55,20,.25)}
+#site{position:absolute;left:50%;top:1745px;transform:translateX(-50%);padding:22px 58px 26px;border-radius:60px;font-family:"Bitstream Charter",Charter,serif;font-weight:700;font-size:50px;letter-spacing:1px;color:#2a1a0c;
+ background:linear-gradient(180deg,#f3d99d,#d6ad5e 55%,#c0923f);box-shadow:0 14px 40px rgba(150,105,30,.35),0 1px 0 rgba(255,255,255,.6) inset;opacity:0;white-space:nowrap}
+</style></head><body>
+<canvas id="grain" width="540" height="960"></canvas>
+<div id="head"><div id="brand">ՀՈԳԵՎՈՐ ԺԱՌԱՆԳՈՒԹՅՈՒՆ</div><div id="title"></div><div id="rule"></div></div>
+<div id="pills"></div>
+<div id="phone"><div id="shadow"></div><div id="bezel"></div><div id="screen"><img id="img"><div id="cam"></div><div id="tap"></div></div></div>
+<div id="site">apostolic.am</div>
+<script>
+// մագաղաթի նուրբ հատիկավորություն (կայուն, առանց շարժման)
+(()=>{const c=document.getElementById('grain'),x=c.getContext('2d'),d=x.createImageData(540,960);let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;
+for(let i=0;i<d.data.length;i+=4){const v=150+r()*105;d.data[i]=v;d.data[i+1]=v*.93;d.data[i+2]=v*.82;d.data[i+3]=255}x.putImageData(d,0,0)})();
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));const ease=k=>{k=clamp(k);return k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2};
+let PLAN=null;
+window.setup=(plan)=>{PLAN=plan;document.getElementById('title').innerHTML=plan.title;
+ const box=document.getElementById('pills');
+ plan.steps.forEach((s,i)=>{const p=document.createElement('div');p.className='pill'+(s.done?' done':'');p.id='pill'+i;
+  p.innerHTML=`<span class="coin">${s.done?'✓':s.n}</span><span>${s.text}</span>`;box.appendChild(p);
+  const u=document.createElement('div');u.className='sub';u.id='sub'+i;u.innerHTML=s.sub||'';box.appendChild(u);});
+};
+window.render=async(t,frameUrl)=>{
+ const P=PLAN, img=document.getElementById('img');
+ if(img.dataset.src!==frameUrl){img.src=frameUrl;img.dataset.src=frameUrl;await img.decode().catch(()=>{});}
+ // ներածություն
+ const a=ease(t/0.7);const head=document.getElementById('head');head.style.opacity=ease((t-0.05)/0.5);head.style.transform=`translateY(${(1-ease((t-0.05)/0.5))*-14}px)`;
+ // քայլերը
+ P.steps.forEach((s,i)=>{const p=document.getElementById('pill'+i),u=document.getElementById('sub'+i);
+  const end=i+1<P.steps.length?P.steps[i+1].t:1e9;const kin=ease((t-s.t)/0.32),kout=ease((t-end)/0.22);const o=kin*(1-kout);
+  const w=p.offsetWidth;p.style.opacity=o;p.style.transform=`translateX(${-w/2}px) translateY(${(1-kin)*18-kout*10}px) scale(${0.94+0.06*kin})`;
+  u.style.opacity=ease((t-s.t-0.15)/0.35)*(1-kout);u.style.transform=`translateY(${(1-ease((t-s.t-0.15)/0.35))*10}px)`;});
+ // հեռախոսը
+ const ph=document.getElementById('phone');const dk=ease((t-P.doneT-0.1)/0.6);
+ ph.style.opacity=a;ph.style.transform=`translateY(${(1-a)*60 - dk*14}px) scale(${(0.965+0.035*a)*(1-0.06*dk)})`;
+ const site=document.getElementById('site');const sk=ease((t-P.doneT-0.35)/0.5);site.style.opacity=sk;site.style.transform=`translateX(-50%) translateY(${(1-sk)*24}px)`;
+ // սեղմման նշան՝ մեկ հատ, հենց սեղմման պահին
+ const tap=document.getElementById('tap');let shown=false;
+ for(const e of P.taps){const d=t-e.t;if(d>-0.32&&d<0.42){shown=true;const fin=ease((d+0.32)/0.22),fout=ease((d-0.18)/0.24);
+  const press=d>=0&&d<0.16?1-0.12*Math.sin(Math.PI*d/0.16):1;tap.style.left=(e.x*1.6)+'px';tap.style.top=(e.y*1.6)+'px';
+  tap.style.opacity=fin*(1-fout);tap.style.transform=`scale(${(0.8+0.2*fin)*press})`;break;}}
+ if(!shown)tap.style.opacity=0;
+};
+</script></body></html>
