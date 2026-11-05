@@ -4,7 +4,7 @@ import sqlite3, glob, hashlib, json, sys
 p = [x for x in glob.glob('.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite') if 'metadata' not in x][0]
 c = sqlite3.connect(p)
 if '--reset' in sys.argv:
-    for t in ('saved_materials', 'reading_log'):
+    for t in ('saved_materials', 'reading_log', 'highlights'):
         c.execute(f"delete from {t} where user_id='local-development'")
     c.commit(); print('reset'); sys.exit(0)
 CH = '-1002993860753'

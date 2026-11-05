@@ -4,7 +4,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 const OUT = process.argv[2]; const DEBUG = process.argv[3] === 'debug';
 mkdirSync(OUT + '/raw', { recursive: true });
 const BASE = 'http://127.0.0.1:5174';
-const b = await chromium.launch();
+const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'hy-AM', timezoneId: 'Asia/Yerevan' });
 await c.addInitScript(() => { try { sessionStorage.setItem('library-loader-seen-v4', '1'); localStorage.setItem('install-prompt-dismissed','1'); } catch {} });
 const p = await c.newPage();

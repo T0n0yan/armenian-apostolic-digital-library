@@ -11,7 +11,7 @@ const stepAt = Object.fromEntries(tl.events.filter(e => e.type === 'step').map(e
 const steps = spec.steps.map(s => ({ ...s, t: s.at === 'start' ? INTRO * 0.6 : stepAt[s.at] + (s.offset ?? 0) }));
 const plan = { title: spec.title, steps, doneT: steps.find(s => s.done).t, taps: tl.events.filter(e => e.type === 'tap').map(e => ({ ...e, t: toOut(e.t) })) };
 const dur = toOut(tl.frames.at(-1).t) + TAIL, N = Math.round(dur * FPS);
-const b = await chromium.launch();
+const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const p = await (await b.newContext({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 })).newPage();
 await p.goto('file://' + new URL('./stage.html', import.meta.url).pathname); await p.evaluate(() => document.fonts.ready);
 await p.evaluate((pl) => window.setup(pl), plan);
