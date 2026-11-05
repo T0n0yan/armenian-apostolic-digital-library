@@ -1,6 +1,8 @@
 # Ուսուցողական վիդեոներ (apostolic.am)
 
 Ոճը՝ `docs/video-guides/STYLE_GUIDE.md`։ Վիդեոները (MP4) repo-ում չեն պահվում, միայն գործիքները։
+Ադմինի կոճակները (`/admin`) նկարահանման ժամանակ թաքցվում են. սովորական մարդը դրանք չի տեսնում։
+Քարտեզի համար ցանցում պետք է բաց լինի `tiles.openfreemap.org`-ը։
 
 ## Ինչպես պատրաստել
 
@@ -8,9 +10,9 @@
    `pnpm dev --port 5174 --strictPort --host 127.0.0.1`։ Տեղականում մուտքը ավտոմատ է («Փորձնական օգտվող»)։
    Բազան փոխելուց հետո վերագործարկել սերվերը և ջնջել `.wrangler/state/v3/cache/*` (էջերը քեշավորվում են)։
 2. Նկարահանում՝ `python3 scripts/video-guides/seed-local.py --reset`, հետո
-   `node scripts/video-guides/record-02-pahel-kardacel.mjs <թղթապանակ> [debug]`։
+   `node scripts/video-guides/record-04-pahel-kardacel.mjs <թղթապանակ> [debug]`։
    Գրում է կադրերը (`raw/`) և `timeline.json` (քայլերի և սեղմումների ժամանակները)։
-3. Կոմպոզիցիա՝ `node scripts/video-guides/render.mjs <թղթապանակ> scripts/video-guides/02-pahel-kardacel.plan.json out.mp4`։
+3. Կոմպոզիցիա՝ `node scripts/video-guides/render.mjs <թղթապանակ> scripts/video-guides/04-pahel-kardacel.plan.json out.mp4`։
    Նախադիտում՝ վերջում ավելացնել վայրկյանները (`"1.5,7,22"`), կստացվեն PNG-ներ։
 4. Նոր վիդեո՝ պատճենել record-ը (փոխել քայլերը, `mark('…')` և `tap(...)`) և plan-ը (վերնագիր, քայլերի տեքստ)։
 
@@ -29,7 +31,7 @@
 | 03 | Որոնում | պատրաստ (ChatGPT), սկզբի անկյունները՝ ուղղել |
 | 04 | Պահել և նշել կարդացածը (+ օրացույց) | պատրաստ |
 | 05 | Պահել ընտրած խոսքը (նշումներ, սմայլիկ, միտք) | պատրաստ |
-| 06 | Սրբավայրերի քարտեզ (գտնել եկեղեցի, ճանապարհ) | քարտեզի սալիկները cloud-ում փակ են |
+| 06 | Սրբավայրերի քարտեզ (Մայր Աթոռ. քարտիկ, «Եղել եմ», էջ, ճանապարհ) | պատրաստ (`seed-place.py`, նկարները CC0՝ Wikimedia Commons) |
 | 07 | Ավելացնել սրբավայր (/places/new) | 06-ից հետո |
 | 08 | Մուտք Telegram-ով կամ Google-ով | |
 | 09 | Հարց հոգևորականին (❓ «Հարցեր», պատասխանը) | |

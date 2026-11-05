@@ -6,7 +6,10 @@ mkdirSync(OUT + '/raw', { recursive: true });
 const BASE = 'http://127.0.0.1:5174';
 const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const c = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: 'hy-AM', timezoneId: 'Asia/Yerevan' });
-await c.addInitScript(() => { try { sessionStorage.setItem('library-loader-seen-v4', '1'); localStorage.setItem('install-prompt-dismissed','1'); } catch {} });
+await c.addInitScript(() => {
+  // Ադմինի կոճակները սովորական մարդը չի տեսնում. վիդեոյում էլ՝ ոչ
+  document.addEventListener('DOMContentLoaded', () => { const s = document.createElement('style'); s.textContent = 'a[href^="/admin"]{display:none!important}'; document.head.appendChild(s); });
+  try { sessionStorage.setItem('library-loader-seen-v4', '1'); localStorage.setItem('install-prompt-dismissed','1'); } catch {} });
 const p = await c.newPage();
 // տաքացում՝ vite-ը առաջին անգամ դանդաղ է
 for (const u of ['/pray', '/pray/90211', '/saved', '/saved?tab=reading']) { await p.goto(BASE + u, { waitUntil: 'networkidle' }); }
