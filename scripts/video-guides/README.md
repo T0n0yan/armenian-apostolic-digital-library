@@ -28,7 +28,7 @@
 
 | # | Վիդեո | Որտեղից | Սցենար |
 | --- | --- | --- | --- |
-| 01 | Ինչպես փոխել կայքի լուսավորությունը | apostolic.am (մուգ ֆոն՝ plan-ի `"dark": true`) | `record-01-lusavorutyun.mjs` |
+| 01 | Ինչպես փոխել կայքի լուսավորությունը | ChatGPT-ի վիդեոն (տիրոջ ընտրությունը՝ կողքի անիմացիաներով), «Թեմա»-ն փոխված՝ `replace-phone-text.py` + `retitle.py` | պահուստ՝ `record-01-lusavorutyun.mjs` |
 | 02 | Տառատեսակ և տառաչափ | ChatGPT | — |
 | 03 | Ինչպես որոնել | apostolic.am | `record-03-voronum.mjs` |
 | 04 | Պահել և նշել կարդացածը + օրացույց | տեղական | `record-04-pahel-kardacel.mjs` |
@@ -52,3 +52,8 @@ apostolic.am-ից՝ `BASE` փոփոխականով կարելի է փոխել (օ
 
 `retitle.py`՝ հին վիդեոյի վերնագիրը փոխելու համար (01). ամեն կադրում հին տառերի գույնը պահվում է (բաց/մուգ ֆոն)։
 Դիմակները՝ `node scripts/video-guides/title-masks.mjs <թղթապանակ>` (repo-ի արմատից, տեքստը՝ սկրիպտում), պատրաստը՝ `assets/01-title-*.png`։
+
+`replace-phone-text.py`՝ հեռախոսի էկրանի բառը փոխել հին վիդեոյում (template matching, բաց/մուգ, մասշտաբ). պահանջում է
+`pip install opencv-python-headless` և Noto Sans Armenian (`npm pack @fontsource/noto-sans-armenian`, armenian + latin ֆայլերը)։
+01-ի համար՝ `python3 replace-phone-text.py in.mp4 out.mp4 assets/01-ref-settings-title.png assets/01-ref-menu.png <fonts>/package/files`,
+հետո `retitle.py`։
