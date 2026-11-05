@@ -28,7 +28,7 @@
 
 | # | Վիդեո | Որտեղից | Սցենար |
 | --- | --- | --- | --- |
-| 01 | Թեմա | ChatGPT (անկյունները՝ `fix-corners.py`) | — |
+| 01 | Ինչպես փոխել կայքի լուսավորությունը | ChatGPT (անկյունները՝ `fix-corners.py`, վերնագիրը՝ `retitle.py`) | — |
 | 02 | Տառատեսակ և տառաչափ | ChatGPT | — |
 | 03 | Ինչպես որոնել | apostolic.am | `record-03-voronum.mjs` |
 | 04 | Պահել և նշել կարդացածը + օրացույց | տեղական | `record-04-pahel-kardacel.mjs` |
@@ -49,3 +49,6 @@ apostolic.am-ից՝ `BASE` փոփոխականով կարելի է փոխել (օ
 
 **Նկարների հեղինակներ** (հրապարակելիս նշել). 06 (2025)՝ Lohen11 (CC BY 4.0), Yerevantsi (CC BY 4.0), Jaba1977 (CC BY-SA 4.0), Wikimedia Commons.
 07՝ «Saint Hripsime Church.jpg», MSyuzan, CC BY-SA 4.0, Wikimedia Commons։
+
+`retitle.py`՝ հին վիդեոյի վերնագիրը փոխելու համար (01). ամեն կադրում հին տառերի գույնը պահվում է (բաց/մուգ ֆոն)։
+Դիմակները՝ `node scripts/video-guides/title-masks.mjs <թղթապանակ>` (repo-ի արմատից, տեքստը՝ սկրիպտում), պատրաստը՝ `assets/01-title-*.png`։
