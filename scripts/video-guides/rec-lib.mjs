@@ -58,6 +58,19 @@ export async function startRecorder({ out, base = 'http://127.0.0.1:5174', debug
       events.push({ type: 'tap', label, x, y, t: now() });
       await p.touchscreen.tap(x, y);
     },
+    // Մատով քաշել (օր.՝ սահող կոճակը). CDP touch իրադարձություններ, նշանը հետևում է մատին
+    async drag(from, to, ms = 1200, label = 'drag') {
+      const cdpT = await c.newCDPSession(p); const steps = Math.max(8, Math.round(ms / 40));
+      const t0 = now();
+      await cdpT.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: from.x, y: from.y }] });
+      for (let i = 1; i <= steps; i++) {
+        const k = i / steps, e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        await cdpT.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e }] });
+        await p.waitForTimeout(ms / steps);
+      }
+      await cdpT.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      events.push({ type: 'drag', label, x: from.x, y: from.y, x1: to.x, y1: to.y, t: t0, t1: now() });
+    },
     async tapAt(pt, label) { events.push({ type: 'tap', label, x: pt.x, y: pt.y, t: now() }); await p.touchscreen.tap(pt.x, pt.y); },
     async type(loc, text, delay = 85) { await loc.pressSequentially(text, { delay }); },
     async scrollTo(y, ms = 900) {

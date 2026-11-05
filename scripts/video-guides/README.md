@@ -29,7 +29,7 @@
 | # | Վիդեո | Որտեղից | Սցենար |
 | --- | --- | --- | --- |
 | 01 | Ինչպես փոխել կայքի լուսավորությունը | ChatGPT-ի վիդեոն (տիրոջ ընտրությունը՝ կողքի անիմացիաներով), «Թեմա»-ն փոխված՝ `replace-phone-text.py` + `retitle.py` | պահուստ՝ `record-01-lusavorutyun.mjs` |
-| 02 | Տառատեսակ և տառաչափ | ChatGPT | — |
+| 02 | Տառատեսակ և տառաչափ (+ վերնագրերի չափ) | apostolic.am | `record-02-taratesak.mjs` |
 | 03 | Ինչպես որոնել | apostolic.am | `record-03-voronum.mjs` |
 | 04 | Պահել և նշել կարդացածը + օրացույց | տեղական | `record-04-pahel-kardacel.mjs` |
 | 05 | Պահել ընտրած խոսքը | տեղական | `record-05-pahel-khosqy.mjs` |

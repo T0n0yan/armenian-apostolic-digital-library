@@ -89,6 +89,9 @@ window.render=async(t,frameUrl)=>{
  for(const e of P.taps){const d=t-e.t;if(d>-0.32&&d<0.42){shown=true;const fin=ease((d+0.32)/0.22),fout=ease((d-0.18)/0.24);
   const press=d>=0&&d<0.16?1-0.12*Math.sin(Math.PI*d/0.16):1;tap.style.left=(e.x*1.6)+'px';tap.style.top=(e.y*1.6)+'px';
   tap.style.opacity=fin*(1-fout);tap.style.transform=`scale(${(0.8+0.2*fin)*press})`;break;}}
+ // քաշել՝ նշանը սեղմված է և շարժվում է մատի հետ
+ if(!shown)for(const e of (P.drags||[])){if(t>e.t-0.3&&t<e.t1+0.4){shown=true;const k=clamp((t-e.t)/Math.max(0.01,e.t1-e.t));const x=e.x+(e.x1-e.x)*k,y=e.y+(e.y1-e.y)*k;
+  const fin=ease((t-e.t+0.3)/0.22),fout=ease((t-e.t1)/0.3);tap.style.left=(x*1.6)+'px';tap.style.top=(y*1.6)+'px';tap.style.opacity=fin*(1-fout);tap.style.transform=`scale(${(0.8+0.2*fin)*(t>=e.t&&t<=e.t1?0.9:1)})`;break;}}
  if(!shown)tap.style.opacity=0;
 };
 </script></body></html>

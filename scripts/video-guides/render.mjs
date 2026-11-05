@@ -9,7 +9,7 @@ const FPS = 30, INTRO = spec.intro ?? 0.9, TAIL = spec.tail ?? 0.4;
 const r0 = tl.frames[0].t, toOut = (t) => t - r0 + INTRO;
 const stepAt = Object.fromEntries(tl.events.filter(e => e.type === 'step').map(e => [e.name, toOut(e.t)]));
 const steps = spec.steps.map(s => ({ ...s, t: s.at === 'start' ? INTRO * 0.6 : stepAt[s.at] + (s.offset ?? 0) }));
-const plan = { title: spec.title, steps, doneT: steps.find(s => s.done).t, taps: tl.events.filter(e => e.type === 'tap').map(e => ({ ...e, t: toOut(e.t) })) };
+const plan = { title: spec.title, steps, doneT: steps.find(s => s.done).t, taps: tl.events.filter(e => e.type === 'tap').map(e => ({ ...e, t: toOut(e.t) })), drags: tl.events.filter(e => e.type === 'drag').map(e => ({ ...e, t: toOut(e.t), t1: toOut(e.t1) })) };
 const dur = toOut(tl.frames.at(-1).t) + TAIL, N = Math.round(dur * FPS);
 const b = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const p = await (await b.newContext({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 })).newPage();
