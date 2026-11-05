@@ -1,0 +1,28 @@
+// 09 Հարց հոգևորականին՝ տեղական կայքից. նշումը դառնում է «Հարց», հետո՝ «Իմ նշումները» → Հարցեր
+import { startRecorder } from './rec-lib.mjs';
+const r = await startRecorder({ out: process.argv[2], debug: process.argv[3] === 'debug', warm: ['/pray/90211', '/saved?tab=notes'], start: '/pray/90211', init: () => { try { localStorage.setItem('highlight-hint', '1'); localStorage.removeItem('corner-tab'); } catch {} } });
+const { p, wait, mark, tap, dbg } = r;
+await wait(1200);
+mark('pick'); await wait(500);
+await r.tapAt(await r.textPoint('փորձութիւն'), 'sentence'); await wait(450);
+await tap(p.getByRole('toolbar', { name: 'Նշել ընտրվածը' }).getByRole('button', { name: /Պահել/ }), 'save'); await wait(1600);
+mark('open-note'); await wait(300);
+await r.tapAt(await r.textPoint('փորձութիւն'), 'line'); await wait(1300);
+mark('question'); await wait(300);
+await tap(p.getByRole('button', { name: /Տեղափոխել «Հարցեր»/ }), 'question'); await wait(1200); await dbg('q');
+const area = p.locator('textarea').first();
+await tap(area, 'note'); await wait(300);
+await r.type(area, 'Ի՞նչ է նշանակում «մի տանիր զմեզ ի փորձութիւն»', 70); await wait(500);
+await tap(p.getByRole('button', { name: /^\s*Պահել\s*$/ }).last(), 'note-save'); await wait(1300); await dbg('saved');
+mark('remind'); await wait(300);
+await wait(1800);
+await tap(p.getByRole('button', { name: 'Փակել' }).last(), 'close'); await wait(900);
+mark('list'); await wait(300);
+await tap(p.getByRole('button', { name: 'Բացել մենյուն' }), 'menu'); await wait(900);
+await tap(p.locator('a[href="/saved"]').filter({ hasText: 'Իմ անկյունը' }).first(), 'corner');
+await p.waitForURL('**/saved**', { waitUntil: 'commit' }); await wait(1100);
+await r.scrollTo(300, 900); await wait(400);
+await tap(p.getByRole('tab', { name: /նշումները/ }), 'tab'); await wait(1100);
+await tap(p.getByRole('button', { name: /Հարցեր/ }).filter({ visible: true }).first(), 'questions'); await wait(1600); await dbg('list');
+mark('done'); await wait(3400); await dbg('done');
+await r.finish();

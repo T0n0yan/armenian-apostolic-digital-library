@@ -1,0 +1,9 @@
+{
+  "title": "Կայքը՝ <b>հավելվածի</b> պես",
+  "steps": [
+    { "n": 1, "at": "menu", "offset": -0.6, "text": "Բացեք մենյուն", "sub": "<i>Ներքևի</i> կլոր կոճակը" },
+    { "n": 2, "at": "install", "text": "«Ավելացնել գլխավոր էկրանին»", "sub": "<i>Կարգավորումներ</i> բաժնում" },
+    { "n": 3, "at": "add", "text": "Սեղմեք «Ավելացնել»", "sub": "<i>Android</i>՝ ⋮ → Add to Home screen" },
+    { "done": true, "at": "done", "text": "Պատրաստ է", "sub": "<i>iPhone</i>՝ Կիսվել → Add to Home Screen" }
+  ]
+}

@@ -17,11 +17,11 @@ await p.goto('file://' + new URL('./stage.html', import.meta.url).pathname); awa
 await p.evaluate((pl) => window.setup(pl), plan);
 const frameAt = (t) => { const r = t - INTRO + r0; let lo = 0; for (let i = 0; i < tl.frames.length && tl.frames[i].t <= r; i++) lo = i; return 'file://' + CAP + '/' + tl.frames[lo].file; };
 const list = ONLY ? ONLY.split(',').map(Number) : null;
-const ff = list ? null : spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'png', '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', OUTMP4], { stdio: ['pipe', 'inherit', 'inherit'] });
+const ff = list ? null : spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', OUTMP4], { stdio: ['pipe', 'inherit', 'inherit'] });
 const ts = list ?? Array.from({ length: N }, (_, i) => i / FPS);
 for (const [k, t] of ts.entries()) {
   await p.evaluate(([t, u]) => window.render(t, u), [t, frameAt(t)]);
-  const buf = await p.screenshot({ type: 'png' });
+  const buf = await p.screenshot(list ? { type: 'png' } : { type: 'jpeg', quality: 95 });
   if (list) { (await import('node:fs')).writeFileSync(`${OUTMP4}_${String(t).replace('.', '_')}.png`, buf); }
   else if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
   if (!list && k % 150 === 0) console.log('frame', k, '/', N);

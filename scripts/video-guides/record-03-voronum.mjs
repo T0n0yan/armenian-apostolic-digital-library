@@ -1,0 +1,20 @@
+// 03 Որոնում՝ apostolic.am-ից (առանց մուտքի)
+import { startRecorder } from './rec-lib.mjs';
+const r = await startRecorder({ out: process.argv[2], debug: process.argv[3] === 'debug', base: process.env.BASE ?? 'https://apostolic.am', warm: ['/search'], start: '/' });
+const { p, wait, mark, tap, dbg } = r;
+await wait(1200);
+mark('field'); await wait(500);
+const field = p.locator('input[name=q]').first();
+await r.scrollToEl(field, 380, 900); await wait(500);
+await tap(field, 'field'); await wait(700);
+mark('type'); await r.type(field, process.env.Q ?? 'հովիվ', 120); await wait(1800); await dbg('typed');
+mark('enter'); await wait(300);
+await field.press('Enter');
+await p.waitForURL('**/search?**', { waitUntil: 'commit' }); await wait(2600); await dbg('results');
+mark('text'); await wait(300);
+await tap(p.getByRole('button', { name: /Փնտրել նաև տեքստերում/ }).or(p.getByRole('link', { name: /Փնտրել նաև տեքստերում/ })).first(), 'text'); await wait(2800); await dbg('text');
+mark('open'); await wait(300);
+const first = p.locator('main a[href^="/psalms/"], main a[href^="/pray/"], main ol a, main ul a').filter({ visible: true }).first();
+await tap(first, 'result'); await wait(2800); await dbg('material');
+mark('done'); await wait(3400); await dbg('done');
+await r.finish();
