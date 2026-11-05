@@ -31,6 +31,7 @@ import { NavigationProgress } from "./components/navigation-progress";
 import { GlossaryLayer } from "./components/glossary-layer";
 import { HighlightLayer } from "./components/highlight-layer";
 import { ChurchNudge } from "./components/church-nudge";
+import { HelpOnboarding } from "./components/help-onboarding";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
 import { SundayPrompt } from "./components/sunday-prompt";
@@ -383,6 +384,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <GlossaryLayer />
     <HighlightLayer />
     <ChurchNudge />
+    <HelpOnboarding />
     <PlaceTracker />
     <SundayPrompt />
   </>;

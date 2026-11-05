@@ -68,6 +68,8 @@ export function PageShell({children, width = "content"}: PageShellProps) {
               <span aria-hidden="true" className="text-faint select-none">·</span>
               <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/kap">Կապ</Link>
               <span aria-hidden="true" className="text-faint select-none">·</span>
+              <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/ognutyun">Օգնություն</Link>
+              <span aria-hidden="true" className="text-faint select-none">·</span>
               <Link className="inline-flex min-h-8 items-center text-muted no-underline hover:underline" to="/privacy">Գաղտնիություն</Link>
             </nav>
         </footer>

@@ -61,6 +61,12 @@ export default [
   route("api/my-summary", "routes/my-summary-api.ts"),
   route("my-year", "routes/my-year.tsx"),
   route("admin/glossary", "routes/admin-glossary.tsx"),
+  // Օգնություն՝ ուսուցողական տեսանյութեր (R2 help/), ադմինում՝ վերբեռնում
+  route("ognutyun", "routes/help.tsx"),
+  route("help-media/:file", "routes/help-media.ts"),
+  route("api/help-videos", "routes/help-videos-api.ts"),
+  route("admin/help", "routes/admin-help.tsx"),
+  route("admin/help/:id/video", "routes/admin-help-video.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),
