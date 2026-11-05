@@ -22,7 +22,7 @@ type Kind =
   | { page: "verse" };
 
 const SECTIONS = new Map(Object.entries(SECTION_SLUGS).map(([id, slug]) => [slug, id]));
-const TEXT_PAGES: Record<string, string> = { "mer-masin": "Մեր մասին", kap: "Կապ", privacy: "Գաղտնիության քաղաքականություն" };
+const TEXT_PAGES: Record<string, string> = { "mer-masin": "Մեր մասին", kap: "Կապ", privacy: "Գաղտնիության քաղաքականություն", ognutyun: "Օգնություն" };
 
 function sectionOf(slug: string): Section {
   return SECTIONS.has(slug) ? slug as Section : "other";

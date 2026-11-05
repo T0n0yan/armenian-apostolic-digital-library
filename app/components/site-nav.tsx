@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, CircleHelp, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { lockScroll } from "../utils/scroll-lock";
 import { memo, useEffect, useRef, useState } from "react";
@@ -163,6 +163,10 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 <span className="flex-1">Կայքի լուսավորություն, տառաչափ, տառատեսակ…</span>
                 <ChevronRight aria-hidden="true" size={17} className="text-faint" />
               </button>
+              <NavLink className={linkClass} to="/ognutyun" end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><CircleHelp aria-hidden="true" size={17} /></span>
+                <span className="flex-1">Օգնություն՝ տեսանյութեր</span>
+              </NavLink>
               {canInstall ? (
                 <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => { setIsOpen(false); window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT)); }}>
                   <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Smartphone aria-hidden="true" size={17} /></span>
@@ -174,6 +178,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 ...(permissions.includes("places") ? [["/admin/places", "Սրբավայրերի կառավարում"]] : []),
                 ...(permissions.includes("people") ? [["/admin/people", "Օգտատերեր"]] : []),
                 ...(permissions.includes("glossary") ? [["/admin/glossary", "Բառարան"]] : []),
+                ...(permissions.includes("help") ? [["/admin/help", "Օգնության տեսանյութեր"]] : []),
               ]).map(([to, label]) => (
                 <NavLink key={to} className={linkClass} to={to} end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>{label}</NavLink>
               ))}

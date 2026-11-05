@@ -5,6 +5,7 @@ export const ADMIN_PERMISSIONS = {
   people: "Օգտատերերի ցանկը և Excel-ը",
   psalms: "Ձայնագրության տողերի ժամանակները նշել (սաղմոսներ, աղոթքներ)",
   glossary: "Բառարան՝ ավելացնել և խմբագրել բառերը",
+  help: "Օգնության տեսանյութեր՝ վերբեռնել և փոխել",
   copy: "Մշակողի ռեժիմ (տեքստերի պատճենում)",
 } as const;
 export type AdminPermission = keyof typeof ADMIN_PERMISSIONS;

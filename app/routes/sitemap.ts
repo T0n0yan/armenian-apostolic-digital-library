@@ -45,6 +45,7 @@ export async function loader() {
       ...(await listPublicPlaceSummaries(env.DB)).map((place) => entry(`/places/${place.id}`, place.updatedAt)),
       entry("/mer-masin", null, "0.3"),
       entry("/kap", null, "0.3"),
+      entry("/ognutyun", null, "0.4"),
       entry("/privacy", null, "0.2"),
       "</urlset>",
     ].join("\n");

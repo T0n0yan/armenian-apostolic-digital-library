@@ -213,11 +213,13 @@ flowchart LR
   HOME --> MY["/my-year Իմ տարին"]
   HOME --> SET["/settings"]
   HOME --> INFO["/mer-masin · /kap · /privacy"]
+  HOME --> HELP["/ognutyun Օգնություն՝ տեսանյութեր"]
   HOME --> ADM["/admin Կառավարում"]
   ADM --> A1["/admin/people"]
   ADM --> A2["/admin/places"]
   ADM --> A3["/admin/usage Կայքի վիճակը"]
   ADM --> A4["/admin/glossary"]
+  ADM --> A6["/admin/help Օգնության տեսանյութեր"]
   A3 --> A5["/admin/media-inventory"]
 ```
 
@@ -225,8 +227,8 @@ flowchart LR
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
 `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`,
 `/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
-`/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`։
-**Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/og/card/...`, `/sitemap.xml`։
+`/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
+**Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/og/card/...`, `/sitemap.xml`։
 
 ## 6. Մուտք և հաշիվներ
 
@@ -418,11 +420,31 @@ flowchart TD
   A --> R["Ադմինի իրավունքներ (admin_access)"]
   A --> S["Սրբավայրեր, առաջարկներ"]
   A --> G["Բառարան"]
+  A --> H["Օգնության տեսանյութեր (/admin/help)"]
   A --> U["Կայքի վիճակը. Cloudflare-ի սահմաններ,<br/>պահեստն ըստ թղթապանակների, GitHub-ի րոպեներ"]
   A --> RF["«Թարմացնել կայքը» (քեշի epoch)"]
   A --> SP["Կիրակնօրյա պատուհան · Նախադիտում (ժամանակավոր)"]
   U --> MI["Մեդիայի հաշվառում (առանց ջնջելու)"]
 ```
+
+### Օգնություն (ուսուցողական տեսանյութեր)
+
+```mermaid
+flowchart TD
+  ADM["/admin/help (իրավունք՝ help)"] -->|"ֆայլը՝ հարցման մարմնով, ≤95 ՄԲ"| UP["/admin/help/:id/video"] --> R2[("R2 help/&lt;id&gt;-&lt;նոր անուն&gt;.mp4")]
+  UP --> SET[("site_settings «help_videos»<br/>files + onboarding")]
+  ADM -->|"«Ցույց տալ նոր այցելուներին»"| SET
+  SET --> PAGE["/ognutyun. 13 վերնագիր (utils/help-videos.ts),<br/>չվերբեռնվածը՝ «Շուտով»"]
+  SET --> API["/api/help-videos (միայն երբ միացված է)"]
+  API --> ONB["HelpOnboarding (root). նոր սարքում մեկ անգամ,<br/>մոմի անիմացիայից հետո, «Բաց թողնել», «3 / 13»"]
+  PAGE & ONB --> SHEET["HelpVideoSheet. տեսանյութ, համարիչ, կետեր, Նախորդը/Հաջորդը"]
+  R2 --> MEDIA["/help-media/:file (range)"] --> SHEET
+```
+
+- Վերնագրերն ու կարգը՝ `app/utils/help-videos.ts` (`HELP_VIDEOS`). նոր տեսանյութ ավելացնելու համար՝ նոր տող այնտեղ։
+- Նոր ֆայլը ստանում է նոր անուն, նախորդը R2-ից ջնջվում է (`setHelpVideo`), ուստի `/help-media/`-ը քեշվում է անվերջ։
+- Ուղեցույցը ցույց է տրվել՝ `localStorage` `help-onboarding-seen` (այս սարքում)։ Չի բացվում `/admin`, `/auth`, `/ognutyun` էջերում։
+- Տեսանյութերը պատրաստվում են `scripts/video-guides/`-ով (README)։
 
 ## 16. Ժամացույց (Clock) և cron-ներ
 
@@ -514,6 +536,7 @@ erDiagram
 | --- | --- |
 | մեդիա (sync-ից) | Telegram-ի ձայնագրություններ, տեսանյութեր, նկարներ, դրանց մանրապատկերներ |
 | `places/` | Սրբավայրերի նկարներ և տեսանյութեր |
+| `help/` | Օգնության (ուսուցողական) տեսանյութեր |
 | `submissions/` | Առաջարկների նկարներ (մաքրվում են 30 օր հետո) |
 | `og/` | Հղումների քարտեր |
 | `search/` (կամ նման) | Որոնման պատրաստ ինդեքսը հեռախոսների համար |
