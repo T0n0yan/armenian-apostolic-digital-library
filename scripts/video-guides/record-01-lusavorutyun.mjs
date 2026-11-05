@@ -1,0 +1,23 @@
+// 01 Ինչպես փոխել կայքի լուսավորությունը՝ apostolic.am-ից (առանց մուտքի)
+import { startRecorder } from './rec-lib.mjs';
+const r = await startRecorder({ out: process.argv[2], debug: process.argv[3] === 'debug', base: process.env.BASE ?? 'https://apostolic.am', start: '/' });
+const { p, wait, mark, tap, dbg } = r;
+const opt = (t) => p.getByText(t, { exact: true }).filter({ visible: true }).first();
+await wait(1200);
+mark('menu'); await wait(500);
+await tap(p.getByRole('button', { name: 'Բացել մենյուն' }), 'menu'); await wait(1100);
+mark('settings'); await wait(300);
+await tap(p.getByText(/Կայքի լուսավորություն, տառաչափ/).filter({ visible: true }).first(), 'settings'); await wait(1600); await dbg('sheet');
+mark('dark'); await wait(300);
+await tap(opt('Մուգ'), 'dark'); await wait(2400); await dbg('dark');
+mark('light'); await wait(300);
+await tap(opt('Բաց'), 'light'); await wait(2400); await dbg('light');
+mark('time'); await wait(300);
+await tap(opt('Ըստ ժամի'), 'time'); await wait(2600); await dbg('time');
+mark('device'); await wait(300);
+await tap(opt('Սարքի պես'), 'device'); await wait(2400);
+mark('final'); await wait(300);
+await tap(opt('Մուգ'), 'dark2'); await wait(1200);
+await tap(p.getByRole('button', { name: 'Փակել' }).filter({ visible: true }).last(), 'close'); await wait(1500); await dbg('closed');
+mark('done'); await wait(3400); await dbg('done');
+await r.finish();

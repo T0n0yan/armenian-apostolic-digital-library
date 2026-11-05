@@ -11,6 +11,7 @@ body{position:relative;font-family:"NSA",serif;
   radial-gradient(ellipse 75% 32% at 50% 8%, #fdf4e0 0%, rgba(253,244,224,0) 100%),
   radial-gradient(ellipse 120% 60% at 50% 45%, rgba(0,0,0,0) 40%, rgba(120,90,40,.10) 100%),
   linear-gradient(180deg,#f6e9cf 0%,#ead6ad 45%,#dcc292 80%,#d5b886 100%);}
+#night{position:absolute;inset:0;opacity:0;pointer-events:none;background:radial-gradient(ellipse 80% 30% at 50% 6%,#3d2350 0%,rgba(61,35,80,0) 100%),linear-gradient(180deg,#26132f 0%,#1d0f26 55%,#140a1b 100%)}
 #grain{position:absolute;inset:0;opacity:.08;mix-blend-mode:multiply;pointer-events:none}
 #head{position:absolute;left:0;right:0;top:0;text-align:center}
 #brand{position:absolute;top:58px;left:0;right:0;font-size:25px;letter-spacing:9px;color:#a77a33;font-weight:500}
@@ -38,6 +39,7 @@ body{position:relative;font-family:"NSA",serif;
 #site{position:absolute;left:50%;top:1745px;transform:translateX(-50%);padding:22px 58px 26px;border-radius:60px;font-family:"Bitstream Charter",Charter,serif;font-weight:700;font-size:50px;letter-spacing:1px;color:#2a1a0c;
  background:linear-gradient(180deg,#f3d99d,#d6ad5e 55%,#c0923f);box-shadow:0 14px 40px rgba(150,105,30,.35),0 1px 0 rgba(255,255,255,.6) inset;opacity:0;white-space:nowrap}
 </style></head><body>
+<div id="night"></div>
 <canvas id="grain" width="540" height="960"></canvas>
 <div id="head"><div id="brand">ՀՈԳԵՎՈՐ ԺԱՌԱՆԳՈՒԹՅՈՒՆ</div><div id="title"></div><div id="rule"></div></div>
 <div id="pills"></div>
@@ -57,8 +59,19 @@ window.setup=(plan)=>{PLAN=plan;const T=document.getElementById('title');T.inner
   p.innerHTML=`<span class="coin">${s.done?'✓':s.n}</span><span>${s.text}</span>`;box.appendChild(p);
   const u=document.createElement('div');u.className='sub';u.id='sub'+i;u.innerHTML=s.sub||'';box.appendChild(u);});
 };
+const mix=(a,b,k)=>a.map((v,i)=>Math.round(v+(b[i]-v)*k));const rgb=(c)=>`rgb(${c.join(',')})`;
+// Քայլի "dark": true/false՝ վիդեոյի ֆոնը մգանում/բացվում է (0.6 վրկ)
+function nightAt(t){let lvl=0,from=0,at=-9;for(const s of PLAN.steps){if(s.dark===undefined||s.t>t)continue;from=lvl;lvl=s.dark?1:0;at=s.t;}const k=ease((t-at)/0.6);return from+(lvl-from)*k;}
 window.render=async(t,frameUrl)=>{
  const P=PLAN, img=document.getElementById('img');
+ const nk=nightAt(t);document.getElementById('night').style.opacity=nk;
+ document.getElementById('title').style.color=rgb(mix([58,38,20],[243,230,204],nk));
+ document.querySelectorAll('#title b').forEach(e=>e.style.color=rgb(mix([168,121,47],[217,179,106],nk)));
+ document.getElementById('brand').style.color=rgb(mix([167,122,51],[201,160,90],nk));
+ document.querySelectorAll('.pill:not(.done)').forEach(e=>{e.style.background=nk?`linear-gradient(180deg,${rgb(mix([255,250,240],[52,33,60],nk))},${rgb(mix([246,234,210],[40,24,48],nk))})`:'';e.style.color=rgb(mix([58,38,20],[243,230,204],nk));});
+ document.querySelectorAll('.pill.done').forEach(e=>e.style.color=rgb(mix([58,38,20],[243,230,204],nk)));
+ document.querySelectorAll('.sub').forEach(e=>e.style.color=rgb(mix([168,121,47],[217,179,106],nk)));
+ document.querySelectorAll('.sub i').forEach(e=>e.style.color=rgb(mix([122,85,36],[243,230,204],nk)));
  if(img.dataset.src!==frameUrl){img.src=frameUrl;img.dataset.src=frameUrl;await img.decode().catch(()=>{});}
  // ներածություն
  const a=ease(t/0.7);const head=document.getElementById('head');head.style.opacity=ease((t-0.05)/0.5);head.style.transform=`translateY(${(1-ease((t-0.05)/0.5))*-14}px)`;

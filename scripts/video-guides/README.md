@@ -28,7 +28,7 @@
 
 | # | Վիդեո | Որտեղից | Սցենար |
 | --- | --- | --- | --- |
-| 01 | Ինչպես փոխել կայքի լուսավորությունը | ChatGPT (անկյունները՝ `fix-corners.py`, վերնագիրը՝ `retitle.py`) | — |
+| 01 | Ինչպես փոխել կայքի լուսավորությունը | apostolic.am (մուգ ֆոն՝ plan-ի `"dark": true`) | `record-01-lusavorutyun.mjs` |
 | 02 | Տառատեսակ և տառաչափ | ChatGPT | — |
 | 03 | Ինչպես որոնել | apostolic.am | `record-03-voronum.mjs` |
 | 04 | Պահել և նշել կարդացածը + օրացույց | տեղական | `record-04-pahel-kardacel.mjs` |
