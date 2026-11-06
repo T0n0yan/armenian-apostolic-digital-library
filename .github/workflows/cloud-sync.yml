@@ -24,6 +24,10 @@ on:
         type: choice
         options: [reconcile, dry-run]
         default: reconcile
+      video_minutes:
+        description: "Minutes for compressing new videos after the sync (more only to clear a backlog)"
+        type: string
+        default: "40"
 
 concurrency:
   group: cloud-sync-${{ github.ref }}
@@ -35,8 +39,9 @@ permissions:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    # The first sync of an empty environment uploads all media and can take an hour.
-    timeout-minutes: 120
+    # The first sync of an empty environment uploads all media and can take an hour; video
+    # compression (last step) stops starting new files after its own budget.
+    timeout-minutes: 180
     env:
       # One job (each job counts at least a minute): production, staging or both one after the
       # other, since both read the same Telegram account, which dislikes parallel logins.
@@ -73,4 +78,16 @@ jobs:
             if [ "$target" = "staging" ]; then export OG_SITE=https://staging.apostolic.am OG_BUCKET=armenian-apostolic-library-media-staging
             else export OG_SITE=https://apostolic.am OG_BUCKET=armenian-apostolic-library-media-production; fi
             node --import tsx scripts/og-cards.ts
+          done
+      # Տեսանյութերի սեղմում (scripts/optimize-videos.ts). ffmpeg-ը տեղադրվում է միայն երբ նոր
+      # տեսանյութ կա, այնպես որ սովորական աշխատանքին մի քանի վայրկյան է ավելացնում։
+      - name: Compress new videos
+        if: inputs.mode != 'dry-run'
+        env:
+          VIDEO_BUDGET_MINUTES: ${{ inputs.video_minutes || '40' }}
+        run: |
+          for target in $TARGETS; do
+            echo "::group::videos $target"
+            CLOUD_SYNC_ENV=$target node --import tsx scripts/optimize-videos.ts
+            echo "::endgroup::"
           done

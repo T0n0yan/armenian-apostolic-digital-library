@@ -185,7 +185,25 @@ flowchart TD
   D1W --> VER["Բովանդակության տարբերակը փոխվում է"]
   VER --> CC["Քեշերը թարմանում են (կայք և հեռախոսներ)"]
   VER --> OG["Նոր քարտեր (og-cards, պռոդ)"]
+  OG --> VID["Տեսանյութերի սեղմում<br/>(optimize-videos, նույն job-ի վերջում)"]
+  VID --> R2W
 ```
+
+**Տեսանյութերի ավտոմատ սեղմում** (`scripts/optimize-videos.ts`, կանոնները՝ `shared/video-optimize.ts`, աղյուսակ՝
+`video_optimizations`)։ `cloud-sync.yml`-ի վերջին քայլն է, ուստի աշխատում է ամեն sync-ից հետո (նոր գրառումից 15 րոպե հետո
+և ամեն գիշեր)։ Գտնում է դեռ չսեղմված տեսանյութերը՝ Telegram-ից (`library_media`, kind='video'), կայքում ավելացված
+(`material_attachments`), սրբավայրերի (`places.video_url`) և օգնության (`site_settings.help_videos`)։ Ամեն մեկը
+սեղմվում է ffmpeg-ով **MP4 / H.264 High 4.0 / AAC** ձևաչափով (նվագարկվում է հին և նոր բոլոր հեռախոսներում և
+նոութբուքերում). CRF 26, կարճ կողմը ≤720, ≤30 կադր/վրկ, ձայնը՝ մոնո 64k (եթե ալիքները նույնն են) կամ ստերեո 96k,
+`faststart`։ Փոխարինվում է միայն եթե ≥15%-ով փոքր է (կամ եթե բնօրինակը ոչ բոլոր սարքերում է նվագարկվում՝ HEVC, WebM)։
+- Telegram-ի և կայքի ֆայլերը՝ **նույն բանալիով** (այդպես sync-ը դրանք նորից չի բերում). D1-ում թարմանում են
+  `size_bytes`, `mime_type`, `r2_etag` (`?v=`-ը փոխվում է, քեշը հինը չի տալիս)։ Sync-ը գրառումը վերագրելիս այս
+  երեքը վերցնում է `video_optimizations`-ից։ Բնօրինակը՝ `originals/<բանալի>`, ջնջվում է 14 օր հետո։
+- Սրբավայրի և օգնության ֆայլերը՝ նոր բանալի `…-o.mp4`, հղումը փոխվում է միայն եթե ադմինը միջանկյալ չի փոխել. հին
+  ֆայլը ջնջվում է 14 օր հետո։
+- Ամեն քայլ գրանցվում է (`pending` → `optimized` / `kept`), ընդհատվածը շարունակվում է, ոչինչ երկու անգամ չի սեղմվում։
+  Մեկ աշխատանքի ժամանակը՝ `video_minutes` (լռելյայն 40 րոպե), մնացածը՝ հաջորդ անգամ։ ffmpeg-ը տեղադրվում է միայն
+  երբ նոր տեսանյութ կա։ Արդյունքը՝ Կառավարում → Կայքի վիճակը → «Ինչով է լցված պահեստը»։
 
 **Բաժիններ** (Telegram-ի թեմաներ → կայքի բաժիններ, `material-path.ts`). Սաղմոսներ (`/psalms`), Աղոթքներ (`/pray`),
 Սրբերի վարք (`/saints`), Ավետարանի ուսուցում (`/gospel`), Օրվա ընթերցումներ (`/daily`), Հարցեր Աստվածաշնչից (`/questions`),
@@ -522,7 +540,7 @@ erDiagram
 | **Հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` |
 | **Սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) |
 | **Բառարան** | `glossary_terms` |
-| **Կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates` |
+| **Կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր) |
 | **Telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` |
 | **Հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` |
 
@@ -540,8 +558,10 @@ erDiagram
 | `submissions/` | Առաջարկների նկարներ (մաքրվում են 30 օր հետո) |
 | `og/` | Հղումների քարտեր |
 | `search/` (կամ նման) | Որոնման պատրաստ ինդեքսը հեռախոսների համար |
+| `originals/` | Սեղմված տեսանյութերի բնօրինակները, 14 օր (տես §4, «Տեսանյութերի ավտոմատ սեղմում») |
 
 Ֆայլի բանալին չի փոխվում. փոփոխված ֆայլը ստանում է նոր բանալի, դրա համար ֆայլերը կարելի է անվերջ քեշել։
+Միակ բացառությունը՝ սեղմված տեսանյութը նույն բանալիով, բայց նոր `r2_etag`-ով (հղման `?v=`-ը փոխվում է)։
 Ճշգրիտ բաժանումը՝ Կառավարում → Կայքի վիճակը → «Ինչով է լցված պահեստը»։ Պահուստային պատճենները (D1, գաղտնագրված)
 առանձին փակ բաքեթում են։
 
@@ -563,7 +583,7 @@ flowchart LR
 | --- | --- | --- |
 | `deploy.yml` | push `main`/`staging` (ոչ `.md`, ոչ `docs/`) | թեստեր, migrations, build, deploy |
 | `og-cards.yml` | պռոդի deploy-ից հետո, ձեռքով | հղումների քարտեր |
-| `cloud-sync.yml` | Clock-ից, շաբաթական, ձեռքով | Telegram → D1/R2 |
+| `cloud-sync.yml` | Clock-ից, շաբաթական, ձեռքով | Telegram → D1/R2, հետո տեսանյութերի սեղմում |
 | `qa.yml` | PR | թեստեր |
 | `private-backup.yml` | շաբաթական | D1-ի գաղտնագրված պատճեն |
 | `diagnose-topic.yml` | ձեռքով | մեկ թեմայի ախտորոշում |
