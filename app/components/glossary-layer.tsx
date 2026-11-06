@@ -7,8 +7,9 @@ import { buildGlossaryIndex, findGlossaryWords, type GlossaryTerm } from "../uti
 
 /**
  * Բառարանը կայքի բոլոր տեքստերում (.reading-body)։
- * Բառերը նշվում են բրաուզերի կողմից (CSS Highlight API)՝ ոսկեգույն կետագծով, առանց տեքստին դիպչելու,
- * այնպես որ էջը չի վերանկարվում։ Բառի վրա սեղմելիս բացվում է փոքրիկ պատուհան՝ բացատրությամբ։
+ * Ամեն բառից հետո դրվում է փոքրիկ աստղանիշ (*), ինչպես գրքերում ծանոթագրության նշանը։
+ * Աստղանիշները առանձին շերտում են (տեքստի հանգույցներին չենք դիպչում), այնպես որ
+ * պատճենելը, նշումները և որոնումը չեն փոխվում։ Բառի վրա սեղմելիս բացվում է փոքրիկ պատուհան՝ բացատրությամբ։
  */
 
 // Բառարանը բեռնվում է մեկ անգամ ամբողջ այցի համար։
@@ -21,7 +22,57 @@ function loadGlossary() {
   return loading;
 }
 
-type Mark = { range: Range; termId: number };
+type Mark = { range: Range; termId: number; body: Element; tail: Range };
+
+// Աստղանիշների շերտը՝ ամեն .reading-body-ի վերջում (aria-hidden, առանց տեքստի. աստղը CSS-ով է)։
+const STARS = "data-glossary-stars";
+const ours = (node: Node) => node instanceof Element && node.closest(`[${STARS}]`) !== null;
+
+/** Միայն արտաքին .reading-body-ները (ներսինը արդեն մեջն է)։ */
+function outerBodies() {
+  return [...document.querySelectorAll(".reading-body")].filter((body) => !body.parentElement?.closest(".reading-body"));
+}
+
+/** Աստղը դրվում է բառից հետո, իսկ եթե բառին կպած է կետադրություն (՝ , ։ »), դրանից հետո։ */
+function tailEnd(text: string, end: number) {
+  let at = end;
+  while (at < text.length && at - end < 3 && /[^\s\p{L}\p{N}]/u.test(text[at])) at += 1;
+  return at;
+}
+
+/** Աստղերը դնում է իրենց տեղում։ Կանչվում է նաև, երբ տեքստի չափը կամ տառատեսակը փոխվում է։ */
+function placeStars(marks: Mark[]) {
+  const groups = new Map<Element, Mark[]>();
+  for (const mark of marks) {
+    const list = groups.get(mark.body);
+    if (list) list.push(mark); else groups.set(mark.body, [mark]);
+  }
+  for (const layer of document.querySelectorAll(`[${STARS}]`)) if (!layer.parentElement || !groups.has(layer.parentElement)) layer.remove();
+  for (const [body, list] of groups) {
+    let layer = [...body.children].find((child) => child.hasAttribute(STARS)) as HTMLElement | undefined;
+    const fresh = !layer;
+    if (!layer) {
+      layer = document.createElement("span");
+      layer.setAttribute(STARS, "");
+      layer.setAttribute("aria-hidden", "true");
+      layer.setAttribute("data-highlight-skip", "");
+    }
+    while (layer.children.length < list.length) layer.appendChild(Object.assign(document.createElement("span"), { className: "glossary-star" }));
+    while (layer.children.length > list.length) layer.lastElementChild?.remove();
+    if (fresh) body.appendChild(layer);
+    const box = body.getBoundingClientRect();
+    list.forEach((mark, index) => {
+      const star = layer.children[index] as HTMLElement;
+      const rects = mark.tail.getClientRects();
+      const rect = rects[rects.length - 1];
+      star.hidden = !rect;
+      if (!rect) return;
+      star.style.left = `${rect.right - box.left - body.clientLeft}px`;
+      // Տողի բարձրության 20%-ով ցածր՝ տառերի վերևի մակարդակում (ինչպես ծանոթագրության նշանը)։
+      star.style.top = `${rect.top + rect.height * 0.2 - box.top - body.clientTop}px`;
+    });
+  }
+}
 type Open = { term: GlossaryTerm; rect: DOMRect; range: Range };
 
 const registry = () => (globalThis.CSS as { highlights?: Map<string, unknown> } | undefined)?.highlights;
@@ -38,12 +89,17 @@ export function GlossaryLayer() {
   useEffect(() => {
     const highlights = registry();
     const Highlight = HighlightClass();
-    if (!highlights || !Highlight) return;
     let cancelled = false;
     let timer: number | undefined;
+    let frame = 0;
+    const sizes = new ResizeObserver(() => reposition());
+    function reposition() {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => placeStars(marks.current));
+    }
     const scan = async () => {
-      const roots = [...document.querySelectorAll(".reading-body")];
-      if (!roots.length) { marks.current = []; highlights.delete("glossary"); return; }
+      const roots = outerBodies();
+      if (!roots.length) { marks.current = []; placeStars([]); highlights?.delete("glossary"); return; }
       const glossary = await loadGlossary();
       if (!glossary || cancelled) return;
       terms.current = new Map(glossary.terms.map((term) => [term.id, term]));
@@ -51,25 +107,51 @@ export function GlossaryLayer() {
       for (const root of roots) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          for (const word of findGlossaryWords((node as Text).data, glossary.index)) {
+          const text = (node as Text).data;
+          for (const word of findGlossaryWords(text, glossary.index)) {
             const range = document.createRange();
             range.setStart(node, word.start);
             range.setEnd(node, word.end);
-            found.push({ range, termId: word.termId });
+            const tail = document.createRange();
+            tail.setStart(node, word.start);
+            tail.setEnd(node, tailEnd(text, word.end));
+            found.push({ range, termId: word.termId, body: root, tail });
           }
         }
       }
       marks.current = found;
+      placeStars(found);
+      sizes.disconnect();
+      for (const root of roots) sizes.observe(root);
+      // «glossary» նշումը անտեսանելի է. պետք է highlight-layer-ին (glossaryHit), որ բառը առաջնահերթ լինի։
+      if (!highlights || !Highlight) return;
       if (found.length) highlights.set("glossary", new Highlight(...found.map((mark) => mark.range)));
       else highlights.delete("glossary");
     };
     const later = () => { window.clearTimeout(timer); timer = window.setTimeout(() => void scan(), 250); };
     later();
-    // Տեքստը կարող է փոխվել (սաղմոսի տեսքը, նոր բեռնված մաս)՝ նորից ենք նշում։
-    const observer = new MutationObserver(later);
+    // Տեքստը կարող է փոխվել (սաղմոսի տեսքը, նոր բեռնված մաս)՝ նորից ենք նշում։ Մեր աստղերի փոփոխությունները չենք հաշվում։
+    const observer = new MutationObserver((records) => {
+      if (records.some((record) => {
+        const nodes = [...record.addedNodes, ...record.removedNodes];
+        return !ours(record.target) && (!nodes.length || !nodes.every(ours));
+      })) later();
+    });
     const main = document.querySelector("main");
     if (main) observer.observe(main, { childList: true, subtree: true, characterData: true });
-    return () => { cancelled = true; window.clearTimeout(timer); observer.disconnect(); highlights.delete("glossary"); marks.current = []; setOpen(null); };
+    document.fonts?.addEventListener("loadingdone", reposition);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      sizes.disconnect();
+      document.fonts?.removeEventListener("loadingdone", reposition);
+      highlights?.delete("glossary");
+      marks.current = [];
+      placeStars([]);
+      setOpen(null);
+    };
   }, [location.pathname]);
 
   // Բառի վրա սեղմելը. բացում է պատուհանը (և չի բացում սաղմոսի համարի պատուհանը)։
@@ -79,7 +161,8 @@ export function GlossaryLayer() {
       const target = event.target instanceof Element ? event.target : null;
       if (!target?.closest(".reading-body") || target.closest("a, button, input, textarea")) return;
       const { clientX: x, clientY: y } = event;
-      const hit = marks.current.find((mark) => [...mark.range.getClientRects()].some((rect) => x >= rect.left - 3 && x <= rect.right + 3 && y >= rect.top - 4 && y <= rect.bottom + 4));
+      // Աջից մի քիչ ավելի լայն, որ աստղի վրա սեղմելն էլ բացի։
+      const hit = marks.current.find((mark) => [...mark.tail.getClientRects()].some((rect) => x >= rect.left - 3 && x <= rect.right + 10 && y >= rect.top - 4 && y <= rect.bottom + 4));
       const term = hit ? terms.current.get(hit.termId) : undefined;
       if (!hit || !term) return;
       event.preventDefault();
