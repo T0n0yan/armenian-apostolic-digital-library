@@ -18,12 +18,15 @@ export function headers() { return { "Cache-Control": "private, no-store", "X-Ro
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireOwner(request, env.DB);
-  const [usage, github, storage] = await Promise.all([
+  const [usage, github, storage, videos] = await Promise.all([
     readCloudflareUsage(env as UsageEnv),
     readGitHubUsage(env as GitHubEnv),
     readStorageBreakdown(env.MEDIA).catch(() => null),
+    // Ավտոմատ սեղմված տեսանյութերը (scripts/optimize-videos.ts)
+    env.DB.prepare("SELECT COUNT(*) AS files, COALESCE(SUM(original_bytes), 0) AS before, COALESCE(SUM(optimized_bytes), 0) AS after FROM video_optimizations WHERE status = 'optimized'")
+      .first<{ files: number; before: number; after: number }>().catch(() => null),
   ]);
-  return data({ usage, github, storage }, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
+  return data({ usage, github, storage, videos }, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 }
 
 /** Groups of the free plan's limits, in the order the owner reads them. */
@@ -68,7 +71,7 @@ function MetricCard({ metric }: { metric: UsageMetric }) {
 /** Հայտնի թղթապանակների անունները՝ հայերեն։ */
 const PREFIX_NAMES: Record<string, string> = {
   v1: "Telegram խմբի մեդիա", attachments: "Կայքում ավելացված ձայնագրություններ",
-  places: "Սրբավայրերի նկարներ և տեսանյութեր", submissions: "Առաջարկների նկարներ", og: "Հղումների նախադիտման քարտեր",
+  places: "Սրբավայրերի նկարներ և տեսանյութեր", originals: "Սեղմված տեսանյութերի բնօրինակները (14 օր հետո ջնջվում են)", submissions: "Առաջարկների նկարներ", og: "Հղումների նախադիտման քարտեր",
   search: "Որոնման ինդեքս", video: "Տեսանյութեր", audio: "Ձայնագրություններ", media: "Մեդիա",
 };
 
@@ -76,13 +79,14 @@ const KIND_NAMES = { video: "Տեսանյութեր", audio: "Ձայնագրու
 const kindOfKey = (key: string) => (/\.(mp4|mov|webm|mkv)$/i.test(key) ? "video" : /\.(mp3|m4a|ogg|oga|opus|wav|aac)$/i.test(key) ? "audio" : /\.(jpe?g|png|webp|gif)$/i.test(key) ? "image" : "other");
 
 /** Այս կայքի պահեստը՝ ըստ թղթապանակների (միայն այս միջավայրի բաքեթը)։ */
-function StorageSection({ storage }: { storage: StorageBreakdown | null }) {
+function StorageSection({ storage, videos }: { storage: StorageBreakdown | null; videos: { files: number; before: number; after: number } | null }) {
   return (
     <section className={`${panelSection} grid gap-3`}>
       <h2 className="m-0 flex items-center gap-2 text-[16px] font-bold text-ink"><span className="text-gold"><HardDrive aria-hidden="true" size={18} /></span>Ինչով է լցված պահեստը</h2>
       {!storage ? <p className="m-0 text-[13px] text-danger">Պահեստը կարդալ չհաջողվեց։</p> : (
         <>
           <p className="m-0 text-[13px] leading-relaxed text-ink">apostolic.am-ի ֆայլերը՝ <b>{amount(storage.bytes, "byte")}</b> ({amount(storage.files, "")} ֆայլ{storage.complete ? "" : ", առաջին 30 000-ը"})։</p>
+          {videos?.files ? <p className="m-0 text-[13px] leading-relaxed text-ink">Ավտոմատ սեղմված տեսանյութեր՝ <b>{amount(videos.files, "")}</b>, {amount(videos.before, "byte")} → <b>{amount(videos.after, "byte")}</b> (խնայված՝ {amount(Math.max(0, videos.before - videos.after), "byte")})։</p> : null}
           <p className="m-0 text-[12px] leading-relaxed text-muted">Վերևի «R2 ընդհանուր պահեստ» թիվը մի քիչ ավելի մեծ է, որովհետև այնտեղ հաշվվում են նաև staging-ի (փորձարկման կայքի) ֆայլերը։</p>
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {storage.groups.map((group) => (
@@ -171,7 +175,7 @@ function GitHubSection({ github }: { github: GitHubUsage }) {
 
 /** The owner's view of the free plan: how much of each daily, monthly and storage limit is used. */
 export default function Usage({ loaderData }: Route.ComponentProps) {
-  const { usage, github, storage } = loaderData;
+  const { usage, github, storage, videos } = loaderData;
   const revalidator = useRevalidator();
   const byId = new Map(usage.metrics.map((metric) => [metric.id, metric]));
   const worst = Math.max(0, ...usage.metrics.map((metric) => (metric.used === null ? 0 : (metric.used / metric.limit) * 100)));
@@ -207,7 +211,7 @@ export default function Usage({ loaderData }: Route.ComponentProps) {
             </div>
           </section>
         ))}
-        <StorageSection storage={storage} />
+        <StorageSection storage={storage} videos={videos} />
         <GitHubSection github={github} />
         <details className={`${panelSection} text-[12.5px] leading-relaxed text-muted`}>
           <summary className="cursor-pointer text-[13px] font-semibold text-ink"><Server aria-hidden="true" size={15} className="mr-1.5 inline text-gold" />Ինչ են նշանակում թվերը</summary>
