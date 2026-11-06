@@ -1,5 +1,5 @@
 import { BookOpenText, MapPin, User, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 
@@ -11,14 +11,40 @@ import { buildGlossaryIndex, findGlossaryWords, type GlossaryTerm } from "../uti
  * Աստղը դատարկ <span> է (նշանը CSS-ով), այնպես որ պատճենելիս չի անցնում, իսկ նշումները և որոնումը չեն փոխվում։ Բառի վրա սեղմելիս բացվում է փոքրիկ պատուհան՝ բացատրությամբ։
  */
 
-// Բառարանը բեռնվում է մեկ անգամ ամբողջ այցի համար։
-let loading: Promise<{ terms: GlossaryTerm[]; index: ReturnType<typeof buildGlossaryIndex> } | null> | null = null;
-function loadGlossary() {
-  loading ??= fetch("/api/glossary")
+type Glossary = { terms: GlossaryTerm[]; index: ReturnType<typeof buildGlossaryIndex> };
+
+// Բառարանը պահվում է հեռախոսում (localStorage), որ էջը բացվելիս բառերը միանգամից նշվեն՝
+// առանց ցանցին սպասելու։ Ցանցից թարմ տարբերակը բերվում է մեկ անգամ ամբողջ այցի համար։
+const CACHE = "glossary-cache-v1";
+let current: Glossary | null = null;
+let refreshing: Promise<boolean> | null = null;
+
+const makeGlossary = (terms: GlossaryTerm[]): Glossary => ({ terms, index: buildGlossaryIndex(terms) });
+
+function cachedGlossary() {
+  if (current) return current;
+  try {
+    const terms = JSON.parse(localStorage.getItem(CACHE) ?? "null") as GlossaryTerm[] | null;
+    if (terms?.length) current = makeGlossary(terms);
+  } catch { /* պահոցը փակ է կամ վնասված */ }
+  return current;
+}
+
+/** Բերում է թարմ բառարանը։ true, եթե այն տարբերվում է արդեն օգտագործվողից։ */
+function refreshGlossary() {
+  refreshing ??= fetch("/api/glossary")
     .then((response) => (response.ok ? response.json() as Promise<{ terms: GlossaryTerm[] }> : null))
-    .then((data) => (data?.terms.length ? { terms: data.terms, index: buildGlossaryIndex(data.terms) } : null))
-    .catch(() => { loading = null; return null; });
-  return loading;
+    .then((data) => {
+      if (!data?.terms.length) return false;
+      const raw = JSON.stringify(data.terms);
+      let saved: string | null = null;
+      try { saved = localStorage.getItem(CACHE); localStorage.setItem(CACHE, raw); } catch { /* առանց պահոցի էլ աշխատում է */ }
+      if (current && saved === raw) return false;
+      current = makeGlossary(data.terms);
+      return true;
+    })
+    .catch(() => { refreshing = null; return false; });
+  return refreshing;
 }
 
 type Mark = { range: Range; termId: number };
@@ -63,6 +89,18 @@ function restoreStars(splits: Split[]) {
   splits.length = 0;
 }
 
+/** Փոփոխությունը կարդալու տեքստի՞ մեջ է (կամ ավելացնում/հանում է այդպիսի տեքստ)։ Մեր աստղերը չեն հաշվվում։ */
+function touchesReading(record: MutationRecord) {
+  const nodes = [...record.addedNodes, ...record.removedNodes];
+  if (nodes.length && nodes.every(ours)) return false;
+  const target = record.target instanceof Element ? record.target : record.target.parentElement;
+  if (target?.closest(".reading-body")) return true;
+  return nodes.some((node) => node instanceof Element && (node.matches(".reading-body") || node.querySelector(".reading-body") !== null));
+}
+
+// Սերվերում useLayoutEffect չկա. այնտեղ պարզապես useEffect (որը չի աշխատում)։
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 type Open = { term: GlossaryTerm; rect: DOMRect; range: Range };
 
 const registry = () => (globalThis.CSS as { highlights?: Map<string, unknown> } | undefined)?.highlights;
@@ -75,29 +113,30 @@ export function GlossaryLayer() {
   const [open, setOpen] = useState<Open | null>(null);
   const close = useCallback(() => setOpen(null), []);
 
-  // Էջի տեքստերում գտնում է բառերը և նշում դրանք։ Կրկնվում է, երբ տեքստը փոխվում է։
-  useEffect(() => {
+  // Էջի տեքստերում գտնում է բառերը և նշում դրանք։ useLayoutEffect՝ որ նշվի մինչև էջը նկարվելը։
+  useIsomorphicLayoutEffect(() => {
     const highlights = registry();
     const Highlight = HighlightClass();
     let cancelled = false;
-    let timer: number | undefined;
     const splits: Split[] = [];
     // Մեր սեփական փոփոխություններից հետո observer-ի հերթը մաքրում ենք, որ նորից չսկսի։
     const quiet = (change: () => void) => { change(); observer.takeRecords(); };
-    const scan = async () => {
-      const glossary = outerBodies().length ? await loadGlossary() : null;
-      if (cancelled) return;
+    const apply = () => {
       quiet(() => restoreStars(splits));
+      const glossary = cachedGlossary();
       const roots = outerBodies();
       if (!roots.length || !glossary) { marks.current = []; highlights?.delete("glossary"); return; }
       terms.current = new Map(glossary.terms.map((term) => [term.id, term]));
       const found: Mark[] = [];
       const stars: Array<{ node: Text; at: number }> = [];
+      // Ամեն բառ նշվում է միայն առաջին անգամ (ինչպես գրքում). նույն բառի այլ ձևերն էլ նույն termId-ն ունեն։
+      const seen = new Set<number>();
       for (const root of roots) {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          const text = (node as Text).data;
-          for (const word of findGlossaryWords(text, glossary.index)) {
+          for (const word of findGlossaryWords((node as Text).data, glossary.index)) {
+            if (seen.has(word.termId)) continue;
+            seen.add(word.termId);
             const range = document.createRange();
             range.setStart(node, word.start);
             range.setEnd(node, word.end);
@@ -115,23 +154,17 @@ export function GlossaryLayer() {
       if (found.length) highlights.set("glossary", new Highlight(...found.map((mark) => mark.range)));
       else highlights.delete("glossary");
     };
-    const later = () => { window.clearTimeout(timer); timer = window.setTimeout(() => void scan(), 250); };
-    // Տեքստը կարող է փոխվել (սաղմոսի տեսքը, նոր բեռնված մաս)։ Անմիջապես (մինչև նկարելը)
-    // վերադարձնում ենք տեքստը նախկին տեսքին, որ կրկնված կտորներ չերևան, հետո նորից ենք նշում։
+    // Միայն կարդալու տեքստի փոփոխությունները (ոչ թե, օրինակ, նվագարկչի ժամը)։ Նորից նշում ենք
+    // անմիջապես՝ նույն պահին, մինչև էջը նկարվելը, այնպես որ բառը չի «թարթում»։
     const observer = new MutationObserver((records) => {
-      if (!records.some((record) => {
-        const nodes = [...record.addedNodes, ...record.removedNodes];
-        return !nodes.length || !nodes.every(ours);
-      })) return;
-      quiet(() => restoreStars(splits));
-      later();
+      if (records.some(touchesReading)) apply();
     });
-    later();
+    apply();
     const main = document.querySelector("main");
     if (main) observer.observe(main, { childList: true, subtree: true, characterData: true });
+    void refreshGlossary().then((changed) => { if (changed && !cancelled) apply(); });
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
       observer.disconnect();
       restoreStars(splits);
       highlights?.delete("glossary");
