@@ -142,7 +142,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
       <div class="stop-node"><b>Worker</b>apostolic.am</div><div class="lane" style="--i:4"></div>
       <div class="stop-node"><b>Ընթերցող</b>կայք / Mini App</div>
     </div>
-    <div class="meta"><span>26 բաժին</span><span>24 սխեմա</span><span>թարմացված՝ 2026-11-02</span><span>աղբյուրը՝ docs/ARCHITECTURE.md</span></div>
+    <div class="meta"><span>26 բաժին</span><span>25 սխեմա</span><span>թարմացված՝ 2026-11-02</span><span>աղբյուրը՝ docs/ARCHITECTURE.md</span></div>
   </div>
   <div class="layout">
     <aside class="side">
@@ -552,7 +552,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   ADM[&quot;/admin/glossary&lt;br/&gt;բառ, ձևեր, բացատրություն, բաժին&lt;br/&gt;(բառ / անձնանուն / տեղանուն)&quot;] --&gt; GT[(&quot;glossary_terms&quot;)]
   GT --&gt; API[&quot;/api/glossary (մեկ անգամ այցի համար)&quot;]
   API --&gt; L[&quot;glossary-layer.tsx&lt;br/&gt;գտնում է բառերը ամեն տեքստում&lt;br/&gt;(վերջավորություններ, դասական ուղղագրություն)&quot;]
-  L --&gt; HL[&quot;Բառից հետո ոսկեգույն * (ծանոթագրության նշան)&lt;br/&gt;առանձին շերտում, տեքստի հանգույցներին չի դիպչում&quot;]
+  L --&gt; HL[&quot;Բառը ոսկեգույն (CSS Highlight), հետո * և բացատ&lt;br/&gt;(դատարկ span տեքստում, React-ի փոփոխությունից առաջ հանվում է)&quot;]
   HL --&gt;|&quot;սեղմում&quot;| CARD[&quot;Պատուհան բացատրությամբ, ⚑ Ճշտել / ✓&quot;]</pre></div>
 </figure>
 </section>
@@ -678,7 +678,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   <h3>Նկարով կիսվել (9:16)</h3>
   <p>Նյութի էջում, սաղմոսի համարի էջում և համարի պատուհանում «Կիսվել»-ը բացում է պատուհան՝ նյութի <b>ուղղահայաց նկարով</b> (1080×1920, Instagram/Telegram-ի պատմությունների չափը)՝ մագաղաթ, ոսկե շրջանակ, խաչ, բաժին, վերնագիր, տեքստի կտոր, ներքևում աննկատ «apostolic.am»։ Կոճակներ՝ «Կիսվել նկարով» (հեռախոսի կիսվելու պատուհան, նկարը՝ ֆայլ), «Պահել նկարը», «Հղումով» (նախկին կիսվելը)։</p>
   <p>Նկարվում է <b>հեռախոսում</b> (canvas, <code>app/utils/story-image.ts</code>), ոչ թե սերվերում. սաղմոսի ամեն համարի համար նախապես նկարել հնարավոր չէ, իսկ Worker-ում satori-ն շատ CPU է ուզում։ Պատուհանը՝ <code>app/components/story-share-sheet.tsx</code>, միացված է <code>ShareButton</code>-ի <code>story</code> հատկությամբ։</p>
-  <figure class="diagram" data-diagram="17">
+  <figure class="diagram" data-diagram="19">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -697,7 +697,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="18-բազա-d1-բոլոր-աղյուսակները" class="part" data-text="18. բազա (d1). բոլոր աղյուսակները  | խումբ | աղյուսակներ | | --- | --- | | **գրադարան** (sync-ը լցնում է) | `library_sources`, `library_topics`, `library_materials`, `library_material_blocks`, `library_media`, `library_album_members`, `library_search_documents`, `library_publishers`, `library_post_authors`, `material_attachments`, `psalm_timings` | | **sync-ի հաշվառում** | `library_sync_cursors`, `library_sync_runs`, `library_sync_failures` | | **մարդիկ** | `app_users`, `account_links`, `admin_access`, `user_settings` | | **անձնական** | `saved_materials`, `saved_verses`, `highlights`, `reading_log`, `poll_votes`, `place_visits`, `liturgy_marks`, `yearly_summaries` | | **հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` | | **սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) | | **բառարան** | `glossary_terms` | | **կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր) | | **telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` | | **հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` | բազայի ամեն փոփոխություն՝ `migrations/00nn_*.sql` ֆայլ (այժմ 44 հատ), կիրառվում է deploy-ի ժամանակ։ **ինչպես նայել՝ ինչքան է լցված**. կառավարում → կայքի վիճակը → «d1 ընդհանուր պահեստ» (պետք է token-ին d1 read իրավունք), կամ cloudflare → storage &amp; databases → d1 → բազան → **metrics** (չափը) և **console** (աղյուսակներ)։">
   <header><span class="n">18</span><h2>Բազա (D1). բոլոր աղյուսակները</h2></header>
-  <figure class="diagram" data-diagram="19">
+  <figure class="diagram" data-diagram="20">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -741,7 +741,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="20-միջավայրեր-և-թողարկում" class="part" data-text="20. միջավայրեր և թողարկում  մանրամասն՝ `docs/environments.md`, `docs/deployment-runbook.md`։ աշխատանքը բաժանված է 3 չատի միջև՝ `docs/work/`։">
   <header><span class="n">20</span><h2>Միջավայրեր և թողարկում</h2></header>
-  <figure class="diagram" data-diagram="20">
+  <figure class="diagram" data-diagram="21">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -769,7 +769,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="23-թղթապանակների-քարտեզը" class="part" data-text="23. թղթապանակների քարտեզը ">
   <header><span class="n">23</span><h2>Թղթապանակների քարտեզը</h2></header>
-  <figure class="diagram" data-diagram="21">
+  <figure class="diagram" data-diagram="22">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -861,7 +861,7 @@ export function isLiturgyDay(day: string) {
   return isLiturgyDay(yesterday) ? yesterday : null;                     // «Երեկ…»
 }</code></pre>
   <p>Ժամը (13) փոխել՝ այստեղ և cron-ը <code>wrangler.jsonc</code>-ում (<code>7 9 * * SUN</code> = 09:07 UTC = 13:07 Երևան)։</p>
-  <figure class="diagram" data-diagram="22">
+  <figure class="diagram" data-diagram="23">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -892,7 +892,7 @@ export function isLiturgyDay(day: string) {
 }</code></pre>
   <h3>Sync-ի ուշացումը</h3>
   <p><code>workers/clock.ts</code> · <code>SYNC_DELAY_MS = 15 * 60_000</code>. ամեն նոր գրառում զարթուցիչը տանում է 15 րոպե առաջ, այնպես որ 10 գրառում իրար հետևից՝ մեկ sync։</p>
-  <figure class="diagram" data-diagram="23">
+  <figure class="diagram" data-diagram="24">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -950,7 +950,7 @@ node scripts/work-brief.mjs      # մյուս չաթերի աշխատանքը (d
 bash scripts/check.sh            # կախվածություններ, build, թեստեր, tsc՝ կարճ ելքով
 node scripts/work-brief.mjs      # մյուս չաթերի աշխատանքը (docs/work/), առանց «Արված»-ի</code></pre>
   <p>Հետո՝ staging, իսկ տիրոջ «թողարկիր»-ից հետո՝ PR → main (բաժին 20)։</p>
-  <figure class="diagram" data-diagram="24">
+  <figure class="diagram" data-diagram="25">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>

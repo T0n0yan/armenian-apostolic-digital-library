@@ -661,10 +661,10 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 ::highlight(find-flash-4) { background-color: rgb(226 194 126 / 18%); }
 ::highlight(find-flash-5) { background-color: rgb(226 194 126 / 8%); }
 
-/* Բառարանի բառը տեքստում. բառից հետո փոքրիկ ոսկեգույն աստղանիշ, ինչպես գրքի ծանոթագրությունը
+/* Բառարանի բառը տեքստում. ոսկեգույն բառ և նրանից հետո փոքրիկ աստղանիշ, ինչպես գրքի ծանոթագրությունը
    (components/glossary-layer.tsx)։ Աստղը CSS-ով է, ոչ թե տեքստ, որ պատճենելիս չանցնի։ */
-[data-glossary-stars] { position: absolute; inset: 0; pointer-events: none; user-select: none; }
-.glossary-star { position: absolute; font: normal 600 0.7em/1 ui-sans-serif, system-ui, sans-serif; color: var(--gold); }
+::highlight(glossary) { color: var(--gold); }
+.glossary-star { font: normal 600 0.7em/0 ui-sans-serif, system-ui, sans-serif; color: var(--gold); vertical-align: super; user-select: none; }
 .glossary-star::before { content: "*"; }
 /* Բաց պատուհանի բառը. նուրբ ոսկեգույն ֆոն։ */
 ::highlight(glossary-open) { background-color: rgb(226 194 126 / 35%); }
