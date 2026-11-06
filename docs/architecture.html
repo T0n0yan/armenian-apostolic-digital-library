@@ -552,7 +552,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   ADM[&quot;/admin/glossary&lt;br/&gt;բառ, ձևեր, բացատրություն, բաժին&lt;br/&gt;(բառ / անձնանուն / տեղանուն)&quot;] --&gt; GT[(&quot;glossary_terms&quot;)]
   GT --&gt; API[&quot;/api/glossary (մեկ անգամ այցի համար)&quot;]
   API --&gt; L[&quot;glossary-layer.tsx&lt;br/&gt;գտնում է բառերը ամեն տեքստում&lt;br/&gt;(վերջավորություններ, դասական ուղղագրություն)&quot;]
-  L --&gt; HL[&quot;Բառից հետո ոսկեգույն * (ծանոթագրության նշան)&lt;br/&gt;առանձին շերտում, տեքստի հանգույցներին չի դիպչում&quot;]
+  L --&gt; HL[&quot;Բառը ոսկեգույն (CSS Highlight), հետո * և բացատ&lt;br/&gt;(դատարկ span տեքստում, React-ի փոփոխությունից առաջ հանվում է)&quot;]
   HL --&gt;|&quot;սեղմում&quot;| CARD[&quot;Պատուհան բացատրությամբ, ⚑ Ճշտել / ✓&quot;]</pre></div>
 </figure>
 </section>
