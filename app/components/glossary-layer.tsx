@@ -21,7 +21,7 @@ function loadGlossary() {
   return loading;
 }
 
-type Mark = { range: Range; termId: number; tail: Range };
+type Mark = { range: Range; termId: number };
 
 /**
  * Աստղը տեքստի մեջ է (փոքր դատարկ <span>, աստղը՝ CSS-ով), որ բառից հետո իրական տեղ զբաղեցնի։
@@ -36,13 +36,6 @@ const ours = (node: Node) => node instanceof Element && node.hasAttribute(STAR);
 /** Միայն արտաքին .reading-body-ները (ներսինը արդեն մեջն է)։ */
 function outerBodies() {
   return [...document.querySelectorAll(".reading-body")].filter((body) => !body.parentElement?.closest(".reading-body"));
-}
-
-/** Աստղը դրվում է բառից հետո, իսկ եթե բառին կպած է կետադրություն (՝ , ։ »), դրանից հետո։ */
-function tailEnd(text: string, end: number) {
-  let at = end;
-  while (at < text.length && at - end < 3 && /[^\s\p{L}\p{N}]/u.test(text[at])) at += 1;
-  return at;
 }
 
 /** Աստղ է դնում node-ի `at` կետում։ */
@@ -108,12 +101,9 @@ export function GlossaryLayer() {
             const range = document.createRange();
             range.setStart(node, word.start);
             range.setEnd(node, word.end);
-            const at = tailEnd(text, word.end);
-            const tail = document.createRange();
-            tail.setStart(node, word.start);
-            tail.setEnd(node, at);
-            found.push({ range, termId: word.termId, tail });
-            stars.push({ node: node as Text, at });
+            found.push({ range, termId: word.termId });
+            // Աստղը՝ անմիջապես բառից հետո, կետադրական նշանից առաջ («ժառանգութիւն*,»)։
+            stars.push({ node: node as Text, at: word.end });
           }
         }
       }
@@ -158,7 +148,7 @@ export function GlossaryLayer() {
       if (!target?.closest(".reading-body") || target.closest("a, button, input, textarea")) return;
       const { clientX: x, clientY: y } = event;
       // Աջից մի քիչ ավելի լայն, որ աստղի վրա սեղմելն էլ բացի։
-      const hit = marks.current.find((mark) => [...mark.tail.getClientRects()].some((rect) => x >= rect.left - 3 && x <= rect.right + 10 && y >= rect.top - 4 && y <= rect.bottom + 4));
+      const hit = marks.current.find((mark) => [...mark.range.getClientRects()].some((rect) => x >= rect.left - 3 && x <= rect.right + 10 && y >= rect.top - 4 && y <= rect.bottom + 4));
       const term = hit ? terms.current.get(hit.termId) : undefined;
       if (!hit || !term) return;
       event.preventDefault();
