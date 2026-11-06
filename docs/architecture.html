@@ -550,9 +550,9 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   </div>
   <div class="canvas"><pre class="src">flowchart LR
   ADM[&quot;/admin/glossary&lt;br/&gt;բառ, ձևեր, բացատրություն, բաժին&lt;br/&gt;(բառ / անձնանուն / տեղանուն)&quot;] --&gt; GT[(&quot;glossary_terms&quot;)]
-  GT --&gt; API[&quot;/api/glossary (մեկ անգամ այցի համար)&quot;]
+  GT --&gt; API[&quot;/api/glossary (մեկ անգամ այցի համար,&lt;br/&gt;պահվում է localStorage-ում՝ glossary-cache-v1)&quot;]
   API --&gt; L[&quot;glossary-layer.tsx&lt;br/&gt;գտնում է բառերը ամեն տեքստում&lt;br/&gt;(վերջավորություններ, դասական ուղղագրություն)&quot;]
-  L --&gt; HL[&quot;Բառը ոսկեգույն (CSS Highlight), հետո * և բացատ&lt;br/&gt;(դատարկ span տեքստում, React-ի փոփոխությունից առաջ հանվում է)&quot;]
+  L --&gt; HL[&quot;Միայն առաջին անգամ. բառը ոսկեգույն (CSS Highlight), հետո *&lt;br/&gt;(դատարկ span տեքստում, React-ի փոփոխությունից առաջ հանվում է)&quot;]
   HL --&gt;|&quot;սեղմում&quot;| CARD[&quot;Պատուհան բացատրությամբ, ⚑ Ճշտել / ✓&quot;]</pre></div>
 </figure>
 </section>
