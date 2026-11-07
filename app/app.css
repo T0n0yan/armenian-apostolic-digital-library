@@ -738,17 +738,17 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 :root[data-theme="light"] .sunday-glass { background: rgb(255 252 242 / 62%); }
 
 /* Ընթերցողի նշումները տեքստում (components/highlight-layer.tsx). ետնագույն, որ չշփոթվի բառարանի
-   կետագծի հետ։ Պահված խոսքը՝ մեղմ դեղին (մուգում՝ ոսկեգույն), հարցը՝ մեղմ կապտավուն։ */
+   կետագծի հետ։ Պահված խոսքը և հարցը՝ նույն մեղմ դեղինը (մուգում՝ ոսկեգույն). տիրոջ որոշում, 2026-11-07։ */
 ::highlight(user-mark) { background-color: rgb(250 214 92 / 46%); }
-::highlight(user-question) { background-color: rgb(120 170 235 / 30%); }
+::highlight(user-question) { background-color: rgb(250 214 92 / 46%); }
 ::highlight(user-flash) { background-color: rgb(226 194 126 / 70%); }
 /* Ընտրված, դեռ չպահված նախադասությունը (մեկ սեղմումով)։ */
 ::highlight(user-pending) { background-color: rgb(217 181 111 / 26%); text-decoration-line: underline; text-decoration-color: rgb(176 125 46 / 90%); text-decoration-thickness: 2px; text-underline-offset: 6px; }
 :root[data-theme="dark"] ::highlight(user-mark) { background-color: rgb(217 181 111 / 34%); }
-:root[data-theme="dark"] ::highlight(user-question) { background-color: rgb(120 165 230 / 30%); }
+:root[data-theme="dark"] ::highlight(user-question) { background-color: rgb(217 181 111 / 34%); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) ::highlight(user-mark) { background-color: rgb(217 181 111 / 34%); }
-  :root:not([data-theme]) ::highlight(user-question) { background-color: rgb(120 165 230 / 30%); }
+  :root:not([data-theme]) ::highlight(user-question) { background-color: rgb(217 181 111 / 34%); }
 }
 .highlight-bar { animation: highlight-bar-in 200ms cubic-bezier(.2, .8, .2, 1); }
 @keyframes highlight-bar-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

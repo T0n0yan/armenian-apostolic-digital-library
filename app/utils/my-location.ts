@@ -60,23 +60,24 @@ function fromTelegram(manager: TelegramLocationManager) {
   });
 }
 
-function fromBrowser() {
+function fromBrowser(precise: boolean) {
   return new Promise<MyPosition>((resolve, reject) => {
     if (!("geolocation" in navigator)) { reject("unsupported" satisfies LocationFailure); return; }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
       (error) => reject((error.code === error.PERMISSION_DENIED ? "denied" : "unavailable") satisfies LocationFailure),
-      { enableHighAccuracy: false, timeout: 15_000, maximumAge: 5 * 60_000 },
+      // Ճշգրիտ՝ GPS և թարմ դիրք (եկեղեցու 200 մ շառավղի համար), սովորական՝ արագ և խնայող։
+      precise ? { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 } : { enableHighAccuracy: false, timeout: 15_000, maximumAge: 5 * 60_000 },
     );
   });
 }
 
-export async function findMyPosition(): Promise<MyPosition> {
+export async function findMyPosition({ precise = false }: { precise?: boolean } = {}): Promise<MyPosition> {
   const manager = telegramLocation();
   if (manager) {
     try { return await fromTelegram(manager); } catch (failure) { if (failure === "denied") throw failure; }
   }
-  return fromBrowser();
+  return fromBrowser(precise);
 }
 
 /** Telegram's settings page for the Mini App's location access (null outside Telegram). */
