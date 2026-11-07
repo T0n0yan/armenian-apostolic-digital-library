@@ -46,8 +46,12 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
             <button className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={18} /></button>
           )}
         </div>
-        <video key={video.url} ref={player} className="mx-auto block aspect-[9/16] max-h-[min(62svh,640px)] w-auto max-w-full rounded-[16px] bg-[#e9dcc0]"
-          src={video.url} controls autoPlay muted playsInline preload="auto" />
+        {/* Շրջանակը ունի կայուն չափ (9:16, էկրանի բարձրության 62%-ը), որ տեսանյութը բեռնվելիս
+            պատուհանը չփոքրանա ու չմեծանա. տեսանյութը լցվում է շրջանակի մեջ։ */}
+        <div className="relative mx-auto aspect-[9/16] h-[min(62svh,640px)] max-w-full overflow-hidden rounded-[16px] bg-[#e9dcc0]">
+          <video key={video.url} ref={player} className="absolute inset-0 block size-full object-contain"
+            src={video.url} controls autoPlay muted playsInline preload="auto" />
+        </div>
         {/* Քանի տեսանյութ կա և որերորդն է */}
         <div className="grid justify-items-center gap-1.5">
           <span className="text-[13px] font-bold text-muted tabular-nums">{index + 1} / {videos.length}</span>

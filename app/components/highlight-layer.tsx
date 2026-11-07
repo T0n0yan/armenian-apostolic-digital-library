@@ -104,6 +104,7 @@ export function HighlightLayer() {
   const painted = useRef<Painted[]>([]);
   const spansRef = useRef<Span[]>([]);
   const lastTap = useRef(0);
+  const pointerDown = useRef<{ x: number; y: number } | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   spansRef.current = spans;
 
@@ -288,9 +289,18 @@ export function HighlightLayer() {
       const bodies = root ? readingBodies(root) : [];
       const body = target.closest(".reading-body");
       if (!body || !bodies.includes(body as HTMLElement)) { if (spansRef.current.length) clearSpans(); return; }
-      if (window.getSelection()?.toString().trim()) return;
       if (target.closest("a, button, input, textarea")) return;
       const { clientX: x, clientY: y } = event;
+      // Բրաուզերի ընտրությունը հաղթում է միայն մկնիկով քաշելիս կամ կրկնակի սեղմումով (բառի ընտրություն)։
+      // Մնացած դեպքերում (Chrome-ի «Touch to Search»-ի ընտրած բառը, երկար սեղմումից մնացած ընտրությունը)
+      // այն մաքրվում է. նախկինում հենց դա էր խանգարում նույն տողը կրկին սեղմելով հանել։
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && selection.toString().trim()) {
+        const down = pointerDown.current;
+        const dragged = down ? Math.hypot(x - down.x, y - down.y) > 10 : false;
+        if (dragged || event.detail > 1) return;
+        selection.removeAllRanges();
+      }
       if (glossaryHit(x, y)) return;
       const hit = painted.current.find((entry) => rangeHit(entry.range, x, y));
       if (hit && !spansRef.current.length) {
@@ -299,13 +309,23 @@ export function HighlightLayer() {
         setOpen(hit.item);
         return;
       }
-      const caret = caretAt(x, y);
-      if (!caret) return;
       const map = buildTextMap(bodies);
-      const offset = offsetOf(map, caret.node, caret.offset);
-      const sentence = offset === null ? null : sentenceAt(map.text, offset);
-      if (!sentence) return;
-      const next = toggleSentence(spansRef.current, sentence);
+      // Ընտրվածի վրա սեղմելը միշտ հանում է այն՝ ըստ իր իրական տեղի էկրանին, ոչ թե ըստ կուրսորի
+      // հաշվարկի (որը վերջակետի, տողի վերջի կամ երկար սեղմումով ընտրվածի դեպքում կարող էր սխալվել)։
+      const tapped = spansRef.current.find((span) => { const range = rangeFor(map, span.start, span.end); return range ? rangeHit(range, x, y) : false; });
+      let next: Span[];
+      let sentence: Span | null = null;
+      let caretNode: Node | null = null;
+      if (tapped) next = spansRef.current.filter((span) => span !== tapped);
+      else {
+        const caret = caretAt(x, y);
+        if (!caret) return;
+        caretNode = caret.node;
+        const offset = offsetOf(map, caret.node, caret.offset);
+        sentence = offset === null ? null : sentenceAt(map.text, offset);
+        if (!sentence) return;
+        next = toggleSentence(spansRef.current, sentence);
+      }
       const added = next.length > spansRef.current.length;
       lastTap.current = Date.now();
       // Էջը փոխվում է հենց սեղմման պահին. այդ դեպքում Chrome-ը չի բացում իր «Touch to Search»-ը։
@@ -313,7 +333,7 @@ export function HighlightLayer() {
       flushSync(() => {
         setSpans(next);
         setFocus(added ? sentence : next[next.length - 1] ?? null);
-        setPsalm(added ? psalmAt(caret.node) : next.length ? psalm : null);
+        setPsalm(added && caretNode ? psalmAt(caretNode) : next.length ? psalm : null);
         // Առաջին անգամ պատուհանը մի պահ բաց է, հետո դառնում է կլոր կոճակ. հաջորդ նշումները այն չեն բացում։
         if (first) openBriefly(); else { window.clearTimeout(collapseTimer.current); setExpanded(false); setClosing(false); }
       });
@@ -325,10 +345,14 @@ export function HighlightLayer() {
       const hit = painted.current.find((entry) => entry.range.isPointInRange(range.startContainer, range.startOffset));
       if (hit) setOpen(hit.item);
     };
+    // Որտեղ է սկսվել սեղմումը. քաշելով ընտրությունը (մկնիկով) տարբերելու համար պարզ սեղմումից։
+    const onDown = (event: PointerEvent) => { pointerDown.current = { x: event.clientX, y: event.clientY }; };
+    document.addEventListener("pointerdown", onDown, true);
     document.addEventListener("click", onClick, true);
     document.addEventListener("keydown", onKey);
     window.addEventListener("highlight-open-at", onOpenAt);
     return () => {
+      document.removeEventListener("pointerdown", onDown, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("highlight-open-at", onOpenAt);

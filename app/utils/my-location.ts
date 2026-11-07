@@ -47,7 +47,13 @@ function fromTelegram(manager: TelegramLocationManager) {
   return new Promise<MyPosition>((resolve, reject) => {
     const ask = () => {
       if (!manager.isLocationAvailable) { reject("unavailable" satisfies LocationFailure); return; }
-      if (manager.isAccessRequested && !manager.isAccessGranted) { reject("denied" satisfies LocationFailure); return; }
+      // Մեկ անգամ մերժելուց հետո Telegram-ը այլևս չի հարցնում. միանգամից բացում ենք իր կարգավորումների
+      // էջը, որ մարդը մեկ սեղմումով միացնի (փնտրել պետք չլինի)։ Կանչվում է միայն մարդու սեղմումից։
+      if (manager.isAccessRequested && !manager.isAccessGranted) {
+        try { manager.openSettings(); } catch { /* հին Telegram */ }
+        reject("denied" satisfies LocationFailure);
+        return;
+      }
       manager.getLocation((data) => data ? resolve({ latitude: data.latitude, longitude: data.longitude }) : reject("denied" satisfies LocationFailure));
     };
     if (manager.isInited) ask(); else manager.init(ask);
