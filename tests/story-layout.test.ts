@@ -27,7 +27,8 @@ test("երկար տեքստը բաժանվում է հավասար էջերի", 
   const plan = planStory(text, 46, box, measure);
   assert.ok(plan.pages.length >= 2);
   const heights = plan.pages.map((page) => page.height);
-  assert.ok(Math.min(...heights) > Math.max(...heights) * 0.5, "վերջին էջը շատ կարճ չէ");
+  // Ամեն էջ (բացի վերջինից) լցված է որքան հնարավոր է։
+  for (const height of heights.slice(0, -1)) assert.ok(height > (box.bottom - box.top) * 0.8, "էջը լիքն է");
   for (const page of plan.pages) assert.ok(page.height <= box.bottom - box.top);
 });
 

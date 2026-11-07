@@ -137,11 +137,14 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     ? prayerParagraphs(layout).filter((paragraph) => paragraph.kind === "text").map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
       || layout.paragraphs.filter((paragraph) => paragraph.kind === "text").map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
     : isPsalm ? psalmText.trim() : (material.richContent ? material.contentText ?? "" : plainText).trim(), material.title);
+  // Սաղմոսի նկարի վերնագիրը՝ միայն «Սաղմոս» և նրա համարը։
+  const psalmNumber = isPsalm ? (/\/psalms\/(\d+)/u.exec(loaderData.canonicalPath)?.[1] ?? /(\d+)/u.exec(material.title)?.[1]) : undefined;
+  const storyTitle = psalmNumber ? `Սաղմոս ${psalmNumber}` : material.title;
   const story = useMemo(
     () => storyText && (isPrayer || isPsalm || storyText.length <= 1_200)
-      ? { title: material.title, text: storyText, path: loaderData.canonicalPath, ornate: isPrayer }
+      ? { title: storyTitle, text: storyText, path: loaderData.canonicalPath, ornate: isPrayer }
       : null,
-    [isPrayer, isPsalm, loaderData.canonicalPath, material.title, storyText],
+    [isPrayer, isPsalm, loaderData.canonicalPath, storyTitle, storyText],
   );
 
   useEffect(() => {
