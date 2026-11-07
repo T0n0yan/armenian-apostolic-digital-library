@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MAX_STORY_PAGES, joinUnits, planStory, storyParagraphs, storyUnits, wrapParagraph } from "../app/utils/story-layout";
+import { MAX_STORY_PAGES, fitCount, joinUnits, planStory, storyParagraphs, storyUnits, wrapParagraph } from "../app/utils/story-layout";
 
 // Կեղծ չափում. ամեն տառ՝ չափի կեսը։
 const measure = (text: string, size: number) => Array.from(text).length * size * 0.5;
@@ -17,15 +17,14 @@ test("տողերը չեն անցնում լայնությունից", () => {
   for (const line of lines) assert.ok(measure(line, 40) <= 300);
 });
 
-test("կարճ տեքստը մեկ նկար է և մեծ տառով", () => {
-  const plan = planStory("Տէր, ողորմեա։", "auto", box, measure);
+test("կարճ տեքստը մեկ նկար է", () => {
+  const plan = planStory("Տէր, ողորմեա։", 48, box, measure);
   assert.equal(plan.pages.length, 1);
-  assert.equal(plan.size, 64);
 });
 
 test("երկար տեքստը բաժանվում է հավասար էջերի", () => {
   const text = Array.from({ length: 30 }, (_, index) => `${index + 1} ${"բառ ".repeat(25)}`).join("\n");
-  const plan = planStory(text, "auto", box, measure);
+  const plan = planStory(text, 46, box, measure);
   assert.ok(plan.pages.length >= 2);
   const heights = plan.pages.map((page) => page.height);
   assert.ok(Math.min(...heights) > Math.max(...heights) * 0.5, "վերջին էջը շատ կարճ չէ");
@@ -33,10 +32,19 @@ test("երկար տեքստը բաժանվում է հավասար էջերի", 
 });
 
 test("շատ երկար տեքստը նշվում է", () => {
-  const text = "բառ ".repeat(6000);
-  const plan = planStory(text, "xl", box, measure);
+  const plan = planStory("բառ ".repeat(6000), 70, box, measure);
   assert.ok(plan.pages.length > MAX_STORY_PAGES);
   assert.equal(plan.tooLong, true);
+});
+
+test("նեղ շրջանակում ավելի քիչ հատված է տեղավորվում", () => {
+  const units = Array.from({ length: 20 }, (_, index) => `${index + 1} ${"բառ ".repeat(12)}`);
+  const fits = (frame: typeof box) => (count: number) => planStory(units.slice(0, count).join("\n"), 45, frame, measure).pages.length === 1;
+  const wide = fitCount(units.length, fits(box));
+  const narrow = fitCount(units.length, fits({ ...box, right: 450 }));
+  assert.ok(wide > narrow && narrow >= 1);
+  assert.equal(fitCount(3, () => true), 3);
+  assert.equal(fitCount(5, () => false), 1);
 });
 
 test("երկար պարբերությունը բաժանվում է նախադասությունների", () => {
@@ -54,9 +62,3 @@ test("ընտրված հատվածները. բաց թողնվածի տեղում 
   assert.equal(joinUnits(units, new Set([0, 1, 2, 3])), "Ա Բ\nԳ\nԴ");
 });
 
-test("վերնագրի տեղը պակասեցնում է տեքստի տարածքը", () => {
-  const text = "բառ ".repeat(400);
-  const without = planStory(text, "md", box, measure);
-  const withTitle = planStory(text, "md", box, measure, () => 400);
-  assert.ok(withTitle.pages.length >= without.pages.length);
-});
