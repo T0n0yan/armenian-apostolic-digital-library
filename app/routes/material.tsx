@@ -136,7 +136,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
     : isPsalm ? psalmText.trim() : (material.richContent ? material.contentText ?? "" : plainText).trim();
   const story = useMemo(
     () => storyText && (isPrayer || isPsalm || storyText.length <= 1_200)
-      ? { title: material.title, text: storyText, path: loaderData.canonicalPath }
+      ? { title: material.title, text: storyText, path: loaderData.canonicalPath, ornate: isPrayer }
       : null,
     [isPrayer, isPsalm, loaderData.canonicalPath, material.title, storyText],
   );

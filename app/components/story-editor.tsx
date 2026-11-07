@@ -1,18 +1,21 @@
-import { Check, ChevronLeft, ChevronRight, Download, Link2, Minus, Plus, RotateCcw, Send, Share2, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Link2, Minus, Plus, RotateCcw, Send, Share2, SlidersHorizontal, Type, Heading, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { useScrollLock } from "../utils/scroll-lock";
 import { STORY_DESIGNS, storyBackground, type StoryTone } from "../utils/story-backgrounds";
-import { STORY_HEIGHT, STORY_WIDTH, fitCount, joinUnits, storyUnits, type StoryAlign, type StoryPlan } from "../utils/story-layout";
+import { STORY_HEIGHT, STORY_WIDTH, fitCount, joinUnits, storyUnits, type StoryAlign } from "../utils/story-layout";
 import {
-  DEFAULT_STYLE, TEXT_SIZES, TITLE_SIZES, canvasBlob, clampFrame, defaultLayout, drawStoryPage, frameHandles, loadBackground,
-  loadStoryFonts, measureBrightness, planFor,
-  type Brightness, type Handle, type PartStyle, type Rect, type StoryFont, type StoryHit, type StoryLayout, type StoryShade, type StoryStyle,
+  TEXT_SIZES, TITLE_SIZES, canvasBlob, clampFrame, defaultLayout, drawStoryPage, frameHandles, loadBackground,
+  loadStoryFonts, measureBrightness, normalizeStyle, planFor,
+  type Brightness, type Handle, type PartStyle, type Rect, type StoryEffect, type StoryFont, type StoryGuides, type StoryHit,
+  type StoryLayout, type StoryPlanWithCap, type StoryStyle,
 } from "../utils/story-render";
+import { StoryColorPicker } from "./story-color-picker";
 import { systemShare } from "./share-button";
 
-export type StorySource = { title: string; text: string; path: string };
+/** `ornate`՝ աղոթք է. առաջին տառը կարելի է թռչնագրով նկարել։ */
+export type StorySource = { title: string; text: string; path: string; ornate?: boolean };
 
 type StoryWebApp = {
   initData?: string;
@@ -26,9 +29,9 @@ function telegramApp() {
   return app?.initData ? app : null;
 }
 
-const SETTINGS_KEY = "story-style-v3";
+const SETTINGS_KEY = "story-style-v4";
 const COLORS_KEY = "story-colors";
-type Saved = { style?: StoryStyle; design?: string; tone?: StoryTone };
+type Saved = { style?: Partial<StoryStyle>; design?: string; tone?: StoryTone };
 
 function readJson<T>(key: string, fallback: T): T {
   try { return (JSON.parse(localStorage.getItem(key) ?? "null") as T | null) ?? fallback; } catch { return fallback; }
@@ -37,41 +40,25 @@ function writeJson(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* Պահելը պարտադիր չէ։ */ }
 }
 
-/** HSL → #rrggbb */
-function hsl(hue: number, saturation: number, lightness: number) {
-  const s = saturation / 100;
-  const l = lightness / 100;
-  const k = (n: number) => (n + hue / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const channel = (n: number) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
-  return `#${channel(0)}${channel(8)}${channel(4)}`;
-}
-
-/** Գույների ամբողջական ցանկը. ոսկի/մագաղաթ, մոխրագույներ և 12 երանգ՝ 3 պայծառությամբ։ */
-const PALETTE = [
-  "#f7ecd2", "#e8c57f", "#b07d2e", "#6e1f2b", "#24150d", "#ffffff", "#000000", "#8a8178",
-  ...[82, 62, 40].flatMap((lightness) => [0, 22, 40, 52, 95, 145, 178, 205, 228, 262, 292, 330]
-    .map((hue) => hsl(hue, lightness > 70 ? 70 : 62, lightness))),
-];
-
 const ALIGNS: Array<[StoryAlign, string]> = [["center", "Մեջտեղում"], ["start", "Ձախից"]];
 const FONTS: Array<[StoryFont, string]> = [["book", "Գրքային"], ["serif", "Նոտո"]];
-const SHADES: Array<[StoryShade, string]> = [[0, "Չկա"], [1, "Թեթև"], [2, "Խիտ"]];
+const EFFECTS: Array<[StoryEffect, string]> = [["none", "Չկա"], ["shadow", "Ստվեր"], ["glow", "Լույս"], ["gold", "Ոսկի"]];
 const TONES: Array<[StoryTone, string]> = [["dark", "Մուգ"], ["light", "Բաց"]];
 type Tab = "background" | "title" | "text";
-const TABS: Array<[Tab, string]> = [["background", "Ֆոն"], ["title", "Վերնագիր"], ["text", "Տեքստ"]];
 type TextMode = "fit" | "all" | "custom";
+/** Մեջտեղին այսքան մոտ՝ կպչում է (նկարի պիքսելներով)։ */
+const SNAP = 26;
 
 function Segmented<T extends string | number | boolean>({ label, value, options, onChange }: {
   label?: string; value: T; options: Array<[T, string]>; onChange: (value: T) => void;
 }) {
   return (
     <div className="grid gap-1.5">
-      {label ? <span className="text-[12px] font-bold text-muted">{label}</span> : null}
-      <div className="flex gap-1 rounded-[13px] border border-glass-border bg-subtle p-1" role="radiogroup" aria-label={label}>
+      {label ? <span className="text-[11.5px] font-bold tracking-[0.02em] text-muted">{label}</span> : null}
+      <div className="flex gap-1 rounded-[12px] bg-[rgb(127_127_127/12%)] p-[3px]" role="radiogroup" aria-label={label}>
         {options.map(([option, text]) => (
           <button key={String(option)} type="button" role="radio" aria-checked={option === value}
-            className={`min-h-9 flex-1 cursor-pointer rounded-[10px] border-0 px-1 text-[12.5px] font-bold ${option === value ? "bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]" : "bg-transparent text-ink"}`}
+            className={`min-h-8 flex-1 cursor-pointer rounded-[9px] border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "bg-[var(--page-bg)] text-gold-bright shadow-[0_1px_4px_rgb(0_0_0/18%)]" : "bg-transparent text-muted"}`}
             onClick={() => onChange(option)}>{text}</button>
         ))}
       </div>
@@ -79,51 +66,34 @@ function Segmented<T extends string | number | boolean>({ label, value, options,
   );
 }
 
-function Row({ label, children, aside }: { label: string; children: ReactNode; aside?: ReactNode }) {
+function Field({ label, value, children }: { label: string; value?: ReactNode; children: ReactNode }) {
   return (
     <div className="grid gap-1.5">
-      <div className="flex items-center justify-between gap-2"><span className="text-[12px] font-bold text-muted">{label}</span>{aside}</div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11.5px] font-bold tracking-[0.02em] text-muted">{label}</span>
+        {value ? <span className="text-[12px] font-bold text-ink tabular-nums">{value}</span> : null}
+      </div>
       {children}
     </div>
   );
 }
 
-/** Չափը պիքսելներով՝ սահիչով և −/+ կոճակներով։ */
-function SizeControl({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (value: number) => void }) {
-  const step = "inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-glass-border bg-subtle text-ink disabled:opacity-40";
+/** Սահիչ՝ −/+ կոճակներով (չափ, շերտի ուժ)։ */
+function Slider({ label, value, min, max, step = 1, format, onChange }: {
+  label: string; value: number; min: number; max: number; step?: number; format: (value: number) => string; onChange: (value: number) => void;
+}) {
+  const button = "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgb(127_127_127/14%)] text-ink disabled:opacity-35";
+  const clamp = (next: number) => Math.min(max, Math.max(min, Math.round(next / step) * step));
   return (
-    <Row label="Տառի չափ" aside={<b className="text-[13px] text-ink tabular-nums">{value} px</b>}>
-      <div className="flex items-center gap-2">
-        <button className={step} type="button" aria-label="Փոքրացնել" disabled={value <= min} onClick={() => onChange(value - 1)}><Minus size={16} aria-hidden="true" /></button>
-        <input className="h-9 min-w-0 flex-1 cursor-pointer accent-[#d9b56f]" type="range" min={min} max={max} step={1} value={value}
-          aria-label="Տառի չափը պիքսելներով" onChange={(event) => onChange(Number(event.target.value))} />
-        <button className={step} type="button" aria-label="Մեծացնել" disabled={value >= max} onClick={() => onChange(value + 1)}><Plus size={16} aria-hidden="true" /></button>
+    <Field label={label} value={format(value)}>
+      <div className="flex items-center gap-2.5">
+        <button className={button} type="button" aria-label={`${label}՝ պակասեցնել`} disabled={value <= min} onClick={() => onChange(clamp(value - step))}><Minus size={15} aria-hidden="true" /></button>
+        <input className="story-range min-w-0 flex-1" type="range" min={min} max={max} step={step} value={value} aria-label={label}
+          style={{ ["--fill" as string]: `${((value - min) / (max - min)) * 100}%` }}
+          onChange={(event) => onChange(Number(event.target.value))} />
+        <button className={button} type="button" aria-label={`${label}՝ ավելացնել`} disabled={value >= max} onClick={() => onChange(clamp(value + step))}><Plus size={15} aria-hidden="true" /></button>
       </div>
-    </Row>
-  );
-}
-
-/** Գույնը. «Ավտո», վերջին ընտրվածները և ամբողջ ցանկը միանգամից։ */
-function ColorControl({ value, recent, onChange }: { value: string; recent: string[]; onChange: (value: string) => void }) {
-  const swatch = (color: string, key: string) => (
-    <button key={key} type="button" role="radio" aria-checked={value === color} aria-label={color} title={color}
-      className={`aspect-square w-full cursor-pointer rounded-full border-2 ${value === color ? "border-[#d9b56f] shadow-[0_0_0_2px_rgb(217_181_111/45%)]" : "border-[rgb(127_127_127/30%)]"}`}
-      style={{ background: color }} onClick={() => onChange(color)} />
-  );
-  return (
-    <Row label="Գույն">
-      <div className="grid gap-2" role="radiogroup" aria-label="Գույն">
-        <div className="flex items-center gap-2">
-          <button type="button" role="radio" aria-checked={value === "auto"} onClick={() => onChange("auto")}
-            className={`min-h-9 shrink-0 cursor-pointer rounded-full border-2 px-3 text-[12px] font-bold text-ink ${value === "auto" ? "border-[#d9b56f] bg-[rgb(217_181_111/18%)]" : "border-glass-border bg-subtle"}`}>Ավտո</button>
-          {recent.length ? <div className="grid flex-1 grid-cols-8 gap-1.5">{recent.map((color) => swatch(color, `recent-${color}`))}</div>
-            : <span className="text-[11.5px] text-muted">հակառակ գույնը՝ ըստ ֆոնի</span>}
-        </div>
-        <div className="grid grid-cols-8 gap-1.5 rounded-[13px] border border-glass-border bg-subtle p-2">
-          {PALETTE.map((color) => swatch(color, color))}
-        </div>
-      </div>
-    </Row>
+    </Field>
   );
 }
 
@@ -145,10 +115,7 @@ function download(blob: Blob, name: string) {
 
 const range = (count: number) => new Set(Array.from({ length: count }, (_, index) => index));
 
-type Drag =
-  | { kind: "title"; x: number; y: number; origin: StoryLayout; live: StoryLayout }
-  | { kind: "frame"; x: number; y: number; origin: StoryLayout; live: StoryLayout }
-  | { kind: "resize"; handle: Handle; x: number; y: number; origin: StoryLayout; live: StoryLayout };
+type Drag = { kind: "title" | "frame" | "resize"; handle?: Handle; x: number; y: number; origin: StoryLayout; live: StoryLayout; guides: StoryGuides };
 
 function resize(frame: Rect, handle: Handle, dx: number, dy: number): Rect {
   const next = { ...frame };
@@ -163,11 +130,16 @@ function resize(frame: Rect, handle: Handle, dx: number, dy: number): Rect {
   return clamped;
 }
 
+/** Մեջտեղին մոտ լինելիս՝ կպցնում է. վերադարձնում է նոր դիրքը և արդյոք կպավ։ */
+function snap(center: number, target: number) {
+  return Math.abs(center - target) < SNAP ? { shift: target - center, on: true } : { shift: 0, on: false };
+}
+
 /**
  * Աղոթքը, սաղմոսը կամ համարը՝ story-ի նկար (1080×1920)։ Բացվելիս միանգամից ցույց է տալիս
- * պատրաստի նկարը։ «Կարգավորել»-ում երեք բաժին կա՝ Ֆոն, Վերնագիր, Տեքստ, ամեն մեկն իր չափով,
- * գույնով, տառատեսակով և տակի շերտով։ Տեքստի շրջանակը քաշվում և լայնացվում է մատով, և դրանից է
- * կախված, թե որքան տեքստ է տեղավորվում։ apostolic.am-ը միշտ բաց է մնում։
+ * պատրաստի նկարը։ «Կարգավորել»-ում՝ Ֆոն, Վերնագիր, Տեքստ. ամեն մեկն իր չափով, գույնով, էֆեկտով
+ * (ոսկի, լույս, ստվեր) և տակի շերտով։ Տեքստի շրջանակը քաշվում և լայնացվում է մատով, կպչում է
+ * մեջտեղին, և դրանից է կախված, թե որքան տեքստ է տեղավորվում։ apostolic.am-ը միշտ բաց է մնում։
  */
 export function StoryEditor({ source, onClose, onLink }: { source: StorySource; onClose: () => void; onLink: () => void }) {
   useScrollLock(true);
@@ -175,10 +147,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   const [design, setDesign] = useState(() => saved.design ?? STORY_DESIGNS[0].id);
   const [tone, setTone] = useState<StoryTone>(() => saved.tone ?? "dark");
   const background = useMemo(() => storyBackground(design, tone), [design, tone]);
-  const [style, setStyle] = useState<StoryStyle>(() => ({
-    title: { ...DEFAULT_STYLE.title, ...saved.style?.title },
-    text: { ...DEFAULT_STYLE.text, ...saved.style?.text },
-  }));
+  const [style, setStyle] = useState<StoryStyle>(() => normalizeStyle(saved.style));
   const [recent, setRecent] = useState<string[]>(() => readJson<string[]>(COLORS_KEY, []));
   const units = useMemo(() => storyUnits(source.text), [source.text]);
   const [textMode, setTextMode] = useState<TextMode>("fit");
@@ -197,6 +166,9 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   const [notice, setNotice] = useState("");
   const [dragging, setDragging] = useState(false);
   const previewRef = useRef<HTMLCanvasElement>(null);
+  // Նախադիտումը 9:16 է և լրիվ տեղավորվում է մնացած տեղում (ոչ կտրված, ոչ ձգված)։
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState<{ width: number; height: number } | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const brightnessRef = useRef<Brightness | null>(null);
   const measureRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -211,22 +183,39 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   const canDownloadInTelegram = Boolean(telegram?.downloadFile && telegram.isVersionAtLeast?.("8.0"));
   const canShareFiles = typeof navigator !== "undefined" && typeof navigator.canShare === "function"
     && navigator.canShare({ files: [new File([new Uint8Array(1)], "a.jpg", { type: "image/jpeg" })] });
+  const ornate = Boolean(source.ornate);
 
   useEffect(() => { writeJson(SETTINGS_KEY, { style, design, tone }); }, [design, style, tone]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      const fitted = Math.min(width, (height * STORY_WIDTH) / STORY_HEIGHT);
+      setFit({ width: Math.floor(fitted), height: Math.floor((fitted * STORY_HEIGHT) / STORY_WIDTH) });
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, []);
 
   const setPart = useCallback(<K extends "title" | "text">(part: K, patch: Partial<StoryStyle[K]>) =>
     setStyle((current) => ({ ...current, [part]: { ...current[part], ...patch } })), []);
 
-  const chooseColor = (part: "title" | "text", color: string) => {
-    setPart(part, { color } as Partial<PartStyle>);
-    if (color === "auto") return;
-    // Ընտրված գույնը ավելանում է «վերջինների» շարքում։
-    setRecent((current) => {
-      const next = [color, ...current.filter((entry) => entry !== color)].slice(0, 8);
-      writeJson(COLORS_KEY, next);
-      return next;
-    });
-  };
+  // Ընտրված գույնը (երբ ընտրությունը կանգ է առնում) ավելանում է «վերջինների» մեջ։
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const picked = [style.text.color, style.title.color].filter((color) => color !== "auto");
+      if (!picked.length) return;
+      setRecent((current) => {
+        const next = [...picked, ...current.filter((entry) => !picked.includes(entry))].slice(0, 6);
+        if (next.join() === current.join()) return current;
+        writeJson(COLORS_KEY, next);
+        return next;
+      });
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [style.text.color, style.title.color]);
 
   // Ֆոնը և տառատեսակները
   useEffect(() => {
@@ -251,24 +240,24 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   }, [assets, background, design, style]);
 
   /** Պլանը տրված դասավորությամբ. «Ըստ շրջանակի»-ն վերցնում է այնքան, որքան տեղավորվում է։ */
-  const computePlan = useCallback((current: StoryLayout): { plan: StoryPlan; count: number } | null => {
+  const computePlan = useCallback((current: StoryLayout): { plan: StoryPlanWithCap; count: number } | null => {
     const context = measureRef.current;
     if (!context) return null;
-    const plan = (set: Set<number>) => planFor(context, joinUnits(units, set), style, current.frame);
+    const plan = (set: Set<number>) => planFor(context, joinUnits(units, set), style, current.frame, ornate);
     if (textMode === "all") return { plan: plan(range(units.length)), count: units.length };
     if (textMode === "custom") return { plan: plan(custom), count: custom.size };
     const count = fitCount(units.length, (value) => plan(range(value)).pages.length === 1);
     return { plan: plan(range(count)), count };
-  }, [custom, style, textMode, units]);
+  }, [custom, ornate, style, textMode, units]);
 
-  const draw = useCallback((current: StoryLayout) => {
+  const draw = useCallback((current: StoryLayout, guides: StoryGuides | null = null) => {
     const context = previewRef.current?.getContext("2d");
     const result = computePlan(current);
     if (!context || !result) return null;
-    const shownPage = Math.min(page, result.plan.pages.length - 1);
     hitRef.current = drawStoryPage(context, {
       background, image: imageRef.current, brightness: brightnessRef.current, style, layout: current, plan: result.plan,
-      page: shownPage, title: source.title, outline: editing ? (tab === "background" ? null : tab) : undefined,
+      page: Math.min(page, result.plan.pages.length - 1), title: source.title,
+      outline: editing ? (tab === "background" ? null : tab) : undefined, guides,
     });
     return result;
   }, [background, computePlan, editing, page, source.title, style, tab]);
@@ -322,13 +311,13 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!layout || !hitRef.current) return;
     const point = toCanvas(event);
-    // Փոքր նախադիտման վրա մատը կոպիտ է. կետերը «բռնվում» են լայն շառավղով։
-    const reach = (90 * STORY_WIDTH) / Math.max(event.currentTarget.getBoundingClientRect().width * 4, 1);
+    // Փոքր նախադիտման վրա մատը կոպիտ է. կետերը «բռնվում» են լայն շառավղով (~22 px էկրանին)։
+    const reach = Math.max(70, (22 * STORY_WIDTH) / Math.max(event.currentTarget.getBoundingClientRect().width, 1));
     const handle = editing && tab === "text"
-      ? frameHandles(layout.frame).find(([hx, hy]) => Math.hypot(point.x - hx, point.y - hy) < Math.max(reach, 70))?.[2]
+      ? frameHandles(layout.frame).find(([hx, hy]) => Math.hypot(point.x - hx, point.y - hy) < reach)?.[2]
       : undefined;
+    const base = { x: point.x, y: point.y, origin: layout, live: layout, guides: { x: false, y: false } };
     let drag: Drag | null = null;
-    const base = { x: point.x, y: point.y, origin: layout, live: layout };
     if (handle) drag = { kind: "resize", handle, ...base };
     else if (inside(hitRef.current.title, point, 24)) drag = { kind: "title", ...base };
     else if (inside(hitRef.current.frame, point, 16)) drag = { kind: "frame", ...base };
@@ -347,11 +336,23 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
     const dx = point.x - drag.x;
     const dy = point.y - drag.y;
     const { origin } = drag;
-    drag.live = drag.kind === "title" ? { ...origin, title: { x: origin.title.x + dx, y: origin.title.y + dy } }
-      : drag.kind === "frame" ? { ...origin, frame: clampFrame({ ...origin.frame, left: origin.frame.left + dx, top: origin.frame.top + dy }) }
-        : { ...origin, frame: resize(origin.frame, drag.handle, dx, dy) };
+    if (drag.kind === "title") {
+      const x = snap(origin.title.x + dx, STORY_WIDTH / 2);
+      drag.live = { ...origin, title: { x: origin.title.x + dx + x.shift, y: origin.title.y + dy } };
+      drag.guides = { x: x.on, y: false };
+    } else if (drag.kind === "frame") {
+      const moved = clampFrame({ ...origin.frame, left: origin.frame.left + dx, top: origin.frame.top + dy });
+      const x = snap(moved.left + moved.width / 2, STORY_WIDTH / 2);
+      const y = snap(moved.top + moved.height / 2, STORY_HEIGHT / 2);
+      drag.live = { ...origin, frame: clampFrame({ ...moved, left: moved.left + x.shift, top: moved.top + y.shift }) };
+      drag.guides = { x: x.on, y: y.on };
+    } else if (drag.handle) {
+      drag.live = { ...origin, frame: resize(origin.frame, drag.handle, dx, dy) };
+      const center = drag.live.frame.left + drag.live.frame.width / 2;
+      drag.guides = { x: Math.abs(center - STORY_WIDTH / 2) < 2, y: false };
+    }
     cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => { const result = draw(drag.live); if (result) setShownCount(result.count); });
+    frameRef.current = requestAnimationFrame(() => { const result = draw(drag.live, drag.guides); if (result) setShownCount(result.count); });
   };
 
   const onPointerUp = () => {
@@ -364,6 +365,11 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
     setLayout(drag.kind === "title" && title ? { ...drag.live, title: { x: title.left + title.width / 2, y: title.top } } : drag.live);
   };
 
+  /** Շրջանակը և վերնագիրը՝ ուղիղ մեջտեղում։ */
+  const centerAll = () => {
+    if (!layout) return;
+    setLayout({ title: { ...layout.title, x: STORY_WIDTH / 2 }, frame: clampFrame({ ...layout.frame, left: (STORY_WIDTH - layout.frame.width) / 2 }) });
+  };
   const resetPlaces = () => { if (layout) setLayout(defaultLayout(background, style)); };
 
   const say = (value: string) => {
@@ -433,137 +439,155 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   };
 
   const chosenNow = textMode === "custom" ? custom : textMode === "all" ? range(units.length) : range(shownCount);
-  const action = "inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[15px] border-0 px-3 text-[14px] font-bold disabled:cursor-default disabled:opacity-50";
-  const primary = `${action} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-card`;
-  const secondary = "inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-[14px] border border-glass-border bg-subtle px-2 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
   const disabled = !ready || tooLong || busy;
-  const chip = (on: boolean) => `inline-flex min-h-8 cursor-pointer items-center rounded-full border px-3 text-[12px] font-bold ${on ? "border-[#d9b56f] bg-[rgb(217_181_111/20%)] text-ink" : "border-glass-border bg-subtle text-ink"}`;
-  const shareLabel = pageCount > 1 ? `Կիսվել (${pageCount} նկար)` : "Կիսվել նկարով";
+  const primary = "inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-5 text-[14.5px] font-bold text-[#2a1708] shadow-[0_8px_22px_rgb(176_125_46/35%)] disabled:cursor-default disabled:opacity-50";
+  const ghost = "inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-glass-border bg-subtle px-4 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
+  const chip = (on: boolean) => `inline-flex min-h-8 cursor-pointer items-center rounded-full border px-3 text-[12px] font-bold ${on ? "border-[#d9b56f] bg-[rgb(217_181_111/20%)] text-ink" : "border-glass-border bg-transparent text-muted"}`;
+  const tabButton = (on: boolean) => `flex min-h-12 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[12px] border-0 text-[11px] font-bold transition-colors ${on ? "bg-[rgb(217_181_111/16%)] text-gold-bright" : "bg-transparent text-muted"}`;
+  const primaryAction = canStory
+    ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
+    : canShareFiles
+      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={18} aria-hidden="true" /> {pageCount > 1 ? `Կիսվել · ${pageCount} նկար` : "Կիսվել"}</button>
+      : <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>;
+  const saveAction = canStory && canDownloadInTelegram ? telegramSave : canShareFiles || canStory ? saveFiles : null;
+
+  const partControls = (part: "title" | "text") => {
+    const value: PartStyle = style[part];
+    const sizes = part === "title" ? TITLE_SIZES : TEXT_SIZES;
+    return (
+      <>
+        <Slider label="Տառի չափ" value={value.size} min={sizes.min} max={sizes.max} format={(size) => `${size} px`} onChange={(size) => setPart(part, { size })} />
+        <Segmented label="Էֆեկտ" value={value.effect} options={EFFECTS} onChange={(effect) => setPart(part, { effect })} />
+        <Field label="Գույն" value={value.effect === "gold" ? <span className="font-semibold text-muted">«Ոսկի»-ն ունի իր գույնը</span> : undefined}>
+          <StoryColorPicker value={value.color} recent={recent} disabled={value.effect === "gold"} onChange={(color) => setPart(part, { color })} />
+        </Field>
+        <Segmented label="Տառատեսակ" value={value.font} options={FONTS} onChange={(font) => setPart(part, { font })} />
+        <Slider label={part === "title" ? "Շերտ վերնագրի տակ" : "Շերտ տեքստի տակ"} value={Math.round(value.shade * 100)} min={0} max={100} step={5}
+          format={(shade) => (shade ? `${shade}%` : "Չկա")} onChange={(shade) => setPart(part, { shade: shade / 100 })} />
+      </>
+    );
+  };
 
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[95] flex flex-col bg-[var(--page-bg)] pt-[var(--tg-inset-top,0px)] pb-[var(--tg-inset-bottom,0px)]" role="dialog" aria-modal="true" aria-label="Կիսվել">
-      <header className="flex items-center justify-between gap-2 border-b border-glass-border px-4 py-2">
-        <strong className="font-noto text-[16px] text-ink">{editing ? "Կարգավորել նկարը" : "Կիսվել"}</strong>
+    <div className="fixed inset-0 z-[95] flex flex-col bg-[var(--page-bg)] pt-[var(--tg-inset-top,0px)] pb-[var(--tg-inset-bottom,0px)]" role="dialog" aria-modal="true" aria-label="Կիսվել նկարով">
+      <header className="flex items-center gap-2 px-3 py-2">
         <button className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-subtle text-ink" type="button" aria-label="Փակել" onClick={onClose}><X size={20} aria-hidden="true" /></button>
+        <strong className="flex-1 text-center font-noto text-[15.5px] text-ink">{editing ? "Ձևավորել" : "Կիսվել նկարով"}</strong>
+        <button className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-subtle px-3 text-[12.5px] font-bold text-ink" type="button" onClick={() => { onClose(); onLink(); }}>
+          <Link2 size={16} aria-hidden="true" /> Հղում
+        </button>
       </header>
 
-      <div className={`flex min-h-0 flex-1 flex-col gap-3 px-4 py-3 min-[760px]:flex-row min-[760px]:items-start min-[760px]:justify-center min-[760px]:gap-6 ${dragging ? "overflow-hidden" : "overflow-y-auto"}`}>
-        {/* Կարգավորելիս նախադիտումը մնում է վերևում, որ փոփոխությունները միանգամից երևան։ */}
-        <div className={`grid shrink-0 justify-items-center gap-1.5 min-[760px]:sticky min-[760px]:top-0 ${editing ? "sticky -top-3 z-10 -mx-4 bg-[var(--page-bg)] px-4 pt-3 pb-2 shadow-[0_10px_16px_-12px_rgb(0_0_0/40%)] min-[760px]:static min-[760px]:shadow-none" : ""}`}>
-          <div className="relative">
+      <div className="flex min-h-0 flex-1 flex-col min-[860px]:flex-row min-[860px]:items-stretch min-[860px]:justify-center min-[860px]:gap-6 min-[860px]:px-6">
+        {/* Նախադիտումը զբաղեցնում է մնացած ամբողջ տեղը։ */}
+        <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 pb-2 min-[860px]:flex-none min-[860px]:py-4">
+          <div ref={stageRef} className="flex h-full max-h-[720px] min-h-0 w-full items-center justify-center">
+          <div className="relative" style={fit ? { width: fit.width, height: fit.height } : { height: "100%" }}>
             <canvas ref={previewRef} width={STORY_WIDTH} height={STORY_HEIGHT}
-              className={`block w-auto touch-none select-none rounded-[18px] shadow-[0_14px_40px_rgb(20_8_24/35%)] ${editing ? "h-[min(40svh,520px)]" : "h-[min(62svh,640px)]"} min-[760px]:h-[min(78svh,680px)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+              className={`block h-full w-full touch-none select-none rounded-[20px] shadow-[0_18px_50px_rgb(20_8_24/40%)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
               aria-label="Նկարի նախադիտում. քաշեք վերնագիրը կամ տեքստը, տեքստի շրջանակի կետերով փոխեք չափը"
               onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
             {pageCount > 1 ? (
               <>
-                <button className="absolute left-1.5 top-1/2 inline-flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgb(0_0_0/45%)] text-white disabled:opacity-30" type="button" disabled={page === 0} aria-label="Նախորդ նկարը" onClick={() => setPage(page - 1)}><ChevronLeft size={20} aria-hidden="true" /></button>
-                <button className="absolute right-1.5 top-1/2 inline-flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-[rgb(0_0_0/45%)] text-white disabled:opacity-30" type="button" disabled={page >= pageCount - 1} aria-label="Հաջորդ նկարը" onClick={() => setPage(page + 1)}><ChevronRight size={20} aria-hidden="true" /></button>
+                <button className="absolute -left-3 top-1/2 inline-flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--page-bg)] text-ink shadow-card disabled:opacity-0" type="button" disabled={page === 0} aria-label="Նախորդ նկարը" onClick={() => setPage(page - 1)}><ChevronLeft size={20} aria-hidden="true" /></button>
+                <button className="absolute -right-3 top-1/2 inline-flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--page-bg)] text-ink shadow-card disabled:opacity-0" type="button" disabled={page >= pageCount - 1} aria-label="Հաջորդ նկարը" onClick={() => setPage(page + 1)}><ChevronRight size={20} aria-hidden="true" /></button>
+                <span className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5" aria-hidden="true">
+                  {Array.from({ length: pageCount }, (_, index) => <span key={index} className={`h-1.5 rounded-full transition-all ${index === page ? "w-5 bg-white" : "w-1.5 bg-white/50"}`} />)}
+                </span>
               </>
             ) : null}
           </div>
-          {tooLong ? (
-            <p className="m-0 max-w-[340px] text-center text-[12.5px] font-semibold text-[#b3402f]">Ընտրված տեքստը շատ երկար է. «Տեքստ»-ում ընտրեք ավելի քիչ հատված։</p>
-          ) : pageCount > 1 ? (
-            <p className="m-0 max-w-[340px] text-center text-[12.5px] text-muted">Կլինի <b className="text-ink">{pageCount} նկար</b>։ Մեկ նկարի համար՝ {editing ? "" : "«Կարգավորել» → "}«Տեքստ» → «Ըստ շրջանակի»։</p>
-          ) : (
-            <p className="m-0 text-center text-[11.5px] text-muted">{editing && tab === "text" ? "Կետերով լայնացրեք կամ նեղացրեք տեքստի շրջանակը" : "Քաշեք վերնագիրը կամ տեքստը՝ տեղը փոխելու համար"}</p>
-          )}
+          </div>
+          <p className={`m-0 max-w-[360px] text-center text-[11.5px] leading-snug ${tooLong ? "font-semibold text-[#c2513f]" : "text-muted"}`} aria-live="polite">
+            {tooLong ? "Տեքստը շատ երկար է. «Տեքստ»-ում ընտրեք ավելի քիչ հատված։"
+              : pageCount > 1 ? `${pageCount} նկար՝ իրար հետևից։ Մեկ նկարի համար՝ «Տեքստ» → «Ըստ շրջանակի»։`
+                : editing && tab === "text" ? "Քաշեք շրջանակը կամ նրա կետերը. մեջտեղում այն կպչում է։"
+                  : "Քաշեք վերնագիրը կամ տեքստը՝ տեղը փոխելու համար"}
+          </p>
         </div>
 
         {editing ? (
-          <div className="grid w-full max-w-[440px] gap-3.5 self-center pb-2 min-[760px]:self-start">
-            <Segmented value={tab} options={TABS} onChange={setTab} />
-
-            {tab === "background" ? (
-              <>
-                <Row label="Ֆոն">
-                  <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-[22px] border-t border-glass-border bg-[var(--page-bg)] shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-[22px] min-[860px]:border">
+            <nav className="grid grid-cols-3 gap-1 p-2 pb-1" aria-label="Ձևավորման բաժիններ">
+              <button className={tabButton(tab === "background")} type="button" aria-pressed={tab === "background"} onClick={() => setTab("background")}><ImageIcon size={18} aria-hidden="true" />Ֆոն</button>
+              <button className={tabButton(tab === "title")} type="button" aria-pressed={tab === "title"} onClick={() => setTab("title")}><Heading size={18} aria-hidden="true" />Վերնագիր</button>
+              <button className={tabButton(tab === "text")} type="button" aria-pressed={tab === "text"} onClick={() => setTab("text")}><Type size={18} aria-hidden="true" />Տեքստ</button>
+            </nav>
+            <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pt-2 pb-4">
+              {tab === "background" ? (
+                <>
+                  <div className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1">
                     {STORY_DESIGNS.map((entry) => (
                       <button key={entry.id} type="button" aria-label={entry.label} title={entry.label} aria-pressed={entry.id === design}
-                        className={`h-[84px] w-[48px] shrink-0 cursor-pointer rounded-[10px] border-2 bg-cover bg-center p-0 ${entry.id === design ? "border-[#d9b56f] shadow-[0_0_0_2px_rgb(217_181_111/35%)]" : "border-transparent"}`}
-                        style={{ backgroundImage: `url(${storyBackground(entry.id, tone).thumb})` }}
-                        onClick={() => setDesign(entry.id)} />
+                        className={`grid shrink-0 cursor-pointer justify-items-center gap-1 border-0 bg-transparent p-0 text-[10.5px] font-bold ${entry.id === design ? "text-gold-bright" : "text-muted"}`}
+                        onClick={() => setDesign(entry.id)}>
+                        <span className={`block h-[92px] w-[52px] rounded-[10px] bg-cover bg-center ring-2 transition ${entry.id === design ? "ring-[#d9b56f]" : "ring-transparent"}`}
+                          style={{ backgroundImage: `url(${storyBackground(entry.id, tone).thumb})` }} />
+                        {entry.label}
+                      </button>
                     ))}
                   </div>
-                </Row>
-                <Segmented label="Ֆոնի տոն" value={tone} options={TONES} onChange={setTone} />
-                <button className={`${secondary} flex-none`} type="button" onClick={resetPlaces}><RotateCcw size={16} aria-hidden="true" /> Վերադարձնել տեղերը</button>
-              </>
-            ) : null}
-
-            {tab === "title" ? (
-              <>
-                <Segmented label="Վերնագիր" value={style.title.show} options={[[true, "Ցույց տալ"], [false, "Թաքցնել"]]} onChange={(show) => setPart("title", { show })} />
-                {style.title.show ? (
-                  <>
-                    <SizeControl value={style.title.size} min={TITLE_SIZES.min} max={TITLE_SIZES.max} onChange={(size) => setPart("title", { size })} />
-                    <ColorControl value={style.title.color} recent={recent} onChange={(color) => chooseColor("title", color)} />
-                    <Segmented label="Տառատեսակ" value={style.title.font} options={FONTS} onChange={(font) => setPart("title", { font })} />
-                    <Segmented label="Շերտ վերնագրի տակ" value={style.title.shade} options={SHADES} onChange={(shade) => setPart("title", { shade })} />
-                  </>
-                ) : null}
-              </>
-            ) : null}
-
-            {tab === "text" ? (
-              <>
-                <Row label="Որքան տեքստ" aside={<span className="text-[11.5px] text-muted">{chosenNow.size} / {units.length} հատված</span>}>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button className={chip(textMode === "fit")} type="button" onClick={() => setTextMode("fit")}>Ըստ շրջանակի</button>
-                    <button className={chip(textMode === "all")} type="button" onClick={() => setTextMode("all")}>Ամբողջը</button>
-                    {units.length > 1 ? <button className={chip(picking)} type="button" aria-expanded={picking} onClick={() => setPicking(!picking)}>{picking ? "Փակել ցանկը" : "Ընտրել հատվածները"}</button> : null}
+                  <Segmented label="Տոն" value={tone} options={TONES} onChange={setTone} />
+                  <div className="flex gap-2">
+                    <button className={`${ghost} min-h-10 flex-1`} type="button" onClick={centerAll}>Մեջտեղում դնել</button>
+                    <button className={`${ghost} min-h-10 flex-1`} type="button" onClick={resetPlaces}><RotateCcw size={15} aria-hidden="true" /> Սկզբնական</button>
                   </div>
-                  {textMode === "fit" ? <p className="m-0 text-[11.5px] text-muted">Որքան մեծ է շրջանակը, այնքան շատ տեքստ է տեղավորվում. մնացածի տեղում՝ «…»։</p> : null}
-                  {picking ? (
-                    <ul className="m-0 grid max-h-[240px] list-none gap-1 overflow-y-auto rounded-[13px] border border-glass-border bg-subtle p-1.5">
-                      {units.map((unit, index) => {
-                        const on = chosenNow.has(index);
-                        return (
-                          <li key={index}>
-                            <button type="button" aria-pressed={on} onClick={() => toggleUnit(index)}
-                              className={`flex w-full cursor-pointer items-start gap-2 rounded-[10px] border-0 p-2 text-left text-[12.5px] leading-snug ${on ? "bg-[rgb(217_181_111/18%)] text-ink" : "bg-transparent text-muted"}`}>
-                              <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border ${on ? "border-[#b07d2e] bg-[#d9b56f] text-[#2a1708]" : "border-glass-border"}`}>{on ? <Check size={12} aria-hidden="true" /> : null}</span>
-                              <span className="line-clamp-2">{unit.text}</span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                </Row>
-                <SizeControl value={style.text.size} min={TEXT_SIZES.min} max={TEXT_SIZES.max} onChange={(size) => setPart("text", { size })} />
-                <ColorControl value={style.text.color} recent={recent} onChange={(color) => chooseColor("text", color)} />
-                <Segmented label="Տառատեսակ" value={style.text.font} options={FONTS} onChange={(font) => setPart("text", { font })} />
-                <Segmented label="Հավասարեցում" value={style.text.align} options={ALIGNS} onChange={(align) => setPart("text", { align })} />
-                <Segmented label="Շերտ տեքստի տակ" value={style.text.shade} options={SHADES} onChange={(shade) => setPart("text", { shade })} />
-              </>
-            ) : null}
-          </div>
+                </>
+              ) : null}
+
+              {tab === "title" ? (
+                <>
+                  <Segmented label="Վերնագիր" value={style.title.show} options={[[true, "Ցույց տալ"], [false, "Թաքցնել"]]} onChange={(show) => setPart("title", { show })} />
+                  {style.title.show ? partControls("title") : null}
+                </>
+              ) : null}
+
+              {tab === "text" ? (
+                <>
+                  <Field label="Որքան տեքստ" value={<span className="font-semibold text-muted">{chosenNow.size} / {units.length}</span>}>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button className={chip(textMode === "fit")} type="button" onClick={() => setTextMode("fit")}>Ըստ շրջանակի</button>
+                      <button className={chip(textMode === "all")} type="button" onClick={() => setTextMode("all")}>Ամբողջը</button>
+                      {units.length > 1 ? <button className={chip(picking || textMode === "custom")} type="button" aria-expanded={picking} onClick={() => setPicking(!picking)}>Ընտրել…</button> : null}
+                    </div>
+                    {picking ? (
+                      <ul className="m-0 grid max-h-[200px] list-none gap-1 overflow-y-auto rounded-[13px] bg-[rgb(127_127_127/10%)] p-1.5">
+                        {units.map((unit, index) => {
+                          const on = chosenNow.has(index);
+                          return (
+                            <li key={index}>
+                              <button type="button" aria-pressed={on} onClick={() => toggleUnit(index)}
+                                className={`flex w-full cursor-pointer items-start gap-2 rounded-[10px] border-0 p-2 text-left text-[12.5px] leading-snug ${on ? "bg-[rgb(217_181_111/16%)] text-ink" : "bg-transparent text-muted"}`}>
+                                <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border ${on ? "border-[#b07d2e] bg-[#d9b56f] text-[#2a1708]" : "border-glass-border"}`}>{on ? <Check size={12} aria-hidden="true" /> : null}</span>
+                                <span className="line-clamp-2">{unit.text}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </Field>
+                  {ornate ? <Segmented label="Թռչնատառ (առաջին տառը)" value={style.text.ornate} options={[[true, "Միացված"], [false, "Անջատված"]]} onChange={(value) => setPart("text", { ornate: value })} /> : null}
+                  {partControls("text")}
+                  <Segmented label="Հավասարեցում" value={style.text.align} options={ALIGNS} onChange={(align) => setPart("text", { align })} />
+                </>
+              ) : null}
+            </div>
+          </section>
         ) : null}
       </div>
 
-      <footer className="grid gap-2 border-t border-glass-border px-4 pt-3 pb-3">
+      <footer className="flex flex-col gap-2 px-4 pt-2 pb-3">
         {notice ? <p className="m-0 text-center text-[12.5px] font-semibold text-gold-bright" role="status">{notice}</p> : null}
-        <div className="mx-auto grid w-full max-w-[520px] gap-2">
-          {canStory ? (
-            <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send size={18} aria-hidden="true" /> {pageCount > 1 ? `Telegram story (${page + 1}/${pageCount})` : "Telegram story"}</button>
-          ) : canShareFiles ? (
-            <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={18} aria-hidden="true" /> {shareLabel}</button>
-          ) : (
-            <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>
-          )}
-          <div className="flex gap-2">
-            <button className={secondary} type="button" aria-pressed={editing} onClick={() => setEditing(!editing)}>
-              {editing ? <><Check size={16} aria-hidden="true" /> Պատրաստ է</> : <><SlidersHorizontal size={16} aria-hidden="true" /> Կարգավորել</>}
-            </button>
-            {canStory && canShareFiles ? <button className={secondary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={16} aria-hidden="true" /> Կիսվել</button>
-              : canStory && canDownloadInTelegram ? <button className={secondary} type="button" disabled={disabled} onClick={telegramSave}><Download size={16} aria-hidden="true" /> Պահել</button>
-                : canShareFiles ? <button className={secondary} type="button" disabled={disabled} onClick={saveFiles}><Download size={16} aria-hidden="true" /> Պահել</button> : null}
-            <button className={secondary} type="button" onClick={() => { onClose(); onLink(); }}><Link2 size={16} aria-hidden="true" /> Հղումով</button>
-          </div>
+        <div className="mx-auto flex w-full max-w-[520px] gap-2">
+          <button className={ghost} type="button" aria-pressed={editing} onClick={() => setEditing(!editing)}>
+            {editing ? <><Check size={17} aria-hidden="true" /> Պատրաստ է</> : <><SlidersHorizontal size={17} aria-hidden="true" /> Ձևավորել</>}
+          </button>
+          {primaryAction}
+          {saveAction ? <button className={`${ghost} w-12 px-0`} type="button" disabled={disabled} aria-label="Պահել նկարը" title="Պահել նկարը" onClick={saveAction}><Download size={18} aria-hidden="true" /></button> : null}
         </div>
+        {!editing && canShareFiles && !canStory ? <p className="m-0 text-center text-[11px] text-muted">«Կիսվել»-ից ընտրեք Instagram, Facebook կամ Telegram՝ story-ում դնելու համար</p> : null}
       </footer>
     </div>,
     document.body,
