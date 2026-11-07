@@ -480,10 +480,17 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
       <header className="flex items-center gap-2 px-3 py-2">
         <button className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-subtle text-ink" type="button" aria-label="Փակել" onClick={onClose}><X size={20} aria-hidden="true" /></button>
         <strong className="flex-1 text-center font-noto text-[15.5px] text-ink">{editing ? "Ձևավորել" : "Կիսվել նկարով"}</strong>
-        <button className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-subtle text-ink disabled:opacity-40" type="button" disabled={disabled}
-          aria-label={pageCount > 1 ? "Ներբեռնել նկարները" : "Ներբեռնել նկարը"} title="Ներբեռնել" onClick={saveAction}>
-          <Download size={19} aria-hidden="true" />
-        </button>
+        {/* Ձևավորելիս «Պատրաստ է»-ն վերևում է, որ նկարի վրա ոչինչ չծածկի։ */}
+        {editing ? (
+          <button className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-3.5 text-[13px] font-bold text-[#2a1708]" type="button" onClick={() => setEditing(false)}>
+            <Check size={16} aria-hidden="true" /> Պատրաստ է
+          </button>
+        ) : (
+          <button className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-subtle text-ink disabled:opacity-40" type="button" disabled={disabled}
+            aria-label={pageCount > 1 ? "Ներբեռնել նկարները" : "Ներբեռնել նկարը"} title="Ներբեռնել" onClick={saveAction}>
+            <Download size={19} aria-hidden="true" />
+          </button>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col min-[860px]:flex-row min-[860px]:items-stretch min-[860px]:justify-center min-[860px]:gap-6 min-[860px]:px-6">
@@ -495,11 +502,13 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
               className={`block h-full w-full touch-none select-none rounded-[20px] shadow-[0_18px_50px_rgb(20_8_24/40%)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
               aria-label="Նկարի նախադիտում. քաշեք վերնագիրը կամ տեքստը, տեքստի շրջանակի կետերով փոխեք չափը"
               onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
-            {/* Ձևավորելու կոճակը՝ հենց նկարի վրա */}
-            <button className={`absolute right-2.5 top-2.5 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 px-3 text-[12.5px] font-bold shadow-[0_4px_14px_rgb(0_0_0/30%)] backdrop-blur-md ${editing ? "bg-[linear-gradient(135deg,#ecd08f,#b9852f)] text-[#2a1708]" : "bg-[rgb(20_12_24/55%)] text-white"}`}
-              type="button" aria-pressed={editing} onClick={() => setEditing(!editing)}>
-              {editing ? <><Check size={16} aria-hidden="true" /> Պատրաստ է</> : <><SlidersHorizontal size={16} aria-hidden="true" /> Ձևավորել</>}
-            </button>
+            {/* «Ձևավորել»-ը նկարի վրա է միայն դիտելիս. ձևավորելիս նկարը ամբողջությամբ ազատ է։ */}
+            {editing ? null : (
+              <button className="absolute right-2.5 top-2.5 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-[rgb(20_12_24/55%)] px-3 text-[12.5px] font-bold text-white shadow-[0_4px_14px_rgb(0_0_0/30%)] backdrop-blur-md"
+                type="button" onClick={() => setEditing(true)}>
+                <SlidersHorizontal size={16} aria-hidden="true" /> Ձևավորել
+              </button>
+            )}
             {pageCount > 1 ? (
               <>
                 <button className="absolute -left-3 top-1/2 inline-flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--page-bg)] text-ink shadow-card disabled:opacity-0" type="button" disabled={page === 0} aria-label="Նախորդ նկարը" onClick={() => setPage(page - 1)}><ChevronLeft size={20} aria-hidden="true" /></button>
