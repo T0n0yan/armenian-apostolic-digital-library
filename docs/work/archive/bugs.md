@@ -2,6 +2,8 @@
 
 Հին «Արված» տողերը (նորերը՝ վերևում)։ Գործից առաջ կարդալ պետք չէ։
 
+- 2026-10-24 — Ամեն րոպեի cron-ը հանված է. սինքը՝ նոր գրառումից 15 րոպե հետո, հիշեցումները՝ ճիշտ ժամին (Clock Durable Object), հիշեցում հեռախոսի օրացույցով կամ ծանուցումով ([#43](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/43))։
+
 - 2026-10-24 — /admin/people. գրանցվածների և անանուն սարքերի ցուցակ, որոնում, Excel ([#44](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/44))։
 
 - 2026-10-24 — Վերնագրերի որոնում հեռախոսում (առանց հարցման), անգլերեն/ռուսերեն բառեր, էջերը պահվում են հեռախոսում մինչև նոր նյութ ([#45](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/45))։
