@@ -348,7 +348,7 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
 
   // Վերնագիր (և էջի համարը)
   let titleRect: Rect | null = null;
-  const header = plan.pages.length > 1 ? `${title} · ${page + 1}/${plan.pages.length}` : title;
+  const header = title;
   if (style.title.show) {
     const pixels = titlePixels(style);
     const width = titleWidth(context, header, style);
@@ -377,11 +377,16 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
   const top = frame.top + Math.max(0, (frame.height - height) / 2);
   const textArea = { left: frame.left, top, width: frame.width, height: Math.max(height, size) };
   const color = colorsFor(style.text, textArea, brightness, background.tone, false);
-  drawShade(context, grow(frame, SHADE_PAD), style.text.shade, style.text.effect !== "gold" && luminance(color) < 128);
-  if (!style.title.show && plan.pages.length > 1) {
+  // Շերտը գրկում է հենց տեքստը (ոչ թե ամբողջ շրջանակը), որ կարճ տեքստի տակ դատարկ տեղ չմնա։
+  const textBlock = { left: frame.left, top, width: frame.width, height: Math.max(height, size * LINE_HEIGHT) };
+  drawShade(context, grow(textBlock, SHADE_PAD), style.text.shade, style.text.effect !== "gold" && luminance(color) < 128);
+  // Էջի համարը (1/2)՝ տեքստի տակ, շերտից դուրս. տեղ չլինելու դեպքում՝ տեքստից վերև։
+  if (plan.pages.length > 1) {
     context.textAlign = "center";
     context.font = `600 34px ${FAMILY.serif}`;
-    paintLine(context, `${page + 1}/${plan.pages.length}`, frame.left + frame.width / 2, Math.max(SAFE.top + 34, frame.top - 20), 34, color, "none");
+    const below = textBlock.top + textBlock.height + SHADE_PAD + 48;
+    const y = below <= SAFE.bottom + 20 ? below : Math.max(SAFE.top + 34, textBlock.top - SHADE_PAD - 22);
+    paintLine(context, `${page + 1} / ${plan.pages.length}`, frame.left + frame.width / 2, y, 34, color, "shadow", 0.4);
   }
   // Տողերի տեղը։ Զարդատառը կպած է իր կողքի տողերին. մեջտեղով հավասարեցնելիս «զարդատառ + տողեր»
   // խումբը միասին է կենտրոնացվում, այլ ոչ թե տառը մնում է շրջանակի ձախ եզրին։

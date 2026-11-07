@@ -82,8 +82,8 @@ export function blockHeight(lines: StoryLine[], size: number) {
 }
 
 /**
- * Տողերը էջերի՝ `capacity` բարձրությամբ։ Պարբերությունը չի կտրվում, եթե էջն արդեն կիսով չափ լիքն
- * է և պարբերությունը ամբողջությամբ տեղավորվում է հաջորդ էջում։
+ * Տողերը էջերի՝ `capacity` բարձրությամբ. ամեն էջ լցվում է որքան հնարավոր է։ Պարբերությունը (սաղմոսի
+ * համարը) չի կտրվում, եթե ամբողջությամբ տեղավորվում է հաջորդ էջում։
  */
 function fillPages(blocks: StoryLine[][], size: number, capacity: number) {
   const pages: StoryLine[][] = [[]];
@@ -91,7 +91,7 @@ function fillPages(blocks: StoryLine[][], size: number, capacity: number) {
     const lines = block;
     let page = pages[pages.length - 1];
     const whole = blockHeight(lines, size);
-    if (page.length && blockHeight([...page, ...lines], size) > capacity && whole <= capacity && blockHeight(page, size) >= capacity * 0.5) {
+    if (page.length && blockHeight([...page, ...lines], size) > capacity && whole <= capacity) {
       page = [];
       pages.push(page);
     }
@@ -106,30 +106,13 @@ function fillPages(blocks: StoryLine[][], size: number, capacity: number) {
   return pages.filter((page) => page.length);
 }
 
-/**
- * Էջերը հավասարեցված. նույն քանակով էջ, բայց ամենափոքր բարձրությամբ, որ վերջին էջը մի տող չմնա։
- */
-function balancedPages(blocks: StoryLine[][], size: number, capacity: number) {
-  const first = fillPages(blocks, size, capacity);
-  if (first.length < 2) return first;
-  let low = size * LINE_HEIGHT;
-  let high = capacity;
-  let best = first;
-  for (let step = 0; step < 18 && high - low > 1; step += 1) {
-    const middle = (low + high) / 2;
-    const attempt = fillPages(blocks, size, middle);
-    if (attempt.length <= first.length) { best = attempt; high = middle; } else low = middle;
-  }
-  return best;
-}
-
 export type StoryPlan = { size: number; pages: StoryPage[]; tooLong: boolean };
 
 /** Տեքստը տողերի և էջերի՝ տրված չափով և շրջանակով. չտեղավորվողը անցնում է հաջորդ նկար։ */
 export function planStory(text: string, size: number, box: StoryBox, measure: Measure, cap?: StoryCap): StoryPlan {
   const blocks = lineBlocks(storyParagraphs(text), box.right - box.left, size, measure, cap);
   const capacity = Math.max(box.bottom - box.top, size * LINE_HEIGHT);
-  const pages = balancedPages(blocks, size, capacity).map((lines) => ({ lines, height: blockHeight(lines, size) }));
+  const pages = fillPages(blocks, size, capacity).map((lines) => ({ lines, height: blockHeight(lines, size) }));
   const list = pages.length ? pages : [{ lines: [], height: 0 }];
   return { size, pages: list, tooLong: list.length > MAX_STORY_PAGES };
 }
