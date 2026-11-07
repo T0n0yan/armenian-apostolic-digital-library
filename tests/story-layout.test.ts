@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MAX_STORY_PAGES, fitCount, joinUnits, planStory, storyParagraphs, storyUnits, wrapParagraph } from "../app/utils/story-layout";
+import { MAX_STORY_PAGES, fitCount, joinUnits, planStory, withoutLeadingTitle, storyParagraphs, storyUnits, wrapParagraph } from "../app/utils/story-layout";
 
 // Կեղծ չափում. ամեն տառ՝ չափի կեսը։
 const measure = (text: string, size: number) => Array.from(text).length * size * 0.5;
@@ -62,3 +62,15 @@ test("ընտրված հատվածները. բաց թողնվածի տեղում 
   assert.equal(joinUnits(units, new Set([0, 1, 2, 3])), "Ա Բ\nԳ\nԴ");
 });
 
+
+test("նախադասությունը չի կտրվում շեշտի/բացականչական նշանի վրա", () => {
+  const long = `Փա՛ռք Քեզ Տեր, ով բարի ես ${"բառ ".repeat(80)}։ Պարգևի՜ր մեզ ${"խաղաղություն ".repeat(20)}։`;
+  const units = storyUnits(long);
+  assert.equal(units.length, 2);
+  assert.ok(units[0].text.startsWith("Փա՛ռք Քեզ"));
+});
+
+test("վերնագիրը հանվում է տեքստի սկզբից", () => {
+  assert.equal(withoutLeadingTitle("Խաղաղության աղոթք\nՓա՛ռք Քեզ", "Խաղաղության աղոթք"), "Փա՛ռք Քեզ");
+  assert.equal(withoutLeadingTitle("Փա՛ռք Քեզ", "Խաղաղության աղոթք"), "Փա՛ռք Քեզ");
+});

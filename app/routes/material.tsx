@@ -28,6 +28,7 @@ import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describ
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
 import { prayerParagraphs, seedLayout } from "../utils/prayer-layout";
+import { withoutLeadingTitle } from "../utils/story-layout";
 
 // Խմբագիրը պետք է միայն ադմինին. ընթերցողի էջը այն չի բեռնում։
 const PrayerLayoutEditor = lazy(() => import("../components/prayer-layout-editor").then((module) => ({ default: module.PrayerLayoutEditor })));
@@ -130,10 +131,12 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const [layoutOpen, setLayoutOpen] = useState(false);
   // Նկարով կիսվելու տեքստը. աղոթքը՝ միայն բուն աղոթքը (առանց նկարագրության), սաղմոսը՝ համարները։
   // Երկար նյութերը (վարքեր, ուսուցումներ) նկարով չեն կիսվում։
-  const storyText = layout
-    ? (prayerParagraphs(layout).length ? prayerParagraphs(layout) : layout.paragraphs.filter((paragraph) => paragraph.kind === "text"))
-      .map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
-    : isPsalm ? psalmText.trim() : (material.richContent ? material.contentText ?? "" : plainText).trim();
+  // Վերնագիրը նկարում առանձին է, դրա համար տեքստից հանվում է (ձևավորման «վերնագիր» պարբերությունները
+  // և սկզբի տողը, որը կրկնում է վերնագիրը)։
+  const storyText = withoutLeadingTitle(layout
+    ? prayerParagraphs(layout).filter((paragraph) => paragraph.kind === "text").map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
+      || layout.paragraphs.filter((paragraph) => paragraph.kind === "text").map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
+    : isPsalm ? psalmText.trim() : (material.richContent ? material.contentText ?? "" : plainText).trim(), material.title);
   const story = useMemo(
     () => storyText && (isPrayer || isPsalm || storyText.length <= 1_200)
       ? { title: material.title, text: storyText, path: loaderData.canonicalPath, ornate: isPrayer }

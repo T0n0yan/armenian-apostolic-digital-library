@@ -10,7 +10,7 @@ import {
 } from "./story-layout";
 
 export type StoryFont = "book" | "serif";
-/** Տառերի էֆեկտը. «gold»-ը ունի իր գույնը (ոսկու փայլ և կայծեր)։ */
+/** Տառերի էֆեկտը. «gold»-ը (ոսկեզօծ) ունի իր գույնը։ Ուժգնությունը՝ `strength`։ */
 export type StoryEffect = "none" | "shadow" | "glow" | "gold";
 
 export type PartStyle = {
@@ -22,6 +22,8 @@ export type PartStyle = {
   /** Տակի շերտի ուժը՝ 0 (չկա) – 1 (խիտ)։ */
   shade: number;
   effect: StoryEffect;
+  /** Էֆեկտի ուժգնությունը՝ 0–1 (ստվերի խտություն, լույսի լայնություն, ոսկու փայլ)։ */
+  strength: number;
 };
 
 export type StoryStyle = {
@@ -34,8 +36,8 @@ export const TEXT_SIZES = { min: 10, max: 24, start: 16 };
 export const TITLE_SIZES = { min: 12, max: 32, start: 21 };
 
 export const DEFAULT_STYLE: StoryStyle = {
-  title: { show: true, size: TITLE_SIZES.start, color: "auto", font: "serif", shade: 0, effect: "gold" },
-  text: { size: TEXT_SIZES.start, color: "auto", font: "book", shade: 0, effect: "glow", align: "center", ornate: true },
+  title: { show: true, size: TITLE_SIZES.start, color: "auto", font: "serif", shade: 0, effect: "gold", strength: 0.4 },
+  text: { size: TEXT_SIZES.start, color: "auto", font: "book", shade: 0, effect: "shadow", strength: 0.35, align: "center", ornate: true },
 };
 
 /** Պահված հին կարգավորումները (շերտը 0/1/2 էր)՝ նոր ձևի։ */
@@ -43,7 +45,8 @@ export function normalizeStyle(value: Partial<StoryStyle> | undefined): StorySty
   const part = <T extends PartStyle>(base: T, saved: Partial<T> | undefined): T => {
     const merged = { ...base, ...saved };
     const shade = typeof merged.shade === "number" ? merged.shade : 0;
-    return { ...merged, shade: shade > 1 ? shade / 2 : Math.max(0, shade) };
+    const strength = typeof merged.strength === "number" ? Math.min(1, Math.max(0, merged.strength)) : base.strength;
+    return { ...merged, shade: shade > 1 ? shade / 2 : Math.max(0, shade), strength };
   };
   return { title: part(DEFAULT_STYLE.title, value?.title), text: part(DEFAULT_STYLE.text, value?.text) };
 }
@@ -243,83 +246,48 @@ function drawShade(context: CanvasRenderingContext2D, rect: Rect, shade: number,
   context.restore();
 }
 
-/** Կեղծ-պատահական թիվ (նույն տեքստի համար՝ նույն կայծերը)։ */
-function seeded(seed: number) {
-  let value = seed || 1;
-  return () => { value = (value * 16807) % 2147483647; return value / 2147483647; };
-}
-
-function sparkle(context: CanvasRenderingContext2D, x: number, y: number, radius: number) {
-  context.save();
-  context.translate(x, y);
-  const glow = context.createRadialGradient(0, 0, 0, 0, 0, radius * 1.6);
-  glow.addColorStop(0, "rgba(255, 246, 214, 0.9)");
-  glow.addColorStop(1, "rgba(255, 210, 120, 0)");
-  context.fillStyle = glow;
-  context.beginPath();
-  context.arc(0, 0, radius * 1.6, 0, Math.PI * 2);
-  context.fill();
-  context.fillStyle = "rgba(255, 250, 230, 0.95)";
-  context.beginPath();
-  // Չորս ճառագայթով աստղիկ
-  for (let point = 0; point < 8; point += 1) {
-    const angle = (point * Math.PI) / 4;
-    const length = point % 2 === 0 ? radius : radius * 0.18;
-    context.lineTo(Math.cos(angle) * length, Math.sin(angle) * length);
-  }
-  context.closePath();
-  context.fill();
-  context.restore();
-}
-
 function goldFill(context: CanvasRenderingContext2D, top: number, size: number) {
-  const fill = context.createLinearGradient(0, top - size * 0.1, 0, top + size * 1.05);
-  fill.addColorStop(0, "#fff3d2");
-  fill.addColorStop(0.32, "#f2d38e");
-  fill.addColorStop(0.58, "#c9953f");
-  fill.addColorStop(0.8, "#f5dc9c");
-  fill.addColorStop(1, "#b9862e");
+  // Մեղմ ոսկեզօծ. նուրբ անցում բաց ոսկուց մուգ ոսկու և հետ։
+  const fill = context.createLinearGradient(0, top, 0, top + size * 1.05);
+  fill.addColorStop(0, "#f8e6b8");
+  fill.addColorStop(0.45, "#e2bd72");
+  fill.addColorStop(0.75, "#c99a4a");
+  fill.addColorStop(1, "#e9cd8c");
   return fill;
 }
 
-/**
- * Տող՝ ընտրված էֆեկտով. «Լույս»՝ փափուկ լուսապսակ, «Ոսկի»՝ ոսկու երանգ և լույս, «Ստվեր»՝ մուգ ստվեր։
- * `baseline`-ը տողի բազային գիծն է, `size`-ը՝ տառի չափը։
- */
-function paintLine(context: CanvasRenderingContext2D, value: string, x: number, baseline: number, size: number, color: string, effect: StoryEffect) {
-  const darkText = luminance(color) < 128;
-  context.save();
-  if (effect === "shadow") {
-    context.shadowColor = darkText ? "rgba(255, 250, 240, 0.7)" : "rgba(0, 0, 0, 0.55)";
-    context.shadowBlur = size * 0.32;
-    context.shadowOffsetY = size * 0.05;
-  }
-  if (effect === "glow" || effect === "gold") {
-    // Լուսապսակը՝ երկու շերտով. լայն և մեղմ, ապա նեղ և պայծառ։
-    const halo = effect === "gold" ? "rgba(255, 196, 92, 0.5)" : darkText ? "rgba(255, 248, 228, 0.95)" : "rgba(255, 205, 120, 0.6)";
-    context.fillStyle = effect === "gold" ? goldFill(context, baseline - size * 0.8, size) : color;
-    context.shadowColor = halo;
-    context.shadowBlur = size * 0.65;
-    context.fillText(value, x, baseline);
-    context.shadowBlur = size * 0.28;
-    context.fillText(value, x, baseline);
-    context.shadowColor = "transparent";
-  }
-  context.fillStyle = effect === "gold" ? goldFill(context, baseline - size * 0.8, size) : color;
-  context.fillText(value, x, baseline);
-  context.restore();
+function rgba(color: string, alpha: number) {
+  const value = Number.parseInt(color.slice(1), 16);
+  return `rgba(${value >> 16}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }
 
-/** Ոսկե կայծեր տեքստի շուրջը (միայն «Ոսկի» էֆեկտով)։ */
-function drawSparkles(context: CanvasRenderingContext2D, rect: Rect, seedText: string, count: number, size: number) {
-  let seed = 0;
-  for (const character of seedText) seed = (seed * 31 + (character.codePointAt(0) ?? 0)) % 2147483647;
-  const random = seeded(seed);
-  for (let index = 0; index < count; index += 1) {
-    const x = rect.left + random() * rect.width;
-    const y = rect.top + random() * rect.height;
-    sparkle(context, x, y, size * (0.18 + random() * 0.22));
+/**
+ * Տող՝ ընտրված էֆեկտով, `strength` (0–1) ուժգնությամբ.
+ * «Ստվեր»՝ մուգ ստվեր տակից (ցանկացած գույնի տառերին), «Լույս»՝ տառերի իսկ գույնով լուսապսակ,
+ * «Ոսկեզօծ»՝ ոսկու երանգ և մեղմ տաք լույս։
+ */
+function paintLine(context: CanvasRenderingContext2D, value: string, x: number, baseline: number, size: number, color: string, effect: StoryEffect, strength = 0.5) {
+  const k = Math.min(1, Math.max(0, strength));
+  const fill = effect === "gold" ? goldFill(context, baseline - size * 0.8, size) : color;
+  context.save();
+  context.fillStyle = fill;
+  if (effect === "shadow" && k > 0) {
+    context.shadowColor = `rgba(0, 0, 0, ${0.25 + 0.6 * k})`;
+    context.shadowBlur = size * (0.08 + 0.45 * k);
+    context.shadowOffsetY = size * (0.03 + 0.07 * k);
   }
+  if (effect === "glow" && k > 0) {
+    context.shadowColor = rgba(color, 0.35 + 0.55 * k);
+    context.shadowBlur = size * (0.15 + 0.85 * k);
+    context.fillText(value, x, baseline);
+    if (k > 0.6) context.fillText(value, x, baseline);
+  }
+  if (effect === "gold" && k > 0) {
+    context.shadowColor = `rgba(214, 160, 70, ${0.2 + 0.45 * k})`;
+    context.shadowBlur = size * (0.1 + 0.5 * k);
+  }
+  context.fillText(value, x, baseline);
+  context.restore();
 }
 
 export type StoryHit = { frame: Rect; title: Rect | null };
@@ -392,7 +360,7 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
     context.font = `${TITLE_WEIGHT[style.title.font]} ${pixels}px ${FAMILY[style.title.font]}`;
     let shown = header;
     while (shown.length > 4 && context.measureText(shown).width > SAFE.right - SAFE.left) shown = `${shown.slice(0, -2)}…`;
-    paintLine(context, shown, place.x, place.y + pixels, pixels, color, style.title.effect);
+    paintLine(context, shown, place.x, place.y + pixels, pixels, color, style.title.effect, style.title.strength);
     // Բարակ գիծ վերնագրի տակ՝ եզրերից մարող
     const line = context.createLinearGradient(place.x - 70, 0, place.x + 70, 0);
     const lineColor = style.title.effect === "gold" ? "232, 197, 127" : luminance(color) < 128 ? "110, 31, 43" : "232, 197, 127";
@@ -401,7 +369,6 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
     line.addColorStop(1, `rgba(${lineColor}, 0)`);
     context.fillStyle = line;
     context.fillRect(place.x - 70, place.y + pixels * 1.25 + 14, 140, 3);
-    if (style.title.effect === "gold") drawSparkles(context, grow(titleRect, 10), `${title}-t`, 3, pixels);
   }
 
   // Տեքստ. շրջանակի մեջ, ուղղահայաց՝ մեջտեղում
@@ -416,28 +383,43 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
     context.font = `600 34px ${FAMILY.serif}`;
     paintLine(context, `${page + 1}/${plan.pages.length}`, frame.left + frame.width / 2, Math.max(SAFE.top + 34, frame.top - 20), 34, color, "none");
   }
-  // Զարդատառ (թռչնագիր). գունավոր տառատեսակը իր գույներն ունի։
+  // Տողերի տեղը։ Զարդատառը կպած է իր կողքի տողերին. մեջտեղով հավասարեցնելիս «զարդատառ + տողեր»
+  // խումբը միասին է կենտրոնացվում, այլ ոչ թե տառը մնում է շրջանակի ձախ եզրին։
+  context.font = `400 ${size}px ${FAMILY[style.text.font]}`;
+  const center = style.text.align === "center";
+  const capped = page === 0 && plan.initial ? lines.filter((entry) => entry.indent > 0) : [];
+  let capLeft = frame.left;
+  let cappedLeft = frame.left + (plan.initial?.width ?? 0);
+  let cappedWidth = frame.width - (plan.initial?.width ?? 0);
+  if (plan.initial && capped.length && center) {
+    const widest = Math.max(...capped.map((entry) => context.measureText(entry.text).width));
+    const group = plan.initial.width + widest;
+    capLeft = frame.left + (frame.width - group) / 2;
+    cappedLeft = capLeft + plan.initial.width;
+    cappedWidth = widest;
+  }
   if (plan.initial && page === 0) {
     context.save();
     context.textAlign = "left";
     context.font = `400 ${plan.initial.size}px ${ORNATE_FAMILY}`;
-    context.fillStyle = style.text.effect === "gold" ? "#e8c57f" : color;
-    context.shadowColor = "rgba(255, 210, 130, 0.35)";
-    context.shadowBlur = size * 0.4;
-    context.fillText(plan.initial.letter, frame.left + plan.initial.left, top + size * 0.12 + plan.initial.ascent);
+    context.fillStyle = color;
+    context.fillText(plan.initial.letter, capLeft + plan.initial.left, top + size * 0.12 + plan.initial.ascent);
     context.restore();
   }
   context.font = `400 ${size}px ${FAMILY[style.text.font]}`;
-  context.textAlign = style.text.align === "center" ? "center" : "left";
+  context.textAlign = center ? "center" : "left";
   let y = top;
   lines.forEach((entry, index) => {
     if (index > 0 && entry.paragraphStart) y += size * PARAGRAPH_GAP;
-    const left = frame.left + entry.indent;
-    const x = style.text.align === "center" ? left + (frame.width - entry.indent) / 2 : left;
-    paintLine(context, entry.text, x, y + size * (LINE_HEIGHT / 2 + 0.33), size, color, style.text.effect);
+    const beside = entry.indent > 0 && plan.initial && page === 0;
+    const left = beside ? cappedLeft : frame.left;
+    const width = beside ? cappedWidth : frame.width;
+    // Զարդատառի կողքի տողերը սկսվում են հենց տառից հետո (ինչպես կայքում)։
+    context.textAlign = center && !beside ? "center" : "left";
+    const x = center && !beside ? left + width / 2 : left;
+    paintLine(context, entry.text, x, y + size * (LINE_HEIGHT / 2 + 0.33), size, color, style.text.effect, style.text.strength);
     y += size * LINE_HEIGHT;
   });
-  if (style.text.effect === "gold") drawSparkles(context, grow(textArea, 6), lines.map((entry) => entry.text).join(""), Math.min(7, 2 + Math.round(lines.length / 3)), size);
 
   if (outline !== undefined) {
     const darkText = luminance(color) < 128;
