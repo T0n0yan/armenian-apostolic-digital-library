@@ -86,7 +86,7 @@ export default function VersePage({ loaderData }: Route.ComponentProps) {
         </Link>
         <div className="flex items-center justify-between gap-2 font-sans">
           {previous ? <Link className={stepLink} to={`${psalmPath}/${previous}`} aria-label={`Նախորդ համարը՝ ${previous}`}><ChevronLeft aria-hidden="true" size={17} /> {previous}</Link> : <span />}
-          <ShareButton className={stepLink} pageUrl={loaderData.path} label story={{ section: loaderData.categoryName, title: label, text }} />
+          <ShareButton className={stepLink} pageUrl={loaderData.path} label story={{ title: label, text: `«${text}»`, path: loaderData.path }} />
           {next ? <Link className={stepLink} to={`${psalmPath}/${next}`} aria-label={`Հաջորդ համարը՝ ${next}`}>{next} <ChevronRight aria-hidden="true" size={17} /></Link> : <span />}
         </div>
       </article>

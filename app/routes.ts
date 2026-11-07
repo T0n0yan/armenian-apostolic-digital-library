@@ -33,6 +33,8 @@ export default [
   route("api/reading-log", "routes/reading-log.ts"),
   route("api/presence", "routes/presence.ts"),
   route("api/telegram-link", "routes/telegram-link.ts"),
+  route("api/story-image", "routes/story-upload.ts"),
+  route("story/:file", "routes/story-image.ts"),
   route("media/:chatId/:messageId/:mediaIndex", "routes/media.ts"),
   route("materials/:materialId", "routes/material.tsx"),
   route("categories/:slug", "routes/category.tsx"),
