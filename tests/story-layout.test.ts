@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { MAX_STORY_PAGES, planStory, storyParagraphs, wrapParagraph } from "../app/utils/story-layout";
+import { MAX_STORY_PAGES, joinUnits, planStory, storyParagraphs, storyUnits, wrapParagraph } from "../app/utils/story-layout";
 
 // Կեղծ չափում. ամեն տառ՝ չափի կեսը։
 const measure = (text: string, size: number) => Array.from(text).length * size * 0.5;
@@ -37,4 +37,26 @@ test("շատ երկար տեքստը նշվում է", () => {
   const plan = planStory(text, "xl", box, measure);
   assert.ok(plan.pages.length > MAX_STORY_PAGES);
   assert.equal(plan.tooLong, true);
+});
+
+test("երկար պարբերությունը բաժանվում է նախադասությունների", () => {
+  const long = `${"Ա ".repeat(100)}։ ${"Բ ".repeat(100)}։`;
+  const units = storyUnits(`Կարճ։\n${long}`);
+  assert.equal(units.length, 3);
+  assert.equal(units[1].paragraphStart, true);
+  assert.equal(units[2].paragraphStart, false);
+});
+
+test("ընտրված հատվածները. բաց թողնվածի տեղում «…»", () => {
+  const units = [{ text: "Ա", paragraphStart: true }, { text: "Բ", paragraphStart: false }, { text: "Գ", paragraphStart: true }, { text: "Դ", paragraphStart: true }];
+  assert.equal(joinUnits(units, new Set([0, 1])), "Ա Բ\n…");
+  assert.equal(joinUnits(units, new Set([0, 2])), "Ա\n…\nԳ\n…");
+  assert.equal(joinUnits(units, new Set([0, 1, 2, 3])), "Ա Բ\nԳ\nԴ");
+});
+
+test("վերնագրի տեղը պակասեցնում է տեքստի տարածքը", () => {
+  const text = "բառ ".repeat(400);
+  const without = planStory(text, "md", box, measure);
+  const withTitle = planStory(text, "md", box, measure, () => 400);
+  assert.ok(withTitle.pages.length >= without.pages.length);
 });

@@ -1,7 +1,6 @@
-import { Check, ImageIcon, Link2, Share2 } from "lucide-react";
+import { Check, Share2 } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
-import { BottomSheet } from "./bottom-sheet";
 import type { StorySource } from "./story-editor";
 
 // Նկարի խմբագիրը բեռնվում է միայն «Նկարով» ընտրելիս։
@@ -93,41 +92,22 @@ function siteUrl(pageUrl: string) {
  */
 export function ShareButton({ pageUrl, className, label = false, story = null }: ShareButtonProps) {
   const [copied, markCopied] = useCopied();
-  const [choosing, setChoosing] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const share = useCallback(async () => {
     if (await shareLink(siteUrl(pageUrl)) === "copied") markCopied();
   }, [markCopied, pageUrl]);
 
-  const choice = "flex min-h-[86px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] border border-glass-border bg-subtle px-2 text-ink active:scale-[.97]";
-
   return (
     <>
-      <button className={className} type="button" onClick={story ? () => setChoosing(true) : share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>
+      {/* Տեքստ ունեցող նյութը միանգամից բացում է նկարը. հղումով կիսվելը՝ նրա միջից։ */}
+      <button className={className} type="button" onClick={story ? () => setEditing(true) : share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>
         {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
         {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
       </button>
-      {story ? (
-        <BottomSheet open={choosing} onClose={() => setChoosing(false)} label="Ինչպես կիսվել" className="gap-3 p-4">
-          <strong className="text-center font-noto text-[15px] text-ink">Ինչպես կիսվել</strong>
-          <div className="grid grid-cols-2 gap-2">
-            <button className={choice} type="button" onClick={() => { setChoosing(false); void share(); }}>
-              <Link2 aria-hidden="true" size={22} className="text-gold-bright" />
-              <span className="text-[13.5px] font-bold">Հղումով</span>
-              <span className="text-[11px] text-muted">Էջի հասցեն</span>
-            </button>
-            <button className={choice} type="button" onClick={() => { setChoosing(false); setEditing(true); }}>
-              <ImageIcon aria-hidden="true" size={22} className="text-gold-bright" />
-              <span className="text-[13.5px] font-bold">Նկարով</span>
-              <span className="text-[11px] text-muted">Story-ի համար</span>
-            </button>
-          </div>
-        </BottomSheet>
-      ) : null}
       {story && editing ? (
         <Suspense fallback={null}>
-          <StoryEditor source={story} onClose={() => setEditing(false)} />
+          <StoryEditor source={story} onClose={() => setEditing(false)} onLink={() => void share()} />
         </Suspense>
       ) : null}
     </>

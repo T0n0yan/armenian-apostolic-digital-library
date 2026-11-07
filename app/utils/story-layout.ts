@@ -5,7 +5,6 @@
 export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
 
-export type StoryPosition = "top" | "center" | "bottom";
 export type StoryAlign = "center" | "start";
 export type StorySize = "auto" | "sm" | "md" | "lg" | "xl";
 
@@ -118,11 +117,12 @@ export type StoryPlan = { size: number; pages: StoryPage[]; tooLong: boolean };
  * Տեքստի պլանը. «Ավտո»-ն փնտրում է ամենամեծ չափը, որով ամեն ինչ տեղավորվում է մեկ նկարում.
  * չտեղավորվելու դեպքում՝ մի քանի նկար։
  */
-export function planStory(text: string, choice: StorySize, box: StoryBox, measure: Measure): StoryPlan {
+export function planStory(text: string, choice: StorySize, box: StoryBox, measure: Measure, reserve: (size: number) => number = () => 0): StoryPlan {
   const paragraphs = storyParagraphs(text);
   const width = box.right - box.left;
-  const capacity = box.bottom - box.top;
   const build = (size: number) => {
+    // `reserve`-ը վերնագրի տեղն է (վերնագիրը մեծանում է տեքստի հետ)։
+    const capacity = box.bottom - box.top - reserve(size);
     const pages = balancedPages(lineBlocks(paragraphs, width, size, measure), size, capacity)
       .map((lines) => ({ lines, height: blockHeight(lines, size) }));
     return { size, pages: pages.length ? pages : [{ lines: [], height: 0 }] };
@@ -138,9 +138,32 @@ export function planStory(text: string, choice: StorySize, box: StoryBox, measur
   return { ...plan, tooLong: plan.pages.length > MAX_STORY_PAGES };
 }
 
-/** Տեքստի առաջին տողի վերևը՝ ըստ դիրքի։ */
-export function blockTop(position: StoryPosition, box: StoryBox, height: number) {
-  if (position === "top") return box.top;
-  if (position === "bottom") return box.bottom - height;
-  return box.top + (box.bottom - box.top - height) / 2;
+/**
+ * Տեքստի հատվածները, որոնցից ընթերցողը ընտրում է, թե ինչ երևա նկարում. պարբերություններ (սաղմոսում՝
+ * համարներ), իսկ երկար պարբերությունը՝ նախադասություններով։
+ */
+export function storyUnits(text: string, longParagraph = 260) {
+  const units: Array<{ text: string; paragraphStart: boolean }> = [];
+  for (const paragraph of storyParagraphs(text)) {
+    if (Array.from(paragraph).length <= longParagraph) { units.push({ text: paragraph, paragraphStart: true }); continue; }
+    const sentences = paragraph.match(/[^։:!?՞՜]+(?:[։:!?՞՜]+|$)\s*/gu)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [paragraph];
+    sentences.forEach((sentence, index) => units.push({ text: sentence, paragraphStart: index === 0 }));
+  }
+  return units;
+}
+
+/** Ընտրված հատվածները՝ տեքստ. նույն պարբերության նախադասությունները միանում են, բաց թողնվածի տեղում՝ «…»։ */
+export function joinUnits(units: Array<{ text: string; paragraphStart: boolean }>, chosen: ReadonlySet<number>) {
+  const lines: string[] = [];
+  let previous = -1;
+  units.forEach((unit, index) => {
+    if (!chosen.has(index)) return;
+    const gap = previous >= 0 && index > previous + 1;
+    if (gap) lines.push("…");
+    if (lines.length && !unit.paragraphStart && !gap) lines[lines.length - 1] += ` ${unit.text}`;
+    else lines.push(unit.text);
+    previous = index;
+  });
+  if (previous >= 0 && previous < units.length - 1) lines.push("…");
+  return lines.join("\n");
 }
