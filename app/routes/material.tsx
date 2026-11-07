@@ -27,7 +27,8 @@ import { loadMaterialPage, resolveMaterialId } from "../data/material-page.serve
 import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
-import { seedLayout } from "../utils/prayer-layout";
+import { prayerParagraphs, seedLayout } from "../utils/prayer-layout";
+import { withoutLeadingTitle } from "../utils/story-layout";
 
 // Խմբագիրը պետք է միայն ադմինին. ընթերցողի էջը այն չի բեռնում։
 const PrayerLayoutEditor = lazy(() => import("../components/prayer-layout-editor").then((module) => ({ default: module.PrayerLayoutEditor })));
@@ -128,6 +129,23 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   // Ադմինի ձևավորած աղոթքը Telegram-ի տեքստի փոխարեն։
   const layout = isPrayer ? loaderData.layout : null;
   const [layoutOpen, setLayoutOpen] = useState(false);
+  // Նկարով կիսվելու տեքստը. աղոթքը՝ միայն բուն աղոթքը (առանց նկարագրության), սաղմոսը՝ համարները։
+  // Երկար նյութերը (վարքեր, ուսուցումներ) նկարով չեն կիսվում։
+  // Վերնագիրը նկարում առանձին է, դրա համար տեքստից հանվում է (ձևավորման «վերնագիր» պարբերությունները
+  // և սկզբի տողը, որը կրկնում է վերնագիրը)։
+  const storyText = withoutLeadingTitle(layout
+    ? prayerParagraphs(layout).filter((paragraph) => paragraph.kind === "text").map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
+      || layout.paragraphs.filter((paragraph) => paragraph.kind === "text").map((paragraph) => paragraph.text.trim()).filter(Boolean).join("\n")
+    : isPsalm ? psalmText.trim() : (material.richContent ? material.contentText ?? "" : plainText).trim(), material.title);
+  // Սաղմոսի նկարի վերնագիրը՝ միայն «Սաղմոս» և նրա համարը։
+  const psalmNumber = isPsalm ? (/\/psalms\/(\d+)/u.exec(loaderData.canonicalPath)?.[1] ?? /(\d+)/u.exec(material.title)?.[1]) : undefined;
+  const storyTitle = psalmNumber ? `Սաղմոս ${psalmNumber}` : material.title;
+  const story = useMemo(
+    () => storyText && (isPrayer || isPsalm || storyText.length <= 1_200)
+      ? { title: storyTitle, text: storyText, path: loaderData.canonicalPath, ornate: isPrayer }
+      : null,
+    [isPrayer, isPsalm, loaderData.canonicalPath, storyTitle, storyText],
+  );
 
   useEffect(() => {
     setActiveHit(stateHit);
@@ -258,6 +276,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             className={actionTile}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}
             label
+            story={story}
           />
         </div>
       </article>

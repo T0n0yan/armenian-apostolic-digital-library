@@ -1,5 +1,10 @@
 import { Check, Share2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+
+import type { StorySource } from "./story-editor";
+
+// Նկարի խմբագիրը բեռնվում է միայն «Նկարով» ընտրելիս։
+const StoryEditor = lazy(() => import("./story-editor").then((module) => ({ default: module.StoryEditor })));
 
 type ShareButtonProps = {
   /** This page in the library: what readers share and copy. */
@@ -7,6 +12,8 @@ type ShareButtonProps = {
   className: string;
   /** Shows a short "Կիսվել" label under the icon (material page toolbar). */
   label?: boolean;
+  /** Տեքստ ունեցող նյութը (աղոթք, սաղմոս, համար) կարելի է կիսվել նաև նկարով (story)։ */
+  story?: StorySource | null;
 };
 
 export async function copyText(value: string) {
@@ -83,17 +90,26 @@ function siteUrl(pageUrl: string) {
  * on and needs no Telegram: the phone's share sheet when there is one (Android Quick Share, iOS
  * share sheet), otherwise the link is copied.
  */
-export function ShareButton({ pageUrl, className, label = false }: ShareButtonProps) {
+export function ShareButton({ pageUrl, className, label = false, story = null }: ShareButtonProps) {
   const [copied, markCopied] = useCopied();
+  const [editing, setEditing] = useState(false);
 
   const share = useCallback(async () => {
     if (await shareLink(siteUrl(pageUrl)) === "copied") markCopied();
   }, [markCopied, pageUrl]);
 
   return (
-    <button className={className} type="button" onClick={share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>
-      {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
-      {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
-    </button>
+    <>
+      {/* Տեքստ ունեցող նյութը միանգամից բացում է նկարը. հղումով կիսվելը՝ նրա միջից։ */}
+      <button className={className} type="button" onClick={story ? () => setEditing(true) : share} aria-label={copied ? "Հղումը պատճենված է" : "Կիսվել նյութով"} title={copied ? "Հղումը պատճենվեց" : "Կիսվել"}>
+        {copied ? <Check aria-hidden="true" size={label ? 20 : 17} strokeWidth={2} /> : <Share2 aria-hidden="true" size={label ? 20 : 17} strokeWidth={1.9} />}
+        {label ? <span>{copied ? "Պատճենվեց" : "Կիսվել"}</span> : null}
+      </button>
+      {story && editing ? (
+        <Suspense fallback={null}>
+          <StoryEditor source={story} onClose={() => setEditing(false)} onLink={() => void share()} />
+        </Suspense>
+      ) : null}
+    </>
   );
 }

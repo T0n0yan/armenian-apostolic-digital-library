@@ -462,8 +462,9 @@ export function HighlightLayer() {
       ) : null}
 
       {toast && !spans.length && !open ? createPortal(
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tg-inset-bottom,0px)+16px)] z-[2040] flex justify-center px-3" role="status" data-highlight-bar>
-          <div className="highlight-bar pointer-events-auto flex max-w-[440px] items-center gap-2 rounded-full border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] py-1.5 pr-1.5 pl-4 text-[13px] text-ink shadow-[0_14px_36px_rgb(40_20_10/24%)]">
+        // Հուշումները վերևից են գալիս, որ չծածկեն էջի ներքևի կոճակները (Կիսվել, Պահել)։
+        <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2040] flex justify-center px-3" role="status" data-highlight-bar>
+          <div className="highlight-toast pointer-events-auto flex max-w-[440px] items-center gap-2 rounded-full border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] py-1.5 pr-1.5 pl-4 text-[13px] text-ink shadow-[0_14px_36px_rgb(40_20_10/24%)]">
             <span className="py-1.5">{toast.text}</span>
             {toast.item ? (
               <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1 rounded-full border-0 bg-[rgb(217_181_111/16%)] px-3 text-[12.5px] font-bold text-gold-bright" type="button"

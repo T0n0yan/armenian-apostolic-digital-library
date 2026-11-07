@@ -52,12 +52,14 @@ export function ReadMark({ materialId, kind, marks }: { materialId: string; kind
       aria-pressed={done}
       aria-busy={busy}
     >
-      {busy ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={21} /> : done ? <Check aria-hidden="true" size={21} strokeWidth={2.4} /> : <Icon aria-hidden="true" size={21} strokeWidth={1.9} />}
-      {/* Տակի փոքր տողը բացատրում է, թե ինչ կլինի սեղմելիս։ */}
-      <span className="flex flex-col items-start leading-tight">
-        <span>{done ? doneText : mark}</span>
+      {/* Պատկերակը և անունը՝ մեջտեղում, տակը՝ բացատրությունը (նույնպես մեջտեղում)։ */}
+      <span className="flex flex-col items-center text-center leading-tight">
+        <span className="inline-flex items-center gap-2">
+          {busy ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={21} /> : done ? <Check aria-hidden="true" size={21} strokeWidth={2.4} /> : <Icon aria-hidden="true" size={21} strokeWidth={1.9} />}
+          {done ? doneText : mark}
+        </span>
         {/* Նշելուց հետո բացատրությունը պետք չէ. նորից սեղմելը պարզապես չեղարկում է։ */}
-        {done ? null : <span className="text-[11.5px] font-semibold opacity-80">Սեղմեք օրացույցում ավելացնելու համար</span>}
+        {done ? null : <span className="mt-0.5 text-[11.5px] font-semibold opacity-80">Սեղմեք օրացույցում ավելացնելու համար</span>}
       </span>
     </button>
   );
