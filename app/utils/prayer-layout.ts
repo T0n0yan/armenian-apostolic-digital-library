@@ -8,8 +8,10 @@ import { leadingTitleLength, richContentStartsWithTitle, skipPsalmLabel } from "
 
 export type LayoutColor = "gold" | "red";
 export type LayoutCharSize = "sm" | "lg" | "xl";
-/** Մեկ տառի ձևը. դատարկ օբյեկտը՝ սովորական։ */
-export type CharStyle = { b?: true; i?: true; c?: LayoutColor; s?: LayoutCharSize };
+/** Տառատեսակ. book՝ գրքային (Arian Grqi), serif՝ Noto Serif, sans՝ սովորական (ինտերֆեյսի)։ */
+export type LayoutFont = "book" | "serif" | "sans";
+/** Մեկ տառի ձևը. դատարկ օբյեկտը՝ սովորական (պարբերության տառատեսակով)։ */
+export type CharStyle = { b?: true; i?: true; c?: LayoutColor; s?: LayoutCharSize; f?: LayoutFont };
 /** Տառերի հատված [from, to) մեկ ձևով։ */
 export type LayoutSpan = CharStyle & { from: number; to: number };
 export type LayoutAlign = "start" | "center" | "end" | "justify";
@@ -25,28 +27,35 @@ export type LayoutParagraph = {
   initial: boolean;
   bold: boolean;
   italic: boolean;
+  font: LayoutFont;
+  /**
+   * Բուն աղոթքի մաս է (ոչ նկարագրություն/պիտակ)։ Ընթերցողին չի երևում. պետք է հետագայում
+   * աղոթքը առանձին կիսվելու/նկարի վրա դնելու համար (`prayerParagraphs`)։
+   */
+  prayer: boolean;
   spans: LayoutSpan[];
 };
 
-export type PrayerLayout = { v: 1; paragraphs: LayoutParagraph[] };
+export type PrayerLayout = { v: 2; paragraphs: LayoutParagraph[] };
 
 export const LAYOUT_LIMITS = { paragraphs: 400, text: 8_000, spans: 600, json: 300_000 } as const;
 
 const aligns: LayoutAlign[] = ["start", "center", "end", "justify"];
 const sizes: LayoutSize[] = ["sm", "md", "lg", "xl"];
 const kinds: LayoutKind[] = ["text", "note", "title"];
+const fonts: LayoutFont[] = ["book", "serif", "sans"];
 
 export const PARAGRAPH_SCALE: Record<LayoutSize, number> = { sm: 0.88, md: 1, lg: 1.16, xl: 1.36 };
 export const CHAR_SCALE: Record<LayoutCharSize, number> = { sm: 0.82, lg: 1.22, xl: 1.5 };
 
 export function newParagraph(text = "", patch: Partial<LayoutParagraph> = {}): LayoutParagraph {
-  return { text, kind: "text", align: "start", size: "md", initial: false, bold: false, italic: false, spans: [], ...patch };
+  return { text, kind: "text", align: "start", size: "md", initial: false, bold: false, italic: false, font: "book", prayer: true, spans: [], ...patch };
 }
 
 // ---------- Տառ առ տառ ձևեր ----------
 
-const sameStyle = (left: CharStyle, right: CharStyle) => left.b === right.b && left.i === right.i && left.c === right.c && left.s === right.s;
-const isPlain = (style: CharStyle) => !style.b && !style.i && !style.c && !style.s;
+const sameStyle = (left: CharStyle, right: CharStyle) => left.b === right.b && left.i === right.i && left.c === right.c && left.s === right.s && left.f === right.f;
+const isPlain = (style: CharStyle) => !style.b && !style.i && !style.c && !style.s && !style.f;
 
 function cleanStyle(style: CharStyle): CharStyle {
   const result: CharStyle = {};
@@ -54,6 +63,7 @@ function cleanStyle(style: CharStyle): CharStyle {
   if (style.i) result.i = true;
   if (style.c) result.c = style.c;
   if (style.s) result.s = style.s;
+  if (style.f) result.f = style.f;
   return result;
 }
 
@@ -84,6 +94,7 @@ export type StyleCommand =
   | { type: "bold" } | { type: "italic" }
   | { type: "color"; color: LayoutColor }
   | { type: "size"; size: LayoutCharSize }
+  | { type: "font"; font: LayoutFont }
   | { type: "clear" };
 
 /**
@@ -102,6 +113,7 @@ export function applyStyle(paragraph: LayoutParagraph, from: number, to: number,
   else if (command.type === "bold") { const off = all((style) => Boolean(style.b)); change = (style) => ({ ...style, b: off ? undefined : true }); }
   else if (command.type === "italic") { const off = all((style) => Boolean(style.i)); change = (style) => ({ ...style, i: off ? undefined : true }); }
   else if (command.type === "color") { const off = all((style) => style.c === command.color); change = (style) => ({ ...style, c: off ? undefined : command.color }); }
+  else if (command.type === "font") { const off = all((style) => style.f === command.font); change = (style) => ({ ...style, f: off ? undefined : command.font }); }
   else { const off = all((style) => style.s === command.size); change = (style) => ({ ...style, s: off ? undefined : command.size }); }
   for (let index = start; index < end; index += 1) styles[index] = cleanStyle(change(styles[index]));
   return { ...paragraph, spans: compressStyles(styles) };
@@ -116,6 +128,7 @@ export function rangeStyle(paragraph: LayoutParagraph, from: number, to: number)
     italic: every((style) => Boolean(style.i)),
     color: (["gold", "red"] as const).find((color) => every((style) => style.c === color)) ?? null,
     size: (["sm", "lg", "xl"] as const).find((size) => every((style) => style.s === size)) ?? null,
+    font: fonts.find((font) => every((style) => style.f === font)) ?? null,
   };
 }
 
@@ -199,9 +212,14 @@ export function paragraphSegments(paragraph: LayoutParagraph): LayoutSegment[] {
 
 // ---------- Պահելուց առաջ ստուգում ----------
 
-/** Բրաուզերից եկած ձևավորման ստուգում. սխալի դեպքում՝ null։ */
+/**
+ * Բրաուզերից կամ բազայից եկած ձևավորման ստուգում. սխալի դեպքում՝ null։
+ * v1-ում (առաջին տարբերակ) «նկարագրությունը» միշտ շեղ էր և «աղոթք» նշում չկար. դրանք
+ * փոխարկվում են այնպես, որ էջի տեսքը չփոխվի։
+ */
 export function sanitizeLayout(value: unknown): PrayerLayout | null {
   if (!value || typeof value !== "object") return null;
+  const legacy = (value as { v?: unknown }).v !== 2;
   const paragraphs = (value as { paragraphs?: unknown }).paragraphs;
   if (!Array.isArray(paragraphs) || paragraphs.length === 0 || paragraphs.length > LAYOUT_LIMITS.paragraphs) return null;
   const result: LayoutParagraph[] = [];
@@ -225,21 +243,25 @@ export function sanitizeLayout(value: unknown): PrayerLayout | null {
         ...(span.i === true ? { i: true as const } : {}),
         ...(span.c === "gold" || span.c === "red" ? { c: span.c } : {}),
         ...(span.s === "sm" || span.s === "lg" || span.s === "xl" ? { s: span.s } : {}),
+        ...(fonts.includes(span.f as LayoutFont) ? { f: span.f as LayoutFont } : {}),
       });
     }
+    const kind = kinds.includes(item.kind as LayoutKind) ? item.kind as LayoutKind : "text";
     result.push({
       text,
-      kind: kinds.includes(item.kind as LayoutKind) ? item.kind as LayoutKind : "text",
+      kind,
       align: aligns.includes(item.align as LayoutAlign) ? item.align as LayoutAlign : "start",
       size: sizes.includes(item.size as LayoutSize) ? item.size as LayoutSize : "md",
       initial: item.initial === true,
       bold: item.bold === true,
-      italic: item.italic === true,
+      italic: item.italic === true || (legacy && kind === "note"),
+      font: fonts.includes(item.font as LayoutFont) ? item.font as LayoutFont : "book",
+      prayer: typeof item.prayer === "boolean" ? item.prayer : kind === "text",
       // Համընկնող հատվածները՝ մեկ հստակ ցանկի։
       spans: compressStyles(expandStyles(text.length, spans)),
     });
   }
-  return { v: 1, paragraphs: result };
+  return { v: 2, paragraphs: result };
 }
 
 export function parseStoredLayout(json: string | null | undefined): PrayerLayout | null {
@@ -330,7 +352,12 @@ export function sourceParagraphs(material: SourceMaterial): LayoutParagraph[] {
 export function seedLayout(material: SourceMaterial): PrayerLayout {
   const paragraphs = sourceParagraphs(material);
   if (paragraphs[0]) paragraphs[0] = { ...paragraphs[0], initial: true };
-  return { v: 1, paragraphs: paragraphs.length ? paragraphs : [newParagraph("", { initial: true })] };
+  return { v: 2, paragraphs: paragraphs.length ? paragraphs : [newParagraph("", { initial: true })] };
+}
+
+/** Բուն աղոթքի պարբերությունները (առանց նկարագրության ու պիտակների)՝ առանձին կիսվելու համար։ */
+export function prayerParagraphs(layout: PrayerLayout) {
+  return layout.paragraphs.filter((paragraph) => paragraph.prayer && paragraph.text.trim());
 }
 
 /** Telegram-ի տեքստի նշանը (FNV-1a). փոխվելու դեպքում ադմինը զգուշացում է տեսնում։ */

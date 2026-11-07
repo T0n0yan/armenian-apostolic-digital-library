@@ -1,4 +1,4 @@
-import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowDown, ArrowUp, Bold, Check, Eraser, Italic, Merge, Pencil, Plus, RotateCcw, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
+import { HandHeart, AlignCenter, AlignJustify, AlignLeft, AlignRight, ArrowDown, ArrowUp, Bold, Check, Eraser, Italic, Merge, Pencil, Plus, RotateCcw, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRevalidator } from "react-router";
@@ -7,7 +7,7 @@ import { LayoutParagraphView } from "./prayer-layout-view";
 import { lockScroll } from "../utils/scroll-lock";
 import {
   applyStyle, editText, mergeParagraphs, newParagraph, rangeStyle, splitOnBlankLines,
-  type LayoutAlign, type LayoutKind, type LayoutParagraph, type LayoutSize, type PrayerLayout, type StyleCommand,
+  type LayoutAlign, type LayoutFont, type LayoutKind, type LayoutParagraph, type LayoutSize, type PrayerLayout, type StyleCommand,
 } from "../utils/prayer-layout";
 
 type Selection = { paragraph: number; from: number; to: number };
@@ -41,6 +41,7 @@ function selectText(root: HTMLElement, from: number, to: number) {
 }
 
 const kindLabels: Array<[LayoutKind, string]> = [["text", "Տեքստ"], ["note", "Նկարագրություն"], ["title", "Պիտակ"]];
+const fontLabels: Array<[LayoutFont, string, string]> = [["book", "Գրքային", "font-book"], ["serif", "Սերիֆ", "font-noto"], ["sans", "Սովորական", "font-sans"]];
 const sizeLabels: Array<[LayoutSize, string]> = [["sm", "Փոքր"], ["md", "Սովորական"], ["lg", "Մեծ"], ["xl", "Շատ մեծ"]];
 const alignIcons: Array<[LayoutAlign, typeof AlignLeft, string]> = [["start", AlignLeft, "Ձախ"], ["center", AlignCenter, "Մեջտեղ"], ["end", AlignRight, "Աջ"], ["justify", AlignJustify, "Երկու կողմից"]];
 
@@ -215,7 +216,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
             </div>
           ) : null}
           <p className="m-0 text-[12.5px] leading-relaxed text-muted">
-            Ամեն պարբերության համար ընտրեք տեսակը, դիրքը, չափը և թռչնատառը։ Բառերը կամ տառերը ձևավորելու համար ընտրեք դրանք տեքստում (մկնիկով կամ մատը պահելով). ներքևում կհայտնվեն կոճակները։
+            Ամեն պարբերության համար ընտրեք տեսակը, դիրքը, չափը, տառատեսակը և թռչնատառը։ «Աղոթք» նշանը ցույց է տալիս, որ պարբերությունը բուն աղոթքն է (ընթերցողը այն չի տեսնում. պետք է աղոթքը առանձին կիսվելու համար)։ Բառերը կամ տառերը ձևավորելու համար ընտրեք դրանք տեքստում (մկնիկով կամ մատը պահելով). ներքևում կհայտնվեն կոճակները։
             {hasAudio ? " Ձևավորված աղոթքում տեքստը ձայնի հետ տող առ տող չի ընդգծվի։" : ""}
           </p>
 
@@ -224,7 +225,14 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               {active === index ? <>
               <div className="flex flex-wrap items-center gap-1.5">
                 {kindLabels.map(([kind, label]) => (
-                  <Chip key={kind} active={paragraph.kind === kind} label={label} onClick={() => setParagraph(index, (item) => ({ ...item, kind, align: kind === "title" && item.align === "start" ? "center" : item.align }))}>{label}</Chip>
+                  <Chip key={kind} active={paragraph.kind === kind} label={label} onClick={() => setParagraph(index, (item) => item.kind === kind ? item : ({
+                    ...item, kind,
+                    align: kind === "title" && item.align === "start" ? "center" : item.align,
+                    // Նկարագրությունը սկսում է շեղով, բայց կարելի է անջատել (և տառատեսակը փոխել)։
+                    italic: kind === "note" ? true : item.kind === "note" ? false : item.italic,
+                    // Նկարագրությունն ու պիտակը աղոթքի մաս չեն։
+                    prayer: kind === "text",
+                  }))}>{label}</Chip>
                 ))}
                 <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
                 {alignIcons.map(([align, Icon, label]) => (
@@ -233,6 +241,9 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                 <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
                 <Chip active={paragraph.initial && paragraph.kind === "text"} disabled={paragraph.kind !== "text"} label="Թռչնատառ" onClick={() => setParagraph(index, (item) => ({ ...item, initial: !item.initial }))}>
                   <span className="font-trchnatar text-[18px] leading-none" aria-hidden="true">Ա</span> Թռչնատառ
+                </Chip>
+                <Chip active={paragraph.prayer} label="Բուն աղոթքի մաս (ընթերցողին չի երևում)" onClick={() => setParagraph(index, (item) => ({ ...item, prayer: !item.prayer }))}>
+                  <HandHeart size={15} aria-hidden="true" /> Աղոթք
                 </Chip>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -243,6 +254,14 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                   onChange={(event) => setParagraph(index, (item) => ({ ...item, size: event.target.value as LayoutSize }))}
                 >
                   {sizeLabels.map(([size, label]) => <option key={size} value={size}>{label}</option>)}
+                </select>
+                <select
+                  className="min-h-9 rounded-[10px] border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
+                  aria-label="Պարբերության տառատեսակը"
+                  value={paragraph.font}
+                  onChange={(event) => setParagraph(index, (item) => ({ ...item, font: event.target.value as LayoutFont }))}
+                >
+                  {fontLabels.map(([font, label]) => <option key={font} value={font}>{label}</option>)}
                 </select>
                 <Chip active={paragraph.bold} label="Ամբողջը թավ" onClick={() => setParagraph(index, (item) => ({ ...item, bold: !item.bold }))}><Bold size={15} aria-hidden="true" /></Chip>
                 <Chip active={paragraph.italic} label="Ամբողջը շեղ" onClick={() => setParagraph(index, (item) => ({ ...item, italic: !item.italic }))}><Italic size={15} aria-hidden="true" /></Chip>
@@ -271,6 +290,8 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                 </div>
               ) : null}
 
+              {/* Միայն խմբագրում. ընթերցողը այս նշանը չի տեսնում։ */}
+              {paragraph.prayer && paragraph.text.trim() ? <span className="inline-flex items-center gap-1 justify-self-start rounded-full bg-[rgb(217_181_111/18%)] px-2 py-0.5 text-[10.5px] font-bold text-gold-bright"><HandHeart size={12} aria-hidden="true" /> Աղոթք</span> : null}
               {/* Նախադիտում՝ ինչպես էջում. այստեղ ընտրվում են բառերը։ */}
               <div className="prayer-text">
                 <div className="reading-body-preview prayer-layout rounded-[10px] bg-subtle px-3 py-2.5 text-[length:var(--reading-size)] leading-[1.85] select-text">
@@ -300,6 +321,10 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               <Chip active={current.size === "sm"} label="Փոքր տառեր" onClick={() => styleSelection({ type: "size", size: "sm" })}><span className="text-[11px]">Ա</span></Chip>
               <Chip active={current.size === "lg"} label="Մեծ տառեր" onClick={() => styleSelection({ type: "size", size: "lg" })}><span className="text-[15px]">Ա</span></Chip>
               <Chip active={current.size === "xl"} label="Շատ մեծ տառեր" onClick={() => styleSelection({ type: "size", size: "xl" })}><span className="text-[19px] leading-none">Ա</span></Chip>
+              <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
+              {fontLabels.map(([font, label, className]) => (
+                <Chip key={font} active={current.font === font} label={`Տառատեսակ՝ ${label}`} onClick={() => styleSelection({ type: "font", font })}><span className={className}>{label}</span></Chip>
+              ))}
               <Chip label="Մաքրել ձևը" onClick={() => styleSelection({ type: "clear" })}><Eraser size={15} aria-hidden="true" /></Chip>
             </div>
           </div>

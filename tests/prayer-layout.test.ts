@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
 import {
-  applyStyle, editText, mergeParagraphs, newParagraph, paragraphSegments, rangeStyle, sanitizeLayout,
+  applyStyle, editText, mergeParagraphs, newParagraph, paragraphSegments, prayerParagraphs, rangeStyle, sanitizeLayout,
   seedLayout, sourceHash, splitOnBlankLines,
 } from "../app/utils/prayer-layout";
 
@@ -16,7 +16,7 @@ test("թավ/գույն՝ ընտրված տառերին, կրկնակի սեղմ
   assert.deepEqual(paragraph.spans, [{ b: true, from: 0, to: 4 }]);
   paragraph = applyStyle(paragraph, 2, 8, { type: "color", color: "red" });
   assert.deepEqual(paragraph.spans, [{ b: true, from: 0, to: 2 }, { b: true, c: "red", from: 2, to: 4 }, { c: "red", from: 4, to: 8 }]);
-  assert.deepEqual(rangeStyle(paragraph, 2, 4), { bold: true, italic: false, color: "red", size: null });
+  assert.deepEqual(rangeStyle(paragraph, 2, 4), { bold: true, italic: false, color: "red", size: null, font: null });
   paragraph = applyStyle(paragraph, 0, 4, { type: "bold" });
   assert.deepEqual(paragraph.spans, [{ c: "red", from: 2, to: 8 }]);
   paragraph = applyStyle(paragraph, 0, 22, { type: "clear" });
@@ -60,7 +60,29 @@ test("ստուգումը մաքրում է սխալ արժեքները", () => {
   assert.equal(sanitizeLayout({ paragraphs: [] }), null);
   assert.equal(sanitizeLayout({ paragraphs: [{ text: 5, spans: [] }] }), null);
   const layout = sanitizeLayout({ paragraphs: [{ text: "Տէր\r\nողորմեա", kind: "evil", align: "center", size: "xxl", initial: "yes", spans: [{ from: -3, to: 99, b: true, c: "blue", s: "xl", onclick: "x" }] }] });
-  assert.deepEqual(layout, { v: 1, paragraphs: [{ text: "Տէր\nողորմեա", kind: "text", align: "center", size: "md", initial: false, bold: false, italic: false, spans: [{ b: true, s: "xl", from: 0, to: 11 }] }] });
+  assert.deepEqual(layout, { v: 2, paragraphs: [{ text: "Տէր\nողորմեա", kind: "text", align: "center", size: "md", initial: false, bold: false, italic: false, font: "book", prayer: true, spans: [{ b: true, s: "xl", from: 0, to: 11 }] }] });
+});
+
+test("առաջին տարբերակի (v1) նկարագրությունը մնում է շեղ, «աղոթք»-ը՝ ըստ տեսակի", () => {
+  const layout = sanitizeLayout({ v: 1, paragraphs: [
+    { text: "Նկարագրություն", kind: "note", italic: false, spans: [] },
+    { text: "Հայր մեր", kind: "text", spans: [] },
+    { text: "Գրաբար", kind: "title", spans: [] },
+  ] });
+  assert.deepEqual(layout?.paragraphs.map((paragraph) => [paragraph.italic, paragraph.prayer, paragraph.font]), [[true, false, "book"], [false, true, "book"], [false, false, "book"]]);
+  // v2-ում շեղը և աղոթքը հենց պահվածն են։
+  const next = sanitizeLayout({ v: 2, paragraphs: [{ text: "Նկարագրություն", kind: "note", italic: false, prayer: true, font: "sans", spans: [] }] });
+  assert.deepEqual(next?.paragraphs.map((paragraph) => [paragraph.italic, paragraph.prayer, paragraph.font]), [[false, true, "sans"]]);
+  assert.deepEqual(prayerParagraphs(next!).map((paragraph) => paragraph.text), ["Նկարագրություն"]);
+});
+
+test("ընտրված բառերի տառատեսակ", () => {
+  let paragraph = applyStyle(newParagraph("Հայր մեր"), 0, 4, { type: "font", font: "sans" });
+  assert.deepEqual(paragraph.spans, [{ f: "sans", from: 0, to: 4 }]);
+  assert.equal(rangeStyle(paragraph, 0, 4).font, "sans");
+  assert.deepEqual(paragraphSegments(paragraph).map((segment) => segment.style.f ?? null), ["sans", null]);
+  paragraph = applyStyle(paragraph, 0, 4, { type: "font", font: "sans" });
+  assert.deepEqual(paragraph.spans, []);
 });
 
 test("Telegram-ի տեքստից սկիզբ՝ վերնագիրը հանված, պարբերություններով, թավը պահված", () => {
