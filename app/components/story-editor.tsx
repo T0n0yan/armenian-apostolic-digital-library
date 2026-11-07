@@ -448,9 +448,10 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   const primaryAction = canStory
     ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
     : canShareFiles
-      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={18} aria-hidden="true" /> {pageCount > 1 ? `Կիսվել · ${pageCount} նկար` : "Կիսվել"}</button>
+      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={18} aria-hidden="true" /> Կիսվել նկարով{pageCount > 1 ? ` · ${pageCount}` : ""}</button>
       : <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>;
-  const saveAction = canStory && canDownloadInTelegram ? telegramSave : canShareFiles || canStory ? saveFiles : null;
+  // Ներբեռնելը (վերևի պատկերակը). Mini App-ում՝ Telegram-ի միջոցով։
+  const saveAction = canDownloadInTelegram ? telegramSave : saveFiles;
 
   const partControls = (part: "title" | "text") => {
     const value: PartStyle = style[part];
@@ -479,8 +480,9 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
       <header className="flex items-center gap-2 px-3 py-2">
         <button className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-subtle text-ink" type="button" aria-label="Փակել" onClick={onClose}><X size={20} aria-hidden="true" /></button>
         <strong className="flex-1 text-center font-noto text-[15.5px] text-ink">{editing ? "Ձևավորել" : "Կիսվել նկարով"}</strong>
-        <button className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-subtle px-3 text-[12.5px] font-bold text-ink" type="button" onClick={() => { onClose(); onLink(); }}>
-          <Link2 size={16} aria-hidden="true" /> Հղում
+        <button className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full border-0 bg-subtle text-ink disabled:opacity-40" type="button" disabled={disabled}
+          aria-label={pageCount > 1 ? "Ներբեռնել նկարները" : "Ներբեռնել նկարը"} title="Ներբեռնել" onClick={saveAction}>
+          <Download size={19} aria-hidden="true" />
         </button>
       </header>
 
@@ -493,6 +495,11 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
               className={`block h-full w-full touch-none select-none rounded-[20px] shadow-[0_18px_50px_rgb(20_8_24/40%)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
               aria-label="Նկարի նախադիտում. քաշեք վերնագիրը կամ տեքստը, տեքստի շրջանակի կետերով փոխեք չափը"
               onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
+            {/* Ձևավորելու կոճակը՝ հենց նկարի վրա */}
+            <button className={`absolute right-2.5 top-2.5 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 px-3 text-[12.5px] font-bold shadow-[0_4px_14px_rgb(0_0_0/30%)] backdrop-blur-md ${editing ? "bg-[linear-gradient(135deg,#ecd08f,#b9852f)] text-[#2a1708]" : "bg-[rgb(20_12_24/55%)] text-white"}`}
+              type="button" aria-pressed={editing} onClick={() => setEditing(!editing)}>
+              {editing ? <><Check size={16} aria-hidden="true" /> Պատրաստ է</> : <><SlidersHorizontal size={16} aria-hidden="true" /> Ձևավորել</>}
+            </button>
             {pageCount > 1 ? (
               <>
                 <button className="absolute -left-3 top-1/2 inline-flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-[var(--page-bg)] text-ink shadow-card disabled:opacity-0" type="button" disabled={page === 0} aria-label="Նախորդ նկարը" onClick={() => setPage(page - 1)}><ChevronLeft size={20} aria-hidden="true" /></button>
@@ -504,12 +511,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
             ) : null}
           </div>
           </div>
-          <p className={`m-0 max-w-[360px] text-center text-[11.5px] leading-snug ${tooLong ? "font-semibold text-[#c2513f]" : "text-muted"}`} aria-live="polite">
-            {tooLong ? "Տեքստը շատ երկար է. «Տեքստ»-ում ընտրեք ավելի քիչ հատված։"
-              : pageCount > 1 ? `${pageCount} նկար՝ իրար հետևից։ Մեկ նկարի համար՝ «Տեքստ» → «Ըստ շրջանակի»։`
-                : editing && tab === "text" ? "Քաշեք շրջանակը կամ նրա կետերը. մեջտեղում այն կպչում է։"
-                  : "Քաշեք վերնագիրը կամ տեքստը՝ տեղը փոխելու համար"}
-          </p>
+          {tooLong ? <p className="m-0 max-w-[360px] text-center text-[11.5px] font-semibold leading-snug text-[#c2513f]" role="status">Տեքստը շատ երկար է. «Տեքստ»-ում ընտրեք ավելի քիչ հատված։</p> : null}
         </div>
 
         {editing ? (
@@ -586,13 +588,9 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
       <footer className="flex flex-col gap-2 px-4 pt-2 pb-3">
         {notice ? <p className="m-0 text-center text-[12.5px] font-semibold text-gold-bright" role="status">{notice}</p> : null}
         <div className="mx-auto flex w-full max-w-[520px] gap-2">
-          <button className={ghost} type="button" aria-pressed={editing} onClick={() => setEditing(!editing)}>
-            {editing ? <><Check size={17} aria-hidden="true" /> Պատրաստ է</> : <><SlidersHorizontal size={17} aria-hidden="true" /> Ձևավորել</>}
-          </button>
           {primaryAction}
-          {saveAction ? <button className={`${ghost} w-12 px-0`} type="button" disabled={disabled} aria-label="Պահել նկարը" title="Պահել նկարը" onClick={saveAction}><Download size={18} aria-hidden="true" /></button> : null}
+          <button className={`${ghost} flex-1`} type="button" onClick={() => { onClose(); onLink(); }}><Link2 size={17} aria-hidden="true" /> Կիսվել հղումով</button>
         </div>
-        {!editing && canShareFiles && !canStory ? <p className="m-0 text-center text-[11px] text-muted">«Կիսվել»-ից ընտրեք Instagram, Facebook կամ Telegram՝ story-ում դնելու համար</p> : null}
       </footer>
     </div>,
     document.body,
