@@ -24,6 +24,7 @@
 6. Ավելի ուշ՝ աուդիոյի օպտիմալացում, տառատեսակներ, դիզայն և պատկերներ։
 
 ## Արված
+- 2026-11-07 — Աղոթքի ձևավորում. պարբերության «Աղոթք» նշան (ընթերցողին չի երևում) և տառատեսակ (գրքային/սերիֆ/սովորական), բառերին՝ տառատեսակ, նկարագրության շեղը անջատվող։ [PR #132](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/132)
 - 2026-11-07 — Աղոթքների ձևավորման խմբագիր. «Ձևավորել» աղոթքի էջում (owner/`layout`), պարբերության տեսակ/դիրք/չափ/թռչնատառ, բառերին թավ/շեղ/ոսկի/կարմիր/չափ, տեքստի ուղղում, `material_layouts` (migration 0050), Telegram-ի փոփոխության զգուշացում։ [PR #131](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/131)
 - 2026-11-06 — Բառարան. աստղանիշը միայն բառի առաջին հանդիպման վրա, բառարանը պահվում է հեռախոսում, էջի այլ փոփոխություններից (նվագարկիչ) աստղերը այլևս չեն թարթում։ [PR #126](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/126)
 - 2026-11-06 — Բառարանի բառը ոսկեգույն, աստղանիշը բառից անմիջապես հետո (կետադրությունից առաջ), հետո՝ բացատ (`glossary-layer.tsx`)։ [PR #123](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/123) [PR #125](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/125)
@@ -31,9 +32,9 @@
 - 2026-11-06 — Տեսանյութերի ավտոմատ սեղմում (MP4/H.264/AAC, բոլոր սարքերի համար), `cloud-sync`-ի վերջում։ Եղածները սեղմված են՝ 45 ֆայլ, 2.98 → 1.22 ԳԲ (19-ը թողնված են, օգուտ չկար)։ [PR #120](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/120)
 - 2026-11-05 — Օգնության ցանկը խմբագրելի՝ ավելացնել, անվանել, ↑↓, հանել (`feat/help-videos-edit`)։ `/admin/help`-ի հորիզոնական դուրս գալը ուղղված։
 - 2026-11-05 — Օգնության էջ `/ognutyun` (13 տեսանյութ), `/admin/help`՝ վերբեռնում, առաջին այցի ուղեցույց («Բաց թողնել», «3 / 13»), `feat/help-videos`։
-- 2026-11-05 — «Թեմա» → «Կայքի լուսավորություն» (կարգավորումներ, մենյու, Գաղտնիություն), `feat/site-lighting-label`։
 
 ## Կարևոր մյուսների համար
+- Աղոթքի ձևավորման պարբերությունը ունի `prayer` (բուն աղոթք, ընթերցողին չի երևում)՝ աղոթքը նկարով կիսվելու համար վերցնել `prayerParagraphs(layout)`-ով։
 - Աղոթքի ձևավորումը՝ `material_layouts` (migration 0050), `app/utils/prayer-layout.ts`. ձևավորում ունեցող աղոթքը էջում ցույց է տրվում `PrayerLayoutView`-ով՝ Telegram-ի տեքստի փոխարեն (մեդիան վերևում, ձայնի հետ տող առ տող ընդգծում չկա)։ Նոր իրավունք՝ `layout`։
 - Տեսանյութերը ավտոմատ սեղմվում են (`scripts/optimize-videos.ts`, `video_optimizations`, migration 0049). Telegram-ի ֆայլերը՝ նույն բանալիով, բնօրինակը `originals/`-ում 14 օր։ `library_media`-ն վերագրելիս `size_bytes`/`mime_type`/`r2_etag`-ը վերցնել `video_optimizations`-ից (տես `wrangler-cloud-target.ts`)։ Նոր տեսանյութի աղբյուր ավելացնելիս՝ ավելացնել `findCandidates`-ում։
 - Օգնության տեսանյութեր՝ `/ognutyun`, ադմին՝ `/admin/help` (նոր իրավունք `help`), R2 `help/`, `site_settings.help_videos`։ Նոր ֆունկցիա ավելացնելիս՝ վիդեո `scripts/video-guides/`-ով և տող `app/utils/help-videos.ts`-ում։

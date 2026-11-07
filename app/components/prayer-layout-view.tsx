@@ -6,7 +6,7 @@ const alignClass = { start: "text-left", center: "text-center", end: "text-right
 const colorClass = { gold: "layout-gold", red: "layout-red" } as const;
 
 function charClass(style: CharStyle) {
-  return [style.b ? "font-bold" : "", style.i ? "italic" : "", style.c ? colorClass[style.c] : ""].filter(Boolean).join(" ") || undefined;
+  return [style.b ? "font-bold" : "", style.i ? "italic" : "", style.c ? colorClass[style.c] : "", style.f ? `layout-font-${style.f}` : ""].filter(Boolean).join(" ") || undefined;
 }
 
 /** Մեկ պարբերություն. `index`-ը խմբագրում ընտրության տեղը գտնելու համար է։ */
@@ -17,7 +17,7 @@ export function LayoutParagraphView({ paragraph, index, editing = false }: { par
   const segments = paragraphSegments(paragraph);
   return (
     <p
-      className={`layout-paragraph m-0 whitespace-pre-wrap break-words ${alignClass[paragraph.align]} ${kindClass} ${paragraph.bold ? "font-bold" : ""} ${paragraph.italic ? "italic" : ""}`}
+      className={`layout-paragraph m-0 whitespace-pre-wrap break-words ${alignClass[paragraph.align]} ${kindClass} layout-font-${paragraph.font} ${paragraph.bold ? "font-bold" : ""} ${paragraph.italic ? "italic" : ""}`}
       data-align={paragraph.align}
       data-layout-paragraph={editing ? index : undefined}
       style={style}
