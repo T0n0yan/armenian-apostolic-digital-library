@@ -240,7 +240,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
     setLayout(defaultLayout(background, style));
   }, [assets, background, design, style]);
 
-  /** Պլանը տրված դասավորությամբ. «Ըստ շրջանակի»-ն վերցնում է այնքան, որքան տեղավորվում է։ */
+  /** Պլանը տրված դասավորությամբ. սկզբում («fit»)՝ այնքան, որքան տեղավորվում է շրջանակում։ */
   const computePlan = useCallback((current: StoryLayout): { plan: StoryPlanWithCap; count: number } | null => {
     const context = measureRef.current;
     if (!context) return null;
@@ -554,8 +554,9 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
                 <>
                   <Field label="Որքան տեքստ" value={<span className="font-semibold text-muted">{chosenNow.size} / {units.length}</span>}>
                     <div className="flex flex-wrap gap-1.5">
-                      <button className={chip(textMode === "fit")} type="button" onClick={() => setTextMode("fit")}>Ըստ շրջանակի</button>
-                      <button className={chip(textMode === "all")} type="button" onClick={() => setTextMode("all")}>Ամբողջը</button>
+                      {/* Սկզբում (և երբ ոչինչ ընտրված չէ)՝ այնքան, որքան տեղավորվում է շրջանակում։ «Ամբողջը»-ն
+                          կրկին սեղմելիս վերադառնում է դրան։ */}
+                      <button className={chip(textMode === "all")} type="button" aria-pressed={textMode === "all"} onClick={() => setTextMode(textMode === "all" ? "fit" : "all")}>Ամբողջը</button>
                       {units.length > 1 ? <button className={chip(picking || textMode === "custom")} type="button" aria-expanded={picking} onClick={() => setPicking(!picking)}>Ընտրել…</button> : null}
                     </div>
                     {picking ? (
