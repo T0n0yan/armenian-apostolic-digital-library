@@ -1,49 +1,58 @@
 // Story-ի նկարը canvas-ի վրա (միայն բրաուզերում)։ Դասավորությունը՝ story-layout.ts։
-// Վերնագիրը և տեքստը երկու առանձին մաս են. ընթերցողը դրանք քաշում է մատով (offset), իսկ
+// Երկու առանձին մաս՝ վերնագիր և տեքստի շրջանակ. ամեն մեկն ունի իր չափը, գույնը, տառատեսակը և
+// տակի շերտը։ Շրջանակը ընթերցողը տեղափոխում և լայնացնում/նեղացնում է, վերնագիրը՝ տեղափոխում։
 // apostolic.am-ի գոտին (ներքևում) միշտ ազատ է մնում։
 
 import type { StoryBackground } from "./story-backgrounds";
 import {
-  LINE_HEIGHT, PARAGRAPH_GAP, STORY_HEIGHT, STORY_WIDTH, planStory,
-  type StoryAlign, type StoryPlan, type StorySize,
+  LINE_HEIGHT, PARAGRAPH_GAP, STORY_HEIGHT, STORY_SCALE, STORY_WIDTH, planStory,
+  type StoryAlign, type StoryPlan,
 } from "./story-layout";
 
 export type StoryFont = "book" | "serif";
 export type StoryShade = 0 | 1 | 2;
 
-/** Արագ ընտրության գույներ. բացի դրանից՝ ցանկացած գույն և «Ավտո»։ */
-export const STORY_SWATCHES = ["#f7ecd2", "#ffffff", "#e8c57f", "#6e1f2b", "#24150d"];
-
-export type StoryStyle = {
-  size: StorySize;
-  align: StoryAlign;
-  /** "auto"՝ ֆոնի հակառակ գույնը (մուգ ֆոնին՝ բաց, բաց ֆոնին՝ մուգ)։ */
+export type PartStyle = {
+  /** Չափը «պիքսելներով» (հեռախոսի էկրանի պես). նկարում՝ ×3։ */
+  size: number;
+  /** "auto"՝ ֆոնի հակառակ գույնը հենց այդ մասի տակ։ */
   color: "auto" | string;
   font: StoryFont;
   shade: StoryShade;
-  showTitle: boolean;
 };
 
-export type Offset = { x: number; y: number };
+export type StoryStyle = {
+  title: PartStyle & { show: boolean };
+  text: PartStyle & { align: StoryAlign };
+};
+
+export const TEXT_SIZES = { min: 10, max: 24, start: 15 };
+export const TITLE_SIZES = { min: 12, max: 32, start: 21 };
+
+export const DEFAULT_STYLE: StoryStyle = {
+  title: { show: true, size: TITLE_SIZES.start, color: "auto", font: "serif", shade: 0 },
+  text: { size: TEXT_SIZES.start, color: "auto", font: "book", shade: 0, align: "center" },
+};
+
 export type Rect = { left: number; top: number; width: number; height: number };
+/** Վերնագրի տեղը՝ նրա մեջտեղը (x) և վերևը (y)։ */
+export type TitlePlace = { x: number; y: number };
+export type StoryLayout = { frame: Rect; title: TitlePlace };
 
 const FAMILY: Record<StoryFont, string> = {
   book: '"Arian Grqi", "Noto Serif Armenian", Georgia, serif',
   serif: '"Noto Serif Armenian", Georgia, serif',
 };
-const TITLE_FAMILY = '"Noto Serif Armenian", Georgia, serif';
+const TITLE_WEIGHT: Record<StoryFont, number> = { book: 400, serif: 600 };
 /** Ազատ գոտին. վերևում՝ story-ի կոճակները, ներքևում՝ apostolic.am-ը։ */
 export const SAFE = { left: 36, right: STORY_WIDTH - 36, top: 110, bottom: 1715 };
-const SHADE_PAD = 44;
+export const FRAME_MIN = { width: 320, height: 180 };
+const SHADE_PAD = 34;
 const TITLE_GAP = 34;
 
-/** Վերնագիրը տեքստից մեծ է։ */
-export function titleSize(textSize: number) {
-  return Math.round(Math.min(78, Math.max(46, textSize * 1.18)));
-}
-function titleHeight(textSize: number) {
-  return titleSize(textSize) * 1.25 + 22;
-}
+export const textPixels = (style: StoryStyle) => style.text.size * STORY_SCALE;
+export const titlePixels = (style: StoryStyle) => style.title.size * STORY_SCALE;
+const titleBlock = (style: StoryStyle) => titlePixels(style) * 1.25 + 22;
 
 /** Տառատեսակները պետք է բեռնված լինեն, թե չէ canvas-ը կնկարի այլ տառերով։ */
 export async function loadStoryFonts() {
@@ -112,34 +121,49 @@ function luminance(color: string) {
   return 0.299 * (value >> 16) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255);
 }
 
-export function planFor(context: CanvasRenderingContext2D, text: string, style: StoryStyle, background: StoryBackground): StoryPlan {
+/** Սկզբնական դասավորությունը՝ ձևավորման տարածքում. վերնագիրը վերևում, տակը՝ տեքստի շրջանակը։ */
+export function defaultLayout(background: StoryBackground, style: StoryStyle): StoryLayout {
   const { box } = background.design;
-  return planStory(text, style.size, box, (value, size) => {
-    context.font = `400 ${size}px ${FAMILY[style.font]}`;
+  const reserve = style.title.show ? titleBlock(style) + TITLE_GAP : 0;
+  return {
+    title: { x: (box.left + box.right) / 2, y: box.top },
+    frame: { left: box.left, top: box.top + reserve, width: box.right - box.left, height: box.bottom - box.top - reserve },
+  };
+}
+
+/** Շրջանակը մնում է ազատ գոտում և չի փոքրանում նվազագույնից։ */
+export function clampFrame(frame: Rect): Rect {
+  const width = Math.min(Math.max(frame.width, FRAME_MIN.width), SAFE.right - SAFE.left);
+  const height = Math.min(Math.max(frame.height, FRAME_MIN.height), SAFE.bottom - SAFE.top);
+  const left = Math.min(Math.max(frame.left, SAFE.left), SAFE.right - width);
+  const top = Math.min(Math.max(frame.top, SAFE.top), SAFE.bottom - height);
+  return { left, top, width, height };
+}
+
+export function clampTitle(place: TitlePlace, width: number, style: StoryStyle): TitlePlace {
+  const half = Math.min(width, SAFE.right - SAFE.left) / 2;
+  return {
+    x: Math.min(Math.max(place.x, SAFE.left + half), SAFE.right - half),
+    y: Math.min(Math.max(place.y, SAFE.top), SAFE.bottom - titleBlock(style)),
+  };
+}
+
+export function makeMeasure(context: CanvasRenderingContext2D, font: StoryFont) {
+  return (value: string, size: number) => {
+    context.font = `400 ${size}px ${FAMILY[font]}`;
     return context.measureText(value).width;
-  }, (size) => (style.showTitle ? titleHeight(size) + TITLE_GAP : 0));
+  };
 }
 
-function clampRect(rect: Rect): Rect {
-  const left = Math.min(Math.max(rect.left, SAFE.left), SAFE.right - rect.width);
-  const top = Math.min(Math.max(rect.top, SAFE.top), SAFE.bottom - rect.height);
-  return { ...rect, left, top };
+const frameBox = (frame: Rect) => ({ left: frame.left, right: frame.left + frame.width, top: frame.top, bottom: frame.top + frame.height });
+
+export function planFor(context: CanvasRenderingContext2D, text: string, style: StoryStyle, frame: Rect): StoryPlan {
+  return planStory(text, textPixels(style), frameBox(frame), makeMeasure(context, style.text.font));
 }
 
-/**
- * Վերնագրի և տեքստի տեղերը. սկզբում՝ ձևավորման տարածքի մեջտեղում, ապա՝ ընթերցողի քաշածով։
- * Երկուսն էլ մնում են ազատ գոտում (apostolic.am-ը չի ծածկվում)։
- */
-export function storyRects(plan: StoryPlan, style: StoryStyle, background: StoryBackground, text: Offset, title: Offset) {
-  const { box } = background.design;
-  const width = box.right - box.left;
-  const textHeight = Math.max(...plan.pages.map((page) => page.height), plan.size * LINE_HEIGHT);
-  const titleBlock = style.showTitle ? titleHeight(plan.size) : 0;
-  const total = textHeight + (style.showTitle ? titleBlock + TITLE_GAP : 0);
-  const start = box.top + Math.max(0, (box.bottom - box.top - total) / 2);
-  const textRect = clampRect({ left: box.left + text.x, top: start + (style.showTitle ? titleBlock + TITLE_GAP : 0) + text.y, width, height: textHeight });
-  const titleRect = style.showTitle ? clampRect({ left: box.left + title.x, top: start + title.y, width, height: titleBlock }) : null;
-  return { text: textRect, title: titleRect };
+function titleWidth(context: CanvasRenderingContext2D, value: string, style: StoryStyle) {
+  context.font = `${TITLE_WEIGHT[style.title.font]} ${titlePixels(style)}px ${FAMILY[style.title.font]}`;
+  return Math.min(context.measureText(value).width, SAFE.right - SAFE.left);
 }
 
 function roundedRect(context: CanvasRenderingContext2D, rect: Rect, radius: number) {
@@ -157,23 +181,39 @@ function grow(rect: Rect, by: number): Rect {
   return { left: rect.left - by, top: rect.top - by, width: rect.width + by * 2, height: rect.height + by * 2 };
 }
 
-/** Նկարում է մեկ էջը։ Վերադարձնում է վերնագրի և տեքստի տեղերը (քաշելու համար)։ */
+function colorsFor(part: PartStyle, rect: Rect, brightness: Brightness | null, tone: StoryBackground["tone"], accent: boolean) {
+  const under = brightnessIn(brightness, rect, tone === "dark" ? 40 : 220);
+  if (part.color !== "auto") return part.color;
+  if (under > 140) return accent ? "#6e1f2b" : "#24150d";
+  return accent ? "#e8c57f" : "#f7ecd2";
+}
+
+function drawShade(context: CanvasRenderingContext2D, rect: Rect, shade: StoryShade, darkText: boolean) {
+  if (!shade) return;
+  const alpha = shade === 1 ? (darkText ? 0.5 : 0.32) : (darkText ? 0.76 : 0.58);
+  context.fillStyle = darkText ? `rgba(255, 250, 240, ${alpha})` : `rgba(14, 8, 16, ${alpha})`;
+  roundedRect(context, rect, 34);
+  context.fill();
+}
+
+export type StoryHit = { frame: Rect; title: Rect | null };
+
+/** Նկարում է մեկ էջը։ Վերադարձնում է վերնագրի և շրջանակի տեղերը (քաշելու համար)։ */
 export function drawStoryPage(context: CanvasRenderingContext2D, options: {
   background: StoryBackground;
   image: HTMLImageElement | null;
   brightness: Brightness | null;
   style: StoryStyle;
+  layout: StoryLayout;
   plan: StoryPlan;
   page: number;
   title: string;
-  textOffset: Offset;
-  titleOffset: Offset;
-  /** Խմբագրում՝ քաշվող մասերի բարակ եզրագիծը։ */
-  outline?: boolean;
-}) {
-  const { background, image, brightness, style, plan, page, title } = options;
-  const rects = storyRects(plan, style, background, options.textOffset, options.titleOffset);
-  const { size } = plan;
+  /** Խմբագրում՝ եզրագծեր և շրջանակի չափը փոխելու կետեր։ */
+  outline?: "title" | "text" | null;
+}): StoryHit {
+  const { background, image, brightness, style, layout, plan, page, title, outline } = options;
+  const frame = layout.frame;
+  const size = plan.size;
   const lines = plan.pages[page]?.lines ?? [];
   context.save();
   context.clearRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
@@ -186,81 +226,99 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
     context.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
     context.textAlign = "center";
     context.fillStyle = background.tone === "dark" ? "#d9b56f" : "#7a5a2e";
-    context.font = `400 44px ${TITLE_FAMILY}`;
+    context.font = `400 44px ${FAMILY.serif}`;
     context.fillText("apostolic.am", STORY_WIDTH / 2, 1790);
   }
-
-  // Գույն. «Ավտո»-ն նայում է ֆոնին հենց տեքստի տակ։
-  const fallback = background.tone === "dark" ? 40 : 220;
-  const under = brightnessIn(brightness, rects.text, fallback);
-  const autoDark = under > 140;
-  const color = style.color === "auto" ? (autoDark ? "#24150d" : "#f7ecd2") : style.color;
-  const darkText = luminance(color) < 128;
-  const titleUnder = rects.title ? brightnessIn(brightness, rects.title, fallback) : under;
-  const titleColor = style.color === "auto" ? (titleUnder > 140 ? "#6e1f2b" : "#e8c57f") : color;
-
-  if (style.shade) {
-    const alpha = style.shade === 1 ? (darkText ? 0.5 : 0.32) : (darkText ? 0.74 : 0.55);
-    context.fillStyle = darkText ? `rgba(255, 250, 240, ${alpha})` : `rgba(14, 8, 16, ${alpha})`;
-    for (const rect of [rects.title, rects.text]) {
-      if (!rect) continue;
-      roundedRect(context, grow(rect, rect === rects.text ? SHADE_PAD : SHADE_PAD * 0.6), 36);
-      context.fill();
-    }
-  }
-
-  const anchorX = (rect: Rect) => (style.align === "center" ? rect.left + rect.width / 2 : rect.left);
-  context.textAlign = style.align === "center" ? "center" : "left";
   context.textBaseline = "alphabetic";
 
   // Վերնագիր (և էջի համարը)
-  if (rects.title) {
-    const sizeOfTitle = titleSize(size);
-    context.fillStyle = titleColor;
-    context.font = `600 ${sizeOfTitle}px ${TITLE_FAMILY}`;
-    const header = plan.pages.length > 1 ? `${title} · ${page + 1}/${plan.pages.length}` : title;
+  let titleRect: Rect | null = null;
+  const header = plan.pages.length > 1 ? `${title} · ${page + 1}/${plan.pages.length}` : title;
+  if (style.title.show) {
+    const pixels = titlePixels(style);
+    const width = titleWidth(context, header, style);
+    const place = clampTitle(layout.title, width, style);
+    titleRect = { left: place.x - width / 2, top: place.y, width, height: titleBlock(style) };
+    const color = colorsFor(style.title, titleRect, brightness, background.tone, true);
+    drawShade(context, grow(titleRect, SHADE_PAD * 0.7), style.title.shade, luminance(color) < 128);
+    context.fillStyle = color;
+    context.textAlign = "center";
+    context.font = `${TITLE_WEIGHT[style.title.font]} ${pixels}px ${FAMILY[style.title.font]}`;
     let shown = header;
-    while (shown.length > 4 && context.measureText(shown).width > rects.title.width) shown = `${shown.slice(0, -2)}…`;
-    context.fillText(shown, anchorX(rects.title), rects.title.top + sizeOfTitle);
+    while (shown.length > 4 && context.measureText(shown).width > SAFE.right - SAFE.left) shown = `${shown.slice(0, -2)}…`;
+    context.fillText(shown, place.x, place.y + pixels);
     context.globalAlpha = 0.75;
-    const lineX = style.align === "center" ? rects.title.left + rects.title.width / 2 - 50 : rects.title.left;
-    context.fillRect(lineX, rects.title.top + sizeOfTitle * 1.25 + 14, 100, 3);
+    context.fillRect(place.x - 50, place.y + pixels * 1.25 + 14, 100, 3);
     context.globalAlpha = 1;
-  } else if (plan.pages.length > 1) {
-    // Վերնագիր չկա, բայց էջի համարը պետք է։
-    context.fillStyle = titleColor;
-    context.font = `600 34px ${TITLE_FAMILY}`;
-    context.fillText(`${page + 1}/${plan.pages.length}`, anchorX(rects.text), Math.max(SAFE.top + 34, rects.text.top - 24));
   }
 
-  // Տեքստ
+  // Տեքստ. շրջանակի մեջ, ուղղահայաց՝ մեջտեղում
+  const height = plan.pages[page]?.height ?? 0;
+  const top = frame.top + Math.max(0, (frame.height - height) / 2);
+  const textArea = { left: frame.left, top, width: frame.width, height: Math.max(height, size) };
+  const color = colorsFor(style.text, textArea, brightness, background.tone, false);
+  const darkText = luminance(color) < 128;
+  drawShade(context, grow(frame, SHADE_PAD), style.text.shade, darkText);
+  if (!style.title.show && plan.pages.length > 1) {
+    context.fillStyle = color;
+    context.textAlign = "center";
+    context.font = `600 34px ${FAMILY.serif}`;
+    context.fillText(`${page + 1}/${plan.pages.length}`, frame.left + frame.width / 2, Math.max(SAFE.top + 34, frame.top - 20));
+  }
   context.fillStyle = color;
-  context.font = `400 ${size}px ${FAMILY[style.font]}`;
+  context.font = `400 ${size}px ${FAMILY[style.text.font]}`;
+  context.textAlign = style.text.align === "center" ? "center" : "left";
   if (!darkText) {
     context.shadowColor = "rgba(0, 0, 0, 0.45)";
-    context.shadowBlur = style.shade ? 6 : 14;
+    context.shadowBlur = style.text.shade ? 6 : 14;
   }
-  let y = rects.text.top;
+  const x = style.text.align === "center" ? frame.left + frame.width / 2 : frame.left;
+  let y = top;
   lines.forEach((line, index) => {
     if (index > 0 && line.paragraphStart) y += size * PARAGRAPH_GAP;
-    context.fillText(line.text, anchorX(rects.text), y + size * (LINE_HEIGHT / 2 + 0.33));
+    context.fillText(line.text, x, y + size * (LINE_HEIGHT / 2 + 0.33));
     y += size * LINE_HEIGHT;
   });
   context.shadowColor = "transparent";
   context.shadowBlur = 0;
 
-  if (options.outline) {
-    context.setLineDash([14, 12]);
-    context.lineWidth = 3;
-    context.strokeStyle = darkText ? "rgba(60, 30, 20, 0.45)" : "rgba(255, 245, 220, 0.55)";
-    for (const rect of [rects.title, rects.text]) {
-      if (!rect) continue;
-      roundedRect(context, grow(rect, 18), 18);
+  if (outline !== undefined) {
+    const stroke = (rect: Rect, active: boolean) => {
+      context.setLineDash(active ? [] : [14, 12]);
+      context.lineWidth = active ? 5 : 3;
+      context.strokeStyle = active ? "#e2c27e" : darkText ? "rgba(60, 30, 20, 0.45)" : "rgba(255, 245, 220, 0.55)";
+      roundedRect(context, rect, 16);
       context.stroke();
+    };
+    if (titleRect) stroke(grow(titleRect, 14), outline === "title");
+    stroke(frame, outline === "text");
+    // Շրջանակի չափը փոխելու կետերը՝ կողքերին և անկյունում։
+    if (outline === "text") {
+      context.setLineDash([]);
+      for (const [hx, hy] of frameHandles(frame)) {
+        context.beginPath();
+        context.arc(hx, hy, 22, 0, Math.PI * 2);
+        context.fillStyle = "#e2c27e";
+        context.fill();
+        context.lineWidth = 4;
+        context.strokeStyle = "#2a1708";
+        context.stroke();
+      }
     }
   }
   context.restore();
-  return rects;
+  return { frame, title: titleRect };
+}
+
+export type Handle = "left" | "right" | "bottom" | "top" | "corner";
+
+/** Չափը փոխելու կետերը. ձախ, աջ, վերև, ներքև և ներքևի աջ անկյուն։ */
+export function frameHandles(frame: Rect): Array<[number, number, Handle]> {
+  const right = frame.left + frame.width;
+  const bottom = frame.top + frame.height;
+  const middleY = frame.top + frame.height / 2;
+  const middleX = frame.left + frame.width / 2;
+  return [[frame.left, middleY, "left"], [right, middleY, "right"], [middleX, frame.top, "top"], [middleX, bottom, "bottom"], [right, bottom, "corner"]];
 }
 
 export function canvasBlob(canvas: HTMLCanvasElement) {

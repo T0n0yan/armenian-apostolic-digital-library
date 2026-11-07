@@ -6,14 +6,12 @@ export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
 
 export type StoryAlign = "center" | "start";
-export type StorySize = "auto" | "sm" | "md" | "lg" | "xl";
+/**
+ * Տառի չափը ընթերցողը ընտրում է «պիքսելներով»՝ ինչպես հեռախոսի էկրանին (story-ն ~360 px լայն է),
+ * իսկ նկարում այն 3 անգամ մեծ է (1080 px)։
+ */
+export const STORY_SCALE = 3;
 
-/** Տառի չափը պիքսելով (1080 լայնության վրա). */
-export const STORY_SIZES: Record<Exclude<StorySize, "auto">, number> = { sm: 40, md: 48, lg: 58, xl: 70 };
-const AUTO_MAX = 64;
-const AUTO_MIN = 42;
-/** «Ավտո»-ն երկար տեքստը բաժանում է էջերի այս չափով։ */
-const AUTO_PAGED = 46;
 /** Ավելի շատ էջ չենք առաջարկում. շատ երկար տեքստը նկարով չի կիսվում։ */
 export const MAX_STORY_PAGES = 6;
 
@@ -113,29 +111,25 @@ function balancedPages(blocks: string[][], size: number, capacity: number) {
 
 export type StoryPlan = { size: number; pages: StoryPage[]; tooLong: boolean };
 
-/**
- * Տեքստի պլանը. «Ավտո»-ն փնտրում է ամենամեծ չափը, որով ամեն ինչ տեղավորվում է մեկ նկարում.
- * չտեղավորվելու դեպքում՝ մի քանի նկար։
- */
-export function planStory(text: string, choice: StorySize, box: StoryBox, measure: Measure, reserve: (size: number) => number = () => 0): StoryPlan {
-  const paragraphs = storyParagraphs(text);
-  const width = box.right - box.left;
-  const build = (size: number) => {
-    // `reserve`-ը վերնագրի տեղն է (վերնագիրը մեծանում է տեքստի հետ)։
-    const capacity = box.bottom - box.top - reserve(size);
-    const pages = balancedPages(lineBlocks(paragraphs, width, size, measure), size, capacity)
-      .map((lines) => ({ lines, height: blockHeight(lines, size) }));
-    return { size, pages: pages.length ? pages : [{ lines: [], height: 0 }] };
-  };
-  let plan = choice === "auto" ? null : build(STORY_SIZES[choice]);
-  if (!plan) {
-    for (let size = AUTO_MAX; size >= AUTO_MIN && !plan; size -= 2) {
-      const attempt = build(size);
-      if (attempt.pages.length === 1) plan = attempt;
-    }
-    plan ??= build(AUTO_PAGED);
+/** Տեքստը տողերի և էջերի՝ տրված չափով և շրջանակով. չտեղավորվողը անցնում է հաջորդ նկար։ */
+export function planStory(text: string, size: number, box: StoryBox, measure: Measure): StoryPlan {
+  const blocks = lineBlocks(storyParagraphs(text), box.right - box.left, size, measure);
+  const capacity = Math.max(box.bottom - box.top, size * LINE_HEIGHT);
+  const pages = balancedPages(blocks, size, capacity).map((lines) => ({ lines, height: blockHeight(lines, size) }));
+  const list = pages.length ? pages : [{ lines: [], height: 0 }];
+  return { size, pages: list, tooLong: list.length > MAX_STORY_PAGES };
+}
+
+/** Քանի հատված (սկզբից) է տեղավորվում մեկ նկարում. առնվազն մեկը։ */
+export function fitCount(count: number, fits: (count: number) => boolean) {
+  let low = 1;
+  let high = count;
+  if (fits(high)) return high;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (fits(middle)) low = middle; else high = middle;
   }
-  return { ...plan, tooLong: plan.pages.length > MAX_STORY_PAGES };
+  return low;
 }
 
 /**
