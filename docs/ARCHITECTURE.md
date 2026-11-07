@@ -214,6 +214,16 @@ flowchart TD
 հիշեցում, բառարանի բառեր, հարցման քվեարկություն։ Կայքում ավելացված ձայնագրություններ (`material_attachments`),
 երբ Telegram-ը չի կարող (երկար տեքստ)։
 
+**Աղոթքների ձևավորում** (`prayer-layout-editor.tsx`, `prayer-layout-view.tsx`, `utils/prayer-layout.ts`). աղոթքի էջում
+«Ձևավորել» կոճակը (միայն գլխավոր ադմին կամ `layout` իրավունքով) բացում է խմբագիր. ամեն պարբերության տեսակ
+(տեքստ / նկարագրություն / պիտակ), դիրք, չափ, թռչնատառ, ամբողջը թավ/շեղ. ընտրված բառերին/տառերին՝ թավ, շեղ,
+ոսկեգույն, կարմիր, չափ. տեքստի ուղղում, պարբերությունների բաժանում/միացում/տեղափոխում, հետարկում։ Պահվում է
+`material_layouts`-ում (migration 0050, `/api/material-layout`)՝ Telegram-ի տեքստից առանձին, սինքը չի ջնջում։
+Ձևավորում ունեցող աղոթքը էջում ցույց է տրվում այդ ձևով (`.reading-body`-ի մեջ, այնպես որ նշումները և բառարանը
+աշխատում են), մեդիան՝ վերևում։ `source_hash`-ը Telegram-ի տեքստի նշանն է (`sourceHash`). եթե Telegram-ում տեքստը
+փոխվի, ադմինը էջում և խմբագրում զգուշացում է տեսնում և կարող է սկսել նոր տեքստից։ Պահելը/ջնջելը բարձրացնում է
+քեշի epoch-ը, որ էջը բոլորի մոտ թարմանա։ Ձայնագրություն ունեցող ձևավորված աղոթքում տող առ տող ընդգծումը չկա։
+
 ## 5. Էջերի քարտեզը
 
 ```mermaid
@@ -243,7 +253,7 @@ flowchart LR
 
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
-`/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`,
+`/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`, `/api/material-layout`,
 `/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
 `/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
 **Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/og/card/...`, `/sitemap.xml`։
@@ -550,13 +560,14 @@ erDiagram
   library_materials ||--o{ material_attachments : "կայքից ավելացված"
   library_materials ||--|| library_search_documents : "որոնում"
   library_materials ||--o{ psalm_timings : "տող↔ձայն"
+  library_materials ||--o| material_layouts : "աղոթքի ձևավորում"
   places ||--o{ place_visits : ""
   places ||--o{ place_submissions : "փոփոխություններ"
 ```
 
 | Խումբ | Աղյուսակներ |
 | --- | --- |
-| **Գրադարան** (sync-ը լցնում է) | `library_sources`, `library_topics`, `library_materials`, `library_material_blocks`, `library_media`, `library_album_members`, `library_search_documents`, `library_publishers`, `library_post_authors`, `material_attachments`, `psalm_timings` |
+| **Գրադարան** (sync-ը լցնում է) | `library_sources`, `library_topics`, `library_materials`, `library_material_blocks`, `library_media`, `library_album_members`, `library_search_documents`, `library_publishers`, `library_post_authors`, `material_attachments`, `psalm_timings`, `material_layouts` (ադմինի ձևավորում, սինքը չի ջնջում) |
 | **Sync-ի հաշվառում** | `library_sync_cursors`, `library_sync_runs`, `library_sync_failures` |
 | **Մարդիկ** | `app_users`, `account_links`, `admin_access`, `user_settings` |
 | **Անձնական** | `saved_materials`, `saved_verses`, `highlights`, `reading_log`, `poll_votes`, `place_visits`, `liturgy_marks`, `yearly_summaries` |
