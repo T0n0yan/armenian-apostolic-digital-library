@@ -1,35 +1,35 @@
-import { STORY_IMAGES } from "./story-backgrounds.generated";
+// Նկարով կիսվելու ֆոները (`public/story-bg/`, ստեղծվում են scripts/make-story-backgrounds.py-ով)։
+// Ամեն ձևավորում ունի մուգ և բաց տարբերակ։ Ներքևում apostolic.am-ը արդեն նկարված է ֆոնի վրա։
 
-// Նկարով կիսվելու ֆոները. տիրոջ նկարները (`public/story-bg/`) և մի քանի գունային ֆոն։
+import type { StoryBox } from "./story-layout";
 
-export type StoryBackground = {
+export type StoryTone = "dark" | "light";
+
+export type StoryDesign = {
   id: string;
-  /** Նկարը (1080×1920 webp), գունային ֆոնի դեպքում՝ չկա։ */
-  src?: string;
-  thumb?: string;
-  /** Գունային ֆոն՝ վերևից ներքև։ */
-  gradient?: [string, string];
-  tone: "dark" | "light";
-  /** Նկարի ներքևում արդեն կա apostolic.am. գունային ֆոնին այն նկարում ենք մենք։ */
-  hasMark: boolean;
+  label: string;
+  /** Տեքստի տարածքը 1080×1920 նկարի վրա. զարդը (գմբեթ, մոմ, խաչ) և apostolic.am-ը չեն ծածկվում։ */
+  box: StoryBox;
 };
 
-const GRADIENTS: StoryBackground[] = [
-  { id: "g-night", gradient: ["#2b1638", "#0f0a18"], tone: "dark", hasMark: false },
-  { id: "g-wine", gradient: ["#5a1a24", "#200a10"], tone: "dark", hasMark: false },
-  { id: "g-parchment", gradient: ["#f6ecd6", "#e2cfa6"], tone: "light", hasMark: false },
+export type StoryBackground = { id: string; design: StoryDesign; tone: StoryTone; src: string; thumb: string };
+
+const TOP = 300; // story-ի վերևի կոճակները
+const BOTTOM = 1590; // apostolic.am-ից վերև
+const SIDE = 104;
+
+export const STORY_DESIGNS: StoryDesign[] = [
+  { id: "dome", label: "Գմբեթ", box: { left: SIDE, right: 1080 - SIDE, top: 600, bottom: BOTTOM } },
+  { id: "chandelier", label: "Ջահ", box: { left: SIDE, right: 1080 - SIDE, top: 640, bottom: BOTTOM } },
+  { id: "candle", label: "Մոմ", box: { left: 200, right: 1080 - SIDE, top: TOP, bottom: BOTTOM } },
+  { id: "cross", label: "Խաչ", box: { left: SIDE, right: 770, top: TOP, bottom: BOTTOM } },
+  { id: "lamp", label: "Կանթեղ", box: { left: 150, right: 1080 - SIDE, top: TOP, bottom: BOTTOM } },
+  { id: "church", label: "Եկեղեցի", box: { left: SIDE, right: 1080 - SIDE, top: TOP, bottom: 1040 } },
+  { id: "tower", label: "Զանգակատուն", box: { left: SIDE, right: 1080 - SIDE, top: TOP, bottom: 1170 } },
 ];
 
-export const STORY_BACKGROUNDS: StoryBackground[] = [
-  ...STORY_IMAGES.map((image) => ({
-    id: image.id,
-    src: `/story-bg/${image.id}.webp`,
-    thumb: `/story-bg/thumbs/${image.id}.webp`,
-    tone: image.tone,
-    hasMark: true,
-  })),
-  ...GRADIENTS,
-];
-
-/** Տեքստի տարածքը 1080×1920 նկարի վրա. վերևը՝ story-ի կոճակների, ներքևը՝ apostolic.am-ի համար։ */
-export const STORY_BOX = { left: 104, right: 1080 - 104, top: 300, bottom: 1920 - 330 };
+export function storyBackground(designId: string | undefined, tone: StoryTone): StoryBackground {
+  const design = STORY_DESIGNS.find((entry) => entry.id === designId) ?? STORY_DESIGNS[0];
+  const name = `${design.id}-${tone}`;
+  return { id: name, design, tone, src: `/story-bg/${name}.webp`, thumb: `/story-bg/thumbs/${name}.webp` };
+}

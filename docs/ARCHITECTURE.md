@@ -534,11 +534,12 @@ flowchart LR
   CV -->|Համակարգիչ| DL["Ներբեռնում"]
 ```
 
-- Ֆոները՝ `public/story-bg/NN.webp` (+ `thumbs/`), ստեղծվում են `python3 scripts/make-story-backgrounds.py <PNG թղթապանակ>`-ով,
-  որը գրում է նաև `app/utils/story-backgrounds.generated.ts`-ը (ամեն ֆոնի պայծառությունը՝ տառերի գույնի համար)։
-  Բացի նկարներից կան 3 գունային ֆոն (`story-backgrounds.ts`)։
-- Փոխել չի կարելի. վերնագիրը, էջի համարը (1/2) և **apostolic.am**-ը։ Տեքստը մնում է `STORY_BOX`-ի ներսում՝
-  վերևում story-ի կոճակների տեղը, ներքևում՝ նկարի apostolic.am-ը. գունային ֆոնին apostolic.am-ը նկարում ենք մենք։
+- Ֆոները՝ 7 ձևավորում (գմբեթ, ջահ, մոմ, խաչ, կանթեղ, եկեղեցի, զանգակատուն), ամեն մեկը մուգ և բաց՝
+  `public/story-bg/<ձևավորում>-<dark|light>.webp` (+ `thumbs/`). ստեղծվում են
+  `python3 -I scripts/make-story-backgrounds.py <թղթապանակ>`-ով (ֆայլի անունը՝ `dome-dark.png` և այլն)։
+  Նոր ձևավորումը ավելացնել նաև `app/utils/story-backgrounds.ts`-ի `STORY_DESIGNS`-ում՝ իր `box`-ով։
+- Փոխել չի կարելի. վերնագիրը, էջի համարը (1/2) և **apostolic.am**-ը (նկարված է հենց ֆոնի վրա)։ Տեքստը մնում է
+  ձևավորման `box`-ի ներսում. վերևում story-ի կոճակների տեղը, ներքևում apostolic.am-ը, և զարդը (մոմ, խաչ…) չի ծածկվում։
 - Աղոթքի տեքստը՝ ձևավորման `prayer` պարբերությունները (`prayerParagraphs`), սաղմոսինը՝ `psalmBodyText`։
 - Mini App-ում Telegram-ը ընդունում է միայն հղում, դրա համար նկարը բեռնվում է `/api/story-image` (միայն Telegram-ով մտած,
   JPEG, ≤3 ՄԲ) և տրվում `/story/<id>.jpg`-ով. 2 օրից ջնջվում է (`app/data/stories.server.ts`, գիշերային cron)։
