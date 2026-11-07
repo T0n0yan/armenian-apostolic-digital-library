@@ -29,7 +29,7 @@ function telegramApp() {
   return app?.initData ? app : null;
 }
 
-const SETTINGS_KEY = "story-style-v4";
+const SETTINGS_KEY = "story-style-v5";
 const COLORS_KEY = "story-colors";
 type Saved = { style?: Partial<StoryStyle>; design?: string; tone?: StoryTone };
 
@@ -42,7 +42,8 @@ function writeJson(key: string, value: unknown) {
 
 const ALIGNS: Array<[StoryAlign, string]> = [["center", "Մեջտեղում"], ["start", "Ձախից"]];
 const FONTS: Array<[StoryFont, string]> = [["book", "Գրքային"], ["serif", "Նոտո"]];
-const EFFECTS: Array<[StoryEffect, string]> = [["none", "Չկա"], ["shadow", "Ստվեր"], ["glow", "Լույս"], ["gold", "Ոսկի"]];
+const EFFECTS: Array<[StoryEffect, string]> = [["none", "Չկա"], ["shadow", "Ստվեր"], ["glow", "Լույս"], ["gold", "Ոսկեզօծ"]];
+const STRENGTH_LABEL: Record<StoryEffect, string> = { none: "", shadow: "Ստվերի ուժգնություն", glow: "Լույսի ուժգնություն", gold: "Փայլի ուժգնություն" };
 const TONES: Array<[StoryTone, string]> = [["dark", "Մուգ"], ["light", "Բաց"]];
 type Tab = "background" | "title" | "text";
 type TextMode = "fit" | "all" | "custom";
@@ -458,7 +459,11 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
       <>
         <Slider label="Տառի չափ" value={value.size} min={sizes.min} max={sizes.max} format={(size) => `${size} px`} onChange={(size) => setPart(part, { size })} />
         <Segmented label="Էֆեկտ" value={value.effect} options={EFFECTS} onChange={(effect) => setPart(part, { effect })} />
-        <Field label="Գույն" value={value.effect === "gold" ? <span className="font-semibold text-muted">«Ոսկի»-ն ունի իր գույնը</span> : undefined}>
+        {value.effect !== "none" ? (
+          <Slider label={STRENGTH_LABEL[value.effect]} value={Math.round(value.strength * 100)} min={0} max={100} step={5}
+            format={(strength) => `${strength}%`} onChange={(strength) => setPart(part, { strength: strength / 100 })} />
+        ) : null}
+        <Field label="Գույն" value={value.effect === "gold" ? <span className="font-semibold text-muted">«Ոսկեզօծ»-ն ունի իր գույնը</span> : undefined}>
           <StoryColorPicker value={value.color} recent={recent} disabled={value.effect === "gold"} onChange={(color) => setPart(part, { color })} />
         </Field>
         <Segmented label="Տառատեսակ" value={value.font} options={FONTS} onChange={(font) => setPart(part, { font })} />

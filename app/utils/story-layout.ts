@@ -154,7 +154,9 @@ export function storyUnits(text: string, longParagraph = 260) {
   const units: Array<{ text: string; paragraphStart: boolean }> = [];
   for (const paragraph of storyParagraphs(text)) {
     if (Array.from(paragraph).length <= longParagraph) { units.push({ text: paragraph, paragraphStart: true }); continue; }
-    const sentences = paragraph.match(/[^։:!?՞՜]+(?:[։:!?՞՜]+|$)\s*/gu)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [paragraph];
+    // Նախադասությունը ավարտվում է միայն վերջակետով (։ կամ :). բացականչական/շեշտի նշանները
+    // (՜ ՛ ՞) բառի մեջ են և չեն կտրում այն։
+    const sentences = paragraph.match(/[^։:]+(?:[։:]+|$)\s*/gu)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [paragraph];
     sentences.forEach((sentence, index) => units.push({ text: sentence, paragraphStart: index === 0 }));
   }
   return units;
@@ -174,4 +176,14 @@ export function joinUnits(units: Array<{ text: string; paragraphStart: boolean }
   });
   if (previous >= 0 && previous < units.length - 1) lines.push("…");
   return lines.join("\n");
+}
+
+const comparable = (value: string) => value.toLocaleLowerCase("hy").replace(/[^\p{L}\p{N}]+/gu, "");
+
+/** Տեքստի սկզբից հանում է վերնագիրը կրկնող տողերը (վերնագիրը նկարում առանձին է)։ */
+export function withoutLeadingTitle(text: string, title: string) {
+  const target = comparable(title);
+  const lines = text.split("\n");
+  while (lines.length > 1 && (!lines[0].trim() || (target && comparable(lines[0]) === target))) lines.shift();
+  return lines.join("\n").trim();
 }
