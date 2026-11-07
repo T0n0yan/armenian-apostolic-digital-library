@@ -118,6 +118,12 @@ const SENTENCE_END = /[։:!?…\u2029]/u;
 /** Այն նախադասությունը, որի վրա սեղմել են (դիրք տեքստում) → { start, end }՝ վերջակետով, առանց համարի։ */
 export function sentenceAt(text: string, offset: number) {
   if (offset < 0 || offset > text.length) return null;
+  // Սեղմել են վերջակետի աջ կեսին կամ նրանից հետո բացատին. կուրսորը վերջակետից հետո է, բայց մարդը
+  // նկատի ունի հենց այդ նախադասությունը (ոչ թե հաջորդը)։
+  if (offset > 0 && /[։:!?…»"')\]]/u.test(text[offset - 1]) && (offset === text.length || /[\s\u2029]/u.test(text[offset]))) {
+    offset -= 1;
+    while (offset > 0 && /[»"')\]]/u.test(text[offset])) offset -= 1;
+  }
   let start = offset;
   while (start > 0 && !SENTENCE_END.test(text[start - 1])) start -= 1;
   let end = offset;
@@ -150,4 +156,24 @@ export function mergeSpans(spans: Span[], text: string) {
     else merged.push({ ...span });
   }
   return merged;
+}
+
+/**
+ * Որոնման արդյունքում գտնված կտորը՝ նշելու համար. «…առաջ» + «գտնված» + «հետո…»։ Եթե գտնվածը
+ * տեքստի խորքում է, սկիզբը կտրվում է (բառի սահմանով), որ գտնված բառը միշտ երևա։ Չգտնելու դեպքում՝ null։
+ */
+export function matchAround(text: string, query: string, lead = 40) {
+  const needle = query.trim().toLocaleLowerCase("hy");
+  if (needle.length < 2) return null;
+  const lower = text.toLocaleLowerCase("hy");
+  // Մեծատառ/փոքրատառ փոխելիս երկարությունը չպետք է փոխվի, այլապես դիրքերը չեն համընկնի։
+  if (lower.length !== text.length) return null;
+  const at = lower.indexOf(needle);
+  if (at < 0) return null;
+  let from = 0;
+  if (at > lead) {
+    const space = text.indexOf(" ", at - lead);
+    from = space >= 0 && space < at ? space + 1 : at - lead;
+  }
+  return { before: `${from ? "…" : ""}${text.slice(from, at)}`, match: text.slice(at, at + needle.length), after: text.slice(at + needle.length) };
 }

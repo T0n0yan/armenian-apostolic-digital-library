@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { anchorFor, cleanEmoji, findQuote, highlightCopyText, mergeSpans, sentenceAt, toggleSentence } from "../app/utils/highlights";
+import { anchorFor, cleanEmoji, findQuote, highlightCopyText, matchAround, mergeSpans, sentenceAt, toggleSentence } from "../app/utils/highlights";
 import { createHighlight, deleteHighlight, listHighlights, listMarkedVerses, listMaterialHighlights, openQuestionCount, setVerseMarked, updateHighlight } from "../app/data/highlights.server";
 
 function database() {
@@ -124,4 +124,29 @@ test("only one emoji per note; old notes show their first one", async () => {
   assert.equal(cleanEmoji("🕊️"), "🕊️");
   assert.equal(cleanEmoji("👍🏽"), "👍🏽");
   assert.equal(firstEmoji("🕊️🕊️"), "🕊️");
+});
+
+test("sentenceAt: a tap just after «։» (or in the space after it) picks that sentence, not the next", () => {
+  const text = "Տերն է իմ հովիվը։ Ոչ մի բանի կարոտ չեմ լինի։";
+  const first = { start: 0, end: text.indexOf("։") + 1 };
+  assert.deepEqual(sentenceAt(text, text.indexOf("։") + 1), first);
+  assert.deepEqual(sentenceAt(text, text.indexOf("։")), first);
+  // Վերջին նախադասության վերջում (տեքստի վերջ)
+  assert.deepEqual(sentenceAt(text, text.length), { start: text.indexOf("Ոչ"), end: text.length });
+  // Հաջորդ նախադասության առաջին տառը՝ հաջորդը
+  assert.deepEqual(sentenceAt(text, text.indexOf("Ոչ")), { start: text.indexOf("Ոչ"), end: text.length });
+  // «։»-ից հետո փակող չակերտ
+  const quoted = "Ասաց. «Արի ինձ հետ։» Եվ գնաց։";
+  assert.deepEqual(sentenceAt(quoted, quoted.indexOf("»") + 1), { start: 0, end: quoted.indexOf("»") + 1 });
+});
+
+test("matchAround: marks the searched word (any case) and trims a long start at a word", () => {
+  assert.deepEqual(matchAround("Սրտիս կպելա", "կպելա"), { before: "Սրտիս ", match: "կպելա", after: "" });
+  assert.deepEqual(matchAround("Տերն է իմ հովիվը", "տերն"), { before: "", match: "Տերն", after: " է իմ հովիվը" });
+  assert.equal(matchAround("Տերն է", "չկա"), null);
+  assert.equal(matchAround("Տերն է", "տ"), null);
+  const long = `${"բառ ".repeat(30)}Աստված սեր է`;
+  const found = matchAround(long, "աստված")!;
+  assert.equal(found.match, "Աստված");
+  assert.ok(found.before.startsWith("…") && found.before.length <= 42);
 });

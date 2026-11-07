@@ -5,7 +5,8 @@ import { useSearchParams } from "react-router";
 import { churchNudgeEnabled, setChurchNudgeEnabled } from "./church-nudge";
 import { HighlightSheet, formatNoteDate } from "./highlight-sheet";
 import { countBadge, sectionHeader, sectionTitle } from "./ui-styles";
-import { findMyPosition } from "../utils/my-location";
+import { LocationHelp } from "./location-help";
+import { findMyPosition, type LocationFailure } from "../utils/my-location";
 import { firstEmoji, type Highlight } from "../utils/highlights";
 
 type Kind = "marks" | "questions" | "notes";
@@ -53,24 +54,35 @@ function ChurchToggle() {
   const [on, setOn] = useState(false);
   useEffect(() => setOn(churchNudgeEnabled()), []);
   const [message, setMessage] = useState("");
-  const toggle = async () => {
-    if (on) { setChurchNudgeEnabled(false); setOn(false); setMessage(""); return; }
+  const [failure, setFailure] = useState<LocationFailure | null>(null);
+  const turnOn = async () => {
+    setFailure(null);
     setMessage("Ստուգում ենք դիրքի թույլտվությունը…");
     // Թույլտվությունը հարցվում է միայն այստեղ՝ մարդու սեղմումով։ Դիրքը սարքից դուրս չի գալիս։
-    const position = await findMyPosition().catch(() => null);
-    if (!position) { setMessage("Դիրքը հասանելի չէ. թույլ տվեք տեղորոշումը բրաուզերի կամ Telegram-ի կարգավորումներում։"); return; }
+    try {
+      await findMyPosition();
+    } catch (reason) {
+      setMessage("");
+      setFailure((typeof reason === "string" ? reason : "unavailable") as LocationFailure);
+      return;
+    }
     setChurchNudgeEnabled(true); setOn(true);
     setMessage("Միացված է. կայք մտնելիս, եթե մոտ եք եկեղեցուն և ունեք հարց, կհուշենք (օրը մեկ անգամ)։");
   };
+  const toggle = () => {
+    if (on) { setChurchNudgeEnabled(false); setOn(false); setMessage(""); setFailure(null); return; }
+    void turnOn();
+  };
   return (
     <div className="frosted-panel grid gap-1.5 px-4 py-3">
-      <button className="flex cursor-pointer items-center justify-between gap-3 border-0 bg-transparent p-0 text-left text-ink" type="button" role="switch" aria-checked={on} onClick={() => void toggle()}>
+      <button className="flex cursor-pointer items-center justify-between gap-3 border-0 bg-transparent p-0 text-left text-ink" type="button" role="switch" aria-checked={on} onClick={toggle}>
         <span className="text-[14px] font-semibold">⛪ Հուշել, երբ մոտ եմ եկեղեցուն</span>
         <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? "bg-[rgb(74_160_96)]" : "bg-[rgb(150_140_150/40%)]"}`} aria-hidden="true">
           <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] ${on ? "left-[22px]" : "left-0.5"}`} />
         </span>
       </button>
       {message ? <p className="m-0 text-[12px] leading-snug text-faint">{message}</p> : null}
+      {failure ? <LocationHelp failure={failure} onRetry={() => void turnOn()} /> : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { searchValidation } from "../utils/search-validation";
-import { firstEmoji, type Highlight } from "../utils/highlights";
+import { firstEmoji, matchAround, type Highlight } from "../utils/highlights";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { listCloudLibraryCategories } from "../data/cloud-library.server";
 import { materialPath, sectionPath } from "../utils/material-path";
@@ -757,6 +757,13 @@ export default function Search({ loaderData }: Route.ComponentProps) {
   );
 }
 
+/** Որոնված բառը նշված (ինչպես մյուս արդյունքներում), որ երևա՝ ինչն է գտնվել։ */
+function Found({ text, query }: { text: string; query: string }) {
+  const found = matchAround(text, query);
+  if (!found) return <>{text}</>;
+  return <>{found.before}<mark className="rounded-[4px] bg-[rgb(240_196_88/38%)] px-[2px] py-[1px] text-inherit shadow-[0_0_0_1px_rgb(240_196_88/16%)] [box-decoration-break:clone]">{found.match}</mark>{found.after}</>;
+}
+
 /** Մուտք գործածի իր նշումները (տող, նշում, պատասխան), որոնք պարունակում են որոնվածը։ */
 function NoteMatches({ query }: { query: string }) {
   const [found, setFound] = useState<{ query: string; total: number; highlights: Highlight[] } | null>(null);
@@ -779,9 +786,10 @@ function NoteMatches({ query }: { query: string }) {
         {found.highlights.map((item) => (
           <li key={item.id}>
             <Link className={`frosted-card grid gap-1 border-l-4 px-3.5 py-2.5 text-inherit no-underline ${item.kind === "question" ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} to={`${item.path}?hl=${encodeURIComponent(item.id)}`}>
-              <span className="line-clamp-2 text-[14px] leading-snug text-ink">{firstEmoji(item.emoji) || (item.kind === "question" ? "❓" : "")} «{item.quote}»</span>
-              {item.note ? <span className="line-clamp-1 text-[12.5px] text-muted">✎ {item.note}</span> : null}
-              <span className="truncate text-[11.5px] font-semibold text-gold-bright">{item.title}</span>
+              <span className="line-clamp-2 text-[14px] leading-snug text-ink">{firstEmoji(item.emoji) || (item.kind === "question" ? "❓" : "")} «<Found text={item.quote} query={query} />»</span>
+              {item.note ? <span className="line-clamp-1 text-[12.5px] text-muted">✎ <Found text={item.note} query={query} /></span> : null}
+              {item.answer && matchAround(item.answer, query) ? <span className="line-clamp-1 text-[12.5px] text-[rgb(52_130_74)]">✓ <Found text={item.answer} query={query} /></span> : null}
+              <span className="truncate text-[11.5px] font-semibold text-gold-bright"><Found text={item.title} query={query} /></span>
             </Link>
           </li>
         ))}
