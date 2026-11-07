@@ -9,6 +9,8 @@ import { findPsalmByNumber, findPsalmNeighbors } from "./psalm-neighbors.server"
 import { listSavedMaterialIds } from "./saved-materials.server";
 import { listMarkedVerses } from "./highlights.server";
 import { materialMarks } from "./reading-log.server";
+import { getMaterialLayout } from "./material-layouts.server";
+import { sourceHash } from "../utils/prayer-layout";
 import { isMaterialSection, materialPath, parseItemSegment } from "../utils/material-path";
 import { psalmNumber } from "../utils/psalm-number";
 import type { MaterialDetail } from "./material-detail.server";
@@ -53,7 +55,9 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
     const query = search.toString();
     throw redirect(`${canonical}${query ? `?${query}` : ""}`, 301);
   }
-  const isPsalm = resolveContentCategoryId(null, material.categoryName) === "category_psalms";
+  const contentCategory = resolveContentCategoryId(null, material.categoryName);
+  const isPsalm = contentCategory === "category_psalms";
+  const isPrayer = contentCategory === "category_prayers";
   const [savedIds, psalm] = await Promise.all([
     user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
     isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
@@ -76,6 +80,15 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
   // The verses of this psalm the reader saved (the verse popup's "Պահել").
   const savedVerses = user && psalmReference ? await listMarkedVerses(env.DB, user.id, psalmReference.chatId, psalmReference.messageId).catch(() => []) : [];
+  // Աղոթքի ձևավորումը (եթե ադմինը ձևավորել է) և արդյոք այս մարդը կարող է այն փոխել։
+  const prayerReference = isPrayer ? parseMaterialId(material.id) : null;
+  const [savedLayout, canLayout] = prayerReference ? await Promise.all([
+    getMaterialLayout(env.DB, prayerReference).catch(() => null),
+    user ? getOptionalTelegramAdmin(request, env.DB).then((admin) => can(admin, "layout")).catch(() => false) : Promise.resolve(false),
+  ]) : [null, false];
+  const layout = savedLayout?.layout ?? null;
+  // Telegram-ում տեքստը փոխվել է ձևավորելուց հետո. ցույց է տրվում միայն ադմինին։
+  const layoutStale = Boolean(canLayout && savedLayout && savedLayout.sourceHash !== sourceHash(material));
   // Link previews point at this address's own pictures (staging's at staging).
-  return { origin: address.origin, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses };
+  return { origin: address.origin, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses, layout, canLayout, layoutStale };
 }
