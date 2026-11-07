@@ -7,8 +7,11 @@ import { findMyPosition, hasLocationAccess } from "../utils/my-location";
 import { directionLinks, formatDistance, nearbyPlaces, placeMediaUrl } from "../utils/places";
 
 const ENABLED_KEY = "church-nudge";
-const SHOWN_KEY = "church-nudge-day";
-/** Որքան մոտ պետք է լինի եկեղեցին (կմ)։ */
+/** Երբից կարելի է նորից հուշել (ms). ցույց տալուց հետո՝ 30 րոպե։ */
+const NEXT_KEY = "church-nudge-next";
+/** «Այսօր այլևս չհուշել»-ի օրը։ */
+const OFF_DAY_KEY = "church-nudge-off-day";
+const AGAIN_MS = 30 * 60_000;
 /** Եկեղեցու մոտ՝ 200 մետր (տիրոջ որոշում, 2026-11-07)։ */
 const RADIUS_KM = 0.2;
 
@@ -35,7 +38,7 @@ function buzz() {
 }
 
 /**
- * Կայք մտնելիս (օրը մեկ անգամ). եթե մարդն ունի չպատասխանված հարց, միացրել է այս հուշումը և արդեն
+ * Կայք մտնելիս և կայք վերադառնալիս (ցույց տալուց հետո՝ 30 րոպե դադար, կամ «Այսօր այլևս չհուշել»). եթե մարդն ունի չպատասխանված հարց, միացրել է այս հուշումը և արդեն
  * թույլ է տվել դիրքը, վերևում բացվում է քարտ «❓ Դուք ունեք հարց · ⛪ Մոտակայքում կա եկեղեցի»։
  * Քարտը մնում է, մինչև մարդը փակի։ «Դեպի եկեղեցի»-ն ցույց է տալիս եկեղեցու նկարը, անունը և
  * ճանապարհը Google Maps-ով կամ Yandex-ով։ Դիրքը սարքից դուրս չի գալիս։
@@ -48,27 +51,56 @@ export function ChurchNudge() {
   const [details, setDetails] = useState(false);
 
   useEffect(() => {
-    if (!signedIn || !churchNudgeEnabled()) return;
-    try { if (localStorage.getItem(SHOWN_KEY) === yerevanDay()) return; } catch { return; }
+    if (!signedIn) return;
     let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      const count = await fetch("/api/highlights?questions=1").then((response) => response.json() as Promise<{ openQuestions?: number }>).catch(() => null);
-      const questions = count?.openQuestions ?? 0;
-      if (cancelled || questions < 1 || !(await hasLocationAccess())) return;
-      const position = await findMyPosition({ precise: true }).catch(() => null);
-      if (cancelled || !position) return;
-      const points = await fetch("/api/church-points").then((response) => response.json() as Promise<{ places?: Church[] }>).catch(() => null);
-      const nearest = nearbyPlaces(points?.places ?? [], position, RADIUS_KM)[0];
-      if (cancelled || !nearest) return;
-      try { localStorage.setItem(SHOWN_KEY, yerevanDay()); } catch { /* պահեստը փակ է */ }
-      setPhase("in"); setDetails(false);
-      setNudge({ questions, church: nearest.place, km: nearest.km });
-      buzz();
-    }, 2500);
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    let running = false;
+    let shown = false;
+    // Ստուգում է կայք մտնելիս և ամեն անգամ, երբ մարդը վերադառնում է կայք (հավելվածը հետին պլանից)։
+    // Ցույց տալուց հետո 30 րոպե չի կրկնում. եթե մարդը դեռ եկեղեցու մոտ է և ունի հարց, նորից կհուշի։
+    const check = async () => {
+      if (running || shown || cancelled || document.visibilityState !== "visible" || !churchNudgeEnabled()) return;
+      try {
+        if (localStorage.getItem(OFF_DAY_KEY) === yerevanDay()) return;
+        if (Date.now() < Number(localStorage.getItem(NEXT_KEY) ?? 0)) return;
+      } catch { return; }
+      running = true;
+      try {
+        const count = await fetch("/api/highlights?questions=1").then((response) => response.json() as Promise<{ openQuestions?: number }>).catch(() => null);
+        const questions = count?.openQuestions ?? 0;
+        if (cancelled || questions < 1 || !(await hasLocationAccess())) return;
+        const position = await findMyPosition({ precise: true }).catch(() => null);
+        if (cancelled || !position) return;
+        const points = await fetch("/api/church-points").then((response) => response.json() as Promise<{ places?: Church[] }>).catch(() => null);
+        const nearest = nearbyPlaces(points?.places ?? [], position, RADIUS_KM)[0];
+        if (cancelled || !nearest) return;
+        try { localStorage.setItem(NEXT_KEY, String(Date.now() + AGAIN_MS)); } catch { /* պահեստը փակ է */ }
+        shown = true;
+        setPhase("in"); setDetails(false);
+        setNudge({ questions, church: nearest.place, km: nearest.km });
+        buzz();
+      } finally { running = false; }
+    };
+    const timer = window.setTimeout(() => void check(), 2500);
+    const onVisible = () => { if (document.visibilityState === "visible") void check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    // Փակելուց հետո քարտը կարող է նորից գալ (30 րոպեից)
+    const onClosed = () => { shown = false; };
+    window.addEventListener("church-nudge-closed", onClosed);
+    return () => {
+      cancelled = true; window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+      window.removeEventListener("church-nudge-closed", onClosed);
+    };
   }, [signedIn]);
 
-  const close = () => { setPhase("out"); window.setTimeout(() => setNudge(null), 420); };
+  const close = () => {
+    setPhase("out");
+    window.setTimeout(() => { setNudge(null); window.dispatchEvent(new Event("church-nudge-closed")); }, 420);
+  };
+  /** Այսօր այլևս չհուշել (վաղը՝ նորից)։ */
+  const offToday = () => { try { localStorage.setItem(OFF_DAY_KEY, yerevanDay()); } catch { /* պահեստը փակ է */ } close(); };
 
   if (!nudge || typeof document === "undefined") return null;
   const { church } = nudge;
@@ -107,6 +139,10 @@ export function ChurchNudge() {
         <div className="flex gap-2">
           {!details ? <button className={`${button} border-[rgb(120_165_230/45%)] bg-[rgb(120_165_230/14%)]`} type="button" onClick={() => setDetails(true)}>⛪ Դեպի եկեղեցի</button> : null}
           <Link className={button} to="/saved?tab=notes&kind=questions" onClick={close}>❓ Իմ հարցերը</Link>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-0.5 text-[11.5px] text-faint">
+          <span>Փակելուց հետո՝ նորից 30 րոպեից, եթե դեռ մոտ եք։</span>
+          <button className="cursor-pointer border-0 bg-transparent p-0 text-[11.5px] font-semibold text-muted underline underline-offset-2" type="button" onClick={offToday}>Այսօր այլևս չհուշել</button>
         </div>
       </div>
     </div>,

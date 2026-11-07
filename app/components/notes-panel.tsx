@@ -67,7 +67,7 @@ function ChurchToggle() {
       return;
     }
     setChurchNudgeEnabled(true); setOn(true);
-    setMessage("Միացված է. կայք մտնելիս, եթե մոտ եք եկեղեցուն և ունեք հարց, կհուշենք (օրը մեկ անգամ)։");
+    setMessage("Միացված է. կայք մտնելիս, եթե մոտ եք եկեղեցուն և ունեք հարց, կհուշենք (փակելուց հետո՝ նորից 30 րոպեից)։");
   };
   const toggle = () => {
     if (on) { setChurchNudgeEnabled(false); setOn(false); setMessage(""); setFailure(null); return; }
