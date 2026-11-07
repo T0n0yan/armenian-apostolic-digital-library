@@ -3,6 +3,7 @@ import { createRequestHandler } from "react-router";
 import { cacheEpoch, dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
+import { removeOldStories } from "../app/data/stories.server";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -119,8 +120,10 @@ export default {
     const clock = (env as unknown as ClockEnv).CLOCK;
     if (clock) context.waitUntil(clock.get(clock.idFromName("reminders")).scheduleReminders().catch((error: unknown) => console.error("reminder clock", error)));
     context.waitUntil(ensureWebhookUpdates().catch((error: unknown) => console.error("webhook", error)));
-    const data = env as unknown as { DB: D1Database; TEST_DATA_DAYS?: string };
+    const data = env as unknown as { DB: D1Database; TEST_DATA_DAYS?: string; MEDIA: R2Bucket };
     context.waitUntil(removeOldData(data.DB, data.TEST_DATA_DAYS).catch((error: unknown) => console.error("clean-up", error)));
+    // Mini App-ի story-ի ժամանակավոր նկարները (app/data/stories.server.ts)։
+    context.waitUntil(removeOldStories(data.MEDIA).catch((error: unknown) => console.error("stories clean-up", error)));
   },
   async fetch(request, env, context) {
     // A failure outside the app's own error pages (the database or the platform) still gets a
