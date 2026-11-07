@@ -766,3 +766,15 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 .continue-card { animation: continue-in 520ms cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes continue-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .continue-card { animation: none; } }
+
+/* Աղոթքի ձևավորում (prayer-layout-view.tsx). կարմիրը՝ ժամագրքի ցուցումների պես։ */
+.prayer-layout .layout-gold { color: var(--gold-bright); }
+.prayer-layout .layout-red { color: rgb(168 38 30); }
+:root[data-theme="dark"] .prayer-layout .layout-red { color: rgb(236 120 100); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) .prayer-layout .layout-red { color: rgb(236 120 100); } }
+.prayer-layout .layout-note { color: var(--muted); font-style: italic; line-height: 1.7; }
+.prayer-layout .layout-title { color: var(--gold-bright); font-weight: 600; letter-spacing: .04em; }
+/* Մեջտեղում/աջում թռչնատառը չի լողում ձախ, այլ մնում է տողի մեջ։ */
+.prayer-layout .layout-paragraph:is([data-align="center"], [data-align="end"]) .ornate-initial { float: none; display: inline-block; vertical-align: -0.32em; font-size: 2.6em; margin: 0 0.06em 0 0; }
+/* Պարբերությունը փակում է իր թռչնատառը, որ հաջորդը չսեղմվի նրա կողքին։ */
+.prayer-layout .layout-paragraph { display: flow-root; }

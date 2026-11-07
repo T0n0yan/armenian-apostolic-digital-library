@@ -1,6 +1,6 @@
-import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Tag } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Paintbrush, Tag, TriangleAlert } from "lucide-react";
 import { hasRememberedFind, useFindFlash } from "../utils/find-flash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router";
 
 import type { Route } from "./+types/material";
@@ -26,6 +26,11 @@ import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
 import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
+import { PrayerLayoutView } from "../components/prayer-layout-view";
+import { seedLayout } from "../utils/prayer-layout";
+
+// Խմբագիրը պետք է միայն ադմինին. ընթերցողի էջը այն չի բեռնում։
+const PrayerLayoutEditor = lazy(() => import("../components/prayer-layout-editor").then((module) => ({ default: module.PrayerLayoutEditor })));
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return loadMaterialPage(await resolveMaterialId(params), request);
@@ -120,6 +125,9 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const hasAudio = material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"));
   const plainText = !material.richContent ? material.formattedText.text.slice(textTitleLength).trim() : "";
   const linesView = !isPsalm && hasAudio && plainText.length > 0 && !activeHit;
+  // Ադմինի ձևավորած աղոթքը Telegram-ի տեքստի փոխարեն։
+  const layout = isPrayer ? loaderData.layout : null;
+  const [layoutOpen, setLayoutOpen] = useState(false);
 
   useEffect(() => {
     setActiveHit(stateHit);
@@ -145,8 +153,29 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
       <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath} data-section-name={material.categoryName}>
-        {psalmView ? <MaterialMediaGallery media={material.media} /> : material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
-        {psalmView ? null : material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
+        {isPrayer && loaderData.canLayout ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {loaderData.layoutStale ? <span className="inline-flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert className="text-gold" size={15} aria-hidden="true" /> Telegram-ում տեքստը փոխվել է</span> : null}
+            <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setLayoutOpen(true)}>
+              <Paintbrush size={15} aria-hidden="true" /> Ձևավորել
+            </button>
+          </div>
+        ) : null}
+        {layoutOpen ? (
+          <Suspense fallback={null}>
+            <PrayerLayoutEditor
+              materialId={material.id}
+              start={layout ?? seedLayout(material)}
+              seed={seedLayout(material)}
+              saved={Boolean(layout)}
+              stale={loaderData.layoutStale}
+              hasAudio={hasAudio}
+              onClose={() => setLayoutOpen(false)}
+            />
+          </Suspense>
+        ) : null}
+        {psalmView ? <MaterialMediaGallery media={material.media} /> : !layout && material.richContent && material.media.some((asset) => asset.attached) ? <MaterialMediaGallery media={material.media.filter((asset) => asset.attached)} /> : null}
+        {psalmView ? null : layout ? <MaterialMediaGallery media={material.media} /> : material.richContent ? <TelegramRichMessage value={material.richContent} media={material.media} hit={activeHit} title={material.title} ornateInitial={isPrayer} /> : <MaterialMediaGallery media={material.media} />}
 
         {material.poll ? <TelegramPollCard poll={material.poll} telegramUrl={material.telegramUrl} title={material.title} materialId={material.id} votes={loaderData.pollVotes} canVote={loaderData.canSave} /> : null}
         {material.location ? <TelegramLocationCard location={material.location} /> : null}
@@ -162,7 +191,9 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </ul>
         ) : null}
 
-        {linesView ? (
+        {layout ? (
+          <PrayerLayoutView layout={layout} />
+        ) : linesView ? (
           <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
             <PsalmReadAlong
               key={material.id}
