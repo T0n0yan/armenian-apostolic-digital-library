@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createPortal } from "react-dom";
 
 import { useScrollLock } from "../utils/scroll-lock";
-import { STORY_BACKGROUNDS, type StoryBackground } from "../utils/story-backgrounds";
+import { STORY_DESIGNS, storyBackground, type StoryTone } from "../utils/story-backgrounds";
 import { STORY_HEIGHT, STORY_WIDTH, type StoryAlign, type StoryPosition, type StorySize } from "../utils/story-layout";
 import {
   STORY_COLORS, canvasBlob, defaultColor, drawStoryPage, loadBackground, loadStoryFonts, planFor,
@@ -27,7 +27,7 @@ function telegramApp() {
 
 const SETTINGS_KEY = "story-style";
 
-type Saved = Partial<StoryStyle> & { background?: string };
+type Saved = Partial<StoryStyle> & { design?: string; tone?: StoryTone };
 
 function readSaved(): Saved {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") as Saved; } catch { return {}; }
@@ -42,6 +42,7 @@ const POSITIONS: Array<[StoryPosition, string]> = [["top", "Վերև"], ["center
 const ALIGNS: Array<[StoryAlign, string]> = [["center", "Մեջտեղում"], ["start", "Ձախից"]];
 const FONTS: Array<[StoryFont, string]> = [["book", "Գրքային"], ["serif", "Նոտո"]];
 const SHADES: Array<[StoryShade, string]> = [[0, "Չկա"], [1, "Թեթև"], [2, "Խիտ"]];
+const TONES: Array<[StoryTone, string]> = [["dark", "Մուգ"], ["light", "Բաց"]];
 
 function Segmented<T extends string | number>({ label, value, options, onChange }: {
   label: string; value: T; options: Array<[T, string]>; onChange: (value: T) => void;
@@ -94,14 +95,16 @@ function download(blob: Blob, name: string) {
 export function StoryEditor({ source, onClose }: { source: StorySource; onClose: () => void }) {
   useScrollLock(true);
   const saved = useMemo(readSaved, []);
-  const [background, setBackground] = useState<StoryBackground>(() => STORY_BACKGROUNDS.find((entry) => entry.id === saved.background) ?? STORY_BACKGROUNDS[0]);
+  const [design, setDesign] = useState(() => saved.design ?? STORY_DESIGNS[0].id);
+  const [tone, setTone] = useState<StoryTone>(() => saved.tone ?? "dark");
+  const background = useMemo(() => storyBackground(design, tone), [design, tone]);
   const [style, setStyle] = useState<StoryStyle>(() => ({
     size: saved.size ?? "auto",
     position: saved.position ?? "center",
     align: saved.align ?? "center",
-    color: saved.color ?? defaultColor(background),
+    color: saved.color ?? defaultColor(storyBackground(saved.design, saved.tone ?? "dark")),
     font: saved.font ?? "book",
-    shade: saved.shade ?? 1,
+    shade: saved.shade ?? 0,
   }));
   const [page, setPage] = useState(0);
   const [pageCount, setPageCount] = useState(1);
@@ -118,13 +121,13 @@ export function StoryEditor({ source, onClose }: { source: StorySource; onClose:
   const canShareFiles = typeof navigator !== "undefined" && typeof navigator.canShare === "function"
     && navigator.canShare({ files: [new File([new Uint8Array(1)], "a.jpg", { type: "image/jpeg" })] });
 
-  useEffect(() => { writeSaved({ ...style, background: background.id }); }, [background.id, style]);
+  useEffect(() => { writeSaved({ ...style, design, tone }); }, [design, style, tone]);
 
   const update = useCallback((patch: Partial<StoryStyle>) => setStyle((current) => ({ ...current, ...patch })), []);
-  const chooseBackground = (next: StoryBackground) => {
-    // Մուգից բաց ֆոնի անցնելիս տառերի գույնն էլ է փոխվում, որ կարդացվի։
-    if (next.tone !== background.tone && (style.color === defaultColor(background))) update({ color: defaultColor(next) });
-    setBackground(next);
+  const chooseTone = (next: StoryTone) => {
+    // Մուգից բաց անցնելիս տառերի գույնն էլ է փոխվում, որ կարդացվի։
+    if (next !== tone && style.color === defaultColor(background)) update({ color: defaultColor(storyBackground(design, next)) });
+    setTone(next);
   };
 
   // Նախադիտում և պատրաստի ֆայլեր
@@ -134,7 +137,7 @@ export function StoryEditor({ source, onClose }: { source: StorySource; onClose:
     setReady(false);
     const timer = window.setTimeout(async () => {
       await loadStoryFonts();
-      const image = background.src ? await loadBackground(background.src) : null;
+      const image = await loadBackground(background.src);
       if (cancelled) return;
       const work = document.createElement("canvas");
       work.width = STORY_WIDTH;
@@ -142,7 +145,7 @@ export function StoryEditor({ source, onClose }: { source: StorySource; onClose:
       const context = work.getContext("2d");
       const preview = previewRef.current?.getContext("2d");
       if (!context || !preview) return;
-      const plan = planFor(context, source.text, style);
+      const plan = planFor(context, source.text, style, background);
       const current = Math.min(page, plan.pages.length - 1);
       setPageCount(plan.pages.length);
       setTooLong(plan.tooLong);
@@ -253,14 +256,15 @@ export function StoryEditor({ source, onClose }: { source: StorySource; onClose:
         <div className="grid w-full max-w-[440px] gap-3 self-center min-[760px]:self-start">
           <Row label="Ֆոն">
             <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {STORY_BACKGROUNDS.map((entry) => (
-                <button key={entry.id} type="button" aria-label={`Ֆոն ${entry.id}`} aria-pressed={entry.id === background.id}
-                  className={`h-[84px] w-[48px] shrink-0 cursor-pointer rounded-[10px] border-2 bg-cover bg-center p-0 ${entry.id === background.id ? "border-[#d9b56f] shadow-[0_0_0_2px_rgb(217_181_111/35%)]" : "border-transparent"}`}
-                  style={{ backgroundImage: entry.thumb ? `url(${entry.thumb})` : `linear-gradient(${entry.gradient?.[0]}, ${entry.gradient?.[1]})` }}
-                  onClick={() => chooseBackground(entry)} />
+              {STORY_DESIGNS.map((entry) => (
+                <button key={entry.id} type="button" aria-label={entry.label} title={entry.label} aria-pressed={entry.id === design}
+                  className={`h-[84px] w-[48px] shrink-0 cursor-pointer rounded-[10px] border-2 bg-cover bg-center p-0 ${entry.id === design ? "border-[#d9b56f] shadow-[0_0_0_2px_rgb(217_181_111/35%)]" : "border-transparent"}`}
+                  style={{ backgroundImage: `url(${storyBackground(entry.id, tone).thumb})` }}
+                  onClick={() => setDesign(entry.id)} />
               ))}
             </div>
           </Row>
+          <Segmented label="Ֆոնի տոն" value={tone} options={TONES} onChange={chooseTone} />
           <Segmented label="Տառի չափ" value={style.size} options={SIZES} onChange={(size) => update({ size })} />
           <Segmented label="Դիրք" value={style.position} options={POSITIONS} onChange={(position) => update({ position })} />
           <Row label="Գույն">

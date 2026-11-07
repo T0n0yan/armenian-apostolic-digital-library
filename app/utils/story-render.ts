@@ -1,7 +1,6 @@
 // Story-ի նկարը canvas-ի վրա (միայն բրաուզերում)։ Դասավորությունը՝ story-layout.ts։
 
 import type { StoryBackground } from "./story-backgrounds";
-import { STORY_BOX } from "./story-backgrounds";
 import {
   LINE_HEIGHT, PARAGRAPH_GAP, STORY_HEIGHT, STORY_WIDTH, blockTop, planStory,
   type StoryAlign, type StoryPlan, type StoryPosition, type StorySize,
@@ -76,12 +75,13 @@ export function loadBackground(src: string) {
   return pending;
 }
 
-function textBox() {
-  return { ...STORY_BOX, top: STORY_BOX.top + HEADER };
+function textBox(background: StoryBackground) {
+  const { box } = background.design;
+  return { ...box, top: box.top + HEADER };
 }
 
-export function planFor(context: CanvasRenderingContext2D, text: string, style: StoryStyle): StoryPlan {
-  return planStory(text, style.size, textBox(), (value, size) => {
+export function planFor(context: CanvasRenderingContext2D, text: string, style: StoryStyle, background: StoryBackground): StoryPlan {
+  return planStory(text, style.size, textBox(background), (value, size) => {
     context.font = `400 ${size}px ${FAMILY[style.font]}`;
     return context.measureText(value).width;
   });
@@ -118,15 +118,16 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
   if (image) {
     context.drawImage(image, 0, 0, STORY_WIDTH, STORY_HEIGHT);
   } else {
-    const [from, to] = background.gradient ?? ["#2b1638", "#0f0a18"];
-    const fill = context.createLinearGradient(0, 0, 0, STORY_HEIGHT);
-    fill.addColorStop(0, from);
-    fill.addColorStop(1, to);
-    context.fillStyle = fill;
+    // Նկարը չբեռնվեց. նույն տոնի պարզ ֆոն և apostolic.am-ը։
+    context.fillStyle = background.tone === "dark" ? "#22142e" : "#ecdcb8";
     context.fillRect(0, 0, STORY_WIDTH, STORY_HEIGHT);
+    context.textAlign = "center";
+    context.fillStyle = background.tone === "dark" ? "#d9b56f" : "#7a5a2e";
+    context.font = `400 44px ${TITLE_FAMILY}`;
+    context.fillText("apostolic.am", STORY_WIDTH / 2, 1790);
   }
 
-  const box = textBox();
+  const box = textBox(background);
   const height = plan.pages[page]?.height ?? 0;
   const top = blockTop(style.position, box, height);
   const headerTop = top - HEADER;
@@ -171,14 +172,6 @@ export function drawStoryPage(context: CanvasRenderingContext2D, options: {
   });
   context.shadowColor = "transparent";
   context.shadowBlur = 0;
-
-  // apostolic.am՝ գունային ֆոնի վրա (նկարներում այն արդեն կա)։ Ընթերցողը չի կարող այն փոխել։
-  if (!background.hasMark) {
-    context.textAlign = "center";
-    context.fillStyle = background.tone === "dark" ? "rgba(247, 236, 210, 0.82)" : "rgba(60, 30, 20, 0.78)";
-    context.font = `600 40px ${TITLE_FAMILY}`;
-    context.fillText("apostolic.am", STORY_WIDTH / 2, STORY_HEIGHT - 150);
-  }
   context.restore();
 }
 
