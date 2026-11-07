@@ -23,7 +23,8 @@ export type Measure = (text: string, size: number) => number;
 /** Տեքստի տարածքը նկարի վրա (պիքսելով). վերևը՝ ծրագրերի կոճակների, ներքևը՝ apostolic.am-ի համար։ */
 export type StoryBox = { left: number; right: number; top: number; bottom: number };
 
-export type StoryLine = { text: string; paragraphStart: boolean };
+/** `indent`՝ զարդատառի կողքի տողերի ձախ նահանջը։ */
+export type StoryLine = { text: string; paragraphStart: boolean; indent: number };
 export type StoryPage = { lines: StoryLine[]; height: number };
 
 /** Տեքստը պարբերությունների. դատարկ տողերը և ավելորդ բացատները հանվում են։ */
@@ -36,18 +37,19 @@ export function storyParagraphs(text: string) {
 }
 
 /** Մեկ պարբերությունը տողերի՝ ըստ լայնության. չափազանց երկար բառը կտրվում է տառերով։ */
-export function wrapParagraph(paragraph: string, width: number, size: number, measure: Measure) {
+export function wrapParagraph(paragraph: string, width: number | ((line: number) => number), size: number, measure: Measure) {
   const lines: string[] = [];
+  const widthAt = () => (typeof width === "number" ? width : width(lines.length));
   let current = "";
   for (const word of paragraph.split(" ")) {
     const candidate = current ? `${current} ${word}` : word;
-    if (measure(candidate, size) <= width) { current = candidate; continue; }
+    if (measure(candidate, size) <= widthAt()) { current = candidate; continue; }
     if (current) lines.push(current);
-    if (measure(word, size) <= width) { current = word; continue; }
+    if (measure(word, size) <= widthAt()) { current = word; continue; }
     // Բառը չի տեղավորվում մեկ տողում։
     let piece = "";
     for (const character of Array.from(word)) {
-      if (piece && measure(piece + character, size) > width) { lines.push(piece); piece = ""; }
+      if (piece && measure(piece + character, size) > widthAt()) { lines.push(piece); piece = ""; }
       piece += character;
     }
     current = piece;
@@ -56,8 +58,20 @@ export function wrapParagraph(paragraph: string, width: number, size: number, me
   return lines;
 }
 
-function lineBlocks(paragraphs: string[], width: number, size: number, measure: Measure) {
-  return paragraphs.map((paragraph) => wrapParagraph(paragraph, width, size, measure));
+/** Զարդատառը (թռչնագիր). առաջին պարբերության առաջին `lines` տողերը նեղանում են `width`-ով։ */
+export type StoryCap = { width: number; lines: number };
+
+function lineBlocks(paragraphs: string[], width: number, size: number, measure: Measure, cap?: StoryCap): StoryLine[][] {
+  // Զարդատառի կողքի տողերը հաշվվում են ամբողջ տեքստով (կարճ առաջին պարբերությունից հետո՝ հաջորդում)։
+  let before = 0;
+  return paragraphs.map((paragraph) => {
+    const start = before;
+    const indentAt = (line: number) => (cap && start + line < cap.lines ? cap.width : 0);
+    const lines = wrapParagraph(paragraph, (line) => width - indentAt(line), size, measure)
+      .map((text, line) => ({ text, paragraphStart: line === 0, indent: indentAt(line) }));
+    before += lines.length;
+    return lines;
+  });
 }
 
 /** Տողերի բարձրությունը. պարբերությունների միջև՝ փոքր բացատ։ */
@@ -71,10 +85,10 @@ export function blockHeight(lines: StoryLine[], size: number) {
  * Տողերը էջերի՝ `capacity` բարձրությամբ։ Պարբերությունը չի կտրվում, եթե էջն արդեն կիսով չափ լիքն
  * է և պարբերությունը ամբողջությամբ տեղավորվում է հաջորդ էջում։
  */
-function fillPages(blocks: string[][], size: number, capacity: number) {
+function fillPages(blocks: StoryLine[][], size: number, capacity: number) {
   const pages: StoryLine[][] = [[]];
   for (const block of blocks) {
-    const lines = block.map((text, index) => ({ text, paragraphStart: index === 0 }));
+    const lines = block;
     let page = pages[pages.length - 1];
     const whole = blockHeight(lines, size);
     if (page.length && blockHeight([...page, ...lines], size) > capacity && whole <= capacity && blockHeight(page, size) >= capacity * 0.5) {
@@ -95,7 +109,7 @@ function fillPages(blocks: string[][], size: number, capacity: number) {
 /**
  * Էջերը հավասարեցված. նույն քանակով էջ, բայց ամենափոքր բարձրությամբ, որ վերջին էջը մի տող չմնա։
  */
-function balancedPages(blocks: string[][], size: number, capacity: number) {
+function balancedPages(blocks: StoryLine[][], size: number, capacity: number) {
   const first = fillPages(blocks, size, capacity);
   if (first.length < 2) return first;
   let low = size * LINE_HEIGHT;
@@ -112,8 +126,8 @@ function balancedPages(blocks: string[][], size: number, capacity: number) {
 export type StoryPlan = { size: number; pages: StoryPage[]; tooLong: boolean };
 
 /** Տեքստը տողերի և էջերի՝ տրված չափով և շրջանակով. չտեղավորվողը անցնում է հաջորդ նկար։ */
-export function planStory(text: string, size: number, box: StoryBox, measure: Measure): StoryPlan {
-  const blocks = lineBlocks(storyParagraphs(text), box.right - box.left, size, measure);
+export function planStory(text: string, size: number, box: StoryBox, measure: Measure, cap?: StoryCap): StoryPlan {
+  const blocks = lineBlocks(storyParagraphs(text), box.right - box.left, size, measure, cap);
   const capacity = Math.max(box.bottom - box.top, size * LINE_HEIGHT);
   const pages = balancedPages(blocks, size, capacity).map((lines) => ({ lines, height: blockHeight(lines, size) }));
   const list = pages.length ? pages : [{ lines: [], height: 0 }];
