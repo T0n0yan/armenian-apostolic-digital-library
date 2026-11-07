@@ -9,7 +9,8 @@ import { directionLinks, formatDistance, nearbyPlaces, placeMediaUrl } from "../
 const ENABLED_KEY = "church-nudge";
 const SHOWN_KEY = "church-nudge-day";
 /** Որքան մոտ պետք է լինի եկեղեցին (կմ)։ */
-const RADIUS_KM = 1;
+/** Եկեղեցու մոտ՝ 200 մետր (տիրոջ որոշում, 2026-11-07)։ */
+const RADIUS_KM = 0.2;
 
 /** Միացվա՞ծ է այս սարքում «Հուշել, երբ մոտ եմ եկեղեցուն» («Իմ նշումները» → «Հարցեր»)։ */
 export function churchNudgeEnabled() {
@@ -54,7 +55,7 @@ export function ChurchNudge() {
       const count = await fetch("/api/highlights?questions=1").then((response) => response.json() as Promise<{ openQuestions?: number }>).catch(() => null);
       const questions = count?.openQuestions ?? 0;
       if (cancelled || questions < 1 || !(await hasLocationAccess())) return;
-      const position = await findMyPosition().catch(() => null);
+      const position = await findMyPosition({ precise: true }).catch(() => null);
       if (cancelled || !position) return;
       const points = await fetch("/api/church-points").then((response) => response.json() as Promise<{ places?: Church[] }>).catch(() => null);
       const nearest = nearbyPlaces(points?.places ?? [], position, RADIUS_KM)[0];

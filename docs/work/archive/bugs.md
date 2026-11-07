@@ -2,6 +2,8 @@
 
 Հին «Արված» տողերը (նորերը՝ վերևում)։ Գործից առաջ կարդալ պետք չէ։
 
+- 2026-10-24 — /admin/people. գրանցվածների և անանուն սարքերի ցուցակ, որոնում, Excel ([#44](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/44))։
+
 - 2026-10-24 — Վերնագրերի որոնում հեռախոսում (առանց հարցման), անգլերեն/ռուսերեն բառեր, էջերը պահվում են հեռախոսում մինչև նոր նյութ ([#45](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/45))։
 - 2026-10-24 — Աղոթքների տառաչափը աշխատում է, «Օրվա համարը»-ի և «Սարքի պես» թեմայի փոփոխությունները՝ միանգամից, ամսաթվերը՝ հայերեն ամսանուններով («M10»-ի փոխարեն) ([#47](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/47))։
 - 2026-10-23 — 404 էջի ներդիրում մեկ ճիշտ վերնագիր («Էջը չի գտնվել») ([#24](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/24))։
