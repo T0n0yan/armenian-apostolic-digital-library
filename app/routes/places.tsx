@@ -12,7 +12,8 @@ import { SiteNav } from "../components/site-nav";
 import { listPublicPlaceSummaries } from "../data/places.server";
 import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMatches, placeMediaUrl } from "../utils/places";
 import { useSignInGuard } from "../components/sign-in-sheet";
-import { deviceKind, findMyPosition, locationPermission, openLocationSettings, type DeviceKind, type LocationFailure } from "../utils/my-location";
+import { findMyPosition, type LocationFailure } from "../utils/my-location";
+import { LocationHelp } from "../components/location-help";
 import { usePlaceVisits } from "../utils/place-visits";
 import { seoMeta } from "../utils/seo";
 
@@ -113,31 +114,8 @@ function saveNear(view: NearView | null) {
   try { if (view) sessionStorage.setItem(NEAR_KEY, JSON.stringify({ ...view, at: Date.now() })); else sessionStorage.removeItem(NEAR_KEY); } catch { /* private mode */ }
 }
 
-const NEAR_FAILURES: Record<LocationFailure, string> = {
-  denied: "Տեղորոշման թույլտվություն չկա, դրա համար «Իմ մոտակայքում»-ը չի աշխատում։",
-  unavailable: "Ձեր հեռախոսի տեղորոշումը (GPS) անջատված է կամ տեղը չհաջողվեց որոշել։",
-  unsupported: "Այս բրաուզերը չի կարող որոշել ձեր տեղը։ Բացեք կայքը Chrome-ով կամ Safari-ով։",
-};
 
 /** Ինչպես միացնել տեղորոշումը՝ ըստ սարքի. բրաուզերը նորից չի հարցնում, եթե մեկ անգամ արգելվել է։ */
-const NEAR_STEPS: Record<DeviceKind, Record<"denied" | "unavailable", string[]>> = {
-  telegram: {
-    denied: ["Սեղմեք «Բացել կարգավորումները» ներքևում", "Միացրեք «Տեղորոշում» (Location)", "Վերադարձեք և սեղմեք «Փորձել կրկին»"],
-    unavailable: ["Հեռախոսի վերևի արագ մենյուից միացրեք «Տեղորոշում» (Location / GPS)", "Telegram-ի կարգավորումներում թույլատրեք տեղորոշումը", "Սեղմեք «Փորձել կրկին»"],
-  },
-  ios: {
-    denied: ["Կարգավորումներ (Settings) → Գաղտնիություն (Privacy & Security) → Տեղորոշում (Location Services)", "Գտեք Safari-ն (կամ Chrome-ը) → «Հավելվածն օգտագործելիս» (While Using the App)", "Վերադարձեք, թարմացրեք էջը և սեղմեք «Իմ մոտակայքում»"],
-    unavailable: ["Կարգավորումներ → Գաղտնիություն → Տեղորոշում (Location Services)՝ միացնել", "Վերադարձեք և սեղմեք «Փորձել կրկին»"],
-  },
-  android: {
-    denied: ["Հասցեի տողի ձախ կողմում սեղմեք 🔒 (կամ ⓘ) նշանը", "«Թույլտվություններ» → «Տեղորոշում» → «Թույլատրել»", "Թարմացրեք էջը և սեղմեք «Իմ մոտակայքում»"],
-    unavailable: ["Հեռախոսի վերևի արագ մենյուից միացրեք «Տեղորոշում» (Location)", "Սեղմեք «Փորձել կրկին»"],
-  },
-  desktop: {
-    denied: ["Հասցեի տողի ձախ կողմում սեղմեք 🔒 նշանը", "«Տեղորոշում» (Location) → «Թույլատրել»", "Թարմացրեք էջը"],
-    unavailable: ["Համակարգչի կարգավորումներում միացրեք տեղորոշումը", "Սեղմեք «Փորձել կրկին»"],
-  },
-};
 
 /** The map of sacred places, and the same places as a list under it. */
 export default function Places({ loaderData }: Route.ComponentProps) {
@@ -168,8 +146,8 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   const nearView = near.status === "on" ? near.view : null;
   const locate = async (radiusKm = 30) => {
     setNear({ status: "locating" });
-    // Եթե բրաուզերն արդեն գիտի, որ արգելված է, միանգամից ցույց ենք տալիս ինչպես միացնել։
-    if (deviceKind() !== "telegram" && (await locationPermission()) === "denied") { setNear({ status: "failed", failure: "denied" }); return; }
+    // Միշտ փորձում ենք. եթե բրաուզերը կարող է հարցնել, հենց հիմա կհարցնի (iPhone-ում նախնական
+    // ստուգումը երբեմն «արգելված» էր ասում, ու հարցումը ընդհանրապես չէր բացվում)։
     try {
       const position = await findMyPosition();
       const view = { ...position, radiusKm };
@@ -305,18 +283,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
             </button>
           )}
           {near.status === "failed" ? (
-            <div className="grid gap-2 rounded-[14px] border border-[rgb(184_72_62/45%)] bg-[rgb(184_72_62/10%)] px-3.5 py-3 text-[13px] leading-relaxed text-ink" role="alert">
-              <strong className="text-[#c4574b]">{NEAR_FAILURES[near.failure]}</strong>
-              {near.failure !== "unsupported" ? (
-                <ol className="m-0 grid gap-1 pl-5 text-[12.5px] text-muted">
-                  {NEAR_STEPS[deviceKind()][near.failure].map((step) => <li key={step}>{step}</li>)}
-                </ol>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {deviceKind() === "telegram" ? <button type="button" className="min-h-9 cursor-pointer rounded-[11px] border border-glass-border bg-subtle px-3 text-[12.5px] font-semibold text-gold-bright" onClick={() => openLocationSettings()}>Բացել կարգավորումները</button> : null}
-                <button type="button" className="min-h-9 cursor-pointer rounded-[11px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[12.5px] font-bold text-[#2a1708]" onClick={() => void locate()}>Փորձել կրկին</button>
-              </div>
-            </div>
+            <LocationHelp failure={near.failure} lead={near.failure === "denied" ? "Դրա համար «Իմ մոտակայքում»-ը չի աշխատում։" : undefined} onRetry={() => void locate()} />
           ) : near.status === "on" ? (
             <p className="m-0 text-center text-[12px] text-faint">Ձեր տեղը մնում է միայն ձեր սարքում։</p>
           ) : null}
