@@ -34,6 +34,7 @@
 - 2026-11-05 — «Թեմա» → «Կայքի լուսավորություն» (կարգավորումներ, մենյու, Գաղտնիություն), `feat/site-lighting-label`։
 
 ## Կարևոր մյուսների համար
+- Աղոթքի ձևավորման պարբերությունը ունի `prayer` (բուն աղոթք, ընթերցողին չի երևում)՝ աղոթքը նկարով կիսվելու համար վերցնել `prayerParagraphs(layout)`-ով։
 - Աղոթքի ձևավորումը՝ `material_layouts` (migration 0050), `app/utils/prayer-layout.ts`. ձևավորում ունեցող աղոթքը էջում ցույց է տրվում `PrayerLayoutView`-ով՝ Telegram-ի տեքստի փոխարեն (մեդիան վերևում, ձայնի հետ տող առ տող ընդգծում չկա)։ Նոր իրավունք՝ `layout`։
 - Տեսանյութերը ավտոմատ սեղմվում են (`scripts/optimize-videos.ts`, `video_optimizations`, migration 0049). Telegram-ի ֆայլերը՝ նույն բանալիով, բնօրինակը `originals/`-ում 14 օր։ `library_media`-ն վերագրելիս `size_bytes`/`mime_type`/`r2_etag`-ը վերցնել `video_optimizations`-ից (տես `wrangler-cloud-target.ts`)։ Նոր տեսանյութի աղբյուր ավելացնելիս՝ ավելացնել `findCandidates`-ում։
 - Օգնության տեսանյութեր՝ `/ognutyun`, ադմին՝ `/admin/help` (նոր իրավունք `help`), R2 `help/`, `site_settings.help_videos`։ Նոր ֆունկցիա ավելացնելիս՝ վիդեո `scripts/video-guides/`-ով և տող `app/utils/help-videos.ts`-ում։
