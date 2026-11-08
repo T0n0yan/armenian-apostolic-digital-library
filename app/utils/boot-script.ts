@@ -7,6 +7,13 @@ export const BOOT_SCRIPT = `(() => {
   try {
     const root = document.documentElement;
     try { if (sessionStorage.getItem("library-loader-seen-v4") === "1" || localStorage.getItem("library-loader-day") === new Date(Date.now() + 144e5).toISOString().slice(0, 10)) root.dataset.introSeen = "true"; } catch {}
+    // Մոմի ներածությունը սեղմելով փակվում է նաև մինչև JavaScript-ի բեռնվելը (candle-loader.tsx)։
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest(".candle-loader")) return;
+      root.dataset.introSkip = "true";
+      try { localStorage.setItem("library-loader-day", new Date(Date.now() + 144e5).toISOString().slice(0, 10)); } catch {}
+    }, true);
     let telegramTheme = null;
     try {
       const params = new URLSearchParams(location.hash.slice(1));
