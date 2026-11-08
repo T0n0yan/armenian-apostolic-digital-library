@@ -5,8 +5,8 @@ import { dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
 import { removeOldStories } from "../app/data/stories.server";
-import { openChatSocket } from "../app/data/private-chat.server";
-import { CHAT_SOCKET_PATH } from "../app/utils/private-chat";
+import { openChatSocket, readChatFile, uploadChatFile } from "../app/data/private-chat.server";
+import { CHAT_SOCKET_PATH, CHAT_UPLOAD_PATH } from "../app/utils/private-chat";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -104,7 +104,7 @@ function secure(response: Response, env: Env) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)");
+  headers.set("Permissions-Policy", "camera=(), microphone=(self), payment=(), usb=(), geolocation=(self)");
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   headers.set("Content-Security-Policy", contentSecurityPolicy(env));
   headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
@@ -134,7 +134,11 @@ export default {
   },
   async fetch(request, env, context) {
     // Անձնական չատի socket-ը (101 պատասխանը չպետք է վերափաթաթվի secure()-ով)։
-    if (new URL(request.url).pathname === CHAT_SOCKET_PATH) return openChatSocket(request);
+    const chatPath = new URL(request.url).pathname;
+    if (chatPath === CHAT_SOCKET_PATH) return openChatSocket(request);
+    if (chatPath === CHAT_UPLOAD_PATH) return uploadChatFile(request);
+    const chatFile = /^\/namak\/file\/(\d{1,12})$/u.exec(chatPath);
+    if (chatFile) return readChatFile(request, Number(chatFile[1]));
     // A failure outside the app's own error pages (the database or the platform) still gets a
     // calm page in Armenian instead of the platform's English one.
     const response = secure(await handleWithRetry(request, env, context).catch((error: unknown) => {

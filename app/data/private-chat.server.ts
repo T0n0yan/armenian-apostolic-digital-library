@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 
 import { accountList, isOwnerIdentity, linkedAliases } from "../auth/admin.server";
 import { getOptionalTelegramUser, type TelegramUserIdentity } from "../auth/telegram-user.server";
-import type { ChatSide } from "../utils/private-chat";
+import { FILE_MAX, allowedMime, type ChatMeta, type ChatSide } from "../utils/private-chat";
 import { getPrivateLetter } from "./private-letter.server";
 
 type ChatNamespace = DurableObjectNamespace<import("../../workers/chat-room").ChatRoom>;
@@ -43,6 +43,7 @@ export async function openChatSocket(request: Request) {
   const room = chatRoom();
   if (!who || !room) return notFound;
   const headers = new Headers({ Upgrade: "websocket" });
+  headers.set("X-Chat-Where", new URL(request.url).searchParams.get("where") === "app" ? "app" : "chat");
   headers.set("X-Chat-Side", who.side);
   headers.set("X-Chat-User", who.user.id);
   headers.set("X-Chat-Name", encodeURIComponent(who.user.displayName.slice(0, 80)));
@@ -53,4 +54,58 @@ export async function openChatSocket(request: Request) {
 /** Չկարդացվածների թիվը մենյուի համար. միայն կողմերին, մնացածին՝ null։ */
 export async function chatUnread(side: ChatSide) {
   return (await chatRoom()?.unread(side).catch(() => 0)) ?? 0;
+}
+
+const fileHeaders = (extra: Record<string, string>) => new Headers({
+  "Cache-Control": "private, no-store",
+  "X-Content-Type-Options": "nosniff",
+  "Content-Security-Policy": "default-src 'none'; sandbox",
+  "Referrer-Policy": "no-referrer",
+  "X-Robots-Tag": "noindex, nofollow",
+  ...extra,
+});
+
+/** Նկար/ձայն ուղարկել (POST /namak/upload). միայն կողմերը, նույն կայքից, թույլատրված ձևաչափ, ≤ 10 ՄԲ։ */
+export async function uploadChatFile(request: Request) {
+  const notFound = new Response("Not found.", { status: 404 });
+  if (request.method !== "POST") return notFound;
+  if (request.headers.get("Origin") !== new URL(request.url).origin) return new Response("Forbidden.", { status: 403 });
+  const who = await chatParticipant(request);
+  const room = chatRoom();
+  if (!who || !room) return notFound;
+  const url = new URL(request.url);
+  const kind = url.searchParams.get("kind");
+  const mime = allowedMime(kind ?? "", request.headers.get("Content-Type") ?? "");
+  if ((kind !== "image" && kind !== "audio") || !mime) return new Response("Unsupported.", { status: 415 });
+  if (Number(request.headers.get("Content-Length") ?? 0) > FILE_MAX) return new Response("Too large.", { status: 413 });
+  const data = await request.arrayBuffer();
+  if (!data.byteLength || data.byteLength > FILE_MAX) return new Response("Too large.", { status: 413 });
+  const number = (key: string) => { const value = Number(url.searchParams.get(key)); return Number.isFinite(value) && value > 0 ? Math.round(value * 10) / 10 : undefined; };
+  const meta: ChatMeta = { w: number("w"), h: number("h"), duration: number("duration") };
+  const result = await room.addFile(who.side, kind, mime, data, meta, (url.searchParams.get("clientId") ?? "").slice(0, 40));
+  return Response.json(result, { status: "error" in result ? 429 : 200, headers: fileHeaders({}) });
+}
+
+/** Ֆայլը (GET /namak/file/:id). միայն կողմերին, Range-ով (Safari-ն ձայնը առանց դրա չի նվագում)։ */
+export async function readChatFile(request: Request, id: number) {
+  const notFound = new Response("Not found.", { status: 404 });
+  if (request.method !== "GET" && request.method !== "HEAD") return notFound;
+  const who = await chatParticipant(request);
+  const room = chatRoom();
+  if (!who || !room) return notFound;
+  const file = await room.getFile(id);
+  if (!file) return notFound;
+  const bytes = new Uint8Array(file.data);
+  const range = /^bytes=(\d*)-(\d*)$/u.exec(request.headers.get("Range") ?? "");
+  if (range && (range[1] || range[2])) {
+    const size = bytes.byteLength;
+    const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+    const end = range[1] && range[2] ? Math.min(size - 1, Number(range[2])) : size - 1;
+    if (start >= size || start > end) return new Response(null, { status: 416, headers: fileHeaders({ "Content-Range": `bytes */${size}` }) });
+    return new Response(request.method === "HEAD" ? null : bytes.slice(start, end + 1), {
+      status: 206,
+      headers: fileHeaders({ "Content-Type": file.mime, "Content-Range": `bytes ${start}-${end}/${size}`, "Content-Length": String(end - start + 1), "Accept-Ranges": "bytes" }),
+    });
+  }
+  return new Response(request.method === "HEAD" ? null : bytes, { headers: fileHeaders({ "Content-Type": file.mime, "Content-Length": String(bytes.byteLength), "Accept-Ranges": "bytes" }) });
 }
