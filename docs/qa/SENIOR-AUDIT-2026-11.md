@@ -157,3 +157,48 @@ Mini App-ում և հին հեռախոսներում սխալները վերար
 - `curl`-ով header-ներ և պատասխանի ժամանակ, Playwright-ով (iPhone 13) 8 էջ՝ բայթեր, console-ի
   սխալներ, հորիզոնական scroll, `lang`, `h1`, canonical։ Հորիզոնական scroll և 4xx/5xx չկա։
 - `pnpm audit --prod`, `git diff origin/main origin/staging` (տարբերություն չկա)։
+
+## Կատարվածը (2026-11-08, [#136](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/136))
+
+| Կետ | Վիճակ |
+| --- | --- |
+| 1. CI-ն կարմիր | ✓ 5 սխալը ուղղված, `check.sh`-ը աշխատեցնում է lint. QA review-ը կանաչ է։ Branch protection-ը՝ տիրոջը (ներքևում) |
+| 2. Deploy-ը առանց տիպերի | ✓ production-ի deploy-ում `tsc -b && pnpm lint` |
+| 3. Smoke, rollback, bookmark | ✓ `scripts/smoke.mjs` (նաև cache-ից տրվող էջի JS/CSS), `wrangler rollback`, D1 bookmark Summary-ում |
+| 4. Արտաքին մոնիտոր | տիրոջը |
+| 5. Cloudflare Web Analytics | տիրոջը (անջատել dashboard-ում) |
+| 6. Rate limit հաշվիչներ | ✓ staging՝ 2001/2002 |
+| 7. Պահուստից վերականգնում | տիրոջը (պետք է age-ի գաղտնի բանալին) |
+| 8. maplibre-gl | ✓ 6.16.0, worker-ի հասցե, WebGL2 չլինելիս՝ հաղորդագրություն |
+| 9. Ծանր էջեր | ✓ ձայնագրություն մինչև «Լսել» չի բեռնվում, 1200px նկարներ, սրբավայրերի փոքր պատկերներ, ներածությունը օրը մեկ |
+| 10. Կարճ cache | ✓ stale-while-revalidate, բանալին՝ contentVersion + օր + build, Smart Placement |
+| 11. Բրաուզերային ստուգում | ✓ smoke-ը ամեն deploy-ից հետո. Playwright-ով ամբողջական ստուգումը՝ ձեռքով (ներքևում) |
+| 12. Բրաուզերի սխալներ | ✓ `/admin/usage` → «Սխալներ ընթերցողների մոտ» |
+| 13. VAPID staging | տիրոջը (ըստ ցանկության) |
+| 14. 134 ճյուղ | տիրոջը (GitHub-ի կարգավորում) |
+| 15. Dependabot | ✓ satori 0.33.5, overrides. `pnpm audit`՝ 0. Dependabot-ը իր PR-ները ինքը կփակի |
+| 16–18, 21 | ✓ ջնջված/ուղղված |
+| 19. Node 20 actions | ✓ checkout/setup-node v5 (`pnpm/action-setup`-ը դեռ v4) |
+| 20. VPS/Docker ֆայլեր | չփոխված. bridge-ի սերվերը թեստերում օգտագործվում է, ջնջելը ռիսկային է |
+| 22. CSP `unsafe-inline` | չփոխված. edge cache-ով ընդհանուր էջերում nonce հնարավոր չէ (մեկնաբանությունը՝ `workers/app.ts`) |
+
+**Չափումը** (դանդաղ 4G, միջին Android, մինչև → հետո).
+
+| Էջ | Լրիվ բեռնում | Գլխավոր պատկեր (LCP) | Բայթեր |
+| --- | --- | --- | --- |
+| `/psalms/22` | 18.6 վ → **4.6 վ** | 14.0 վ → **1.3 վ** | 3.8 ՄԲ → **1.2 ՄԲ** |
+| `/` | 6.3 վ → 5.7 վ | 5.0 վ → 3.8 վ | 1.5 → 1.4 ՄԲ |
+| `/psalms` | 6.0 վ → 5.6 վ | 5.8 վ → 4.4 վ | 1.8 → 1.6 ՄԲ |
+| `/places` | — | — | 10.2 ՄԲ → **4.6 ՄԲ** (նկարներ 6 ՄԲ → 0.2 ՄԲ) |
+
+Mini App-ում ամեն բացման ~8 վրկ ներածությունը այժմ օրը մեկ անգամ է և սեղմելով փակվում է։
+Cache-ից տրվող էջը՝ ~0.2 վրկ. cache-ում չեղածը (մուտք գործածներ)՝ դեռ 1–1.7 վրկ ԱՄՆ-ից չափելիս.
+Smart Placement-ը սկսում է աշխատել մի քանի ժամից, երբ Cloudflare-ը վերլուծում է երթևեկությունը։
+
+## Տիրոջ քայլերը (dashboard-ներում, ես մուտք չունեմ)
+
+1. **GitHub → Settings → Branches → Add rule `main`** → «Require status checks to pass» → ընտրել `checks`։ Այլևս կարմիր PR-ը merge չի լինի։
+2. **GitHub → Settings → General → «Automatically delete head branches»** միացնել։ Հին 33 merge արված ճյուղերը կարելի է ջնջել GitHub → Branches էջից։
+3. **Cloudflare → apostolic.am → Analytics & Logs → Web Analytics** → անջատել (մեր CSP-ն միևնույն է արգելում է, և console-ում սխալ է)։
+4. **UptimeRobot** (անվճար) → 2 մոնիտոր՝ `https://apostolic.am/` և `https://apostolic.am/psalms/22`, 5 րոպեն մեկ, ծանուցում էլ. փոստով։
+5. **Պահուստի փորձ**. R2-ի backup բաքեթից վերջին `.sql.age` ֆայլը, `age -d -i <ձեր բանալին>` → `wrangler d1 execute <local db> --local --file database.sql`։ Մեկ անգամ, որ համոզվենք, որ վերականգնվում է։
