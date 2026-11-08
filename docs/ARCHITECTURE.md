@@ -257,7 +257,7 @@ flowchart LR
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
 `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`, `/api/material-layout`,
 `/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
-`/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
+`/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
 **Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/og/card/...`, `/sitemap.xml`։
 
 ## 6. Մուտք և հաշիվներ
@@ -380,7 +380,6 @@ flowchart LR
   WH --> G1["Խմբի նոր/փոփոխված գրառում → sync (բաժին 4)"]
   WH --> G2["/place → սրբավայր ավելացնել"]
   WH --> G3["Ընթերցողի հարց/հաղորդագրություն → թիմի փակ խումբ<br/>(support-relay), պատասխանը՝ ետ"]
-  WH --> G4["Կիսվել նյութով (share-prepare)"]
   WH --> G5["Հարցումներ (poll)"]
   BOTOUT["Բոտը գրում է"] --> H["Հիշեցումներ, կիրակնօրյա հարց"]
 ```

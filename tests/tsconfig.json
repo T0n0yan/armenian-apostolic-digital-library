@@ -14,7 +14,6 @@
   },
   "include": [
     "./**/*.ts",
-    "../app/auth/media-client.server.ts",
     "../app/data/cloud-media.server.ts",
     "../app/data/telegram-bridge-config.server.ts",
     "../app/utils/material-title.ts",
