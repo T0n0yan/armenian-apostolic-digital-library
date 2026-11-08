@@ -2,6 +2,7 @@
 
 Հին «Արված» տողերը (նորերը՝ վերևում)։ Գործից առաջ կարդալ պետք չէ։
 
+- 2026-11-07 — Աղոթքների ձևավորման խմբագիր. «Ձևավորել» աղոթքի էջում (owner/`layout`), պարբերության տեսակ/դիրք/չափ/թռչնատառ, բառերին թավ/շեղ/ոսկի/կարմիր/չափ, տեքստի ուղղում, `material_layouts` (migration 0050), Telegram-ի փոփոխության զգուշացում։ [PR #131](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/131)
 - 2026-11-06 — Բառարան. աստղանիշը միայն բառի առաջին հանդիպման վրա, բառարանը պահվում է հեռախոսում, էջի այլ փոփոխություններից (նվագարկիչ) աստղերը այլևս չեն թարթում։ [PR #126](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/126)
 - 2026-11-06 — Բառարանի բառը ոսկեգույն, աստղանիշը բառից անմիջապես հետո (կետադրությունից առաջ), հետո՝ բացատ (`glossary-layer.tsx`)։ [PR #123](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/123) [PR #125](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/125)
 - 2026-11-06 — Բառարանի բառերը՝ ընդգծման փոխարեն ոսկեգույն աստղանիշով (*), ինչպես գրքի ծանոթագրությունը (`glossary-layer.tsx`)։ [PR #122](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/122)

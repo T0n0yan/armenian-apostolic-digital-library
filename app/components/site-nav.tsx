@@ -1,5 +1,6 @@
 import { ArrowLeft, Bookmark, ChevronRight, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
+import { UNREAD_EVENT } from "./private-chat-presence";
 import { lockScroll } from "../utils/scroll-lock";
 import { memo, useEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
@@ -26,6 +27,13 @@ const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py
 
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
+  // Անձնական չատի չկարդացվածները՝ կենդանի (PrivateChatPresence-ից), սկզբում՝ root-ից։
+  const [chatUnread, setChatUnread] = useState(rootData?.privateChat?.unread ?? 0);
+  useEffect(() => {
+    const onUnread = (event: Event) => setChatUnread(Number((event as CustomEvent<number>).detail) || 0);
+    window.addEventListener(UNREAD_EVENT, onUnread);
+    return () => window.removeEventListener(UNREAD_EVENT, onUnread);
+  }, []);
   const canManage = showAdminLink || Boolean(rootData?.showAdminLink);
   const permissions: string[] = rootData?.adminPermissions ?? [];
   const topicItems = rootData?.categories ?? [];
@@ -163,7 +171,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                 {rootData?.privateChat ? (
                   <NavLink className="relative grid size-7 place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                     <Mail aria-hidden="true" size={14} />
-                    {rootData.privateChat.unread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
+                    {chatUnread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
                   </NavLink>
                 ) : null}
               </div>
@@ -228,6 +236,8 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         >
           <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_24s_linear_infinite]" src={CrownWreath} width={168} height={168} alt="" aria-hidden="true" />
           <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
+          {/* Փոքր կետ՝ անձնական չատում չկարդացված կա (միայն երկու կողմին)։ */}
+          {chatUnread > 0 && !isOpen ? <span className="pointer-events-none absolute right-2.5 top-2.5 size-2.5 rounded-full bg-gold-bright" aria-hidden="true" /> : null}
         </button>
       </nav>
     </>

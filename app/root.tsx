@@ -35,6 +35,7 @@ import { GlossaryLayer } from "./components/glossary-layer";
 import { HighlightLayer } from "./components/highlight-layer";
 import { ChurchNudge } from "./components/church-nudge";
 import { HelpOnboarding } from "./components/help-onboarding";
+import { PrivateChatPresence } from "./components/private-chat-presence";
 import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
@@ -68,7 +69,7 @@ export async function loader({request}: Route.LoaderArgs) {
     isAdmin: can(telegramAdmin, "copy"),
     adminPermissions: telegramAdmin ? (telegramAdmin.owner ? Object.keys(ADMIN_PERMISSIONS) as AdminPermission[] : telegramAdmin.permissions) : [],
     signedIn: Boolean(telegramUser),
-    privateChat: chat ? { unread: await chatUnread(chat.side) } : null,
+    privateChat: chat ? { unread: await chatUnread(chat.side), side: chat.side } : null,
     // Shown with "Ելք" at the bottom of the menu.
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
@@ -400,6 +401,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     {!quiet && <ChurchNudge />}
     {!quiet && <HelpOnboarding />}
     <PlaceTracker />
+    <PrivateChatPresence />
     {!quiet && <SundayPrompt />}
   </>;
 }

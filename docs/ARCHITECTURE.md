@@ -307,20 +307,23 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  MENU["Մենյու. փոքր ✉ «Կարգավորումներ»-ի կողքին<br/>(միայն երկու կողմին, կետ՝ չկարդացվածի դեպքում)"] --> PAGE["/namak (private, no-store, 404 ուրիշին)"]
-  PAGE -->|"wss /namak/socket"| W["Worker. նույն կայքից է (Origin), մուտք է, կողմ է<br/>a = OWNER_ACCOUNTS, b = site_settings.private_letter.recipientIds"]
-  W -->|"կողմը դնում է Worker-ը"| DO[("ChatRoom Durable Object (SQLite)<br/>messages, members, state")]
-  DO -->|"նամակ, գրում է…, ✓✓, առցանց, ջնջված"| PAGE
-  DO -->|"մյուսը չի նայում. մեկ անգամ մինչև կարդալը"| N["Ծանուցում առանց ձայնի և տեքստի<br/>web push (silent) + բոտ (disable_notification, protect_content)"]
-  N -->|"կարդալուց հետո"| DEL["բոտի ծանուցումը ջնջվում է"]
+  MENU["Մենյու. փոքր ✉ «Կարգավորումներ»-ի կողքին + կետ կոճակի վրա<br/>(միայն երկու կողմին)"] --> PAGE["/namak (private, no-store, 404 ուրիշին)"]
+  OTHER["Կայքի մյուս էջերը. PrivateChatPresence<br/>wss /namak/socket?where=app (🟡 և չկարդացվածներ)"] --> W
+  PAGE -->|"wss /namak/socket"| W["Worker. Origin, մուտք, կողմ<br/>a = CHAT_OWNER_ACCOUNTS, b = private_letter.recipientIds"]
+  PAGE -->|"POST /namak/upload (նկար, ձայն ≤ 10 ՄԲ)<br/>GET /namak/file/:id (Range)"| W
+  W -->|"կողմը դնում է Worker-ը"| DO[("ChatRoom Durable Object (SQLite)<br/>messages, files + file_chunks, members, state")]
+  DO -->|"նամակ, փոփոխում, ջնջում, ✓✓, գրում է…, 🟢🟡🔴, կարգավորումներ"| PAGE
+  DO -->|"մյուսը չատին չի նայում. մեկ անգամ մինչև կարդալը"| N["Ծանուցում առանց ձայնի և տեքստի<br/>web push (silent) + բոտ (disable_notification, protect_content)"]
 ```
 
-- Մտնում են միայն երկու կողմ. «a»՝ միայն `CHAT_OWNER_ACCOUNTS`-ի (production, `wrangler.jsonc`. չկա՝ `OWNER_ACCOUNTS`) հաշիվները կամ դրանց կապված հաշիվները (`isOwnerIdentity`. Google-ը Telegram-ին կապելուց հետո Gmail-ը մնում է alias-ում), ոչ թե «գլխավոր ադմին» դարձված մյուսները. «b»՝ ստացողը (նույնպես կապված հաշիվներով)։ Մնացած բոլորին էջը և socket-ը 404 են։
-- Հաղորդագրությունները պահվում են **միայն** `ChatRoom` DO-ի SQLite-ում (`workers/chat-room.ts`), ոչ թե D1-ում. ուստի չկան backup-ում, ադմինի էջերում, Excel-ում։ Բրաուզերում (localStorage) ոչինչ չի պահվում, sw-ն չի պահում։ Ջնջելիս տեքստը իսկապես ջնջվում է։
-- Ստացողը նշվում է չատի «Կարգավորում»-ում (Gmail կամ @username → անփոփոխ id-ներ, `account_links`-ով նաև կապված հաշիվները)։ Չջնջված նամակներ ունենալուց հետո ստացողին փոխել չի կարելի (ջնջվածների տեքստն արդեն չկա)։
-- Hibernation. socket-ները բաց են, օբյեկտը քնում է. «ping»-ին պատասխանում է առանց արթնանալու։ Բրաուզերը 1–15 վ ընդմիջումով նորից է միանում, չհաստատված նամակները նորից ուղարկում (`client_id`՝ կրկնություն չկա)։
+- Մտնում են միայն երկու կողմ. «a»՝ միայն `CHAT_OWNER_ACCOUNTS`-ի (production, `wrangler.jsonc`. չկա՝ `OWNER_ACCOUNTS`) հաշիվները կամ դրանց կապված հաշիվները (`isOwnerIdentity`), ոչ թե «գլխավոր ադմին» դարձված մյուսները. «b»՝ ստացողը (նույնպես կապված հաշիվներով)։ Մնացած բոլորին էջը, socket-ը և ֆայլերը 404 են։
+- Ամեն ինչ (տեքստ, նկար, ձայն) պահվում է **միայն** `ChatRoom` DO-ի SQLite-ում (`workers/chat-room.ts`, ֆայլերը՝ 1 ՄԲ կտորներով), ոչ թե D1-ում կամ R2-ում (R2-ն ունի հանրային media հասցե). ուստի չկան backup-ում, ադմինի էջերում։ Ֆայլերը՝ `private, no-store`, `sandbox` CSP, միայն JPEG/PNG/WebP/GIF և webm/ogg/mp4/mpeg/aac (SVG՝ ոչ)։ Ջնջելիս տեքստը/ֆայլը իսկապես ջնջվում է. «Ջնջել ամբողջ զրույցը»՝ միայն տերը (մնում են կարգավորումները)։
+- Լույս. 🟢 չատում է (էջը էկրանին), 🟡 կայքի այլ էջում է (էկրանին), 🔴 փակ է + «վերջին անգամ»։ Ամեն socket-ին կցված է `where` և `visible` (`statusOf`)։
+- Ամեն կողմի կարգավորումը (DO `state`). ինչ անունով է տեսնում մյուսին (`nick_<side>`) և տեքստի չափը (`font_<side>`)։ Նամակը՝ մինչև 50 000 նշան, փոփոխելի (միայն տեքստը, «փոփոխված»)։
+- Ստացողը նշվում է տիրոջ «Կարգավորում»-ում (Gmail կամ @username → անփոփոխ id-ներ)։ Չջնջված նամակներ ունենալուց հետո ստացողին փոխել չի կարելի։
+- Hibernation. socket-ները բաց են, օբյեկտը քնում է. «ping»-ին պատասխանում է առանց արթնանալու։ Չհաստատված տեքստերը նորից են ուղարկվում (`client_id`՝ կրկնություն չկա)։ Ձայնի համար `Permissions-Policy: microphone=(self)`։
 - Չատի էջում root-ի պատուհանները (կիրակնօրյա հարց, ուղեցույց, «Ավելացնել էկրանին», եկեղեցու հուշում) չեն բացվում։
-- Կոդը՝ `app/routes/private-chat.tsx`, `app/components/private-chat.tsx`, `app/data/private-chat.server.ts`, `app/utils/private-chat.ts`, `workers/chat-room.ts`, `wrangler.jsonc` (`CHAT`, migration `v2`)։
+- Կոդը՝ `app/routes/private-chat.tsx`, `app/components/private-chat.tsx`, `app/components/chat-socket.ts`, `app/components/private-chat-presence.tsx`, `app/data/private-chat.server.ts`, `app/utils/private-chat.ts`, `workers/chat-room.ts`, `wrangler.jsonc` (`CHAT`, migration `v2`)։
 
 ## 7. Որոնում
 
