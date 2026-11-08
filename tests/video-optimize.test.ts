@@ -32,18 +32,19 @@ test("ffprobe-ի տվյալներից՝ նվագարկվում է ամեն տե�
   assert.equal(videoFacts({ streams: [{ codec_type: "video", codec_name: "mjpeg" }] }).hasVideo, false);
 });
 
-test("ձայնը՝ մոնո 64k խոսքի համար, ստերեո 96k, բայց երբեք բնօրինակից բարձր", () => {
-  assert.deepEqual(audioPlan(facts(), true), { channels: 1, bitRate: 64_000 });
-  assert.deepEqual(audioPlan(facts(), false), { channels: 2, bitRate: 96_000 });
+test("ձայնը՝ մոնո 40k խոսքի համար, ստերեո 64k, բայց երբեք բնօրինակից բարձր", () => {
+  assert.deepEqual(audioPlan(facts(), true), { channels: 1, bitRate: 40_000 });
+  assert.deepEqual(audioPlan(facts(), false), { channels: 2, bitRate: 64_000 });
   assert.deepEqual(audioPlan(facts({ audioBitRate: 48_000 }), false), { channels: 2, bitRate: 48_000 });
-  assert.deepEqual(audioPlan(facts({ audioChannels: 1 }), false), { channels: 1, bitRate: 64_000 });
+  assert.deepEqual(audioPlan(facts({ audioChannels: 1 }), false), { channels: 1, bitRate: 40_000 });
   assert.deepEqual(audioPlan(facts({ hasAudio: false }), false), { channels: 0, bitRate: 0 });
 });
 
 test("ffmpeg-ի արգումենտները՝ H.264 High, faststart, առանց ձայնի՝ -an", () => {
-  const args = encodeArgs("in", "out.mp4", { channels: 1, bitRate: 64_000 });
+  const args = encodeArgs("in", "out.mp4", { channels: 1, bitRate: 40_000 });
   for (const part of ["libx264", "high", "+faststart", "yuv420p"]) assert.ok(args.some((arg) => arg.includes(part)), part);
-  assert.deepEqual(args.slice(args.indexOf("-c:a"), args.indexOf("-c:a") + 6), ["-c:a", "aac", "-ac", "1", "-b:a", "64k"]);
+  assert.equal(args[args.indexOf("-crf") + 1], "30");
+  assert.deepEqual(args.slice(args.indexOf("-c:a"), args.indexOf("-c:a") + 6), ["-c:a", "aac", "-ac", "1", "-b:a", "40k"]);
   assert.equal(args.at(-1), "out.mp4");
   assert.ok(encodeArgs("in", "out.mp4", { channels: 0, bitRate: 0 }).includes("-an"));
 });
@@ -60,9 +61,14 @@ test("փոխարինել միայն երբ օգտակար է և արդյունք
 });
 
 test("բանալիներ և volumedetect-ի ելք", () => {
-  assert.equal(optimizedKeyOf("places/haghpat/video-ab12.mov"), "places/haghpat/video-ab12-o.mp4");
-  assert.equal(optimizedKeyOf("help/voronum-x1.mp4"), "help/voronum-x1-o.mp4");
+  assert.equal(optimizedKeyOf("places/haghpat/video-ab12.mov"), "places/haghpat/video-ab12-o2.mp4");
+  assert.equal(optimizedKeyOf("help/voronum-x1.mp4"), "help/voronum-x1-o2.mp4");
+  assert.equal(optimizedKeyOf("help/voronum-x1.mp4", "v1"), "help/voronum-x1-o.mp4");
+  // Արդեն սեղմվածի (v1) նոր բանալին՝ առանց «-o-o2»-ի
+  assert.equal(optimizedKeyOf("places/haghpat/video-ab12-o.mp4"), "places/haghpat/video-ab12-o2.mp4");
   assert.equal(isOptimizedKey(optimizedKeyOf("help/a.webm")), true);
+  assert.equal(isOptimizedKey("places/x/video-o.mp4"), true);
+  assert.equal(isOptimizedKey("places/x/video.mp4"), false);
   assert.equal(backupKeyOf("v1/-100/277/abc/0/original.mp4"), "originals/v1/-100/277/abc/0/original.mp4");
   assert.equal(parseMeanVolume("[Parsed_volumedetect_1 @ 0x1] mean_volume: -67.5 dB"), -67.5);
   assert.equal(parseMeanVolume("mean_volume: -inf dB"), -Infinity);

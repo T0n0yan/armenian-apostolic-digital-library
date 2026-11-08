@@ -28,6 +28,14 @@ on:
         description: "Minutes for compressing new videos after the sync (more only to clear a backlog)"
         type: string
         default: "40"
+      video_only:
+        description: "Only compress videos (no Telegram sync, no link cards): for re-compressing or trying it on staging"
+        type: boolean
+        default: false
+      video_limit:
+        description: "At most this many videos in this run (empty: no limit). 1 for a first careful try"
+        type: string
+        default: ""
 
 concurrency:
   group: cloud-sync-${{ github.ref }}
@@ -65,6 +73,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Reconcile Telegram into Cloudflare
+        if: ${{ !inputs.video_only }}
         run: |
           for target in $TARGETS; do
             echo "::group::$target"
@@ -72,7 +81,7 @@ jobs:
             echo "::endgroup::"
           done
       - name: Refresh previews for the synced environments
-        if: inputs.mode != 'dry-run'
+        if: ${{ inputs.mode != 'dry-run' && !inputs.video_only }}
         run: |
           for target in $TARGETS; do
             if [ "$target" = "staging" ]; then export OG_SITE=https://staging.apostolic.am OG_BUCKET=armenian-apostolic-library-media-staging
@@ -81,13 +90,14 @@ jobs:
           done
       # Տեսանյութերի սեղմում (scripts/optimize-videos.ts). ffmpeg-ը տեղադրվում է միայն երբ նոր
       # տեսանյութ կա, այնպես որ սովորական աշխատանքին մի քանի վայրկյան է ավելացնում։
+      # dry-run-ում միայն ցույց է տալիս ցանկը (ինչ կսեղմվի, ինչ նորից)։
       - name: Compress new videos
-        if: inputs.mode != 'dry-run'
         env:
           VIDEO_BUDGET_MINUTES: ${{ inputs.video_minutes || '40' }}
+          VIDEO_LIMIT: ${{ inputs.video_limit }}
         run: |
           for target in $TARGETS; do
             echo "::group::videos $target"
-            CLOUD_SYNC_ENV=$target node --import tsx scripts/optimize-videos.ts
+            CLOUD_SYNC_ENV=$target node --import tsx scripts/optimize-videos.ts ${{ inputs.mode == 'dry-run' && '--dry-run' || '' }}
             echo "::endgroup::"
           done
