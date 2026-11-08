@@ -9,9 +9,12 @@ export type ChatStatus = "chat" | "app" | "away";
 export type ChatWhere = "chat" | "app";
 
 export type ChatMeta = { w?: number; h?: number; duration?: number };
+/** Այն նամակը, որին պատասխանում են (կարճ տեքստով)։ */
+export type ChatReply = { id: number; side: ChatSide; kind: ChatKind; body: string; deleted: boolean };
 export type ChatMessage = {
   id: number; side: ChatSide; body: string; at: number; deleted: boolean;
   kind: ChatKind; fileId: number | null; meta: ChatMeta | null; editedAt: number | null;
+  replyTo: ChatReply | null;
 };
 export type ChatPresence = { status: ChatStatus; lastSeen: number | null };
 /** Ամեն կողմի իր կարգավորումը. ինչպես է անվանում մյուսին և տեքստի չափը։ */
@@ -23,7 +26,7 @@ export type ChatSettings = {
 
 /** Բրաուզերից սերվեր։ */
 export type ClientEvent =
-  | { type: "send"; text: string; clientId: string }
+  | { type: "send"; text: string; clientId: string; replyTo?: number }
   | { type: "edit"; id: number; text: string }
   | { type: "read"; upTo: number }
   | { type: "typing" }
@@ -101,7 +104,8 @@ export function parseClientEvent(raw: unknown): ClientEvent | null {
     case "send": {
       const text = cleanMessage(value.text);
       const clientId = typeof value.clientId === "string" ? value.clientId.slice(0, 40) : "";
-      return text ? { type: "send", text, clientId } : null;
+      if (!text) return null;
+      return id("replyTo") ? { type: "send", text, clientId, replyTo: id("replyTo")! } : { type: "send", text, clientId };
     }
     case "edit": {
       const text = cleanMessage(value.text);

@@ -19,16 +19,26 @@ type ChatEnv = {
 /** Ամեն socket-ին կցված. ով է, որտեղ է (չատում թե կայքի այլ էջում) և արդյոք էջը էկրանին է։ */
 type Attachment = { side: ChatSide; userId: string; visible: boolean; where: ChatWhere };
 
-type Row = { id: number; side: string; body: string; at: number; deleted: number; kind: string; file_id: number | null; meta: string | null; edited_at: number | null };
-const COLUMNS = "id, side, body, at, deleted, kind, file_id, meta, edited_at";
+type Row = {
+  id: number; side: string; body: string; at: number; deleted: number; kind: string; file_id: number | null; meta: string | null; edited_at: number | null;
+  reply_to: number | null; r_side: string | null; r_body: string | null; r_kind: string | null; r_deleted: number | null;
+};
+/** Նամակը՝ իր պատասխանած նամակի կարճ տեքստով (reply)։ */
+const SELECT = `SELECT m.id, m.side, m.body, m.at, m.deleted, m.kind, m.file_id, m.meta, m.edited_at, m.reply_to,
+  r.side AS r_side, substr(r.body, 1, 200) AS r_body, r.kind AS r_kind, r.deleted AS r_deleted
+  FROM messages AS m LEFT JOIN messages AS r ON r.id = m.reply_to`;
+const kindOf = (kind: string | null) => (kind === "image" || kind === "audio" ? kind : "text");
 function toMessage(row: Row): ChatMessage {
   let meta: ChatMeta | null = null;
   try { meta = row.meta ? JSON.parse(row.meta) as ChatMeta : null; } catch { meta = null; }
   const deleted = row.deleted === 1;
   return {
     id: row.id, side: row.side === "a" ? "a" : "b", body: deleted ? "" : row.body, at: row.at, deleted,
-    kind: row.kind === "image" || row.kind === "audio" ? row.kind : "text",
+    kind: kindOf(row.kind),
     fileId: deleted ? null : row.file_id, meta: deleted ? null : meta, editedAt: row.edited_at,
+    replyTo: row.reply_to && row.r_side && !deleted
+      ? { id: row.reply_to, side: row.r_side === "a" ? "a" : "b", kind: kindOf(row.r_kind), body: row.r_deleted ? "" : row.r_body ?? "", deleted: row.r_deleted === 1 }
+      : null,
   };
 }
 
@@ -54,7 +64,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, side TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, client_id TEXT)`);
     // Նոր սյուները (նկար, ձայն, փոփոխում). առաջին տարբերակի աղյուսակում դրանք չկային։
-    for (const column of ["kind TEXT NOT NULL DEFAULT 'text'", "file_id INTEGER", "meta TEXT", "edited_at INTEGER"]) {
+    for (const column of ["kind TEXT NOT NULL DEFAULT 'text'", "file_id INTEGER", "meta TEXT", "edited_at INTEGER", "reply_to INTEGER"]) {
       try { this.sql.exec(`ALTER TABLE messages ADD COLUMN ${column}`); } catch { /* արդեն կա */ }
     }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS members (
@@ -124,17 +134,18 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   }
 
   /** Նկար կամ ձայնագրություն. Worker-ը արդեն ստուգել է կողմը, տեսակը և չափը։ */
-  async addFile(side: ChatSide, kind: Exclude<ChatKind, "text">, mime: string, data: ArrayBuffer, meta: ChatMeta, clientId: string) {
+  async addFile(side: ChatSide, kind: Exclude<ChatKind, "text">, mime: string, data: ArrayBuffer, meta: ChatMeta, clientId: string, replyTo: number | null = null) {
     if (this.tooFast(side)) return { error: "Շատ արագ է, մի պահ սպասեք։" };
-    const existing = clientId ? this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE client_id = ? AND side = ?`, clientId, side).toArray()[0] : undefined;
-    if (existing) return { message: toMessage(existing) };
+    const existing = this.byClientId(clientId, side);
+    if (existing) return { message: existing };
     const fileId = this.storeFile(mime, data);
-    const row = this.sql.exec<Row>(
-      `INSERT INTO messages (side, body, at, client_id, kind, file_id, meta) VALUES (?, '', ?, ?, ?, ?, ?) RETURNING ${COLUMNS}`,
-      side, Date.now(), clientId || null, kind, fileId, JSON.stringify(meta),
-    ).one();
-    this.delivered(side, toMessage(row), clientId);
-    return { message: toMessage(row) };
+    const id = this.sql.exec<{ id: number }>(
+      "INSERT INTO messages (side, body, at, client_id, kind, file_id, meta, reply_to) VALUES (?, '', ?, ?, ?, ?, ?, ?) RETURNING id",
+      side, Date.now(), clientId || null, kind, fileId, JSON.stringify(meta), this.replyTarget(replyTo),
+    ).one().id;
+    const message = this.messageById(id)!;
+    this.delivered(side, message, clientId);
+    return { message };
   }
 
   /** Իր ֆոնի նկարը (ընդհանուրի փոխարեն). նախորդը ջնջվում է։ */
@@ -190,18 +201,22 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       case "send": {
         if (this.tooFast(side)) { socket.send(JSON.stringify({ type: "error", message: "Շատ արագ է, մի պահ սպասեք։" } satisfies ServerEvent)); return; }
         // Կապը կտրվելուց հետո բրաուզերը նորից է ուղարկում. նույն clientId-ով երկրորդ անգամ չի պահվում։
-        const existing = event.clientId ? this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE client_id = ? AND side = ?`, event.clientId, side).toArray()[0] : undefined;
-        if (existing) { socket.send(JSON.stringify({ type: "message", message: toMessage(existing), clientId: event.clientId } satisfies ServerEvent)); return; }
-        const row = this.sql.exec<Row>(`INSERT INTO messages (side, body, at, client_id) VALUES (?, ?, ?, ?) RETURNING ${COLUMNS}`, side, event.text, Date.now(), event.clientId || null).one();
-        this.delivered(side, toMessage(row), event.clientId);
+        const existing = this.byClientId(event.clientId, side);
+        if (existing) { socket.send(JSON.stringify({ type: "message", message: existing, clientId: event.clientId } satisfies ServerEvent)); return; }
+        const id = this.sql.exec<{ id: number }>(
+          "INSERT INTO messages (side, body, at, client_id, reply_to) VALUES (?, ?, ?, ?, ?) RETURNING id",
+          side, event.text, Date.now(), event.clientId || null, this.replyTarget(event.replyTo),
+        ).one().id;
+        this.delivered(side, this.messageById(id)!, event.clientId);
         return;
       }
       case "edit": {
-        const row = this.sql.exec<Row>(
-          `UPDATE messages SET body = ?, edited_at = ? WHERE id = ? AND side = ? AND deleted = 0 AND kind = 'text' RETURNING ${COLUMNS}`,
+        const changed = this.sql.exec(
+          "UPDATE messages SET body = ?, edited_at = ? WHERE id = ? AND side = ? AND deleted = 0 AND kind = 'text'",
           event.text, Date.now(), event.id, side,
-        ).toArray()[0];
-        if (row) this.broadcast({ type: "edited", message: toMessage(row) });
+        ).rowsWritten;
+        const message = changed ? this.messageById(event.id) : null;
+        if (message) this.broadcast({ type: "edited", message });
         return;
       }
       case "read": {
@@ -219,7 +234,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
         this.presenceChanged(side);
         return;
       case "history": {
-        const rows = this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE id < ? ORDER BY id DESC LIMIT ?`, event.before, PAGE_SIZE + 1).toArray();
+        const rows = this.sql.exec<Row>(`${SELECT} WHERE m.id < ? ORDER BY m.id DESC LIMIT ?`, event.before, PAGE_SIZE + 1).toArray();
         socket.send(JSON.stringify({ type: "history", messages: rows.slice(0, PAGE_SIZE).reverse().map(toMessage), hasMore: rows.length > PAGE_SIZE } satisfies ServerEvent));
         return;
       }
@@ -280,13 +295,30 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     if (this.statusOf(other) !== "chat") this.ctx.waitUntil(this.notify(other).catch((error: unknown) => console.error("chat notify", error instanceof Error ? error.message : "failed")));
   }
 
+  private messageById(id: number) {
+    const row = this.sql.exec<Row>(`${SELECT} WHERE m.id = ?`, id).toArray()[0];
+    return row ? toMessage(row) : null;
+  }
+
+  private byClientId(clientId: string, side: ChatSide) {
+    if (!clientId) return null;
+    const row = this.sql.exec<Row>(`${SELECT} WHERE m.client_id = ? AND m.side = ?`, clientId, side).toArray()[0];
+    return row ? toMessage(row) : null;
+  }
+
+  /** Պատասխանը՝ միայն գոյություն ունեցող, չջնջված նամակին։ */
+  private replyTarget(id: number | null | undefined) {
+    if (!id) return null;
+    return this.sql.exec<{ id: number }>("SELECT id FROM messages WHERE id = ? AND deleted = 0", id).toArray()[0]?.id ?? null;
+  }
+
   private removeFile(id: number) {
     this.sql.exec("DELETE FROM file_chunks WHERE file_id = ?", id);
     this.sql.exec("DELETE FROM files WHERE id = ?", id);
   }
 
   private initFor(side: ChatSide): ServerEvent {
-    const rows = this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages ORDER BY id DESC LIMIT ?`, PAGE_SIZE + 1).toArray();
+    const rows = this.sql.exec<Row>(`${SELECT} ORDER BY m.id DESC LIMIT ?`, PAGE_SIZE + 1).toArray();
     const names: Partial<Record<ChatSide, string>> = {};
     for (const row of this.sql.exec<{ side: string; name: string }>("SELECT side, name FROM members WHERE name != '' ORDER BY seen_at").toArray()) {
       names[row.side === "a" ? "a" : "b"] = row.name;

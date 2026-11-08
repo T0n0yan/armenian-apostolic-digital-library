@@ -67,3 +67,9 @@ test("ֆոն. միայն նկարներ, թափանցիկությունը սահ
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: "", font: 15, bgOpacity: 0.3 })), { type: "settings", nick: "", font: 15, bgOpacity: 0.3 });
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "background-reset" })), { type: "background-reset" });
 });
+
+test("պատասխան (reply). միայն թիվ, սխալը՝ առանց պատասխանի", () => {
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "send", text: "այո", clientId: "c", replyTo: 7 })), { type: "send", text: "այո", clientId: "c", replyTo: 7 });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "send", text: "այո", clientId: "c", replyTo: "7" })), { type: "send", text: "այո", clientId: "c" });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "send", text: "այո", clientId: "c", replyTo: -1 })), { type: "send", text: "այո", clientId: "c" });
+});
