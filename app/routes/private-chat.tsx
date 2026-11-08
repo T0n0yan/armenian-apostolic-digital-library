@@ -34,11 +34,14 @@ export async function action({ request }: Route.ActionArgs) {
   const letter = await getPrivateLetter(env.DB);
   const changed = recipient.toLowerCase() !== letter.recipientLabel.trim().toLowerCase();
   if (changed && letter.recipientIds.length && ((await chatRoom()?.messageCount()) ?? 0) > 0) {
-    return { error: "Զրույցում արդեն նամակներ կան. ստացողին փոխել չի կարելի, այլապես նոր մարդը կտեսներ ամբողջ զրույցը։ Նախ ջնջեք բոլոր նամակները (ամեն մեկն իր գրածը)։" };
+    return { error: "Զրույցում արդեն նամակներ կան. ստացողին փոխել չի կարելի, այլապես նոր մարդը կտեսներ ամբողջ զրույցը։ Նախ սեղմեք «Ջնջել ամբողջ զրույցը»։" };
   }
   const found = await findRecipientAccounts(env.DB, recipient);
   if (!found.ids.length) return { error: "Այս հասցեով հաշիվ չգտնվեց։ Նա պետք է գոնե մեկ անգամ մտած լինի կայք (Google-ով կամ Telegram-ով)։" };
   await savePrivateLetter(env.DB, { ...letter, recipientIds: found.ids, recipientLabel: recipient, updatedAt: new Date().toISOString() });
+  // Նախկին ստացողը (օր.՝ փորձնական հաշիվը) այլևս ոչինչ չի ստանում, նույնիսկ եթե էջը բաց է։
+  // Ամեն պահելիս. նախկին ստացողի հաշիվները (եթե կան) հեռացվում են, նույն ստացողինը՝ ոչ։
+  await chatRoom()?.resetRecipient(found.ids);
   return { saved: `Պահված է։ Ստացողը՝ ${found.names.join(", ") || recipient} (${found.ids.length} հաշիվ)։` };
 }
 
