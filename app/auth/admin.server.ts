@@ -91,6 +91,31 @@ export function isOwnerAccount(user: { id: string; username: string | null; sour
   return false;
 }
 
+/** Այս հաշվին կապված մյուս հաշիվները (օր.՝ Telegram-ին կապված Google). մեկ հարցման մեջ մեկ անգամ։ */
+const aliasCache = new WeakMap<Request, Promise<{ id: string; username: string | null }[]>>();
+export function linkedAliases(request: Request, database: D1Database, userId: string) {
+  const cached = aliasCache.get(request);
+  if (cached) return cached;
+  const promise = database
+    .prepare("SELECT users.id, users.username FROM account_links AS links JOIN app_users AS users ON users.id = links.alias_id WHERE links.user_id = ?")
+    .bind(userId).all<{ id: string; username: string | null }>()
+    .then((result) => result.results)
+    .catch(() => []);
+  aliasCache.set(request, promise);
+  return promise;
+}
+
+/**
+ * OWNER_ACCOUNTS-ի հաշիվ է՝ ինքը կամ դրան կապվածը։ Google-ը Telegram-ին կապելուց հետո Google-ով մտնելիս
+ * բացվում է Telegram հաշիվը, իսկ Gmail-ը մնում է կապված (alias) հաշվում. առանց սրա տերը կկորցներ իր իրավունքը։
+ */
+export async function isOwnerIdentity(request: Request, database: D1Database, user: { id: string; username: string | null; source: string }) {
+  if (isOwnerAccount(user)) return true;
+  if (!(((env as { OWNER_ACCOUNTS?: string }).OWNER_ACCOUNTS ?? "").trim())) return false;
+  const aliases = await linkedAliases(request, database, user.id);
+  return aliases.some((alias) => isOwnerAccount({ id: alias.id, username: alias.username, source: alias.id.startsWith("google:") ? "google" : "telegram" }));
+}
+
 export async function getOptionalTelegramAdmin(
   request: Request,
   database: D1Database,
@@ -103,7 +128,7 @@ export async function getOptionalTelegramAdmin(
   }
 
   // Կարգավորման մեջ նշված հաշիվները (OWNER_ACCOUNTS) միշտ գլխավոր ադմին են։
-  if (isOwnerAccount(user)) {
+  if (await isOwnerIdentity(request, database, user)) {
     return { email: user.username ? (user.source === "google" ? user.username : `@${user.username}`) : user.displayName, source: "telegram", owner: true, permissions: [] };
   }
 
