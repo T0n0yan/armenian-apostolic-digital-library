@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 
-import { isOwnerAccount } from "../auth/admin.server";
+import { isOwnerIdentity, linkedAliases } from "../auth/admin.server";
 import { getOptionalTelegramUser, type TelegramUserIdentity } from "../auth/telegram-user.server";
 import type { ChatSide } from "../utils/private-chat";
 import { getPrivateLetter } from "./private-letter.server";
@@ -8,15 +8,19 @@ import { getPrivateLetter } from "./private-letter.server";
 type ChatNamespace = DurableObjectNamespace<import("../../workers/chat-room").ChatRoom>;
 
 /**
- * Ով կարող է մտնել չատ. «a»՝ միայն OWNER_ACCOUNTS-ի հաշիվները (ոչ թե ցանկացած ադմին կամ
+ * Ով կարող է մտնել չատ. «a»՝ միայն OWNER_ACCOUNTS-ի հաշիվները կամ դրանց կապվածները (ոչ թե ցանկացած ադմին կամ
  * «գլխավոր ադմին» դարձված մարդ), «b»՝ միայն ստացողի պահված id-ները։ Մնացած բոլորը՝ null։
  */
 export async function chatParticipant(request: Request): Promise<{ side: ChatSide; user: TelegramUserIdentity } | null> {
   const user = await getOptionalTelegramUser(request);
   if (!user) return null;
-  if (user.source === "local-development" || isOwnerAccount(user)) return { side: "a", user };
+  if (user.source === "local-development" || await isOwnerIdentity(request, env.DB, user)) return { side: "a", user };
   const letter = await getPrivateLetter(env.DB);
-  return letter.recipientIds.includes(user.id) ? { side: "b", user } : null;
+  if (!letter.recipientIds.length) return null;
+  if (letter.recipientIds.includes(user.id)) return { side: "b", user };
+  // Ստացողը հետագայում կարող է կապել իր հաշիվները. կապված հաշվով էլ նա նույն մարդն է։
+  const aliases = await linkedAliases(request, env.DB, user.id);
+  return aliases.some((alias) => letter.recipientIds.includes(alias.id)) ? { side: "b", user } : null;
 }
 
 export function chatRoom() {

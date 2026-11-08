@@ -265,7 +265,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
         </div>
         {canAskPush && (
           <button type="button" className="grid size-10 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" aria-label="Միացնել ծանուցումները (առանց ձայնի)"
-            onClick={() => void enablePushNotifications().then((on) => { setCanAskPush(!on); setNotice(on ? "Ծանուցումները միացված են՝ առանց ձայնի և առանց տեքստի։" : "Ծանուցումները չմիացան։"); })}>
+            onClick={() => void enablePushNotifications().then((on) => { setCanAskPush(!on); setNotice(on ? "Ծանուցումները միացված են՝ առանց ձայնի և առանց տեքստի։" : Notification.permission === "denied" ? "Այս բրաուզերում ծանուցումներն արգելված են. թույլատրեք կայքի կարգավորումներում (հասցեի տողի կողքի նշանը)։" : "Այս բրաուզերը ծանուցումներ չի ընդունում. փորձեք Chrome-ում կամ Safari-ում, կամ բացեք Telegram-ով։"); })}>
             <Bell aria-hidden="true" size={19} />
           </button>
         )}
