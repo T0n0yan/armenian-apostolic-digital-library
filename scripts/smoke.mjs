@@ -15,13 +15,13 @@ const ATTEMPTS = 4;
 const TIMEOUT_MS = 20_000;
 
 /** Մեկ հասցե. պատասխանը 200 է և պարունակում է սպասված տեքստը։ */
-async function check(path, expect, { accept = "text/html" } = {}) {
+async function check(path, expect, { accept = "text/html", fresh = true } = {}) {
   let last = "";
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     const started = Date.now();
     try {
-      // ?smoke=… — cache-ից դուրս, որ ստուգվի հենց նոր տարբերակը։
-      const url = `${base}${path}${path.includes("?") ? "&" : "?"}smoke=${Date.now()}`;
+      // ?smoke=… — cache-ից դուրս, որ ստուգվի հենց նոր տարբերակը (fresh: false՝ ինչպես ընթերցողը կստանա)։
+      const url = fresh ? `${base}${path}${path.includes("?") ? "&" : "?"}smoke=${Date.now()}` : `${base}${path}`;
       const response = await fetch(url, { headers: { accept, "user-agent": "apostolic-smoke-check" }, redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
       const body = await response.text();
       const ms = Date.now() - started;
@@ -61,10 +61,13 @@ const psalm = psalms.match(/href="(\/psalms\/\d+)"/u)?.[1];
 if (psalm) await step(psalm, /<article/u);
 else if (psalms) failures.push("/psalms: սաղմոսի հղում չգտնվեց");
 
-// Էջի JS և CSS ֆայլերը. սխալ build-ի դեպքում էջը բացվում է, բայց չի աշխատում։
-const assets = [...new Set([...home.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/gu)].map((match) => match[1]))].slice(0, 6);
+// Էջի JS և CSS ֆայլերը. սխալ build-ի դեպքում էջը բացվում է, բայց չի աշխատում։ Ստուգվում է նաև
+// այն էջը, որը ընթերցողը կստանա cache-ից (նախորդ build-ի ֆայլերի հղումներով էջը կոտրված կլիներ)։
+const cachedHome = await step("/", /<html lang="hy"/u, { fresh: false });
+const assetsOf = (html) => [...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/gu)].map((match) => match[1]))];
+const assets = [...new Set([...assetsOf(home).slice(0, 6), ...assetsOf(cachedHome).slice(0, 6)])];
 for (const asset of assets) await step(asset, null, { accept: "*/*" });
-if (home && assets.length === 0) failures.push("/: JS/CSS ֆայլերի հղումներ չգտնվեցին");
+if (home && assetsOf(home).length === 0) failures.push("/: JS/CSS ֆայլերի հղումներ չգտնվեցին");
 
 if (failures.length) {
   console.error(`\n${failures.length} ստուգում ձախողվեց`);

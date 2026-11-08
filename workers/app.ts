@@ -225,6 +225,9 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     keyUrl.searchParams.set("__cache", await contentVersion((env as unknown as { DB: D1Database }).DB));
     // Pages that show "today" (the day's verse, saint, readings) change at midnight in Yerevan.
     keyUrl.searchParams.set("__day", yerevanDay());
+    // Ամեն deploy-ի JS/CSS ֆայլերը նոր անուններ ունեն, իսկ հինները այլևս չկան. նախորդ build-ի
+    // պատրաստ էջը (հին ֆայլերի հղումներով) նոր build-ից հետո չի տրվում։
+    keyUrl.searchParams.set("__build", await buildVersion());
     const cacheKey = new Request(keyUrl.toString(), { method: "GET" });
     // Only the library's own pages, which the content version covers, may be shown from an older
     // copy while a fresh one is made; places and other pages stay at most five minutes old.
@@ -248,6 +251,13 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const response = await requestHandler(request);
     return timed(store(cache, cacheKey, url, request, response, context), "miss", started);
   }
+}
+
+let build: Promise<string> | null = null;
+/** React Router-ի build-ի տարբերակը (փոխվում է, երբ փոխվում են JS/CSS ֆայլերը)։ */
+function buildVersion() {
+  build ??= import("virtual:react-router/server-build").then((server) => server.assets.version).catch(() => "0");
+  return build;
 }
 
 /** Today's date in Yerevan (UTC+4, no daylight saving), e.g. 2026-11-08. */
