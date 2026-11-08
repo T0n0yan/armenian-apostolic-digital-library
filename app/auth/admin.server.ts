@@ -81,7 +81,7 @@ export type AdminAccess = AdminIdentity & { owner: boolean; permissions: AdminPe
  * OWNER_ACCOUNTS. ստորակետով՝ Google էլ. հասցեներ և @Telegram username-ներ։ Google-ի էլ. հասցեն
  * հաստատված է Google-ի կողմից, Telegram-ի username-ը՝ Telegram-ի ստորագրված մուտքով։
  */
-function isOwnerAccount(user: { id: string; username: string | null; source: string }) {
+export function isOwnerAccount(user: { id: string; username: string | null; source: string }) {
   const list = ((env as { OWNER_ACCOUNTS?: string }).OWNER_ACCOUNTS ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
   if (!list.length) return false;
   // Անփոփոխ ինքնությամբ. user.id-ն «telegram:<թիվ>» կամ «google:<sub>» է, երբեք չի փոխվում (A-03)։
