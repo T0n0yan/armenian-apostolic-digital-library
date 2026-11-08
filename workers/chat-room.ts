@@ -97,6 +97,28 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   }
 
   /** Քանի չջնջված հաղորդագրություն կա (ստացողին փոխելուց առաջ). ջնջվածների պարունակությունն արդեն չկա։ */
+  /**
+   * Ստացողը փոխվել է. նախկին ստացողի բաց էջերը փակվում են, նրա հաշիվները և «վերջին անգամ»-ը
+   * մոռացվում են, որ ոչ նամակ, ոչ ծանուցում նրան այլևս չհասնի։
+   */
+  async resetRecipient(keepIds: string[]) {
+    for (const socket of this.ctx.getWebSockets("b")) {
+      const me = socket.deserializeAttachment() as Attachment | null;
+      if (me && keepIds.includes(me.userId)) continue;
+      try { socket.close(4001, "recipient changed"); } catch { /* արդեն փակ է */ }
+    }
+    const marks = keepIds.length ? keepIds.map(() => "?").join(",") : "''";
+    const removed = this.sql.exec(`DELETE FROM members WHERE side = 'b' AND user_id NOT IN (${marks})`, ...keepIds).rowsWritten;
+    // Ոչ ոք չի հեռացվել (նույն ստացողը նորից է պահվել). նրա կարգավորումներն ու «վերջին անգամ»-ը մնում են։
+    if (!removed) return;
+    for (const key of ["seen_b", "status_b", "read_b", "nick_b", "font_b", "bgop_b"]) this.setState(key, null);
+    const background = Number(this.getState("bg_b") ?? 0);
+    this.setState("bg_b", null);
+    if (background) this.removeFile(background);
+    await this.clearNotifications("b");
+    this.sendTo("a", { type: "presence", presence: this.presenceOf("b") });
+  }
+
   async messageCount() {
     return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages WHERE deleted = 0").one().count;
   }
