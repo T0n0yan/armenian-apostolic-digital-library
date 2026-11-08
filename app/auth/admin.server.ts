@@ -81,8 +81,11 @@ export type AdminAccess = AdminIdentity & { owner: boolean; permissions: AdminPe
  * OWNER_ACCOUNTS. ստորակետով՝ Google էլ. հասցեներ և @Telegram username-ներ։ Google-ի էլ. հասցեն
  * հաստատված է Google-ի կողմից, Telegram-ի username-ը՝ Telegram-ի ստորագրված մուտքով։
  */
-export function isOwnerAccount(user: { id: string; username: string | null; source: string }) {
-  const list = ((env as { OWNER_ACCOUNTS?: string }).OWNER_ACCOUNTS ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+export function accountList(name: "OWNER_ACCOUNTS" | "CHAT_OWNER_ACCOUNTS") {
+  return (((env as unknown as Record<string, unknown>)[name] as string | undefined) ?? "").split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+}
+
+export function isOwnerAccount(user: { id: string; username: string | null; source: string }, list = accountList("OWNER_ACCOUNTS")) {
   if (!list.length) return false;
   // Անփոփոխ ինքնությամբ. user.id-ն «telegram:<թիվ>» կամ «google:<sub>» է, երբեք չի փոխվում (A-03)։
   if (list.includes(user.id.toLowerCase())) return true;
@@ -109,11 +112,11 @@ export function linkedAliases(request: Request, database: D1Database, userId: st
  * OWNER_ACCOUNTS-ի հաշիվ է՝ ինքը կամ դրան կապվածը։ Google-ը Telegram-ին կապելուց հետո Google-ով մտնելիս
  * բացվում է Telegram հաշիվը, իսկ Gmail-ը մնում է կապված (alias) հաշվում. առանց սրա տերը կկորցներ իր իրավունքը։
  */
-export async function isOwnerIdentity(request: Request, database: D1Database, user: { id: string; username: string | null; source: string }) {
-  if (isOwnerAccount(user)) return true;
-  if (!(((env as { OWNER_ACCOUNTS?: string }).OWNER_ACCOUNTS ?? "").trim())) return false;
+export async function isOwnerIdentity(request: Request, database: D1Database, user: { id: string; username: string | null; source: string }, list = accountList("OWNER_ACCOUNTS")) {
+  if (isOwnerAccount(user, list)) return true;
+  if (!list.length) return false;
   const aliases = await linkedAliases(request, database, user.id);
-  return aliases.some((alias) => isOwnerAccount({ id: alias.id, username: alias.username, source: alias.id.startsWith("google:") ? "google" : "telegram" }));
+  return aliases.some((alias) => isOwnerAccount({ id: alias.id, username: alias.username, source: alias.id.startsWith("google:") ? "google" : "telegram" }, list));
 }
 
 export async function getOptionalTelegramAdmin(

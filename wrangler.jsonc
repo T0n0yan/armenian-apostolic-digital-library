@@ -103,6 +103,8 @@
 			],
 			"vars": {
 				"PUBLIC_URL": "https://apostolic.am",
+				// Անձնական չատի (/namak) «a» կողմը՝ միայն տիրոջ հաշիվները (Google էլ. հասցե, google:<sub>, telegram:<ID>)։
+				"CHAT_OWNER_ACCOUNTS": "t0n0yan.contact@gmail.com,google:105697341528136664011,dav.tonoyan.90@gmail.com,telegram:570038355",
 				// This site's bot is in the library group: its posts start the sync (for both sites).
 				"SYNC_ON_POSTS": "1",
 				// Pictures and recordings straight from R2 behind the CDN, once new DNS has reached Armenian
