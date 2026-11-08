@@ -86,7 +86,8 @@ export async function uploadChatFile(request: Request) {
   if (kind === "background") return Response.json(await room.setBackground(who.side, mime, data), { headers: fileHeaders({}) });
   const number = (key: string) => { const value = Number(url.searchParams.get(key)); return Number.isFinite(value) && value > 0 ? Math.round(value * 10) / 10 : undefined; };
   const meta: ChatMeta = { w: number("w"), h: number("h"), duration: number("duration") };
-  const result = await room.addFile(who.side, kind, mime, data, meta, (url.searchParams.get("clientId") ?? "").slice(0, 40));
+  const replyTo = Number(url.searchParams.get("replyTo"));
+  const result = await room.addFile(who.side, kind, mime, data, meta, (url.searchParams.get("clientId") ?? "").slice(0, 40), Number.isSafeInteger(replyTo) && replyTo > 0 ? replyTo : null);
   return Response.json(result, { status: "error" in result ? 429 : 200, headers: fileHeaders({}) });
 }
 
