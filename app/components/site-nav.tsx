@@ -217,7 +217,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
         >
-          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_24s_linear_infinite]" src={CrownWreath} width={256} height={256} alt="" aria-hidden="true" />
+          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_24s_linear_infinite]" src={CrownWreath} width={168} height={168} alt="" aria-hidden="true" />
           <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
         </button>
       </nav>
