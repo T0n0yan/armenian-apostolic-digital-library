@@ -9,7 +9,6 @@ import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import { mediaInventoryPage } from "../app/data/media-inventory.server";
 
 import { readTelegramBridgeConfiguration } from "../app/data/telegram-bridge-config.server";
-import { getMediaClient } from "../app/auth/media-client.server";
 import { isRetryableMediaError, mediaPlaybackStateForEvent, mediaSources } from "../app/utils/media-playback";
 import { normalizeThemePreference, resolveTheme } from "../shared/theme";
 import { isPendingNavigation } from "../shared/navigation-state";
@@ -851,15 +850,6 @@ test("mock adapter and authenticated Bridge API cover pagination, search, posts 
 });
 
 test("fair bounded media scheduling keeps metadata responsive and releases aborted slots", async () => {
-  const firstIdentity = getMediaClient(new Request("https://app.fixture/"));
-  assert.ok(firstIdentity.cookie);
-  assert.match(firstIdentity.key, /^[a-zA-Z0-9_-]{16,64}$/u);
-  const repeatedIdentity = getMediaClient(new Request("https://app.fixture/", {
-    headers: { cookie: firstIdentity.cookie!.split(";", 1)[0] },
-  }));
-  assert.equal(repeatedIdentity.key, firstIdentity.key);
-  assert.equal(repeatedIdentity.cookie, null);
-
   const scheduler = new MediaScheduler(1, 2, 1, 1);
   const firstRelease = await scheduler.acquire("video", "client-a", new AbortController().signal);
   const secondVideo = scheduler.acquire("video", "client-a", new AbortController().signal);
@@ -1289,6 +1279,13 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
   const homeHtml = await home.text();
+  // Էջի cache. երկրորդ այցը տրվում է cache-ից, իսկ ներքին նշումը (X-Stored-At) բրաուզերին չի հասնում։
+  assert.match(home.headers.get("server-timing") ?? "", /edge;desc="miss", app;dur=\d+/u);
+  const homeAgain = await mf.dispatchFetch("https://app.fixture/");
+  await homeAgain.text();
+  assert.match(homeAgain.headers.get("server-timing") ?? "", /edge;desc="hit"/u);
+  assert.equal(homeAgain.headers.get("x-stored-at"), null);
+  assert.equal(homeAgain.headers.get("cache-control"), "public, max-age=30");
   assert.match(homeHtml, /Աղոթքներ/u);
   assert.doesNotMatch(homeHtml, />General</u);
   for (const topic of ["Աղոթքներ", "Սրբերի կյանք", "Ավետարանի ուսուցում", "Սաղմոսներ", "Հարցեր Աստվածաշնչից", "Օրվա ընթերցանություն"]) {

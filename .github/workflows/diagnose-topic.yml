@@ -32,9 +32,9 @@ jobs:
       TELEGRAM_CONTENT_CHAT_ID: ${{ vars.TELEGRAM_CONTENT_CHAT_ID }}
       WRANGLER_SEND_METRICS: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm

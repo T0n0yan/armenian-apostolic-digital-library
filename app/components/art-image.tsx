@@ -10,10 +10,11 @@ const DEFAULT_SIZES = "(max-width: 940px) 100vw, 940px";
 
 /**
  * Loads an artwork the way <ArtImage> will (same srcset and sizes, so the browser picks the same
- * file) and resolves once it is decoded, or after `timeoutMs`. Page loaders await it so a new page
+ * file) and resolves once it is decoded, or after `timeoutMs` (short: on a slow phone the page
+ * must not wait for its picture longer than a moment). Page loaders await it so a new page
  * appears together with its picture instead of the picture popping in afterwards.
  */
-export function preloadArt(src: string, timeoutMs = 1_500) {
+export function preloadArt(src: string, timeoutMs = 600) {
   if (typeof window === "undefined") return Promise.resolve();
   const responsive = responsiveImage(src);
   const image = new Image();

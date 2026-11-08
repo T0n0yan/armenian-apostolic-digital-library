@@ -110,7 +110,7 @@ const server = createServer(async (incoming, outgoing) => {
     const request = new Request(new URL(incoming.url || "/", origin), {
       method: incoming.method,
       headers: Object.entries(incoming.headers).flatMap(([name, value]) =>
-        value === undefined ? [] : Array.isArray(value) ? value.map((item) => [name, item] as [string, string]) : [[name, value]],
+        value === undefined ? [] : Array.isArray(value) ? value.map((item): [string, string] => [name, item]) : [[name, value] as [string, string]],
       ),
       signal: abort.signal,
     });

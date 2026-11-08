@@ -1,6 +1,7 @@
 import { createRequestHandler } from "react-router";
 
-import { cacheEpoch, dispatchCloudSync } from "../app/data/site-refresh.server";
+import { contentVersion } from "../app/data/content-version.server";
+import { dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
 import { removeOldStories } from "../app/data/stories.server";
@@ -67,16 +68,15 @@ function withBrowserCache(response: Response, url: URL) {
   return copy;
 }
 
-/** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
 /** Content-Security-Policy. inline boot-script-ը թույլատրվում է միայն իր հաշով, script-ը՝ միայն մեր և Telegram-ի։ */
 function contentSecurityPolicy(env: Env) {
   const media = ((env as unknown as { MEDIA_BASE_URL?: string }).MEDIA_BASE_URL ?? "").trim();
   const mediaSrc = media ? ` ${media}` : "";
   return [
     "default-src 'self'",
-    // Script-ը առայժմ inline-ով (մինչ nonce-ի ներդրումը). boot-script-ի հաշը նշված է որպես հետքայլ։
-    // Ներարկված script-ի տվյալների արտահոսքը փակ է connect-src/img-src/form-action-ով։
-    // Script-ը առայժմ inline-ով (մինչ nonce-ի ներդրումը). ներարկված script-ի արտահոսքը փակ է ցանցի/նկարի/form կանոններով։
+    // 'unsafe-inline'. էջերը edge cache-ում ընդհանուր են, ուստի ամեն հարցման nonce հնարավոր չէ, իսկ
+    // React Router-ի տվյալների script-ը ամեն էջում տարբեր է (հաշով չի ծածկվում)։ Ներարկված script-ի
+    // տվյալների արտահոսքը փակ է connect-src/img-src/form-action կանոններով։
     "script-src 'self' 'unsafe-inline' https://telegram.org 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${mediaSrc} https://tiles.openfreemap.org`,
@@ -93,6 +93,7 @@ function contentSecurityPolicy(env: Env) {
   ].join("; ");
 }
 
+/** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
 function secure(response: Response, env: Env) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
@@ -167,7 +168,11 @@ a,button{display:inline-block;min-height:44px;padding:10px 18px;border-radius:12
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
 }
 
+/** These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too. */
+const SHARED_JSON = new Set(["/api/glossary", "/api/places-search", "/api/search-page", "/api/search-suggestions", "/api/search-index"]);
+
 async function handle(request: Request, env: Env, context: ExecutionContext): Promise<Response> {
+  const started = Date.now();
   // The site lives at its own address (PUBLIC_URL: apostolic.am, staging.apostolic.am). The old
   // workers.dev address and www. move there, keeping the path, so shared links keep working.
   {
@@ -195,8 +200,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     // those are cached like the pages themselves, so searching or opening a section from inside
     // the site avoids repeated SSR/SQL work (it still counts as a Worker invocation).
     const page = url.pathname.replace(/\.data$/u, "").replace(/^\/_root$/u, "/");
-    // These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too.
-    const sharedJson = url.pathname === "/api/glossary" || url.pathname === "/api/places-search" || url.pathname === "/api/search-page" || url.pathname === "/api/search-suggestions" || url.pathname === "/api/search-index" || url.pathname.startsWith("/api/categories/");
+    const sharedJson = SHARED_JSON.has(url.pathname) || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
       && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))
       && !url.searchParams.has("refresh")
@@ -212,26 +216,80 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
         || url.pathname === "/api/places-search"
         || url.pathname === "/api/search-index"
         || url.pathname === "/api/search-suggestions");
-    if (!cacheable) return requestHandler(request);
+    if (!cacheable) return timed(await requestHandler(request), "bypass", started);
     const cache = (caches as CacheStorage & { default: Cache }).default;
-    // Cache by URL only, so a cookie never splits or leaks into the shared entry. The site's cache
-    // version is part of the key, so an admin's "refresh now" makes every page fresh at once.
+    // Cache by URL only, so a cookie never splits or leaks into the shared entry. The key carries
+    // the library's content version (a new or changed post, or an admin's «Թարմացնել հիմա»), so a
+    // change makes every page fresh at once, while unchanged pages can be kept long.
     const keyUrl = new URL(url);
-    keyUrl.searchParams.set("__cache", await cacheEpoch((env as unknown as { DB: D1Database }).DB));
+    keyUrl.searchParams.set("__cache", await contentVersion((env as unknown as { DB: D1Database }).DB));
+    // Pages that show "today" (the day's verse, saint, readings) change at midnight in Yerevan.
+    keyUrl.searchParams.set("__day", yerevanDay());
     const cacheKey = new Request(keyUrl.toString(), { method: "GET" });
+    // Only the library's own pages, which the content version covers, may be shown from an older
+    // copy while a fresh one is made; places and other pages stay at most five minutes old.
+    const keepStale = isLibraryPath(page) || page === "/" || page.startsWith("/categories/") || page.startsWith("/materials/") || url.pathname.startsWith("/api/categories/");
     const cached = await cache.match(cacheKey);
-    if (cached) return cached;
+    if (cached) {
+      const age = Date.now() - Number(cached.headers.get(STORED_AT) ?? 0);
+      if (age <= FRESH_MS) return timed(forClient(cached), "hit", started);
+      if (keepStale && age <= KEEP_MS) {
+        // Stale-while-revalidate: the reader gets the page at once, a fresh copy is made behind it.
+        if (!refreshing.has(cacheKey.url)) {
+          refreshing.add(cacheKey.url);
+          context.waitUntil(requestHandler(new Request(request.url, { headers: request.headers }))
+            .then((fresh) => store(cache, cacheKey, url, request, fresh, context))
+            .catch((error: unknown) => console.error("cache refresh failed", url.pathname, error))
+            .finally(() => refreshing.delete(cacheKey.url)));
+        }
+        return timed(forClient(cached), "stale", started);
+      }
+    }
     const response = await requestHandler(request);
-    if (response.status !== 200 || response.headers.has("set-cookie") || /private|no-store/iu.test(response.headers.get("cache-control") ?? "")) return response;
-    const cacheResponse = new Response(response.body, response);
-    // Five minutes at the edge: a new Telegram post shows within that, and «Թարմացնել կայքը» in the
-    // admin page (a new cache version) makes every page fresh at once. The title index's address
-    // carries its version, so it is kept for good, everywhere.
-    const versioned = url.pathname === "/api/search-index" && response.headers.get("Cache-Control")?.includes("immutable");
-    if (url.pathname === "/api/search-index" && !versioned) return response;
-    if (!import.meta.env.DEV && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))) cacheResponse.headers.set("X-Offline-Public", "1");
-    cacheResponse.headers.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : "public, max-age=30, s-maxage=300");
-    context.waitUntil(cache.put(cacheKey, cacheResponse.clone()));
-    return cacheResponse;
+    return timed(store(cache, cacheKey, url, request, response, context), "miss", started);
   }
+}
+
+/** Today's date in Yerevan (UTC+4, no daylight saving), e.g. 2026-11-08. */
+function yerevanDay() {
+  return new Date(Date.now() + 4 * 60 * 60_000).toISOString().slice(0, 10);
+}
+
+/** A cached page counts as fresh this long (as before: a new post shows within five minutes). */
+const FRESH_MS = 5 * 60_000;
+/** A library page is kept this long and shown at once while a fresh copy is made. */
+const KEEP_MS = 24 * 60 * 60_000;
+const STORED_AT = "X-Stored-At";
+/** Pages whose fresh copy is already being made by this instance (one refresh at a time). */
+const refreshing = new Set<string>();
+
+/** Puts a page into the edge cache (when it may be shared) and returns what the reader gets. */
+function store(cache: Cache, cacheKey: Request, url: URL, request: Request, response: Response, context: ExecutionContext) {
+  if (response.status !== 200 || response.headers.has("set-cookie") || /private|no-store/iu.test(response.headers.get("cache-control") ?? "")) return response;
+  // The title index's address carries its version, so it is kept for good, everywhere; without
+  // a version it is not cached.
+  const versioned = url.pathname === "/api/search-index" && response.headers.get("Cache-Control")?.includes("immutable");
+  if (url.pathname === "/api/search-index" && !versioned) return response;
+  const copy = new Response(response.body, response);
+  const sharedJson = SHARED_JSON.has(url.pathname) || url.pathname.startsWith("/api/categories/");
+  if (!import.meta.env.DEV && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))) copy.headers.set("X-Offline-Public", "1");
+  copy.headers.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : `public, max-age=30, s-maxage=${KEEP_MS / 1000}`);
+  copy.headers.set(STORED_AT, String(Date.now()));
+  context.waitUntil(cache.put(cacheKey, copy.clone()));
+  return forClient(copy);
+}
+
+/** What the reader's browser gets: its own short lifetime, without the edge's bookkeeping. */
+function forClient(response: Response) {
+  const copy = new Response(response.body, response);
+  copy.headers.delete(STORED_AT);
+  if (!copy.headers.get("Cache-Control")?.includes("immutable")) copy.headers.set("Cache-Control", "public, max-age=30");
+  return copy;
+}
+
+/** Server-Timing՝ բրաուզերի DevTools-ում և smoke ստուգման մեջ երևում է՝ էջը cache-ից էր, թե ոչ, և քանի մվ։ */
+function timed(response: Response, cacheState: "hit" | "stale" | "miss" | "bypass", started: number) {
+  const copy = new Response(response.body, response);
+  copy.headers.append("Server-Timing", `edge;desc="${cacheState}", app;dur=${Date.now() - started}`);
+  return copy;
 }
