@@ -29,6 +29,9 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 import {
+  AUDIO_PROFILE, audioContentType, audioEncodeArgs, audioFacts, audioPlan as audioFilePlan, audioVerdict,
+} from "../shared/audio-optimize";
+import {
   MONO_DIFFERENCE_DB, VIDEO_BACKUP_DAYS, VIDEO_PROFILE, audioPlan, backupKeyOf, encodeArgs, isOptimizedKey,
   optimizeVerdict, optimizedKeyOf, parseMeanVolume, videoFacts, type VideoProbe,
 } from "../shared/video-optimize";
@@ -162,15 +165,15 @@ WHERE key = 'help_videos' AND json_extract(value, '${path}.key') = ${sql(item.ke
 }
 
 /** Telegram-ի/կայքի ֆայլի D1 տողը՝ նոր չափով, տեսակով և տարբերակով։ */
-function finalizeInPlaceSql(item: Candidate, row: { bytes: number; version: string }) {
+function finalizeInPlaceSql(item: Candidate, row: { bytes: number; version: string }, mime: string | null = "video/mp4") {
   const table = item.source === "telegram" ? "library_media" : "material_attachments";
   return `UPDATE video_optimizations SET status = 'optimized', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(item.key)};
-UPDATE ${table} SET size_bytes = ${row.bytes}, mime_type = 'video/mp4', r2_etag = ${sql(row.version)} WHERE r2_key = ${sql(item.key)};`;
+UPDATE ${table} SET size_bytes = ${row.bytes},${mime ? ` mime_type = ${sql(mime)},` : ""} r2_etag = ${sql(row.version)} WHERE r2_key = ${sql(item.key)};`;
 }
 
-function recordSql(input: { result: string; source: string; status: string; originalBytes: number; optimizedBytes: number; version: string; backup: string | null; note: string }) {
+function recordSql(input: { result: string; source: string; status: string; originalBytes: number; optimizedBytes: number; version: string; backup: string | null; note: string; profile?: string }) {
   return `INSERT INTO video_optimizations (result_key, source_key, status, original_bytes, optimized_bytes, version, backup_key, note, profile)
-VALUES (${sql(input.result)}, ${sql(input.source)}, ${sql(input.status)}, ${input.originalBytes}, ${input.optimizedBytes}, ${sql(input.version)}, ${sql(input.backup)}, ${sql(input.note)}, ${sql(VIDEO_PROFILE)})
+VALUES (${sql(input.result)}, ${sql(input.source)}, ${sql(input.status)}, ${input.originalBytes}, ${input.optimizedBytes}, ${sql(input.version)}, ${sql(input.backup)}, ${sql(input.note)}, ${sql(input.profile ?? VIDEO_PROFILE)})
 ON CONFLICT (result_key) DO UPDATE SET source_key = excluded.source_key, status = excluded.status, original_bytes = excluded.original_bytes,
 optimized_bytes = excluded.optimized_bytes, version = excluded.version, backup_key = excluded.backup_key, note = excluded.note,
 profile = excluded.profile, backup_deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now');`;
@@ -257,6 +260,73 @@ async function optimizeOne(item: Candidate, work: string): Promise<boolean> {
       return false;
     }
     await execute(`UPDATE video_optimizations SET status = 'optimized', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(newKey)};`, work);
+    return true;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+const isAudioProfile = (profile: string) => profile.startsWith("a");
+const isCurrentProfile = (profile: string) => profile === VIDEO_PROFILE || profile === AUDIO_PROFILE;
+
+/** Ձայնագրությունները (Telegram-ից և կայքում ավելացված), որոնք դեռ սեղմված (կամ ստուգված) չեն։ */
+async function findAudioCandidates(done: Set<string>) {
+  const list: Candidate[] = [];
+  for (const row of await query<{ r2_key: string; size_bytes: number | null; mime_type: string | null }>(
+    "SELECT r2_key, size_bytes, mime_type FROM library_media WHERE status = 'ready' AND kind = 'audio' AND r2_key IS NOT NULL")) {
+    list.push({ source: "telegram", key: row.r2_key, bytes: row.size_bytes, mime: row.mime_type, ref: "" });
+  }
+  for (const row of await query<{ r2_key: string; size_bytes: number | null; mime_type: string | null }>(
+    "SELECT r2_key, size_bytes, mime_type FROM material_attachments WHERE kind = 'audio'")) {
+    list.push({ source: "attachment", key: row.r2_key, bytes: row.size_bytes, mime: row.mime_type, ref: "" });
+  }
+  return list.filter((item) => !done.has(item.key)).sort((a, b) => (a.bytes ?? 0) - (b.bytes ?? 0));
+}
+
+/**
+ * Մեկ ձայնագրություն. նույն ձևաչափով, նույն բանալիով (տեսակը չի փոխվում), բնօրինակը՝ originals/-ում
+ * մինչև ստուգումը։ true՝ եթե կայքում ինչ-որ բան փոխվեց։
+ */
+async function optimizeAudio(item: Candidate, work: string): Promise<boolean> {
+  const dir = await mkdtemp(join(work, "a-"));
+  try {
+    const original = join(dir, "original");
+    let originalBytes = 0;
+    const keep = async (note: string, resultBytes = 0) => {
+      await execute(recordSql({ result: item.key, source: item.key, status: "kept", originalBytes, optimizedBytes: resultBytes, version: "", backup: null, note, profile: AUDIO_PROFILE }), work);
+      log(`  թողնված է (${note})`);
+      return false;
+    };
+    try {
+      await r2Get(item.key, original);
+    } catch (error) {
+      if (MISSING.test((error as Error).message)) return keep("missing-file");
+      throw error;
+    }
+    originalBytes = (await stat(original)).size;
+    let facts;
+    try { facts = audioFacts(await probe(original)); } catch { return keep("unreadable"); }
+    const plan = audioFilePlan(facts, await nearlyMono(original, facts.channels));
+    if ("skip" in plan) return keep(plan.skip);
+    const output = join(dir, "optimized");
+    try {
+      await run("ffmpeg", audioEncodeArgs(original, output, plan), { timeoutMs: Math.max(10 * 60_000, facts.duration * 2_000) });
+    } catch (error) {
+      return keep(`encode-failed: ${(error as Error).message.slice(-120)}`);
+    }
+    const resultBytes = (await stat(output)).size;
+    const verdict = audioVerdict({ original: facts, originalBytes, result: audioFacts(await probe(output)), resultBytes });
+    log(`  ${mb(originalBytes)} → ${mb(resultBytes)} (${Math.round((1 - resultBytes / originalBytes) * 100)}%), ${plan.channels === 1 ? "մոնո" : "ստերեո"}, ${verdict.note}`);
+    if (!verdict.replace) return keep(verdict.note, resultBytes);
+    if (originalBytes > MAX_UPLOAD_BYTES) return keep("original-too-large-to-backup", resultBytes);
+    const version = `o-${(await sha256(output)).slice(0, 16)}`;
+    const contentType = audioContentType(plan.format);
+    const backup = backupKeyOf(item.key);
+    await r2Put(backup, original, item.mime ?? contentType);
+    await execute(recordSql({ result: item.key, source: item.key, status: "pending", originalBytes, optimizedBytes: resultBytes, version, backup, note: verdict.note, profile: AUDIO_PROFILE }), work);
+    await r2Put(item.key, output, contentType);
+    await verifyStored(item.key, version, dir);
+    await execute(finalizeInPlaceSql(item, { bytes: resultBytes, version }, null), work);
     return true;
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -357,7 +427,8 @@ async function finishPending(rows: Row[], work: string) {
       await rm(file, { force: true });
       if (current === row.version) {
         const source: Source = row.result_key.startsWith("attachments/") ? "attachment" : "telegram";
-        await execute(finalizeInPlaceSql({ source, key: row.result_key, bytes: null, mime: null, ref: "" }, { bytes: row.optimized_bytes, version: row.version }), work);
+        // Ձայնագրության տեսակը չի փոխվում (MP3-ը մնում է MP3)
+        await execute(finalizeInPlaceSql({ source, key: row.result_key, bytes: null, mime: null, ref: "" }, { bytes: row.optimized_bytes, version: row.version }, isAudioProfile(row.profile) ? null : "video/mp4"), work);
         changed = true;
       } else {
         // Փոխարինումը չէր կատարվել. բնօրինակը տեղում է, կսեղմվի նորից
@@ -386,7 +457,7 @@ async function finishPending(rows: Row[], work: string) {
 async function deleteOldBackups(work: string) {
   const rows = await query<{ result_key: string; backup_key: string }>(
     `SELECT result_key, backup_key FROM video_optimizations WHERE status = 'optimized' AND backup_key IS NOT NULL
-     AND profile = ${sql(VIDEO_PROFILE)} AND backup_deleted_at IS NULL
+     AND profile IN (${sql(VIDEO_PROFILE)}, ${sql(AUDIO_PROFILE)}) AND backup_deleted_at IS NULL
      AND updated_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${VIDEO_BACKUP_DAYS} days')`);
   for (const row of rows) {
     // Ապահովության համար. երբեք չջնջել այն, ինչ հիմա տրվում է
@@ -409,7 +480,7 @@ async function main() {
     const outOfTime = () => Date.now() - startedAt > BUDGET_MS || processed >= LIMIT;
 
     // 1. Հին կանոններով սեղմվածները՝ նորից, բնօրինակից (մինչև բնօրինակների ջնջումը)
-    const stale = (await readRows()).filter((row) => row.status === "optimized" && row.profile !== VIDEO_PROFILE && row.backup_key && !row.backup_deleted_at)
+    const stale = (await readRows()).filter((row) => row.status === "optimized" && !isAudioProfile(row.profile) && row.profile !== VIDEO_PROFILE && row.backup_key && !row.backup_deleted_at)
       .sort((a, b) => a.optimized_bytes - b.optimized_bytes);
     log(`Նորից սեղմելու (${VIDEO_PROFILE})՝ ${stale.length}`);
     if (DRY_RUN) for (const row of stale) log(`  ${row.result_key} ${mb(row.optimized_bytes)} ← ${row.backup_key}`);
@@ -427,11 +498,12 @@ async function main() {
 
     // 2. Նոր տեսանյութեր և նախկինում թողնվածները (հին կանոններով «kept»-ը նորից է փորձվում)։
     // Կրկին կարդում ենք. «pending»-ը (dry-run-ում) նույնպես «արված» է, որ ոչինչ երկու անգամ չսեղմվի
-    const done = new Set((await readRows()).filter((row) => !(row.status === "kept" && row.profile !== VIDEO_PROFILE)).map((row) => row.result_key));
+    const done = new Set((await readRows()).filter((row) => !(row.status === "kept" && !isCurrentProfile(row.profile))).map((row) => row.result_key));
     const candidates = await findCandidates(done);
-    log(`Սեղմելու տեսանյութեր՝ ${candidates.length}`);
-    if (DRY_RUN) { for (const item of candidates) log(`  ${item.source} ${item.key} ${item.bytes ? mb(item.bytes) : ""}`); return; }
-    if (candidates.length) await ensureFfmpeg();
+    const audios = await findAudioCandidates(done);
+    log(`Սեղմելու տեսանյութեր՝ ${candidates.length}, ձայնագրություններ՝ ${audios.length}`);
+    if (DRY_RUN) { for (const item of [...candidates, ...audios]) log(`  ${item.source} ${item.key} ${item.bytes ? mb(item.bytes) : ""}`); return; }
+    if (candidates.length || audios.length) await ensureFfmpeg();
     for (const [index, item] of candidates.entries()) {
       if (outOfTime()) { log(`Ժամանակը/սահմանը սպառվեց. մնացածը՝ հաջորդ անգամ`); break; }
       processed += 1;
@@ -443,16 +515,27 @@ async function main() {
         log(`  սխալ՝ ${(error as Error).message.slice(0, 300)}`);
       }
     }
-    // 3. Ստուգված սեղմվածների բնօրինակները՝ ջնջել (VIDEO_BACKUP_DAYS = 0)
+    // 3. Ձայնագրություններ (MP3/AAC), փոքրերից սկսած
+    for (const [index, item] of audios.entries()) {
+      if (outOfTime()) { log(`Ժամանակը/սահմանը սպառվեց. մնացածը՝ հաջորդ անգամ`); break; }
+      processed += 1;
+      log(`ձայն ${index + 1}/${audios.length} ${item.source} ${item.key}`);
+      try {
+        if (await optimizeAudio(item, work)) changed = true;
+      } catch (error) {
+        log(`  սխալ՝ ${(error as Error).message.slice(0, 300)}`);
+      }
+    }
+    // 4. Ստուգված սեղմվածների բնօրինակները՝ ջնջել (VIDEO_BACKUP_DAYS = 0)
     await deleteOldBackups(work);
     if (changed) {
       // Էջերի քեշը թարմանում է, որ նոր ?v= հղումները անմիջապես երևան
       await execute(`INSERT INTO site_settings (key, value) VALUES ('cache_epoch', '${Date.now()}')
 ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now');`, work);
     }
-    const [total] = await query<{ files: number; before: number; after: number }>(
-      "SELECT COUNT(*) files, COALESCE(SUM(original_bytes),0) before, COALESCE(SUM(optimized_bytes),0) after FROM video_optimizations WHERE status = 'optimized'");
-    if (total?.files) log(`Ընդհանուր սեղմված՝ ${total.files} ֆայլ, ${mb(total.before)} → ${mb(total.after)}`);
+    const totals = await query<{ audio: number; files: number; before: number; after: number }>(
+      "SELECT profile LIKE 'a%' AS audio, COUNT(*) files, COALESCE(SUM(original_bytes),0) before, COALESCE(SUM(optimized_bytes),0) after FROM video_optimizations WHERE status = 'optimized' GROUP BY profile LIKE 'a%'");
+    for (const total of totals) log(`Ընդհանուր սեղմված ${total.audio ? "ձայնագրություններ" : "տեսանյութեր"}՝ ${total.files} ֆայլ, ${mb(total.before)} → ${mb(total.after)}`);
   } finally {
     await rm(work, { recursive: true, force: true });
   }

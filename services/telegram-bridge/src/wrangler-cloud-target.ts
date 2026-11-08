@@ -311,12 +311,12 @@ VALUES(${sql(post.chatId)},${post.messageId},${sql(fieldId)},${sql(normalized)},
     }).join("\n");
     const mediaSql = post.media.map((media) => {
       const stored = mediaState.get(media.index);
-      // Սեղմված տեսանյութը (scripts/optimize-videos.ts) նույն բանալիով է. պահում ենք նրա չափը,
-      // տեսակը և տարբերակը, որ հղման ?v=-ը հետ չգնա հին ֆայլին
+      // Սեղմված տեսանյութը կամ ձայնագրությունը (scripts/optimize-videos.ts) նույն բանալիով է. պահում ենք
+      // նրա չափը, տեսակը (ձայնագրության տեսակը չի փոխվում) և տարբերակը, որ ?v=-ը հետ չգնա հին ֆայլին
       const optimized = (column: string) => `(SELECT ${column} FROM video_optimizations WHERE result_key=${sql(stored?.original)} AND status='optimized')`;
       return `INSERT INTO library_media
 (chat_id,message_id,media_index,source_message_id,kind,mime_type,file_name,size_bytes,width,height,duration,title,performer,waveform,alt_text,r2_key,thumbnail_r2_key,sha256,status,uploaded_at,r2_etag)
-VALUES(${sql(post.chatId)},${post.messageId},${media.index},${post.constituentMessageIds[media.index] ?? post.messageId},${sql(media.kind)},COALESCE(${optimized("'video/mp4'")},${sql(media.mimeType)}),${sql(media.fileName)},COALESCE(${optimized("optimized_bytes")},${sql(media.sizeBytes)}),${sql(media.width)},${sql(media.height)},${sql(media.duration)},${sql(media.title)},${sql(media.performer)},${sql(media.waveform)},${sql(media.altText)},${sql(stored?.original)},${sql(stored?.thumbnail)},${sql(stored?.sha256)},${sql(stored?.original ? "ready" : "pending")},${stored?.original ? "strftime('%Y-%m-%dT%H:%M:%fZ','now')" : "NULL"},${optimized("version")});`;
+VALUES(${sql(post.chatId)},${post.messageId},${media.index},${post.constituentMessageIds[media.index] ?? post.messageId},${sql(media.kind)},COALESCE(${optimized("CASE WHEN profile LIKE 'a%' THEN NULL ELSE 'video/mp4' END")},${sql(media.mimeType)}),${sql(media.fileName)},COALESCE(${optimized("optimized_bytes")},${sql(media.sizeBytes)}),${sql(media.width)},${sql(media.height)},${sql(media.duration)},${sql(media.title)},${sql(media.performer)},${sql(media.waveform)},${sql(media.altText)},${sql(stored?.original)},${sql(stored?.thumbnail)},${sql(stored?.sha256)},${sql(stored?.original ? "ready" : "pending")},${stored?.original ? "strftime('%Y-%m-%dT%H:%M:%fZ','now')" : "NULL"},${optimized("version")});`;
     }).join("\n");
     const albumSql = post.constituentMessageIds.map((messageId, ordinal) => `INSERT INTO library_album_members(chat_id,canonical_message_id,member_message_id,ordinal)
 VALUES(${sql(post.chatId)},${post.messageId},${messageId},${ordinal});`).join("\n");
