@@ -297,19 +297,24 @@ flowchart TD
 - Մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։
 - **Այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։
 
-### Անձնական նամակ (`/namak`)
+### Անձնական չատ (`/namak`)
 
 ```mermaid
 flowchart TD
-  OWN["Տերը /namak-ում՝ ստացողի Gmail կամ @username, վերնագիր, օր, տեքստ"] --> FIND["Գտնում է հաշիվները (app_users + account_links)<br/>պահում է id-ները, ոչ թե հասցեն"]
-  FIND --> SET[("site_settings «private_letter»")]
-  SET --> ROOT["root loader. մուտք գործածի համար՝ letterVisibleTo"]
-  ROOT -->|"միայն ստացողին, օրը եկել է"| NUDGE["«💌 Քեզ համար նամակ կա» պատուհան"] --> PAGE["/namak՝ նամակը"]
-  ROOT -->|"մնացածը"| NF["/namak՝ 404"]
+  MENU["Մենյու. փոքր ✉ «Կարգավորումներ»-ի կողքին<br/>(միայն երկու կողմին, կետ՝ չկարդացվածի դեպքում)"] --> PAGE["/namak (private, no-store, 404 ուրիշին)"]
+  PAGE -->|"wss /namak/socket"| W["Worker. նույն կայքից է (Origin), մուտք է, կողմ է<br/>a = OWNER_ACCOUNTS, b = site_settings.private_letter.recipientIds"]
+  W -->|"կողմը դնում է Worker-ը"| DO[("ChatRoom Durable Object (SQLite)<br/>messages, members, state")]
+  DO -->|"նամակ, գրում է…, ✓✓, առցանց, ջնջված"| PAGE
+  DO -->|"մյուսը չի նայում. մեկ անգամ մինչև կարդալը"| N["Ծանուցում առանց ձայնի և տեքստի<br/>web push (silent) + բոտ (disable_notification, protect_content)"]
+  N -->|"կարդալուց հետո"| DEL["բոտի ծանուցումը ջնջվում է"]
 ```
 
-- Տեսնում են միայն տերը (խմբագիր + նախադիտում) և ստացողը. մնացածի համար էջը 404 է, `private, no-store`, sw-ն չի պահում։
-- Կոդը՝ `app/routes/private-letter.tsx`, `app/data/private-letter.server.ts`, `app/utils/private-letter.ts`, `app/components/private-letter-nudge.tsx`։ Ստացողի հասցեն և տեքստը միայն բազայում են, ոչ թե կոդում։
+- Մտնում են միայն երկու կողմ. «a»՝ միայն `OWNER_ACCOUNTS`-ի հաշիվները (ոչ թե «գլխավոր ադմին» դարձված մյուսները), «b»՝ ստացողը։ Մնացած բոլորին էջը և socket-ը 404 են։
+- Հաղորդագրությունները պահվում են **միայն** `ChatRoom` DO-ի SQLite-ում (`workers/chat-room.ts`), ոչ թե D1-ում. ուստի չկան backup-ում, ադմինի էջերում, Excel-ում։ Բրաուզերում (localStorage) ոչինչ չի պահվում, sw-ն չի պահում։ Ջնջելիս տեքստը իսկապես ջնջվում է։
+- Ստացողը նշվում է չատի «Կարգավորում»-ում (Gmail կամ @username → անփոփոխ id-ներ, `account_links`-ով նաև կապված հաշիվները)։ Նամակներ ունենալուց հետո ստացողին փոխել չի կարելի։
+- Hibernation. socket-ները բաց են, օբյեկտը քնում է. «ping»-ին պատասխանում է առանց արթնանալու։ Բրաուզերը 1–15 վ ընդմիջումով նորից է միանում, չհաստատված նամակները նորից ուղարկում (`client_id`՝ կրկնություն չկա)։
+- Չատի էջում root-ի պատուհանները (կիրակնօրյա հարց, ուղեցույց, «Ավելացնել էկրանին», եկեղեցու հուշում) չեն բացվում։
+- Կոդը՝ `app/routes/private-chat.tsx`, `app/components/private-chat.tsx`, `app/data/private-chat.server.ts`, `app/utils/private-chat.ts`, `workers/chat-room.ts`, `wrangler.jsonc` (`CHAT`, migration `v2`)։
 
 ## 7. Որոնում
 

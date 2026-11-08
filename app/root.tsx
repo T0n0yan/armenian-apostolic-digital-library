@@ -9,6 +9,7 @@ import {
   ScrollRestoration,
   useRevalidator,
   type ShouldRevalidateFunctionArgs,
+  useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -33,9 +34,7 @@ import { GlossaryLayer } from "./components/glossary-layer";
 import { HighlightLayer } from "./components/highlight-layer";
 import { ChurchNudge } from "./components/church-nudge";
 import { HelpOnboarding } from "./components/help-onboarding";
-import { PrivateLetterNudge } from "./components/private-letter-nudge";
-import { getPrivateLetter } from "./data/private-letter.server";
-import { letterVisibleTo } from "./utils/private-letter";
+import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
 import { SundayPrompt } from "./components/sunday-prompt";
@@ -58,8 +57,8 @@ export async function loader({request}: Route.LoaderArgs) {
     getOptionalTelegramUser(request),
   ]);
 
-  // Անձնական նամակ (/namak). կարդում ենք միայն մուտք գործածի համար, ծանուցումը՝ միայն ստացողին։
-  const letter = telegramUser && !telegramAdmin?.owner ? await getPrivateLetter(env.DB) : null;
+  // Անձնական չատ (/namak). մենյուի թաքուն կետը՝ միայն երկու կողմին, չկարդացվածների թվով։
+  const chat = telegramUser ? await chatParticipant(request).catch(() => null) : null;
 
   const value = {
     // «Կառավարում» is the owner's alone; other admins get links to what they were allowed.
@@ -68,7 +67,7 @@ export async function loader({request}: Route.LoaderArgs) {
     isAdmin: can(telegramAdmin, "copy"),
     adminPermissions: telegramAdmin ? (telegramAdmin.owner ? Object.keys(ADMIN_PERMISSIONS) as AdminPermission[] : telegramAdmin.permissions) : [],
     signedIn: Boolean(telegramUser),
-    privateLetter: letter && letterVisibleTo(letter, telegramUser?.id) ? letter.updatedAt : null,
+    privateChat: chat ? { unread: await chatUnread(chat.side) } : null,
     // Shown with "Ելք" at the bottom of the menu.
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
@@ -238,6 +237,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
+  // Անձնական չատում ոչ մի պատուհան չի բացվում (կիրակնօրյա հարց, ուղեցույց, «Ավելացնել էկրանին»…)։
+  const quiet = useLocation().pathname === "/namak";
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
   // Մուտք չգործածի մոտ այս սարքում անձնական ոչինչ չի մնում (վերջին կարդացածը, սմայլիկները…)։
@@ -386,17 +387,16 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <Outlet />
     <CandleLoader />
     <ClientErrorReporter />
-    <InstallPrompt />
+    {!quiet && <InstallPrompt />}
     <ReminderAlarm />
     <ReminderError />
     <NavigationProgress />
     <GlossaryLayer />
     <HighlightLayer />
-    <ChurchNudge />
-    <HelpOnboarding />
-    <PrivateLetterNudge />
+    {!quiet && <ChurchNudge />}
+    {!quiet && <HelpOnboarding />}
     <PlaceTracker />
-    <SundayPrompt />
+    {!quiet && <SundayPrompt />}
   </>;
 }
 

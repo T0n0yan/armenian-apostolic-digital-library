@@ -203,6 +203,18 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
+  // Անձնական չատի ծանուցումը. առանց ձայնի, առանց թրթռոցի, առանց տեքստի, և էջին չի ասում զանգել։
+  if (data.kind === "quiet") {
+    event.waitUntil(self.registration.showNotification(data.title || "Հոգևոր ժառանգություն", {
+      body: data.body || "Նոր ծանուցում",
+      icon: "/icon-192.png",
+      badge: "/favicon-64.png",
+      tag: "quiet",
+      silent: true,
+      data: { url: data.url || "/" },
+    }));
+    return;
+  }
   // If the library is open on screen, let it ring the bell itself.
   // The material comes in the tag ("reminder-<id>"); links use short addresses (/psalm_169).
   const materialId = data.materialId || /^reminder-(.+)$/u.exec(data.tag || "")?.[1] || /\/materials\/([^/?]+)/u.exec(data.url || "")?.[1];

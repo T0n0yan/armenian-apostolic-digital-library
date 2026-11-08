@@ -1,4 +1,4 @@
-/** Անձնական նամակ՝ տիրոջից մեկ մարդու։ Երևում է միայն տիրոջը և ստացողին (/namak)։ */
+/** Անձնական չատի (/namak) երկրորդ կողմը։ title/body/visibleFrom-ը նախկին նամակից են (այլևս չեն ցուցադրվում)։ */
 export type PrivateLetter = {
   /** Ստացողի բոլոր հաշիվները (Google և դրան կապված Telegram)։ */
   recipientIds: string[];
@@ -12,11 +12,6 @@ export type PrivateLetter = {
 };
 
 export const EMPTY_LETTER: PrivateLetter = { recipientIds: [], recipientLabel: "", title: "", body: "", visibleFrom: "", updatedAt: "" };
-
-/** Երևանի այսօրվա օրը (UTC+4, առանց ամառային ժամի)։ */
-export function yerevanDay(now = Date.now()) {
-  return new Date(now + 4 * 60 * 60_000).toISOString().slice(0, 10);
-}
 
 export function parseLetter(json: string | null | undefined): PrivateLetter {
   try {
@@ -32,12 +27,6 @@ export function parseLetter(json: string | null | undefined): PrivateLetter {
   } catch {
     return EMPTY_LETTER;
   }
-}
-
-/** Ստացողը տեսնու՞մ է նամակը. միայն իր հաշվով, միայն երբ տեքստ կա և օրը եկել է։ */
-export function letterVisibleTo(letter: PrivateLetter, userId: string | null | undefined, today = yerevanDay()) {
-  if (!userId || !letter.body.trim() || !letter.recipientIds.includes(userId)) return false;
-  return !letter.visibleFrom || letter.visibleFrom <= today;
 }
 
 /** Ստացողին նշելու տողը՝ ստորակետով. էլ. հասցեներ և @username-ներ, փոքրատառ։ */

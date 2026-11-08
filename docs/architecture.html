@@ -373,7 +373,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </figure>
   <p><b>API-ներ</b> (բրաուզերը կանչում է ֆոնում). <code>/api/search-page</code>, <code>/api/search-suggestions</code>, <code>/api/search-index</code>, <code>/api/content-version</code>, <code>/api/reading-log</code>, <code>/api/reminders</code>, <code>/api/calendar</code>, <code>/api/push</code>, <code>/api/saved-verses</code>, <code>/api/poll-vote</code>, <code>/api/psalm-timings</code>, <code>/api/material-layout</code>, <code>/api/presence</code>, <code>/api/highlights</code>, <code>/api/church-points</code>, <code>/api/place-visits</code>, <code>/api/places-search</code>, <code>/api/glossary</code>, <code>/api/sunday</code>, <code>/api/my-summary</code>, <code>/api/telegram-link</code>, <code>/api/og-cards</code>, <code>/api/categories/:slug/posts</code>, <code>/api/help-videos</code>։ <b>Ֆայլեր</b>. <code>/media/...</code> (R2-ի պահուստային ճանապարհ), <code>/place-media/...</code>, <code>/help-media/...</code>, <code>/og/card/...</code>, <code>/sitemap.xml</code>։</p>
 </section>
-<section id="6-մուտք-և-հաշիվներ" class="part" data-text="6. մուտք և հաշիվներ  մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։ **այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։ անձնական նամակ (`/namak`)  տեսնում են միայն տերը (խմբագիր + նախադիտում) և ստացողը. մնացածի համար էջը 404 է, `private, no-store`, sw-ն չի պահում։ կոդը՝ `app/routes/private-letter.tsx`, `app/data/private-letter.server.ts`, `app/utils/private-letter.ts`, `app/components/private-letter-nudge.tsx`։ ստացողի հասցեն և տեքստը միայն բազայում են, ոչ թե կոդում։">
+<section id="6-մուտք-և-հաշիվներ" class="part" data-text="6. մուտք և հաշիվներ  մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։ **այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։ անձնական չատ (`/namak`)  մտնում են միայն երկու կողմ. «a»՝ միայն `owner_accounts`-ի հաշիվները (ոչ թե «գլխավոր ադմին» դարձված մյուսները), «b»՝ ստացողը։ մնացած բոլորին էջը և socket-ը 404 են։ հաղորդագրությունները պահվում են **միայն** `chatroom` do-ի sqlite-ում (`workers/chat-room.ts`), ոչ թե d1-ում. ուստի չկան backup-ում, ադմինի էջերում, excel-ում։ բրաուզերում (localstorage) ոչինչ չի պահվում, sw-ն չի պահում։ ջնջելիս տեքստը իսկապես ջնջվում է։ ստացողը նշվում է չատի «կարգավորում»-ում (gmail կամ @username → անփոփոխ id-ներ, `account_links`-ով նաև կապված հաշիվները)։ նամակներ ունենալուց հետո ստացողին փոխել չի կարելի։ hibernation. socket-ները բաց են, օբյեկտը քնում է. «ping»-ին պատասխանում է առանց արթնանալու։ բրաուզերը 1–15 վ ընդմիջումով նորից է միանում, չհաստատված նամակները նորից ուղարկում (`client_id`՝ կրկնություն չկա)։ չատի էջում root-ի պատուհանները (կիրակնօրյա հարց, ուղեցույց, «ավելացնել էկրանին», եկեղեցու հուշում) չեն բացվում։ կոդը՝ `app/routes/private-chat.tsx`, `app/components/private-chat.tsx`, `app/data/private-chat.server.ts`, `app/utils/private-chat.ts`, `workers/chat-room.ts`, `wrangler.jsonc` (`chat`, migration `v2`)։">
   <header><span class="n">6</span><h2>Մուտք և հաշիվներ</h2></header>
   <figure class="diagram" data-diagram="6">
   <div class="tools">
@@ -400,7 +400,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   ROLE --&gt;|&quot;ընթերցող&quot;| RD[&quot;Իր նշումները, պահվածները, հիշեցումները&quot;]</pre></div>
 </figure>
   <ul><li>Մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։</li><li><b>Այցերի վիճակագրությունը անանուն է</b> (<code>site_presence</code>). հաշվի հետ չի կապվում։</li></ul>
-  <h3>Անձնական նամակ (<code>/namak</code>)</h3>
+  <h3>Անձնական չատ (<code>/namak</code>)</h3>
   <figure class="diagram" data-diagram="7">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
@@ -411,13 +411,14 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
     <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
   </div>
   <div class="canvas"><pre class="src">flowchart TD
-  OWN[&quot;Տերը /namak-ում՝ ստացողի Gmail կամ @username, վերնագիր, օր, տեքստ&quot;] --&gt; FIND[&quot;Գտնում է հաշիվները (app_users + account_links)&lt;br/&gt;պահում է id-ները, ոչ թե հասցեն&quot;]
-  FIND --&gt; SET[(&quot;site_settings «private_letter»&quot;)]
-  SET --&gt; ROOT[&quot;root loader. մուտք գործածի համար՝ letterVisibleTo&quot;]
-  ROOT --&gt;|&quot;միայն ստացողին, օրը եկել է&quot;| NUDGE[&quot;«💌 Քեզ համար նամակ կա» պատուհան&quot;] --&gt; PAGE[&quot;/namak՝ նամակը&quot;]
-  ROOT --&gt;|&quot;մնացածը&quot;| NF[&quot;/namak՝ 404&quot;]</pre></div>
+  MENU[&quot;Մենյու. փոքր ✉ «Կարգավորումներ»-ի կողքին&lt;br/&gt;(միայն երկու կողմին, կետ՝ չկարդացվածի դեպքում)&quot;] --&gt; PAGE[&quot;/namak (private, no-store, 404 ուրիշին)&quot;]
+  PAGE --&gt;|&quot;wss /namak/socket&quot;| W[&quot;Worker. նույն կայքից է (Origin), մուտք է, կողմ է&lt;br/&gt;a = OWNER_ACCOUNTS, b = site_settings.private_letter.recipientIds&quot;]
+  W --&gt;|&quot;կողմը դնում է Worker-ը&quot;| DO[(&quot;ChatRoom Durable Object (SQLite)&lt;br/&gt;messages, members, state&quot;)]
+  DO --&gt;|&quot;նամակ, գրում է…, ✓✓, առցանց, ջնջված&quot;| PAGE
+  DO --&gt;|&quot;մյուսը չի նայում. մեկ անգամ մինչև կարդալը&quot;| N[&quot;Ծանուցում առանց ձայնի և տեքստի&lt;br/&gt;web push (silent) + բոտ (disable_notification, protect_content)&quot;]
+  N --&gt;|&quot;կարդալուց հետո&quot;| DEL[&quot;բոտի ծանուցումը ջնջվում է&quot;]</pre></div>
 </figure>
-  <ul><li>Տեսնում են միայն տերը (խմբագիր + նախադիտում) և ստացողը. մնացածի համար էջը 404 է, <code>private, no-store</code>, sw-ն չի պահում։</li><li>Կոդը՝ <code>app/routes/private-letter.tsx</code>, <code>app/data/private-letter.server.ts</code>, <code>app/utils/private-letter.ts</code>, <code>app/components/private-letter-nudge.tsx</code>։ Ստացողի հասցեն և տեքստը միայն բազայում են, ոչ թե կոդում։</li></ul>
+  <ul><li>Մտնում են միայն երկու կողմ. «a»՝ միայն <code>OWNER_ACCOUNTS</code>-ի հաշիվները (ոչ թե «գլխավոր ադմին» դարձված մյուսները), «b»՝ ստացողը։ Մնացած բոլորին էջը և socket-ը 404 են։</li><li>Հաղորդագրությունները պահվում են <b>միայն</b> <code>ChatRoom</code> DO-ի SQLite-ում (<code>workers/chat-room.ts</code>), ոչ թե D1-ում. ուստի չկան backup-ում, ադմինի էջերում, Excel-ում։ Բրաուզերում (localStorage) ոչինչ չի պահվում, sw-ն չի պահում։ Ջնջելիս տեքստը իսկապես ջնջվում է։</li><li>Ստացողը նշվում է չատի «Կարգավորում»-ում (Gmail կամ @username → անփոփոխ id-ներ, <code>account_links</code>-ով նաև կապված հաշիվները)։ Նամակներ ունենալուց հետո ստացողին փոխել չի կարելի։</li><li>Hibernation. socket-ները բաց են, օբյեկտը քնում է. «ping»-ին պատասխանում է առանց արթնանալու։ Բրաուզերը 1–15 վ ընդմիջումով նորից է միանում, չհաստատված նամակները նորից ուղարկում (<code>client_id</code>՝ կրկնություն չկա)։</li><li>Չատի էջում root-ի պատուհանները (կիրակնօրյա հարց, ուղեցույց, «Ավելացնել էկրանին», եկեղեցու հուշում) չեն բացվում։</li><li>Կոդը՝ <code>app/routes/private-chat.tsx</code>, <code>app/components/private-chat.tsx</code>, <code>app/data/private-chat.server.ts</code>, <code>app/utils/private-chat.ts</code>, <code>workers/chat-room.ts</code>, <code>wrangler.jsonc</code> (<code>CHAT</code>, migration <code>v2</code>)։</li></ul>
 </section>
 <section id="7-որոնում" class="part" data-text="7. որոնում  էջի ներսում որոնում (`page-find.tsx`). բաժնի ցուցակը նեղանում է մուտքագրելիս։">
   <header><span class="n">7</span><h2>Որոնում</h2></header>
