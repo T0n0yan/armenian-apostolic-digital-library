@@ -20,4 +20,6 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+          # v5-ը package.json-ի packageManager-ից ինքն է միացնում pnpm-ի cache-ը, իսկ այստեղ pnpm չկա
+          package-manager-cache: false
       - run: node scripts/storage-report.mjs
