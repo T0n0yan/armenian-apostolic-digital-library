@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, CircleHelp, LogIn, LogOut, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, ChevronRight, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { lockScroll } from "../utils/scroll-lock";
 import { memo, useEffect, useRef, useState } from "react";
@@ -157,7 +157,16 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             ) : null}
 
             <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
-              <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
+                {/* Անձնական չատը. փոքր, առանց անվան, միայն երկու կողմին (root-ը ուրիշներին null է տալիս)։ */}
+                {rootData?.privateChat ? (
+                  <NavLink className="relative grid size-7 place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                    <Mail aria-hidden="true" size={14} />
+                    {rootData.privateChat.unread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
+                  </NavLink>
+                ) : null}
+              </div>
               <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")}>
                 <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings2 aria-hidden="true" size={17} /></span>
                 <span className="flex-1">Կայքի լուսավորություն, տառաչափ, տառատեսակ…</span>

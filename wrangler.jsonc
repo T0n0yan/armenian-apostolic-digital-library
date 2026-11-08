@@ -26,9 +26,10 @@
 	// The site's alarm clock (workers/clock.ts): the sync 15 minutes after new posts, and each
 	// reminder at its own minute, in place of a cron every minute. SQLite-backed: free plan.
 	"durable_objects": {
-		"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
+		"bindings": [{ "name": "CLOCK", "class_name": "Clock" }, { "name": "CHAT", "class_name": "ChatRoom" }]
 	},
-	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Clock"] }],
+	// v2՝ անձնական չատը (workers/chat-room.ts), նույնպես SQLite՝ անվճար պլան։
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["Clock"] }, { "tag": "v2", "new_sqlite_classes": ["ChatRoom"] }],
 	"observability": {
 		"enabled": true
 	},
@@ -46,7 +47,7 @@
 			// Sunday reminder (workers/app.ts). Reminders and the sync after new posts: the Clock.
 			"triggers": { "crons": ["17 0 * * *", "7 9 * * SUN"] },
 			"durable_objects": {
-				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
+				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }, { "name": "CHAT", "class_name": "ChatRoom" }]
 			},
 			// Staging-ի հաշվիչները առանձին են (նույն namespace_id-ն նշանակում է նույն հաշվիչը production-ի հետ)։
 			"ratelimits": [
@@ -94,7 +95,7 @@
 			// Sunday reminder (workers/app.ts). Reminders and the sync after new posts: the Clock.
 			"triggers": { "crons": ["17 0 * * *", "7 9 * * SUN"] },
 			"durable_objects": {
-				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
+				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }, { "name": "CHAT", "class_name": "ChatRoom" }]
 			},
 			"ratelimits": [
 				{ "name": "WRITE_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },

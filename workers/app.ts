@@ -5,6 +5,8 @@ import { dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
 import { removeOldStories } from "../app/data/stories.server";
+import { openChatSocket } from "../app/data/private-chat.server";
+import { CHAT_SOCKET_PATH } from "../app/utils/private-chat";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -13,6 +15,7 @@ const requestHandler = createRequestHandler(
 );
 
 export { Clock } from "./clock";
+export { ChatRoom } from "./chat-room";
 
 /** Կիրակի 09:07 UTC = 13:07 Երևան։ */
 const SUNDAY_CRON = "7 9 * * SUN";
@@ -72,6 +75,9 @@ function withBrowserCache(response: Response, url: URL) {
 function contentSecurityPolicy(env: Env) {
   const media = ((env as unknown as { MEDIA_BASE_URL?: string }).MEDIA_BASE_URL ?? "").trim();
   const mediaSrc = media ? ` ${media}` : "";
+  // Անձնական չատի socket-ը (Safari-ի որոշ տարբերակներ 'self'-ով wss չեն թույլատրում)։
+  const home = ((env as unknown as { PUBLIC_URL?: string }).PUBLIC_URL ?? "").trim();
+  const socketSrc = /^https:\/\//u.test(home) ? ` wss://${new URL(home).host}` : "";
   return [
     "default-src 'self'",
     // 'unsafe-inline'. էջերը edge cache-ում ընդհանուր են, ուստի ամեն հարցման nonce հնարավոր չէ, իսկ
@@ -81,7 +87,7 @@ function contentSecurityPolicy(env: Env) {
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${mediaSrc} https://tiles.openfreemap.org`,
     "font-src 'self' data:",
-    `connect-src 'self'${mediaSrc} https://tiles.openfreemap.org https://api.github.com`,
+    `connect-src 'self'${socketSrc}${mediaSrc} https://tiles.openfreemap.org https://api.github.com`,
     "worker-src 'self' blob:",
     `media-src 'self' blob:${mediaSrc}`,
     "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
@@ -127,6 +133,8 @@ export default {
     context.waitUntil(removeOldStories(data.MEDIA).catch((error: unknown) => console.error("stories clean-up", error)));
   },
   async fetch(request, env, context) {
+    // Անձնական չատի socket-ը (101 պատասխանը չպետք է վերափաթաթվի secure()-ով)։
+    if (new URL(request.url).pathname === CHAT_SOCKET_PATH) return openChatSocket(request);
     // A failure outside the app's own error pages (the database or the platform) still gets a
     // calm page in Armenian instead of the platform's English one.
     const response = secure(await handleWithRetry(request, env, context).catch((error: unknown) => {
