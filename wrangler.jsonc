@@ -21,6 +21,8 @@
 			"bucket_name": "armenian-apostolic-library-media-local"
 		}
 	],
+	// Սրբավայրերի փոքր պատկերները (app/routes/place-media.ts). փոխարկումը Worker-ի CPU-ից դուրս է։
+	"images": { "binding": "IMAGES" },
 	// The site's alarm clock (workers/clock.ts): the sync 15 minutes after new posts, and each
 	// reminder at its own minute, in place of a cron every minute. SQLite-backed: free plan.
 	"durable_objects": {
@@ -30,6 +32,9 @@
 	"observability": {
 		"enabled": true
 	},
+	// Worker-ը աշխատում է բազային (D1) մոտ. cache-ում չեղած էջը մի քանի SQL հարցում է անում, և
+	// ամեն մեկը այդպես արագ է (հատկապես մուտք գործածների և Mini App-ի համար, որոնց էջերը cache չունեն)։
+	"placement": { "mode": "smart" },
 	"upload_source_maps": true,
 	// No per-version preview addresses (…-<version>-….workers.dev): old versions stay unreachable.
 	"preview_urls": false,
@@ -79,7 +84,8 @@
 					"binding": "MEDIA",
 					"bucket_name": "armenian-apostolic-library-media-staging"
 				}
-			]
+			],
+			"images": { "binding": "IMAGES" }
 		},
 		"production": {
 			"name": "armenian-apostolic-digital-library",
@@ -126,14 +132,10 @@
 					"binding": "MEDIA",
 					"bucket_name": "armenian-apostolic-library-media-production"
 				}
-			]
+			],
+			"images": { "binding": "IMAGES" }
 		}
 	}
-	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-	 */
-	// "placement": {  "mode": "smart" }
 	/**
 	 * Bindings
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including

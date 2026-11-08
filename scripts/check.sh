@@ -36,4 +36,11 @@ if ! npx tsc -b >"$log" 2>&1; then
   exit 1
 fi
 
-echo "✓ build, թեստեր, tsc — ամեն ինչ կարգին է"
+# Նույնը, ինչ CI-ի «QA review»-ը. bridge-ի և թեստերի tsconfig-ները (առանց սրա տեղում կանաչ էր, CI-ում՝ կարմիր)։
+if ! pnpm -s lint >"$log" 2>&1; then
+  echo "✗ lint — $(grep -c 'error TS' "$log") սխալ (առաջին 40-ը):"
+  head -n 40 "$log"
+  exit 1
+fi
+
+echo "✓ build, թեստեր, tsc, lint — ամեն ինչ կարգին է"

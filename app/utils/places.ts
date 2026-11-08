@@ -102,6 +102,12 @@ export function placeMediaUrl(key: string) {
   return `/place-media/${key.replace(/^places\//u, "")}`;
 }
 
+/** Փոքր պատկեր (քարտեզի նշան, ցանկ). սերվերը այն պատրաստում է մեկ անգամ ու պահում R2-ում։ */
+export const PLACE_THUMB_WIDTHS = [160, 320] as const;
+export function placeThumbUrl(key: string, width: (typeof PLACE_THUMB_WIDTHS)[number] = 160) {
+  return `${placeMediaUrl(key)}?w=${width}`;
+}
+
 /** Whether a point lies in Armenia (the map shows only Armenia): ray casting over the border rings. */
 export function insideArmenia(latitude: number, longitude: number) {
   let inside = false;

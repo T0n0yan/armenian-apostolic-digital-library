@@ -87,7 +87,7 @@ test("ընտրված բառերի տառատեսակ", () => {
 
 test("Telegram-ի տեքստից սկիզբ՝ վերնագիրը հանված, պարբերություններով, թավը պահված", () => {
   const text = "Հայր մեր\n\nԱղոթքը տվել է Տերը։\n\nՀայր մեր, որ երկնքում ես";
-  const material = { title: "Հայր մեր", formattedText: { text, entities: [{ type: "bold" as const, offset: 31, length: 4 }] }, formattedCaption: plain(""), richContent: null };
+  const material = { title: "Հայր մեր", formattedText: { text, entities: [{ type: "bold" as const, offset: 31, length: 4, url: null }] }, formattedCaption: plain(""), richContent: null };
   const layout = seedLayout(material);
   assert.deepEqual(layout.paragraphs.map((paragraph) => paragraph.text), ["Աղոթքը տվել է Տերը։", "Հայր մեր, որ երկնքում ես"]);
   assert.equal(layout.paragraphs[0].initial, true);

@@ -1289,6 +1289,13 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
   const homeHtml = await home.text();
+  // Էջի cache. երկրորդ այցը տրվում է cache-ից, իսկ ներքին նշումը (X-Stored-At) բրաուզերին չի հասնում։
+  assert.match(home.headers.get("server-timing") ?? "", /edge;desc="miss", app;dur=\d+/u);
+  const homeAgain = await mf.dispatchFetch("https://app.fixture/");
+  await homeAgain.text();
+  assert.match(homeAgain.headers.get("server-timing") ?? "", /edge;desc="hit"/u);
+  assert.equal(homeAgain.headers.get("x-stored-at"), null);
+  assert.equal(homeAgain.headers.get("cache-control"), "public, max-age=30");
   assert.match(homeHtml, /Աղոթքներ/u);
   assert.doesNotMatch(homeHtml, />General</u);
   for (const topic of ["Աղոթքներ", "Սրբերի կյանք", "Ավետարանի ուսուցում", "Սաղմոսներ", "Հարցեր Աստվածաշնչից", "Օրվա ընթերցանություն"]) {
