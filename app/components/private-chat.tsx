@@ -1,11 +1,11 @@
-import { ArrowLeft, Bell, Check, CheckCheck, Clock3, ImagePlus, Lock, Mic, Pencil, SendHorizontal, Settings2, Square, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, Bell, Check, CheckCheck, Clock3, ImagePlus, Lock, Mic, Pencil, SendHorizontal, Settings2, Square, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
 import { STATUS_COLOR, useChatSocket } from "./chat-socket";
 import { fieldControl, fieldHint, fieldLabel } from "./ui-styles";
 import {
-  CHAT_UPLOAD_PATH, FILE_MAX, FONT_DEFAULT, FONT_MAX, FONT_MIN, MESSAGE_MAX, NICK_MAX, chatFileUrl, messageTicks, otherSide,
+  BG_OPACITY_DEFAULT, CHAT_BACKGROUND_PATH, CHAT_UPLOAD_PATH, FILE_MAX, FONT_DEFAULT, FONT_MAX, FONT_MIN, MESSAGE_MAX, NICK_MAX, chatFileUrl, messageTicks, otherSide,
   type ChatMessage, type ChatPresence, type ChatSettings, type ChatSide, type ChatStatus, type ClientEvent, type ServerEvent,
 } from "../utils/private-chat";
 import { enablePushNotifications, pushSupport } from "../utils/web-push";
@@ -84,7 +84,9 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
   const [read, setRead] = useState<Record<ChatSide, number>>({ a: 0, b: 0 });
   const [names, setNames] = useState<Partial<Record<ChatSide, string>>>({});
   const [presence, setPresence] = useState<ChatPresence>({ status: "away", lastSeen: null });
-  const [settings, setSettings] = useState<ChatSettings>({ nick: "", font: FONT_DEFAULT });
+  const [settings, setSettings] = useState<ChatSettings>({ nick: "", font: FONT_DEFAULT, bgOpacity: BG_OPACITY_DEFAULT, background: null });
+  const [opacityPreview, setOpacityPreview] = useState<number | null>(null);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
   const [typingUntil, setTypingUntil] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [ready, setReady] = useState(false);
@@ -147,7 +149,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
       case "typing": setTypingUntil(Date.now() + 4000); break;
       case "presence": setPresence(event.presence); if (event.presence.status === "away") setTypingUntil(0); break;
       case "deleted": setMessages((list) => list.map((message) => (message.id === event.id ? { ...message, body: "", deleted: true, fileId: null } : message))); break;
-      case "settings": setSettings(event.settings); break;
+      case "settings": setSettings(event.settings); setOpacityPreview(null); break;
       case "cleared": setMessages([]); setRead({ a: 0, b: 0 }); setHasMore(false); setEditing(null); break;
       case "error": setNotice(event.message); break;
       case "lite": break;
@@ -206,7 +208,9 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
   const onScroll = () => {
     const list = listRef.current;
     if (!list) return;
-    stickToBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+    const distance = list.scrollHeight - list.scrollTop - list.clientHeight;
+    stickToBottom.current = distance < 80;
+    setAwayFromBottom(distance > 400);
     if (list.scrollTop < 120 && hasMore && !loadingOlder.current && messages[0]) {
       loadingOlder.current = send({ type: "history", before: messages[0].id });
     }
@@ -242,6 +246,14 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
     dropPending(clientId);
     if (result?.message) setMessages((list) => merge(list, [result.message!]));
     else setNotice(result?.error ?? (response?.status === 415 ? "Այս ձևաչափը չի ընդունվում։" : "Չհաջողվեց ուղարկել, փորձեք նորից։"));
+  };
+
+  const uploadBackground = async (file: File | undefined) => {
+    if (!file) return;
+    setNotice("Ֆոնը բեռնվում է…");
+    const { blob } = await prepareImage(file);
+    const response = await fetch(`${CHAT_UPLOAD_PATH}?kind=background`, { method: "POST", headers: { "Content-Type": blob.type || "image/jpeg" }, body: blob }).catch(() => null);
+    setNotice(response?.ok ? "Ֆոնը փոխված է։ Այն տեսնում եք միայն դուք։" : "Ֆոնը չհաջողվեց բեռնել։");
   };
 
   const pickImage = async (file: File | undefined) => {
@@ -321,7 +333,10 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
 
   return (
     <div className="fixed inset-x-0 top-0 z-[40] flex flex-col overflow-hidden bg-[var(--page-bg)] text-ink" style={{ height: height ? `${height}px` : "100dvh" }}>
-      <header className="flex shrink-0 items-center gap-2 border-b border-glass-border px-2 pb-2 pt-[calc(var(--tg-inset-top,0px)+8px)]">
+      {/* Ֆոնը՝ թույլ երևացող. նկարը տրվում է միայն երկու կողմին (/namak/background)։ */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-cover bg-center transition-opacity duration-300"
+        style={{ backgroundImage: `url(${CHAT_BACKGROUND_PATH}?v=${settings.background ?? 0})`, opacity: ready ? opacityPreview ?? settings.bgOpacity : 0 }} />
+      <header className="relative flex shrink-0 bg-[color-mix(in_srgb,var(--page-bg)_80%,transparent)] backdrop-blur-md items-center gap-2 border-b border-glass-border px-2 pb-2 pt-[calc(var(--tg-inset-top,0px)+8px)]">
         <Link to="/" className="grid size-10 place-items-center rounded-full text-gold-bright" aria-label="Գրադարան"><ArrowLeft aria-hidden="true" size={21} /></Link>
         <span className="relative grid size-10 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/14%)] text-[16px] font-bold text-gold-bright">
           {otherName.trim().charAt(0).toUpperCase() || "…"}
@@ -344,16 +359,18 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
       </header>
 
       {settingsOpen && (
-        <div className="max-h-[42%] min-h-0 shrink overflow-y-auto">
-          <ChatPreferences settings={settings} placeholder={names[other] ?? ""} onSave={(next) => { send({ type: "settings", ...next }); setNotice("Պահված է։"); }} />
+        <div className="relative max-h-[42%] min-h-0 shrink overflow-y-auto">
+          <ChatPreferences settings={settings} placeholder={names[other] ?? ""} onPreview={setOpacityPreview}
+            onSave={(next) => { send({ type: "settings", ...next }); setNotice("Պահված է։"); }}
+            onBackground={(file) => void uploadBackground(file)} onReset={() => { send({ type: "background-reset" }); setNotice("Վերադարձված է ընդհանուր ֆոնը։"); }} />
           {side === "a" && <OwnerSettings recipient={recipient} actionData={actionData} onClear={() => send({ type: "clear" })} />}
         </div>
       )}
       {notice && (
-        <button type="button" className="mx-3 mt-2 cursor-pointer rounded-[12px] border border-glass-border bg-subtle px-3 py-2 text-left text-[13px] text-muted" onClick={() => setNotice("")}>{notice}</button>
+        <button type="button" className="relative mx-3 mt-2 cursor-pointer rounded-[12px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_88%,transparent)] px-3 py-2 text-left text-[13px] text-muted" onClick={() => setNotice("")}>{notice}</button>
       )}
 
-      <div ref={listRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3" onClick={() => setSelected(null)}>
+      <div ref={listRef} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3" onClick={() => setSelected(null)}>
         {ready && !messages.length && !pending.length && (
           <p className="m-auto mt-10 grid max-w-[300px] justify-items-center gap-2 text-center text-[13px] text-muted">
             <Lock aria-hidden="true" size={22} className="text-gold" />
@@ -364,7 +381,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
         <div className="grid gap-1" style={{ fontSize: `${settings.font}px` }}>
           {rows.map((row) => {
             if (row.kind === "day") {
-              return <div key={`d-${row.key}`} className="my-2 justify-self-center rounded-full bg-subtle px-3 py-1 text-[12px] text-muted">{row.label}</div>;
+              return <div key={`d-${row.key}`} className="my-2 justify-self-center rounded-full bg-[color-mix(in_srgb,var(--page-bg)_82%,transparent)] px-3 py-1 text-[12px] text-muted backdrop-blur-sm">{row.label}</div>;
             }
             const message = row.kind === "message" ? row.message : null;
             const mine = row.kind === "pending" || message?.side === side;
@@ -376,7 +393,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
             return (
               <div key={row.kind === "pending" ? `p-${row.item.clientId}` : `m-${message!.id}`} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`relative max-w-[82%] rounded-[18px] ${media ? "p-1.5" : "px-3 pb-1.5 pt-2"} leading-[1.45] shadow-[0_1px_2px_rgb(0_0_0/10%)] ${mine ? "rounded-br-[6px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/20%)]" : "rounded-bl-[6px] border border-glass-border bg-subtle"}`}
+                  className={`relative max-w-[82%] rounded-[18px] ${media ? "p-1.5" : "px-3 pb-1.5 pt-2"} leading-[1.45] shadow-[0_1px_2px_rgb(0_0_0/10%)] ${mine ? "rounded-br-[6px] border border-[rgb(217_181_111/45%)] bg-[color-mix(in_srgb,rgb(217_181_111)_24%,var(--page-bg))]" : "rounded-bl-[6px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] backdrop-blur-sm"}`}
                   onClick={(event) => { if (mine && id !== null && !deleted) { event.stopPropagation(); setSelected(selected === id ? null : id); } }}
                 >
                   {deleted ? <span className="italic text-faint">Նամակը ջնջված է</span>
@@ -421,13 +438,22 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
             );
           })}
           {typing && (
-            <div className="flex justify-start"><div className="rounded-[18px] rounded-bl-[6px] border border-glass-border bg-subtle px-3 py-2 text-[13px] text-muted">գրում է…</div></div>
+            <div className="flex justify-start"><div className="rounded-[18px] rounded-bl-[6px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] px-3 py-2 text-[13px] text-muted">գրում է…</div></div>
           )}
         </div>
       </div>
 
+      {awayFromBottom && (
+        <div className="relative h-0">
+          <button type="button" className="absolute -top-14 right-3 grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_90%,transparent)] text-gold-bright shadow-md backdrop-blur-md" aria-label="Ներքև"
+            onClick={() => { stickToBottom.current = true; listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }}>
+            <ArrowDown aria-hidden="true" size={19} />
+          </button>
+        </div>
+      )}
+
       {editing && (
-        <div className="flex shrink-0 items-center gap-2 border-t border-glass-border px-3 py-1.5 text-[12.5px] text-muted">
+        <div className="relative flex shrink-0 bg-[color-mix(in_srgb,var(--page-bg)_86%,transparent)] backdrop-blur-md items-center gap-2 border-t border-glass-border px-3 py-1.5 text-[12.5px] text-muted">
           <Pencil aria-hidden="true" size={14} className="text-gold-bright" />
           <span className="min-w-0 flex-1 truncate">Փոփոխում եք՝ {editing.body}</span>
           <button type="button" className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" aria-label="Չեղարկել" onClick={() => { setEditing(null); setText(""); }}><X aria-hidden="true" size={16} /></button>
@@ -435,7 +461,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
       )}
 
       {recording ? (
-        <div className="flex shrink-0 items-center gap-3 border-t border-glass-border px-3 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-2">
+        <div className="relative flex shrink-0 items-center gap-3 border-t border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_86%,transparent)] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-2 backdrop-blur-md">
           <button type="button" className={iconButton} aria-label="Չեղարկել" onClick={() => stopRecording(true)}><X aria-hidden="true" size={20} /></button>
           <span className="size-3 animate-pulse rounded-full bg-[#ef4444]" aria-hidden="true" />
           <span className="flex-1 text-[15px] tabular-nums">{duration((Date.now() - recording.started) / 1000)}</span>
@@ -444,7 +470,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
           </button>
         </div>
       ) : (
-        <form onSubmit={submit} className="flex shrink-0 items-end gap-1.5 border-t border-glass-border px-2 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-2">
+        <form onSubmit={submit} className="relative flex shrink-0 items-end gap-1.5 border-t border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_86%,transparent)] backdrop-blur-md px-2 pb-[calc(env(safe-area-inset-bottom,0px)+8px)] pt-2">
           {!editing && (
             <>
               <button type="button" className={`${iconButton} mb-0.5`} aria-label="Նկար ուղարկել" onClick={() => fileRef.current?.click()}><ImagePlus aria-hidden="true" size={21} /></button>
@@ -486,13 +512,19 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
 }
 
 /** Երկուսի համար. ինչպես եմ տեսնում մյուսի անունը և տեքստի չափը։ */
-function ChatPreferences({ settings, placeholder, onSave }: { settings: ChatSettings; placeholder: string; onSave: (next: ChatSettings) => void }) {
+function ChatPreferences({ settings, placeholder, onSave, onPreview, onBackground, onReset }: {
+  settings: ChatSettings; placeholder: string;
+  onSave: (next: { nick: string; font: number; bgOpacity: number }) => void;
+  onPreview: (opacity: number | null) => void; onBackground: (file: File | undefined) => void; onReset: () => void;
+}) {
   const [nick, setNick] = useState(settings.nick);
   const [font, setFont] = useState(settings.font);
-  useEffect(() => { setNick(settings.nick); setFont(settings.font); }, [settings]);
+  const [opacity, setOpacity] = useState(settings.bgOpacity);
+  const backgroundRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { setNick(settings.nick); setFont(settings.font); setOpacity(settings.bgOpacity); }, [settings]);
   const step = (delta: number) => setFont((value) => Math.min(FONT_MAX, Math.max(FONT_MIN, value + delta)));
   return (
-    <form className="mx-3 mt-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3" onSubmit={(event) => { event.preventDefault(); onSave({ nick: nick.trim(), font }); }}>
+    <form className="mx-3 mt-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3" onSubmit={(event) => { event.preventDefault(); onSave({ nick: nick.trim(), font, bgOpacity: opacity }); }}>
       <label className={fieldLabel}>Ինչ անունով տեսնեմ նրան
         <input className={fieldControl} value={nick} onChange={(event) => setNick(event.target.value)} maxLength={NICK_MAX} placeholder={placeholder || "Անուն"} autoComplete="off" />
       </label>
@@ -503,6 +535,23 @@ function ChatPreferences({ settings, placeholder, onSave }: { settings: ChatSett
           <span className="flex-1 rounded-[12px] border border-glass-border bg-[var(--page-bg)] px-3 py-2 text-center" style={{ fontSize: `${font}px` }}>Բարև 🙂</span>
           <button type="button" className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-[var(--page-bg)] text-[17px] font-bold text-ink" aria-label="Մեծացնել" onClick={() => step(1)}>A+</button>
         </div>
+      </div>
+      <div className="grid gap-2">
+        <span className="text-[13px] font-[720]">Ֆոնը (տեսնում եք միայն դուք)</span>
+        <div className="flex items-center gap-3">
+          <span className="block h-16 w-11 shrink-0 rounded-[8px] border border-glass-border bg-cover bg-center" style={{ backgroundImage: `url(${CHAT_BACKGROUND_PATH}?v=${settings.background ?? 0})` }} aria-hidden="true" />
+          <div className="grid flex-1 gap-1.5">
+            <button type="button" className="min-h-10 cursor-pointer rounded-full border border-glass-border bg-[var(--page-bg)] px-3 text-[13px] font-bold text-ink" onClick={() => backgroundRef.current?.click()}>Ընտրել իմ նկարը</button>
+            {settings.background !== null && (
+              <button type="button" className="min-h-9 cursor-pointer rounded-full border-0 bg-transparent px-3 text-[12.5px] text-muted underline" onClick={onReset}>Վերադարձնել ընդհանուր ֆոնը</button>
+            )}
+          </div>
+          <input ref={backgroundRef} type="file" accept="image/*" hidden onChange={(event) => { onBackground(event.target.files?.[0]); event.target.value = ""; }} />
+        </div>
+        <label className="grid gap-1 text-[12.5px] text-muted">Որքան երևա՝ {Math.round(opacity * 100)}%
+          <input type="range" min={5} max={80} step={1} value={Math.round(opacity * 100)} className="w-full accent-[rgb(217_181_111)]"
+            onChange={(event) => { const value = Number(event.target.value) / 100; setOpacity(value); onPreview(value); }} />
+        </label>
       </div>
       <button type="submit" className="min-h-11 cursor-pointer rounded-full border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/18%)] px-5 text-[14px] font-bold text-gold-bright">Պահել</button>
     </form>
