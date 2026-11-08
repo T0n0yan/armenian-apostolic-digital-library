@@ -33,6 +33,9 @@ import { GlossaryLayer } from "./components/glossary-layer";
 import { HighlightLayer } from "./components/highlight-layer";
 import { ChurchNudge } from "./components/church-nudge";
 import { HelpOnboarding } from "./components/help-onboarding";
+import { PrivateLetterNudge } from "./components/private-letter-nudge";
+import { getPrivateLetter } from "./data/private-letter.server";
+import { letterVisibleTo } from "./utils/private-letter";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
 import { SundayPrompt } from "./components/sunday-prompt";
@@ -55,6 +58,9 @@ export async function loader({request}: Route.LoaderArgs) {
     getOptionalTelegramUser(request),
   ]);
 
+  // Անձնական նամակ (/namak). կարդում ենք միայն մուտք գործածի համար, ծանուցումը՝ միայն ստացողին։
+  const letter = telegramUser && !telegramAdmin?.owner ? await getPrivateLetter(env.DB) : null;
+
   const value = {
     // «Կառավարում» is the owner's alone; other admins get links to what they were allowed.
     // The cookie stands for a Cloudflare Access sign-in only; a reader signed in with another account doesn't get the link.
@@ -62,6 +68,7 @@ export async function loader({request}: Route.LoaderArgs) {
     isAdmin: can(telegramAdmin, "copy"),
     adminPermissions: telegramAdmin ? (telegramAdmin.owner ? Object.keys(ADMIN_PERMISSIONS) as AdminPermission[] : telegramAdmin.permissions) : [],
     signedIn: Boolean(telegramUser),
+    privateLetter: letter && letterVisibleTo(letter, telegramUser?.id) ? letter.updatedAt : null,
     // Shown with "Ելք" at the bottom of the menu.
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
@@ -387,6 +394,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <HighlightLayer />
     <ChurchNudge />
     <HelpOnboarding />
+    <PrivateLetterNudge />
     <PlaceTracker />
     <SundayPrompt />
   </>;

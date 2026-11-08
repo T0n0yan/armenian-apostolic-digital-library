@@ -142,7 +142,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
       <div class="stop-node"><b>Worker</b>apostolic.am</div><div class="lane" style="--i:4"></div>
       <div class="stop-node"><b>Ընթերցող</b>կայք / Mini App</div>
     </div>
-    <div class="meta"><span>26 բաժին</span><span>25 սխեմա</span><span>թարմացված՝ 2026-11-02</span><span>աղբյուրը՝ docs/ARCHITECTURE.md</span></div>
+    <div class="meta"><span>26 բաժին</span><span>26 սխեմա</span><span>թարմացված՝ 2026-11-02</span><span>աղբյուրը՝ docs/ARCHITECTURE.md</span></div>
   </div>
   <div class="layout">
     <aside class="side">
@@ -375,7 +375,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </figure>
   <p><b>API-ներ</b> (բրաուզերը կանչում է ֆոնում). <code>/api/search-page</code>, <code>/api/search-suggestions</code>, <code>/api/search-index</code>, <code>/api/content-version</code>, <code>/api/reading-log</code>, <code>/api/reminders</code>, <code>/api/calendar</code>, <code>/api/push</code>, <code>/api/saved-verses</code>, <code>/api/poll-vote</code>, <code>/api/psalm-timings</code>, <code>/api/material-layout</code>, <code>/api/presence</code>, <code>/api/highlights</code>, <code>/api/church-points</code>, <code>/api/place-visits</code>, <code>/api/places-search</code>, <code>/api/glossary</code>, <code>/api/sunday</code>, <code>/api/my-summary</code>, <code>/api/telegram-link</code>, <code>/api/og-cards</code>, <code>/api/categories/:slug/posts</code>, <code>/api/help-videos</code>։ <b>Ֆայլեր</b>. <code>/media/...</code> (R2-ի պահուստային ճանապարհ), <code>/place-media/...</code>, <code>/help-media/...</code>, <code>/og/card/...</code>, <code>/sitemap.xml</code>։</p>
 </section>
-<section id="6-մուտք-և-հաշիվներ" class="part" data-text="6. մուտք և հաշիվներ  մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։ **այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։">
+<section id="6-մուտք-և-հաշիվներ" class="part" data-text="6. մուտք և հաշիվներ  մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։ **այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։ անձնական նամակ (`/namak`)  տեսնում են միայն տերը (խմբագիր + նախադիտում) և ստացողը. մնացածի համար էջը 404 է, `private, no-store`, sw-ն չի պահում։ կոդը՝ `app/routes/private-letter.tsx`, `app/data/private-letter.server.ts`, `app/utils/private-letter.ts`, `app/components/private-letter-nudge.tsx`։ ստացողի հասցեն և տեքստը միայն բազայում են, ոչ թե կոդում։">
   <header><span class="n">6</span><h2>Մուտք և հաշիվներ</h2></header>
   <figure class="diagram" data-diagram="6">
   <div class="tools">
@@ -402,10 +402,28 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   ROLE --&gt;|&quot;ընթերցող&quot;| RD[&quot;Իր նշումները, պահվածները, հիշեցումները&quot;]</pre></div>
 </figure>
   <ul><li>Մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։</li><li><b>Այցերի վիճակագրությունը անանուն է</b> (<code>site_presence</code>). հաշվի հետ չի կապվում։</li></ul>
+  <h3>Անձնական նամակ (<code>/namak</code>)</h3>
+  <figure class="diagram" data-diagram="7">
+  <div class="tools">
+    <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
+    <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
+    <span class="spacer"></span>
+    <button type="button" class="zoom" aria-label="Մեծացնել">⤢ Մեծացնել</button>
+    <button type="button" class="copy">Պատճենել կոդը</button>
+    <a class="live" target="_blank" rel="noreferrer">mermaid.live ↗</a>
+  </div>
+  <div class="canvas"><pre class="src">flowchart TD
+  OWN[&quot;Տերը /namak-ում՝ ստացողի Gmail կամ @username, վերնագիր, օր, տեքստ&quot;] --&gt; FIND[&quot;Գտնում է հաշիվները (app_users + account_links)&lt;br/&gt;պահում է id-ները, ոչ թե հասցեն&quot;]
+  FIND --&gt; SET[(&quot;site_settings «private_letter»&quot;)]
+  SET --&gt; ROOT[&quot;root loader. մուտք գործածի համար՝ letterVisibleTo&quot;]
+  ROOT --&gt;|&quot;միայն ստացողին, օրը եկել է&quot;| NUDGE[&quot;«💌 Քեզ համար նամակ կա» պատուհան&quot;] --&gt; PAGE[&quot;/namak՝ նամակը&quot;]
+  ROOT --&gt;|&quot;մնացածը&quot;| NF[&quot;/namak՝ 404&quot;]</pre></div>
+</figure>
+  <ul><li>Տեսնում են միայն տերը (խմբագիր + նախադիտում) և ստացողը. մնացածի համար էջը 404 է, <code>private, no-store</code>, sw-ն չի պահում։</li><li>Կոդը՝ <code>app/routes/private-letter.tsx</code>, <code>app/data/private-letter.server.ts</code>, <code>app/utils/private-letter.ts</code>, <code>app/components/private-letter-nudge.tsx</code>։ Ստացողի հասցեն և տեքստը միայն բազայում են, ոչ թե կոդում։</li></ul>
 </section>
 <section id="7-որոնում" class="part" data-text="7. որոնում  էջի ներսում որոնում (`page-find.tsx`). բաժնի ցուցակը նեղանում է մուտքագրելիս։">
   <header><span class="n">7</span><h2>Որոնում</h2></header>
-  <figure class="diagram" data-diagram="7">
+  <figure class="diagram" data-diagram="8">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -427,7 +445,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="8-կարդացել-եմ--լսել-եմ--օրացույց" class="part" data-text="8. կարդացել եմ / լսել եմ / օրացույց ">
   <header><span class="n">8</span><h2>Կարդացել եմ / Լսել եմ / Օրացույց</h2></header>
-  <figure class="diagram" data-diagram="8">
+  <figure class="diagram" data-diagram="9">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -449,7 +467,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="9-հիշեցումներ" class="part" data-text="9. հիշեցումներ ">
   <header><span class="n">9</span><h2>Հիշեցումներ</h2></header>
-  <figure class="diagram" data-diagram="9">
+  <figure class="diagram" data-diagram="10">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -472,7 +490,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="10-կիրակնօրյա-հարց-և-իմ-տարին" class="part" data-text="10. կիրակնօրյա հարց և «իմ տարին» ">
   <header><span class="n">10</span><h2>Կիրակնօրյա հարց և «Իմ տարին»</h2></header>
-  <figure class="diagram" data-diagram="10">
+  <figure class="diagram" data-diagram="11">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -498,7 +516,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="11-սրբավայրեր-և-քարտեզ" class="part" data-text="11. սրբավայրեր և քարտեզ  **ճանապարհը և մուտքը** (`places.accessibility`)՝ 4 հարց, նույնը բոտում և կայքի ձևում (`access_parts`, `app/utils/place-answers.ts`)․ 🚗 մեքենայով հասանելիություն, 🪨 ճանապարհ, ♿ թեքահարթակ, 🚪 մուտք։ ամեն պատասխան՝ իր տողով («թեքահարթակ՝ առկա է»), նշանները ավելացվում են ցուցադրելիս (`readaccess`, `accesstext`)։ հին «ճանապարհը՝ …», «մուտքը՝ …» տողերը նույնպես ցույց են տրվում։ քարտեզի քարտիկում՝ «կիսվել» կոճակ (`sharebutton`). կիսվում է `/places/&lt;id&gt;` էջի հղումը։">
   <header><span class="n">11</span><h2>Սրբավայրեր և քարտեզ</h2></header>
-  <figure class="diagram" data-diagram="11">
+  <figure class="diagram" data-diagram="12">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -530,7 +548,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="12-բոտը" class="part" data-text="12. բոտը ">
   <header><span class="n">12</span><h2>Բոտը</h2></header>
-  <figure class="diagram" data-diagram="12">
+  <figure class="diagram" data-diagram="13">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -550,7 +568,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="13-բառարան" class="part" data-text="13. բառարան ">
   <header><span class="n">13</span><h2>Բառարան</h2></header>
-  <figure class="diagram" data-diagram="13">
+  <figure class="diagram" data-diagram="14">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -571,7 +589,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   <header><span class="n">14</span><h2>Պահված նյութեր, համարներ, հարցումներ</h2></header>
   <div class="table"><table><tr><th>Ինչ</th><th>Աղյուսակ</th><th>Որտեղ է երևում</th></tr><tr><td>Պահված նյութեր և նշումներ</td><td><code>saved_materials</code></td><td><code>/saved</code></td></tr><tr><td>Սաղմոսի համարի «Նշել»</td><td><code>highlights</code> (<code>verse</code> սյունակ). հին <code>saved_verses</code>-ը տեղափոխվեց (migration 0048) և այլևս չի գրվում</td><td>համարի պատուհան, «Իմ նշումները»</td></tr><tr><td>Նշումներ տեքստում (պահված խոսք, ❓ հարց, սմայլիկ, նոթ, պատասխան)</td><td><code>highlights</code></td><td>ամեն նյութի տեքստում, «Իմ անկյունը» → «Իմ նշումները»</td></tr><tr><td>Հարցման ձայներ</td><td><code>poll_votes</code></td><td>Telegram-ի հարցումները կայքում</td></tr><tr><td>Սաղմոսի ժամանակացույց (տող↔ձայն)</td><td><code>psalm_timings</code></td><td>տող առ տող ընթերցում</td></tr><tr><td>Օրվա համար</td><td><code>daily-verses.ts</code></td><td>գլխավոր էջ</td></tr><tr><td>Տեղադրել որպես հավելված (PWA)</td><td>—</td><td><code>install-prompt.tsx</code></td></tr></table></div>
   <h3>Նշումներ տեքստում (highlights)</h3>
-  <figure class="diagram" data-diagram="14">
+  <figure class="diagram" data-diagram="15">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -596,7 +614,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="15-կառավարում-ադմին" class="part" data-text="15. կառավարում (ադմին)  օգնություն (ուսուցողական տեսանյութեր)  ցանկը (վերնագրեր, կարգ) ադմինն է խմբագրում `/admin/help`-ում՝ ավելացնել, անվանել, ↑↓, «հանել ցանկից» (տեսանյութն էլ է ջնջվում)։ պահվում է `site_settings.help_videos.items`-ում. մինչ առաջին խմբագրումը՝ `help_defaults` (`app/utils/help-videos.ts`)։ նոր տարրի id-ն՝ `v-…`։ նոր ֆայլը ստանում է նոր անուն, նախորդը r2-ից ջնջվում է (`sethelpvideo`), ուստի `/help-media/`-ը քեշվում է անվերջ։ ուղեցույցը ցույց է տրվել՝ `localstorage` `help-onboarding-seen` (այս սարքում)։ չի բացվում `/admin`, `/auth`, `/ognutyun` էջերում։ տեսանյութերը պատրաստվում են `scripts/video-guides/`-ով (readme)։">
   <header><span class="n">15</span><h2>Կառավարում (ադմին)</h2></header>
-  <figure class="diagram" data-diagram="15">
+  <figure class="diagram" data-diagram="16">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -617,7 +635,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   U --&gt; MI[&quot;Մեդիայի հաշվառում (առանց ջնջելու)&quot;]</pre></div>
 </figure>
   <h3>Օգնություն (ուսուցողական տեսանյութեր)</h3>
-  <figure class="diagram" data-diagram="16">
+  <figure class="diagram" data-diagram="17">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -640,7 +658,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="16-ժամացույց-clock-և-cron-ներ" class="part" data-text="16. ժամացույց (clock) և cron-ներ  ոչինչ չի աշխատում «ամեն րոպե». clock-ը արթնանում է միայն այն պահին, երբ գործ կա (անվճար սահմանը օրական 100 000 հարցում է)։">
   <header><span class="n">16</span><h2>Ժամացույց (Clock) և cron-ներ</h2></header>
-  <figure class="diagram" data-diagram="17">
+  <figure class="diagram" data-diagram="18">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -669,7 +687,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 <section id="17-հղումների-նախադիտման-քարտեր" class="part" data-text="17. հղումների նախադիտման քարտեր երբ նյութի հղումն ուղարկում ես telegram-ով, whatsapp-ով, facebook-ով, հղման տակ երևում է **նկար-քարտ** (վերնագիր, տեքստի կտոր, խորհրդանիշ)։ դա «link-preview card» (open graph նկար) է։  նկարվում է github-ում, որովհետև մեկ քարտը ~1 վայրկյան cpu է ուզում, իսկ անվճար worker-ին թույլատրված է շատ ավելի քիչ։ նկարվում են միայն նոր կամ փոփոխված քարտերը։ 2026-11-02-ից՝ միայն պռոդի deploy-ից հետո։ նկարով կիսվել (story) աղոթքի, սաղմոսի, սաղմոսի համարի (և 1200 տառից կարճ նյութերի) «կիսվել»-ը **միանգամից բացում է պատրաստի նկարը** (`app/components/story-editor.tsx`, բեռնվում է միայն այդ պահին). վերևում՝ ✕ և ներբեռնելու պատկերակը (ձևավորելիս՝ «պատրաստ է»), նկարի վրա՝ «ձևավորել» կոճակը (միայն դիտելիս), տակը՝ «կիսվել նկարով» և «կիսվել հղումով»։ նկարը 1080×1920 է և նկարվում է հենց ընթերցողի հեռախոսում (canvas), սերվերը cpu չի ծախսում։  ֆոները՝ 7 ձևավորում (գմբեթ, ջահ, մոմ, խաչ, կանթեղ, եկեղեցի, զանգակատուն), ամեն մեկը մուգ և բաց՝   `public/story-bg/&lt;ձևավորում&gt;-&lt;dark|light&gt;.webp` (+ `thumbs/`). ստեղծվում են   `python3 -i scripts/make-story-backgrounds.py &lt;թղթապանակ&gt;`-ով (ֆայլի անունը՝ `dome-dark.png` և այլն)։   նոր ձևավորումը ավելացնել նաև `app/utils/story-backgrounds.ts`-ի `story_designs`-ում՝ իր `box`-ով։ փոխել չի կարելի. վերնագիրը, էջի համարը (1/2) և **apostolic.am**-ը (նկարված է հենց ֆոնի վրա)։ տեքստը մնում է   ձևավորման `box`-ի ներսում. վերևում story-ի կոճակների տեղը, ներքևում apostolic.am-ը, և զարդը (մոմ, խաչ…) չի ծածկվում։ աղոթքի տեքստը՝ ձևավորման `prayer` պարբերությունները (`prayerparagraphs`), սաղմոսինը՝ `psalmbodytext`։ տեքստը բաժանվում է հատվածների (`storyunits`. պարբերություն/համար, երկարը՝ նախադասություններով)։ «որքան տեքստ».   միշտ սկզբում՝ այնքան հատված, որքան տեղավորվում է տեքստի շրջանակում (`fitcount`), մնացածի տեղում «…»   (`joinunits`). **ամբողջը**՝ մի քանի նկար (կրկին սեղմելիս՝ ետ). **ընտրել…**՝ ձեռքով։ տեքստի շրջանակը (`storylayout.frame`) ընթերցողը քաշում է և 5 կետով լայնացնում/նեղացնում (`framehandles`), վերնագիրը՝   տեղափոխում։ երկուսն էլ մնում են `safe` գոտում. apostolic.am-ը միշտ բաց է։ նոր ֆոն ընտրելիս՝ նրա սկզբնական   դասավորությունը (`defaultlayout`)։ վերնագիրը և տեքստը ունեն առանձին կարգավորումներ (`storystyle.title`/`text`). չափը «պիքսելներով» (տեքստ 10–24,   վերնագիր 12–32, նկարում ×3՝ `story_scale`), **էֆեկտ** (`paintline`. ստվեր՝ մուգ ստվեր ցանկացած գույնի տառերին, լույս՝ տառի   գույնով լուսապսակ, ոսկեզօծ՝ մեղմ ոսկու երանգ) և նրա **ուժգնությունը** (`strength`, 0–100%), գույն (`story-color-picker.tsx`. «ավտո»՝ ֆոնի պայծառությունը հենց այդ մասի տակ, պատրաստի գույներ,   վերջինները՝ `story-colors`, սեփականը՝ պայծառության քառակուսի + երանգ + hex), տառատեսակ, տակի շերտի ուժ (0–100%)։ աղոթքի առաջին տառը՝ **թռչնատառ** (trchnatar, ինչպես կայքում), 2 տող բարձրությամբ, տողերը նահանջում են   (`storycap`) և սկսվում են հենց տառից հետո. մեջտեղով հավասարեցնելիս «տառ + տողեր» խումբը միասին է կենտրոնացվում։   անջատվում է «տեքստ»-ում։ վերնագիրը տեքստի մեջ չի կրկնվում (`withoutleadingtitle`, ձևավորման միայն `text` պարբերությունները)։ երկար   պարբերությունը կտրվում է միայն վերջակետով (։ կամ :), ոչ թե ՜ ՛ ՞ նշաններով։ սաղմոսի նկարի վերնագիրը՝ միայն «սաղմոս n»։ էջի համարը (1 / 2)՝ տեքստի տակ, շերտից դուրս. շերտը գրկում է հենց   տեքստը, ոչ թե ամբողջ շրջանակը։ քաշելիս երևում է ցանց և մեջտեղի գծերը. վերնագիրը և շրջանակը կպչում են մեջտեղին (`snap`)։ mini app-ում telegram-ը ընդունում է միայն հղում, դրա համար նկարը բեռնվում է `/api/story-image` (միայն telegram-ով մտած,   jpeg, ≤3 մբ) և տրվում `/story/&lt;id&gt;.jpg`-ով. 2 օրից ջնջվում է (`app/data/stories.server.ts`, գիշերային cron)։ ընթերցողի ընտրությունները հիշվում են բրաուզերում (`localstorage` `story-style-v5`)։">
   <header><span class="n">17</span><h2>Հղումների նախադիտման քարտեր</h2></header>
   <p>Երբ նյութի հղումն ուղարկում ես Telegram-ով, WhatsApp-ով, Facebook-ով, հղման տակ երևում է <b>նկար-քարտ</b> (վերնագիր, տեքստի կտոր, խորհրդանիշ)։ Դա «Link-preview card» (Open Graph նկար) է։</p>
-  <figure class="diagram" data-diagram="18">
+  <figure class="diagram" data-diagram="19">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -688,7 +706,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   <p>Նկարվում է GitHub-ում, որովհետև մեկ քարտը ~1 վայրկյան CPU է ուզում, իսկ անվճար Worker-ին թույլատրված է շատ ավելի քիչ։ Նկարվում են միայն նոր կամ փոփոխված քարտերը։ 2026-11-02-ից՝ միայն պռոդի deploy-ից հետո։</p>
   <h3>Նկարով կիսվել (story)</h3>
   <p>Աղոթքի, սաղմոսի, սաղմոսի համարի (և 1200 տառից կարճ նյութերի) «Կիսվել»-ը <b>միանգամից բացում է պատրաստի նկարը</b> (<code>app/components/story-editor.tsx</code>, բեռնվում է միայն այդ պահին). վերևում՝ ✕ և ներբեռնելու պատկերակը (ձևավորելիս՝ «Պատրաստ է»), նկարի վրա՝ «Ձևավորել» կոճակը (միայն դիտելիս), տակը՝ «Կիսվել նկարով» և «Կիսվել հղումով»։ Նկարը 1080×1920 է և նկարվում է հենց ընթերցողի հեռախոսում (canvas), սերվերը CPU չի ծախսում։</p>
-  <figure class="diagram" data-diagram="19">
+  <figure class="diagram" data-diagram="20">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -730,7 +748,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="18-բազա-d1-բոլոր-աղյուսակները" class="part" data-text="18. բազա (d1). բոլոր աղյուսակները  | խումբ | աղյուսակներ | | --- | --- | | **գրադարան** (sync-ը լցնում է) | `library_sources`, `library_topics`, `library_materials`, `library_material_blocks`, `library_media`, `library_album_members`, `library_search_documents`, `library_publishers`, `library_post_authors`, `material_attachments`, `psalm_timings`, `material_layouts` (ադմինի ձևավորում, սինքը չի ջնջում) | | **sync-ի հաշվառում** | `library_sync_cursors`, `library_sync_runs`, `library_sync_failures` | | **մարդիկ** | `app_users`, `account_links`, `admin_access`, `user_settings` | | **անձնական** | `saved_materials`, `saved_verses`, `highlights`, `reading_log`, `poll_votes`, `place_visits`, `liturgy_marks`, `yearly_summaries` | | **հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` | | **սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) | | **բառարան** | `glossary_terms` | | **կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր), `client_errors` (բրաուզերի սխալներ, անանուն, 30 օր) | | **telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` | | **հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` | բազայի ամեն փոփոխություն՝ `migrations/00nn_*.sql` ֆայլ (այժմ 51 հատ), կիրառվում է deploy-ի ժամանակ։ **միայն ավելացնող migrations**. migration-ը կիրառվում է նոր կոդից առաջ, և smoke-ի ձախողման դեպքում worker-ը վերադառնում է հին կոդին, ուստի հին կոդը պետք է աշխատի նոր բազայով։ սյուն ջնջել/վերանվանել՝ երկու թողարկումով (նախ կոդը դադարում է օգտագործել, հետո migration)։ migration-ից առաջ deploy-ը գրում է d1 time travel-ի bookmark-ը (job-ի summary)՝ `wrangler d1 time-travel restore &lt;db&gt; --env &lt;միջավայր&gt; --bookmark &lt;…&gt;`։ **ինչպես նայել՝ ինչքան է լցված**. կառավարում → կայքի վիճակը → «d1 ընդհանուր պահեստ» (պետք է token-ին d1 read իրավունք), կամ cloudflare → storage &amp; databases → d1 → բազան → **metrics** (չափը) և **console** (աղյուսակներ)։">
   <header><span class="n">18</span><h2>Բազա (D1). բոլոր աղյուսակները</h2></header>
-  <figure class="diagram" data-diagram="20">
+  <figure class="diagram" data-diagram="21">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -775,7 +793,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="20-միջավայրեր-և-թողարկում" class="part" data-text="20. միջավայրեր և թողարկում  smoke ստուգումը՝ `scripts/smoke.mjs &lt;հասցե&gt;`. գլխավոր, `/psalms`, `/pray`, մեկ սաղմոս, sitemap, robots, `/api/content-version` և էջի js/css ֆայլերը, ամեն մեկը մինչև 4 փորձ։ կարելի է աշխատեցնել նաև ձեռքով։ մանրամասն՝ `docs/environments.md`, `docs/deployment-runbook.md`։ աշխատանքը բաժանված է 3 չատի միջև՝ `docs/work/`։">
   <header><span class="n">20</span><h2>Միջավայրեր և թողարկում</h2></header>
-  <figure class="diagram" data-diagram="21">
+  <figure class="diagram" data-diagram="22">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -804,7 +822,7 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
 </section>
 <section id="23-թղթապանակների-քարտեզը" class="part" data-text="23. թղթապանակների քարտեզը ">
   <header><span class="n">23</span><h2>Թղթապանակների քարտեզը</h2></header>
-  <figure class="diagram" data-diagram="22">
+  <figure class="diagram" data-diagram="23">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -896,7 +914,7 @@ export function isLiturgyDay(day: string) {
   return isLiturgyDay(yesterday) ? yesterday : null;                     // «Երեկ…»
 }</code></pre>
   <p>Ժամը (13) փոխել՝ այստեղ և cron-ը <code>wrangler.jsonc</code>-ում (<code>7 9 * * SUN</code> = 09:07 UTC = 13:07 Երևան)։</p>
-  <figure class="diagram" data-diagram="23">
+  <figure class="diagram" data-diagram="24">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -927,7 +945,7 @@ export function isLiturgyDay(day: string) {
 }</code></pre>
   <h3>Sync-ի ուշացումը</h3>
   <p><code>workers/clock.ts</code> · <code>SYNC_DELAY_MS = 15 * 60_000</code>. ամեն նոր գրառում զարթուցիչը տանում է 15 րոպե առաջ, այնպես որ 10 գրառում իրար հետևից՝ մեկ sync։</p>
-  <figure class="diagram" data-diagram="24">
+  <figure class="diagram" data-diagram="25">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
@@ -987,7 +1005,7 @@ bash scripts/check.sh            # կախվածություններ, build, թե
 node scripts/smoke.mjs https://apostolic.am   # կենդանի կայքի արագ ստուգում
 node scripts/work-brief.mjs      # մյուս չաթերի աշխատանքը (docs/work/), առանց «Արված»-ի</code></pre>
   <p>Հետո՝ PR → main (QA-ն կանաչ), merge, հետո նույն ճյուղը staging-ում (բաժին 20)։</p>
-  <figure class="diagram" data-diagram="25">
+  <figure class="diagram" data-diagram="26">
   <div class="tools">
     <button type="button" class="play" aria-label="Ցույց տալ քայլ առ քայլ">▶ Քայլ առ քայլ</button>
     <span class="steps" hidden><button type="button" class="prev" aria-label="Նախորդ քայլը">‹</button><output class="count">0/0</output><button type="button" class="next" aria-label="Հաջորդ քայլը">›</button><button type="button" class="stop" aria-label="Ցույց տալ ամբողջը">Ամբողջը</button></span>
