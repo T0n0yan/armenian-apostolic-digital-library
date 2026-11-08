@@ -69,9 +69,9 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  /** Քանի հաղորդագրություն կա ընդհանրապես (ստացողին փոխելուց առաջ)։ */
+  /** Քանի չջնջված հաղորդագրություն կա (ստացողին փոխելուց առաջ). ջնջվածների տեքստն արդեն չկա։ */
   async messageCount() {
-    return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages").one().count;
+    return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages WHERE deleted = 0").one().count;
   }
 
   /** Չկարդացվածների թիվը (մենյուի կետի համար)։ */
