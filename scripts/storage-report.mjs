@@ -100,6 +100,10 @@ async function referencedKeys(dbUuid) {
   for (const row of await query(dbUuid, "SELECT r2_key FROM material_attachments")) add(row.r2_key);
   for (const row of await query(dbUuid, "SELECT icon, video_url, photos_json FROM places")) { add(row.icon); add(row.video_url); addJson(row.photos_json); }
   for (const row of await query(dbUuid, "SELECT photos_json FROM place_submissions")) addJson(row.photos_json);
+  // Օգնության տեսանյութերը՝ site_settings.help_videos-ում ({ files: { id: { key } } })
+  for (const row of await query(dbUuid, "SELECT value FROM site_settings WHERE key = 'help_videos'")) {
+    try { for (const file of Object.values(JSON.parse(row.value || "{}").files ?? {})) add(file?.key); } catch { /* ignore */ }
+  }
   return keys;
 }
 for (const bucket of buckets) {
@@ -110,8 +114,9 @@ for (const bucket of buckets) {
   do { const body = await call(`/r2/buckets/${bucket.name}/objects?per_page=1000${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`); objects.push(...body.result); cursor = body.result_info?.is_truncated ? body.result_info.cursor : ""; } while (cursor);
   const keep = await referencedKeys(env.uuid).catch((error) => { say(`${bucket.name}: բազան չկարդացվեց (${error.message})`); return null; });
   if (!keep) continue;
-  // og/, search-ի ինդեքսը և public-index-ը ածանցյալ են (բազայում չեն հիշատակվում). որբ չեն համարվում։
-  const derived = (key) => key.startsWith("og/") || key.startsWith("public-index/") || key.startsWith("search/");
+  // og/, search-ի ինդեքսը, public-index-ը, սրբավայրերի փոքր պատկերները (thumbs/) և Mini App-ի
+  // ժամանակավոր story-ները ածանցյալ են (բազայում չեն հիշատակվում). որբ չեն համարվում։
+  const derived = (key) => ["og/", "public-index/", "search/", "thumbs/", "stories/"].some((prefix) => key.startsWith(prefix));
   const orphans = objects.filter((o) => !derived(o.key) && !keep.has(o.key));
   const bytes = orphans.reduce((n, o) => n + (o.size ?? 0), 0);
   say(`## ${bucket.name} — ${orphans.length} որբ ֆայլ, ${gb(bytes)}`);
