@@ -22,8 +22,10 @@
 4. Ընթերցանության առաջընթաց ըստ բաժնի։
 5. Բովանդակություն՝ 7 խորհուրդների PDF → հոգևորականների ստուգում → «Եկեղեցական կյանք» թեմա Telegram-ում → ծեսեր և արարողություններ։
 6. Ավելի ուշ՝ աուդիոյի օպտիմալացում, տառատեսակներ, դիզայն և պատկերներ։
+7. Անձնական չատ տիրոջ և նամակի ստացողի համար (`/namak`-ի շարունակությունը. ստացողն արդեն պահված է `site_settings.private_letter`-ում)։
 
 ## Արված
+- 2026-11-08 — Անձնական նամակ `/namak`՝ միայն տիրոջը և ստացողին (Gmail/@username-ով), «💌 Քեզ համար նամակ կա» պատուհան, մնացածին՝ 404։ Հետո՝ նույն տեղում երկուսի չատը (հերթում)։ [PR #141](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/141)
 - 2026-11-07 — Նկարով կիսվել (story)՝ խմբագիր, 7 ֆոն (մուգ/բաց), էֆեկտներ, թռչնատառ, շրջանակը մատով, Mini App-ում Telegram story — [PR #133](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/133)։ Մնացած 6 ֆոնը տերը կուղարկի ավելի ուշ։
 - 2026-11-07 — Աղոթքի ձևավորում. պարբերության «Աղոթք» նշան (ընթերցողին չի երևում) և տառատեսակ (գրքային/սերիֆ/սովորական), բառերին՝ տառատեսակ, նկարագրության շեղը անջատվող։ [PR #132](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/132)
 - 2026-11-07 — Աղոթքների ձևավորման խմբագիր. «Ձևավորել» աղոթքի էջում (owner/`layout`), պարբերության տեսակ/դիրք/չափ/թռչնատառ, բառերին թավ/շեղ/ոսկի/կարմիր/չափ, տեքստի ուղղում, `material_layouts` (migration 0050), Telegram-ի փոփոխության զգուշացում։ [PR #131](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/131)
@@ -31,7 +33,6 @@
 - 2026-11-06 — Բառարանի բառը ոսկեգույն, աստղանիշը բառից անմիջապես հետո (կետադրությունից առաջ), հետո՝ բացատ (`glossary-layer.tsx`)։ [PR #123](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/123) [PR #125](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/125)
 - 2026-11-06 — Բառարանի բառերը՝ ընդգծման փոխարեն ոսկեգույն աստղանիշով (*), ինչպես գրքի ծանոթագրությունը (`glossary-layer.tsx`)։ [PR #122](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/122)
 - 2026-11-06 — Տեսանյութերի ավտոմատ սեղմում (MP4/H.264/AAC, բոլոր սարքերի համար), `cloud-sync`-ի վերջում։ Եղածները սեղմված են՝ 45 ֆայլ, 2.98 → 1.22 ԳԲ (19-ը թողնված են, օգուտ չկար)։ [PR #120](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/120)
-- 2026-11-05 — Օգնության ցանկը խմբագրելի՝ ավելացնել, անվանել, ↑↓, հանել (`feat/help-videos-edit`)։ `/admin/help`-ի հորիզոնական դուրս գալը ուղղված։
 
 ## Կարևոր մյուսների համար
 - Նկարով կիսվել՝ `app/components/story-editor.tsx`, `app/utils/story-render.ts`, ֆոները `public/story-bg/` (`scripts/make-story-backgrounds.py`). նոր ձևավորում՝ `STORY_DESIGNS`-ում իր `box`-ով։ `ShareButton`-ին `story` տալով նյութը կիսվում է նկարով։ R2 `stories/`՝ Mini App-ի ժամանակավոր նկարներ, 2 օր։
