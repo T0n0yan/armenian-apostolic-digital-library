@@ -24,7 +24,7 @@
 6. Ավելի ուշ՝ աուդիոյի օպտիմալացում, տառատեսակներ, դիզայն և պատկերներ։
 
 ## Արված
-- 2026-11-08 — Չատ. տերը ճանաչվում է նաև կապված հաշվով (Google-ը Telegram-ին կապելուց հետո չատը կորչում էր), `/admin`-ի տերն էլ նույն ձևով (`isOwnerIdentity`)։ PR՝ ստորև
+- 2026-11-08 — Չատ. տերը ճանաչվում է նաև կապված հաշվով (Google-ը Telegram-ին կապելուց հետո չատը կորչում էր), `/admin`-ի տերն էլ նույն ձևով (`isOwnerIdentity`)։ [PR #144](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/144)
 - 2026-11-08 — Անձնական չատ `/namak` (նամակի փոխարեն)՝ socket (`ChatRoom` DO), ✓✓, «գրում է…», առցանց, ջնջել, ծանուցում առանց ձայնի/տեքստի, մենյուում փոքր ✉ միայն երկու կողմին։ [PR #143](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/143)
 - 2026-11-08 — Անձնական նամակ `/namak`՝ միայն տիրոջը և ստացողին (Gmail/@username-ով), «💌 Քեզ համար նամակ կա» պատուհան, մնացածին՝ 404։ Հետո՝ նույն տեղում երկուսի չատը (հերթում)։ [PR #141](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/141)
 - 2026-11-07 — Նկարով կիսվել (story)՝ խմբագիր, 7 ֆոն (մուգ/բաց), էֆեկտներ, թռչնատառ, շրջանակը մատով, Mini App-ում Telegram story — [PR #133](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/133)։ Մնացած 6 ֆոնը տերը կուղարկի ավելի ուշ։
