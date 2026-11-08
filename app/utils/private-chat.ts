@@ -15,7 +15,11 @@ export type ChatMessage = {
 };
 export type ChatPresence = { status: ChatStatus; lastSeen: number | null };
 /** Ամեն կողմի իր կարգավորումը. ինչպես է անվանում մյուսին և տեքստի չափը։ */
-export type ChatSettings = { nick: string; font: number };
+export type ChatSettings = {
+  nick: string; font: number;
+  /** Ֆոնի նկարը որքան երևա (0.05–0.8)։ background՝ իր նկարի համարը, null՝ ընդհանուր (տիրոջ ընտրած) ֆոնը։ */
+  bgOpacity: number; background: number | null;
+};
 
 /** Բրաուզերից սերվեր։ */
 export type ClientEvent =
@@ -26,7 +30,8 @@ export type ClientEvent =
   | { type: "where"; where: ChatWhere; visible: boolean }
   | { type: "history"; before: number }
   | { type: "delete"; id: number }
-  | { type: "settings"; nick: string; font: number }
+  | { type: "settings"; nick: string; font: number; bgOpacity: number }
+  | { type: "background-reset" }
   | { type: "clear" };
 
 /** Սերվերից բրաուզեր։ */
@@ -49,11 +54,13 @@ export const NICK_MAX = 40;
 export const FONT_MIN = 13;
 export const FONT_MAX = 24;
 export const FONT_DEFAULT = 15.5;
+export const BG_OPACITY_DEFAULT = 0.22;
 export const PAGE_SIZE = 60;
 export const FILE_MAX = 10 * 1024 * 1024;
 export const CHAT_SOCKET_PATH = "/namak/socket";
 export const CHAT_UPLOAD_PATH = "/namak/upload";
 export const chatFileUrl = (id: number) => `/namak/file/${id}`;
+export const CHAT_BACKGROUND_PATH = "/namak/background";
 
 /** Միայն այս ձևաչափերը (SVG-ն և HTML-ը՝ ոչ, որ ֆայլը script չդառնա)։ */
 const MIME: Record<"image" | "audio", RegExp> = {
@@ -62,10 +69,15 @@ const MIME: Record<"image" | "audio", RegExp> = {
 };
 export function allowedMime(kind: string, mime: string) {
   const base = mime.split(";")[0].trim().toLowerCase();
-  return (kind === "image" || kind === "audio") && MIME[kind].test(base) ? base : null;
+  const type = kind === "background" ? "image" : kind;
+  return (type === "image" || type === "audio") && MIME[type].test(base) ? base : null;
 }
 
 export const otherSide = (side: ChatSide): ChatSide => (side === "a" ? "b" : "a");
+export const clampOpacity = (value: unknown) => {
+  const opacity = typeof value === "number" && Number.isFinite(value) ? value : BG_OPACITY_DEFAULT;
+  return Math.min(0.8, Math.max(0.05, Math.round(opacity * 100) / 100));
+};
 export const clampFont = (value: unknown) => {
   const size = typeof value === "number" && Number.isFinite(value) ? value : FONT_DEFAULT;
   return Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(size * 2) / 2));
@@ -102,7 +114,8 @@ export function parseClientEvent(raw: unknown): ClientEvent | null {
     case "where": return { type: "where", where: value.where === "chat" ? "chat" : "app", visible: value.visible === true };
     case "history": return id("before") === null ? null : { type: "history", before: id("before")! };
     case "delete": return id("id") === null ? null : { type: "delete", id: id("id")! };
-    case "settings": return { type: "settings", nick: cleanMessage(value.nick, NICK_MAX).replace(/\n/gu, " "), font: clampFont(value.font) };
+    case "settings": return { type: "settings", nick: cleanMessage(value.nick, NICK_MAX).replace(/\n/gu, " "), font: clampFont(value.font), bgOpacity: clampOpacity(value.bgOpacity) };
+    case "background-reset": return { type: "background-reset" };
     case "clear": return { type: "clear" };
     default: return null;
   }

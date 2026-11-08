@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 import { pushKeysFrom, sendWebPush, type PushSubscriptionRow } from "../app/data/web-push.server";
 import {
-  FONT_DEFAULT, PAGE_SIZE, clampFont, otherSide, parseClientEvent, statusOf,
+  BG_OPACITY_DEFAULT, FONT_DEFAULT, PAGE_SIZE, clampFont, clampOpacity, otherSide, parseClientEvent, statusOf,
   type ChatKind, type ChatMessage, type ChatMeta, type ChatPresence, type ChatSettings, type ChatSide, type ChatStatus, type ChatWhere, type ServerEvent,
 } from "../app/utils/private-chat";
 import { parseLetter } from "../app/utils/private-letter";
@@ -106,11 +106,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     if (this.tooFast(side)) return { error: "Շատ արագ է, մի պահ սպասեք։" };
     const existing = clientId ? this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE client_id = ? AND side = ?`, clientId, side).toArray()[0] : undefined;
     if (existing) return { message: toMessage(existing) };
-    const bytes = new Uint8Array(data);
-    const fileId = this.sql.exec<{ id: number }>("INSERT INTO files (mime, size) VALUES (?, ?) RETURNING id", mime, bytes.byteLength).one().id;
-    for (let part = 0; part * CHUNK < bytes.byteLength; part += 1) {
-      this.sql.exec("INSERT INTO file_chunks (file_id, part, data) VALUES (?, ?, ?)", fileId, part, bytes.slice(part * CHUNK, (part + 1) * CHUNK).buffer);
-    }
+    const fileId = this.storeFile(mime, data);
     const row = this.sql.exec<Row>(
       `INSERT INTO messages (side, body, at, client_id, kind, file_id, meta) VALUES (?, '', ?, ?, ?, ?, ?) RETURNING ${COLUMNS}`,
       side, Date.now(), clientId || null, kind, fileId, JSON.stringify(meta),
@@ -119,11 +115,39 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     return { message: toMessage(row) };
   }
 
-  /** Ֆայլը՝ միայն եթե դրա հաղորդագրությունը ջնջված չէ։ */
+  /** Իր ֆոնի նկարը (ընդհանուրի փոխարեն). նախորդը ջնջվում է։ */
+  async setBackground(side: ChatSide, mime: string, data: ArrayBuffer) {
+    const fileId = this.storeFile(mime, data);
+    const previous = Number(this.getState(`bg_${side}`) ?? 0);
+    this.setState(`bg_${side}`, String(fileId));
+    if (previous) this.removeFile(previous);
+    this.sendTo(side, { type: "settings", settings: this.settingsOf(side) });
+    return { background: fileId };
+  }
+
+  /** Ֆոնը. իրը, իսկ չունենալու դեպքում null (Worker-ը տալիս է ընդհանուրը)։ */
+  async getBackground(side: ChatSide) {
+    const id = Number(this.getState(`bg_${side}`) ?? 0);
+    return id ? this.readFile(id) : null;
+  }
+
+  /** Ֆայլը՝ միայն եթե դրա հաղորդագրությունը ջնջված չէ (ֆոները՝ /namak/background-ով, ոչ այստեղից)։ */
   async getFile(id: number) {
-    const file = this.sql.exec<{ mime: string; size: number }>(
-      "SELECT files.mime, files.size FROM files JOIN messages ON messages.file_id = files.id AND messages.deleted = 0 WHERE files.id = ?", id,
-    ).toArray()[0];
+    const linked = this.sql.exec<{ id: number }>("SELECT id FROM messages WHERE file_id = ? AND deleted = 0", id).toArray()[0];
+    return linked ? this.readFile(id) : null;
+  }
+
+  private storeFile(mime: string, data: ArrayBuffer) {
+    const bytes = new Uint8Array(data);
+    const fileId = this.sql.exec<{ id: number }>("INSERT INTO files (mime, size) VALUES (?, ?) RETURNING id", mime, bytes.byteLength).one().id;
+    for (let part = 0; part * CHUNK < bytes.byteLength; part += 1) {
+      this.sql.exec("INSERT INTO file_chunks (file_id, part, data) VALUES (?, ?, ?)", fileId, part, bytes.slice(part * CHUNK, (part + 1) * CHUNK).buffer);
+    }
+    return fileId;
+  }
+
+  private readFile(id: number) {
+    const file = this.sql.exec<{ mime: string; size: number }>("SELECT mime, size FROM files WHERE id = ?", id).toArray()[0];
     if (!file) return null;
     const bytes = new Uint8Array(file.size);
     let offset = 0;
@@ -189,14 +213,25 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       case "settings": {
         this.setState(`nick_${side}`, event.nick);
         this.setState(`font_${side}`, String(event.font));
+        this.setState(`bgop_${side}`, String(event.bgOpacity));
+        this.sendTo(side, { type: "settings", settings: this.settingsOf(side) });
+        return;
+      }
+      case "background-reset": {
+        const previous = Number(this.getState(`bg_${side}`) ?? 0);
+        this.setState(`bg_${side}`, null);
+        if (previous) this.removeFile(previous);
         this.sendTo(side, { type: "settings", settings: this.settingsOf(side) });
         return;
       }
       case "clear": {
         // Ամբողջ զրույցը՝ միայն տերը։ Մնում են միայն կարգավորումները (անուններ, տեքստի չափ)։
         if (side !== "a") return;
-        this.sql.exec("DELETE FROM file_chunks");
-        this.sql.exec("DELETE FROM files");
+        // Ֆոները (իրենց կարգավորումն են) մնում են։
+        const keep = ["a", "b"].map((each) => Number(this.getState(`bg_${each}`) ?? 0)).filter(Boolean);
+        const marks = keep.length ? keep.join(",") : "0";
+        this.sql.exec(`DELETE FROM file_chunks WHERE file_id NOT IN (${marks})`);
+        this.sql.exec(`DELETE FROM files WHERE id NOT IN (${marks})`);
         this.sql.exec("DELETE FROM messages");
         this.sql.exec("DELETE FROM state WHERE key LIKE 'read_%'");
         for (const each of ["a", "b"] as const) this.ctx.waitUntil(this.clearNotifications(each));
@@ -251,7 +286,12 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   }
 
   private settingsOf(side: ChatSide): ChatSettings {
-    return { nick: this.getState(`nick_${side}`) ?? "", font: clampFont(Number(this.getState(`font_${side}`) ?? FONT_DEFAULT)) };
+    return {
+      nick: this.getState(`nick_${side}`) ?? "",
+      font: clampFont(Number(this.getState(`font_${side}`) ?? FONT_DEFAULT)),
+      bgOpacity: clampOpacity(Number(this.getState(`bgop_${side}`) ?? BG_OPACITY_DEFAULT)),
+      background: Number(this.getState(`bg_${side}`) ?? 0) || null,
+    };
   }
 
   private socketsOf(side: ChatSide, except?: WebSocket) {
