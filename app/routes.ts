@@ -46,6 +46,7 @@ export default [
   route("admin/media-inventory", "routes/admin-media-inventory.tsx"),
   route("admin/usage", "routes/admin-usage.tsx"),
   route("admin", "routes/admin.tsx"),
+  route("namak", "routes/private-letter.tsx"),
   route("admin/people", "routes/admin-people.tsx"),
   route("admin/people/export", "routes/admin-people-export.ts"),
   route("admin/places", "routes/admin-places.tsx"),

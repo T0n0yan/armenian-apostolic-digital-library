@@ -297,6 +297,20 @@ flowchart TD
 - Մուտք չգործած ընթերցողը կարդում է ամեն ինչ. մուտքը պետք է միայն անձնական բաների համար։
 - **Այցերի վիճակագրությունը անանուն է** (`site_presence`). հաշվի հետ չի կապվում։
 
+### Անձնական նամակ (`/namak`)
+
+```mermaid
+flowchart TD
+  OWN["Տերը /namak-ում՝ ստացողի Gmail կամ @username, վերնագիր, օր, տեքստ"] --> FIND["Գտնում է հաշիվները (app_users + account_links)<br/>պահում է id-ները, ոչ թե հասցեն"]
+  FIND --> SET[("site_settings «private_letter»")]
+  SET --> ROOT["root loader. մուտք գործածի համար՝ letterVisibleTo"]
+  ROOT -->|"միայն ստացողին, օրը եկել է"| NUDGE["«💌 Քեզ համար նամակ կա» պատուհան"] --> PAGE["/namak՝ նամակը"]
+  ROOT -->|"մնացածը"| NF["/namak՝ 404"]
+```
+
+- Տեսնում են միայն տերը (խմբագիր + նախադիտում) և ստացողը. մնացածի համար էջը 404 է, `private, no-store`, sw-ն չի պահում։
+- Կոդը՝ `app/routes/private-letter.tsx`, `app/data/private-letter.server.ts`, `app/utils/private-letter.ts`, `app/components/private-letter-nudge.tsx`։ Ստացողի հասցեն և տեքստը միայն բազայում են, ոչ թե կոդում։
+
 ## 7. Որոնում
 
 ```mermaid
