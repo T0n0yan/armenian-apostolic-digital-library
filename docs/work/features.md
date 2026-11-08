@@ -24,6 +24,7 @@
 6. Ավելի ուշ՝ աուդիոյի օպտիմալացում, տառատեսակներ, դիզայն և պատկերներ։
 
 ## Արված
+- 2026-11-08 — (տիրոջ խնդրանքով, «Բագեր»-ի հերթից) «Ելք բոլոր սարքերից»-ից հետո բրաուզերում/PWA-ում `/saved`-ը ցույց է տալիս Google/Telegram մուտքի կոճակները՝ Mini App-ի հաղորդագրության փոխարեն (`saved.tsx`)։
 - 2026-11-08 — Չատ. production-ում `OWNER_ACCOUNTS` չկա, ուստի տերը 404 էր ստանում. նոր `CHAT_OWNER_ACCOUNTS` (`wrangler.jsonc`, production)՝ միայն տիրոջ 4 հաշիվը։
 - 2026-11-08 — Չատ. տերը ճանաչվում է նաև կապված հաշվով (Google-ը Telegram-ին կապելուց հետո չատը կորչում էր), `/admin`-ի տերն էլ նույն ձևով (`isOwnerIdentity`)։ [PR #144](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/144)
 - 2026-11-08 — Անձնական չատ `/namak` (նամակի փոխարեն)՝ socket (`ChatRoom` DO), ✓✓, «գրում է…», առցանց, ջնջել, ծանուցում առանց ձայնի/տեքստի, մենյուում փոքր ✉ միայն երկու կողմին։ [PR #143](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/143)
@@ -31,7 +32,6 @@
 - 2026-11-07 — Նկարով կիսվել (story)՝ խմբագիր, 7 ֆոն (մուգ/բաց), էֆեկտներ, թռչնատառ, շրջանակը մատով, Mini App-ում Telegram story — [PR #133](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/133)։ Մնացած 6 ֆոնը տերը կուղարկի ավելի ուշ։
 - 2026-11-07 — Աղոթքի ձևավորում. պարբերության «Աղոթք» նշան (ընթերցողին չի երևում) և տառատեսակ (գրքային/սերիֆ/սովորական), բառերին՝ տառատեսակ, նկարագրության շեղը անջատվող։ [PR #132](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/132)
 - 2026-11-07 — Աղոթքների ձևավորման խմբագիր. «Ձևավորել» աղոթքի էջում (owner/`layout`), պարբերության տեսակ/դիրք/չափ/թռչնատառ, բառերին թավ/շեղ/ոսկի/կարմիր/չափ, տեքստի ուղղում, `material_layouts` (migration 0050), Telegram-ի փոփոխության զգուշացում։ [PR #131](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/131)
-- 2026-11-06 — Բառարան. աստղանիշը միայն բառի առաջին հանդիպման վրա, բառարանը պահվում է հեռախոսում, էջի այլ փոփոխություններից (նվագարկիչ) աստղերը այլևս չեն թարթում։ [PR #126](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/126)
 
 ## Կարևոր մյուսների համար
 - Նկարով կիսվել՝ `app/components/story-editor.tsx`, `app/utils/story-render.ts`, ֆոները `public/story-bg/` (`scripts/make-story-backgrounds.py`). նոր ձևավորում՝ `STORY_DESIGNS`-ում իր `box`-ով։ `ShareButton`-ին `story` տալով նյութը կիսվում է նկարով։ R2 `stories/`՝ Mini App-ի ժամանակավոր նկարներ, 2 օր։
