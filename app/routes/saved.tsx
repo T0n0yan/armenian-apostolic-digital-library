@@ -241,14 +241,15 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         // Sign-in: a centred card whose buttons keep a phone's width on wide screens too.
         <section className="frosted-panel grid justify-items-center gap-3 px-5 py-7 text-center min-[560px]:px-10 min-[560px]:py-9">
           <span className="grid size-12 place-items-center rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright"><Bookmark aria-hidden="true" size={24} strokeWidth={1.7} /></span>
-          <h2 className="m-0 max-w-[420px] font-noto text-[17px] leading-snug text-ink">{loaderData.authStatus === "invalid" ? "Telegram նույնականացման ժամկետն ավարտվել է" : "Մուտք «Իմ անկյունը»"}</h2>
+          <h2 className="m-0 max-w-[420px] font-noto text-[17px] leading-snug text-ink">{loaderData.authStatus === "invalid" ? "Մուտքը դադարել է" : "Մուտք «Իմ անկյունը»"}</h2>
           <p className="m-0 max-w-[420px] text-[13px] leading-[1.6] text-muted">{loaderData.authStatus === "invalid"
-            ? "Փակիր և նորից բացիր Mini App-ը Telegram-ից։"
+            // «Ելք բոլոր սարքերից» կամ ժամկետը. նույն կոճակներով նորից մտնել (Mini App-ում մուտքը նորից ավտոմատ է)։
+            ? "Դուք դուրս եք եկել (օր.՝ «Ելք բոլոր սարքերից»), կամ մուտքի ժամկետն ավարտվել է։ Մտեք նորից։"
             : loaderData.authStatus === "unavailable"
               ? "Telegram նույնականացումը այս միջավայրում կազմաձևված չէ։"
               : "Մտիր, որ պահես նյութեր և համարներ, գրես նշումներ և դնես հիշեցումներ։ Telegram Mini App-ում մուտքն ավտոմատ է։"}</p>
           {loaderData.signInFailed ? <p className="m-0 text-[12.5px] text-[#b4472f]" role="alert">Google-ով մուտքը չհաջողվեց։ Փորձիր նորից։</p> : null}
-          {loaderData.authStatus === "guest" ? (
+          {loaderData.authStatus === "guest" || loaderData.authStatus === "invalid" ? (
             <div className="mt-1 grid w-full max-w-[320px] gap-2">
               {loaderData.googleAvailable ? (
                 <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
