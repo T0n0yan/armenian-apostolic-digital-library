@@ -9,6 +9,8 @@ import { circleRing, directionLinks, PLACE_KINDS, placeThumbUrl, type PlaceKind 
 import { useSignedIn } from "../utils/place-visits";
 import { SignInSheet } from "./sign-in-sheet";
 import { ShareButton } from "./share-button";
+// maplibre-gl 6-ի worker-ը առանձին ֆայլ է. Vite-ը այն պատճենում է assets-ում, և քարտեզին ասում ենք հասցեն։
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 
 export type MapPlace = {
   id: string; name: string; kind: PlaceKind; latitude: number; longitude: number; region: string;
@@ -337,9 +339,10 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
     let observer: MutationObserver | null = null;
     void (async () => {
       const module = await import("maplibre-gl");
-      // The UMD build arrives as a default export; keep either shape working.
+      // maplibre-gl 6-ը միայն ESM է (namespace import). default-ը թողնված է հին build-ի համար։
       const maplibre = ((module as unknown as { default?: MapLibre }).default ?? module) as MapLibre;
       if (cancelled || !container.current) return;
+      maplibre.setWorkerUrl(maplibreWorkerUrl);
       const ratio = Math.min(window.devicePixelRatio || 1, 3);
       const armenia = new maplibre.LngLatBounds([ARMENIA_BOUNDS[0][1], ARMENIA_BOUNDS[0][0]], [ARMENIA_BOUNDS[1][1], ARMENIA_BOUNDS[1][0]]);
       const focused = focus ? places.find((place) => place.id === focus) : undefined;
@@ -459,7 +462,14 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       // The site's theme can change while the map is open (settings, sunset).
       observer = new MutationObserver(() => applyPalette(m, currentTheme()));
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    })();
+    })().catch((error: unknown) => {
+      // Քարտեզը պահանջում է WebGL 2 (maplibre-gl 6). հին սարքում էջի մնացածը (ցանկը) աշխատում է։
+      console.error("places map", error);
+      if (!cancelled && container.current) {
+        container.current.textContent = "Քարտեզը այս սարքում չի բացվում։ Եկեղեցիների ցանկը՝ ներքևում։";
+        container.current.setAttribute("style", "display:grid;place-items:center;padding:24px;text-align:center;font-size:14px;color:var(--muted, #6b5a52)");
+      }
+    });
     return () => { cancelled = true; observer?.disconnect(); map?.remove(); mapRef.current = null; };
   }, [places, focus, loadMap]);
 

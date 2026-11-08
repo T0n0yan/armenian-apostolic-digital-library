@@ -68,16 +68,15 @@ function withBrowserCache(response: Response, url: URL) {
   return copy;
 }
 
-/** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
 /** Content-Security-Policy. inline boot-script-ը թույլատրվում է միայն իր հաշով, script-ը՝ միայն մեր և Telegram-ի։ */
 function contentSecurityPolicy(env: Env) {
   const media = ((env as unknown as { MEDIA_BASE_URL?: string }).MEDIA_BASE_URL ?? "").trim();
   const mediaSrc = media ? ` ${media}` : "";
   return [
     "default-src 'self'",
-    // Script-ը առայժմ inline-ով (մինչ nonce-ի ներդրումը). boot-script-ի հաշը նշված է որպես հետքայլ։
-    // Ներարկված script-ի տվյալների արտահոսքը փակ է connect-src/img-src/form-action-ով։
-    // Script-ը առայժմ inline-ով (մինչ nonce-ի ներդրումը). ներարկված script-ի արտահոսքը փակ է ցանցի/նկարի/form կանոններով։
+    // 'unsafe-inline'. էջերը edge cache-ում ընդհանուր են, ուստի ամեն հարցման nonce հնարավոր չէ, իսկ
+    // React Router-ի տվյալների script-ը ամեն էջում տարբեր է (հաշով չի ծածկվում)։ Ներարկված script-ի
+    // տվյալների արտահոսքը փակ է connect-src/img-src/form-action կանոններով։
     "script-src 'self' 'unsafe-inline' https://telegram.org 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${mediaSrc} https://tiles.openfreemap.org`,
@@ -94,6 +93,7 @@ function contentSecurityPolicy(env: Env) {
   ].join("; ");
 }
 
+/** Security headers on every response. Telegram Web shows the Mini App in a frame, so only it may frame the site. */
 function secure(response: Response, env: Env) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");

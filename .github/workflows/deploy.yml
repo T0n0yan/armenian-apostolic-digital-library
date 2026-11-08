@@ -28,9 +28,9 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       WRANGLER_SEND_METRICS: "false"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -41,6 +41,20 @@ jobs:
         run: CLOUDFLARE_ENV="$TARGET" pnpm run build
       - name: Test
         run: pnpm exec tsx --test tests/*.test.ts
+      # Production-ը ստանում է միայն տիպերով ստուգված կոդ (նույնը, ինչ QA review-ը)։
+      - name: Type check (production)
+        if: env.TARGET == 'production'
+        run: pnpm exec react-router typegen && pnpm exec tsc -b && pnpm lint
+      # Բազայի ներկա վիճակի նշանը (D1 Time Travel). սխալ migration-ից հետո բազան վերադարձնելու համար՝
+      # wrangler d1 time-travel restore <db> --env <target> --bookmark <նշանը>
+      - name: Database bookmark before migrations
+        continue-on-error: true
+        run: |
+          info=$(pnpm exec wrangler d1 time-travel info "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --json)
+          echo "$info"
+          bookmark=$(echo "$info" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).bookmark??"")}catch{console.log("")}})')
+          echo "### D1 bookmark ($TARGET) migrations-ից առաջ" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$bookmark\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Apply database migrations
         run: pnpm exec wrangler d1 migrations apply "armenian-apostolic-digital-library-$TARGET" --env "$TARGET" --remote
       # Once, while production has no OpenStreetMap places: bring them in hidden, so the map stays
@@ -58,3 +72,14 @@ jobs:
           fi
       - name: Deploy
         run: pnpm exec wrangler deploy --env "$TARGET"
+      # Կայքը իսկապես աշխատում է (էջեր, սաղմոս, JS/CSS)։ Ոչ՝ Worker-ը վերադառնում է նախորդ
+      # տարբերակին, և job-ը կարմիր է (GitHub-ը նամակ է ուղարկում)։ Migrations-ը միայն ավելացնող են
+      # (docs/ARCHITECTURE.md), ուստի նախորդ կոդը աշխատում է նոր բազայով։
+      - name: Smoke check
+        id: smoke
+        run: node scripts/smoke.mjs "${{ env.TARGET == 'production' && 'https://apostolic.am' || 'https://staging.apostolic.am' }}"
+      - name: Roll back on a failed smoke check
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          pnpm exec wrangler rollback --env "$TARGET" --message "smoke check failed: ${{ github.sha }}" -y
+          echo "### ⚠️ Smoke ստուգումը ձախողվեց, Worker-ը վերադարձվեց նախորդ տարբերակին" >> "$GITHUB_STEP_SUMMARY"
