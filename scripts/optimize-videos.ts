@@ -432,10 +432,10 @@ async function main() {
     log(`Սեղմելու տեսանյութեր՝ ${candidates.length}`);
     if (DRY_RUN) { for (const item of candidates) log(`  ${item.source} ${item.key} ${item.bytes ? mb(item.bytes) : ""}`); return; }
     if (candidates.length) await ensureFfmpeg();
-    for (const item of candidates) {
+    for (const [index, item] of candidates.entries()) {
       if (outOfTime()) { log(`Ժամանակը/սահմանը սպառվեց. մնացածը՝ հաջորդ անգամ`); break; }
       processed += 1;
-      log(`${processed}/${candidates.length} ${item.source} ${item.key}`);
+      log(`${index + 1}/${candidates.length} ${item.source} ${item.key}`);
       try {
         if (await optimizeOne(item, work)) changed = true;
       } catch (error) {
