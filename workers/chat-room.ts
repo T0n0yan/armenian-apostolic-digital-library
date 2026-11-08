@@ -1,7 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 
 import { pushKeysFrom, sendWebPush, type PushSubscriptionRow } from "../app/data/web-push.server";
-import { PAGE_SIZE, otherSide, parseClientEvent, type ChatMessage, type ChatSide, type ServerEvent } from "../app/utils/private-chat";
+import {
+  FONT_DEFAULT, PAGE_SIZE, clampFont, otherSide, parseClientEvent, statusOf,
+  type ChatKind, type ChatMessage, type ChatMeta, type ChatPresence, type ChatSettings, type ChatSide, type ChatStatus, type ChatWhere, type ServerEvent,
+} from "../app/utils/private-chat";
 import { parseLetter } from "../app/utils/private-letter";
 
 type ChatEnv = {
@@ -13,19 +16,31 @@ type ChatEnv = {
   VAPID_SUBJECT?: string;
 };
 
-/** Ամեն socket-ին կցված. ով է և արդյոք էջը հիմա էկրանին է։ */
-type Attachment = { side: ChatSide; userId: string; visible: boolean };
+/** Ամեն socket-ին կցված. ով է, որտեղ է (չատում թե կայքի այլ էջում) և արդյոք էջը էկրանին է։ */
+type Attachment = { side: ChatSide; userId: string; visible: boolean; where: ChatWhere };
 
-type Row = { id: number; side: string; body: string; at: number; deleted: number };
-const toMessage = (row: Row): ChatMessage => ({ id: row.id, side: row.side === "a" ? "a" : "b", body: row.deleted ? "" : row.body, at: row.at, deleted: row.deleted === 1 });
+type Row = { id: number; side: string; body: string; at: number; deleted: number; kind: string; file_id: number | null; meta: string | null; edited_at: number | null };
+const COLUMNS = "id, side, body, at, deleted, kind, file_id, meta, edited_at";
+function toMessage(row: Row): ChatMessage {
+  let meta: ChatMeta | null = null;
+  try { meta = row.meta ? JSON.parse(row.meta) as ChatMeta : null; } catch { meta = null; }
+  const deleted = row.deleted === 1;
+  return {
+    id: row.id, side: row.side === "a" ? "a" : "b", body: deleted ? "" : row.body, at: row.at, deleted,
+    kind: row.kind === "image" || row.kind === "audio" ? row.kind : "text",
+    fileId: deleted ? null : row.file_id, meta: deleted ? null : meta, editedAt: row.edited_at,
+  };
+}
 
 /** Telegram-ում ուղարկված ծանուցումները, որ կարդալուց հետո ջնջվեն։ */
 type Sent = { chat: number; message: number };
+/** Ֆայլը պահվում է 1 ՄԲ կտորներով (SQLite-ի մեկ արժեքի սահմանը 2 ՄԲ է)։ */
+const CHUNK = 1024 * 1024;
 
 /**
- * Անձնական չատը (/namak)։ Մեկ օրինակ («main»)։ Հաղորդագրությունները պահվում են միայն այստեղ
- * (Durable Object-ի իր SQLite-ում), ոչ թե D1-ում. ուստի դրանք չկան ոչ backup-ում, ոչ ադմինի էջերում։
- * Ով է մտնում՝ ստուգում է Worker-ը (app/data/private-chat.server.ts), այստեղ գալիս են միայն ստուգված կողմերը։
+ * Անձնական չատը (/namak)։ Մեկ օրինակ («main»)։ Հաղորդագրությունները, նկարները և ձայնագրությունները պահվում են
+ * միայն այստեղ (Durable Object-ի իր SQLite-ում), ոչ թե D1-ում կամ R2-ում. ուստի դրանք չկան ոչ backup-ում,
+ * ոչ ադմինի էջերում, ոչ հանրային հասցեով։ Ով է մտնում՝ ստուգում է Worker-ը (app/data/private-chat.server.ts)։
  * Hibernation. socket-ները բաց են մնում, իսկ օբյեկտը քնում է, երբ ոչինչ չի կատարվում (անվճար պլան)։
  */
 export class ChatRoom extends DurableObject<ChatEnv> {
@@ -38,20 +53,27 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     this.sql = ctx.storage.sql;
     this.sql.exec(`CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, side TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, client_id TEXT)`);
+    // Նոր սյուները (նկար, ձայն, փոփոխում). առաջին տարբերակի աղյուսակում դրանք չկային։
+    for (const column of ["kind TEXT NOT NULL DEFAULT 'text'", "file_id INTEGER", "meta TEXT", "edited_at INTEGER"]) {
+      try { this.sql.exec(`ALTER TABLE messages ADD COLUMN ${column}`); } catch { /* արդեն կա */ }
+    }
     this.sql.exec(`CREATE TABLE IF NOT EXISTS members (
       user_id TEXT PRIMARY KEY, side TEXT NOT NULL, telegram_id TEXT, name TEXT NOT NULL DEFAULT '', seen_at INTEGER NOT NULL)`);
     this.sql.exec("CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, mime TEXT NOT NULL, size INTEGER NOT NULL)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS file_chunks (file_id INTEGER NOT NULL, part INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY (file_id, part))");
     // «ping»-ին պատասխանում է առանց օբյեկտը արթնացնելու։
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
-  /** Socket-ի բացումը. կողմը և հաշիվը դնում է Worker-ը ստուգելուց հետո։ */
+  /** Socket-ի բացումը. կողմը և հաշիվը դնում է Worker-ը ստուգելուց հետո։ «lite»՝ կայքի մյուս էջերից (լույսի և ✉-ի համար)։ */
   async fetch(request: Request) {
     const side = request.headers.get("X-Chat-Side");
     const userId = request.headers.get("X-Chat-User");
     if ((side !== "a" && side !== "b") || !userId || request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Not found.", { status: 404 });
     }
+    const where: ChatWhere = request.headers.get("X-Chat-Where") === "app" ? "app" : "chat";
     const telegramId = request.headers.get("X-Chat-Telegram") || null;
     const name = decodeURIComponent(request.headers.get("X-Chat-Name") ?? "").slice(0, 80);
     this.sql.exec(
@@ -63,23 +85,54 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server, [side]);
-    server.serializeAttachment({ side, userId, visible: true } satisfies Attachment);
-    server.send(JSON.stringify(this.initFor(side)));
-    this.sendTo(otherSide(side), { type: "presence", online: true });
+    server.serializeAttachment({ side, userId, visible: true, where } satisfies Attachment);
+    server.send(JSON.stringify(where === "chat" ? this.initFor(side) : { type: "lite", unread: this.unreadOf(side), presence: this.presenceOf(otherSide(side)) } satisfies ServerEvent));
+    this.presenceChanged(side);
     return new Response(null, { status: 101, webSocket: client });
-  }
-
-  /** Քանի չջնջված հաղորդագրություն կա (ստացողին փոխելուց առաջ). ջնջվածների տեքստն արդեն չկա։ */
-  async messageCount() {
-    return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages WHERE deleted = 0").one().count;
   }
 
   /** Չկարդացվածների թիվը (մենյուի կետի համար)։ */
   async unread(side: ChatSide) {
-    const row = this.sql.exec<{ count: number }>(
-      "SELECT COUNT(*) AS count FROM messages WHERE side != ? AND deleted = 0 AND id > ?", side, this.readOf(side),
+    return this.unreadOf(side);
+  }
+
+  /** Քանի չջնջված հաղորդագրություն կա (ստացողին փոխելուց առաջ). ջնջվածների պարունակությունն արդեն չկա։ */
+  async messageCount() {
+    return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages WHERE deleted = 0").one().count;
+  }
+
+  /** Նկար կամ ձայնագրություն. Worker-ը արդեն ստուգել է կողմը, տեսակը և չափը։ */
+  async addFile(side: ChatSide, kind: Exclude<ChatKind, "text">, mime: string, data: ArrayBuffer, meta: ChatMeta, clientId: string) {
+    if (this.tooFast(side)) return { error: "Շատ արագ է, մի պահ սպասեք։" };
+    const existing = clientId ? this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE client_id = ? AND side = ?`, clientId, side).toArray()[0] : undefined;
+    if (existing) return { message: toMessage(existing) };
+    const bytes = new Uint8Array(data);
+    const fileId = this.sql.exec<{ id: number }>("INSERT INTO files (mime, size) VALUES (?, ?) RETURNING id", mime, bytes.byteLength).one().id;
+    for (let part = 0; part * CHUNK < bytes.byteLength; part += 1) {
+      this.sql.exec("INSERT INTO file_chunks (file_id, part, data) VALUES (?, ?, ?)", fileId, part, bytes.slice(part * CHUNK, (part + 1) * CHUNK).buffer);
+    }
+    const row = this.sql.exec<Row>(
+      `INSERT INTO messages (side, body, at, client_id, kind, file_id, meta) VALUES (?, '', ?, ?, ?, ?, ?) RETURNING ${COLUMNS}`,
+      side, Date.now(), clientId || null, kind, fileId, JSON.stringify(meta),
     ).one();
-    return row.count;
+    this.delivered(side, toMessage(row), clientId);
+    return { message: toMessage(row) };
+  }
+
+  /** Ֆայլը՝ միայն եթե դրա հաղորդագրությունը ջնջված չէ։ */
+  async getFile(id: number) {
+    const file = this.sql.exec<{ mime: string; size: number }>(
+      "SELECT files.mime, files.size FROM files JOIN messages ON messages.file_id = files.id AND messages.deleted = 0 WHERE files.id = ?", id,
+    ).toArray()[0];
+    if (!file) return null;
+    const bytes = new Uint8Array(file.size);
+    let offset = 0;
+    for (const chunk of this.sql.exec<{ data: ArrayBuffer }>("SELECT data FROM file_chunks WHERE file_id = ? ORDER BY part", id)) {
+      const part = new Uint8Array(chunk.data);
+      bytes.set(part, offset);
+      offset += part.byteLength;
+    }
+    return { mime: file.mime, data: bytes.buffer };
   }
 
   async webSocketMessage(socket: WebSocket, data: string | ArrayBuffer) {
@@ -91,12 +144,18 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       case "send": {
         if (this.tooFast(side)) { socket.send(JSON.stringify({ type: "error", message: "Շատ արագ է, մի պահ սպասեք։" } satisfies ServerEvent)); return; }
         // Կապը կտրվելուց հետո բրաուզերը նորից է ուղարկում. նույն clientId-ով երկրորդ անգամ չի պահվում։
-        const existing = event.clientId ? this.sql.exec<Row>("SELECT id, side, body, at, deleted FROM messages WHERE client_id = ? AND side = ?", event.clientId, side).toArray()[0] : undefined;
+        const existing = event.clientId ? this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE client_id = ? AND side = ?`, event.clientId, side).toArray()[0] : undefined;
         if (existing) { socket.send(JSON.stringify({ type: "message", message: toMessage(existing), clientId: event.clientId } satisfies ServerEvent)); return; }
-        const row = this.sql.exec<Row>("INSERT INTO messages (side, body, at, client_id) VALUES (?, ?, ?, ?) RETURNING id, side, body, at, deleted", side, event.text, Date.now(), event.clientId || null).one();
-        this.broadcast({ type: "message", message: toMessage(row), clientId: event.clientId });
-        const other = otherSide(side);
-        if (!this.isWatching(other)) this.ctx.waitUntil(this.notify(other).catch((error: unknown) => console.error("chat notify", error instanceof Error ? error.message : "failed")));
+        const row = this.sql.exec<Row>(`INSERT INTO messages (side, body, at, client_id) VALUES (?, ?, ?, ?) RETURNING ${COLUMNS}`, side, event.text, Date.now(), event.clientId || null).one();
+        this.delivered(side, toMessage(row), event.clientId);
+        return;
+      }
+      case "edit": {
+        const row = this.sql.exec<Row>(
+          `UPDATE messages SET body = ?, edited_at = ? WHERE id = ? AND side = ? AND deleted = 0 AND kind = 'text' RETURNING ${COLUMNS}`,
+          event.text, Date.now(), event.id, side,
+        ).toArray()[0];
+        if (row) this.broadcast({ type: "edited", message: toMessage(row) });
         return;
       }
       case "read": {
@@ -109,16 +168,39 @@ export class ChatRoom extends DurableObject<ChatEnv> {
         return;
       }
       case "typing": this.sendTo(otherSide(side), { type: "typing" }); return;
-      case "visible": socket.serializeAttachment({ ...me, visible: event.visible } satisfies Attachment); return;
+      case "where":
+        socket.serializeAttachment({ ...me, where: event.where, visible: event.visible } satisfies Attachment);
+        this.presenceChanged(side);
+        return;
       case "history": {
-        const rows = this.sql.exec<Row>("SELECT id, side, body, at, deleted FROM messages WHERE id < ? ORDER BY id DESC LIMIT ?", event.before, PAGE_SIZE + 1).toArray();
+        const rows = this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages WHERE id < ? ORDER BY id DESC LIMIT ?`, event.before, PAGE_SIZE + 1).toArray();
         socket.send(JSON.stringify({ type: "history", messages: rows.slice(0, PAGE_SIZE).reverse().map(toMessage), hasMore: rows.length > PAGE_SIZE } satisfies ServerEvent));
         return;
       }
       case "delete": {
-        // Միայն իր հաղորդագրությունը. տեքստը իսկապես ջնջվում է, մնում է միայն «ջնջված» նշանը։
-        const changed = this.sql.exec("UPDATE messages SET body = '', deleted = 1 WHERE id = ? AND side = ? AND deleted = 0", event.id, side).rowsWritten;
-        if (changed) this.broadcast({ type: "deleted", id: event.id });
+        // Միայն իր հաղորդագրությունը. տեքստը և ֆայլը իսկապես ջնջվում են, մնում է միայն «ջնջված» նշանը։
+        const row = this.sql.exec<{ file_id: number | null }>("UPDATE messages SET body = '', meta = NULL, deleted = 1 WHERE id = ? AND side = ? AND deleted = 0 RETURNING file_id", event.id, side).toArray()[0];
+        if (!row) return;
+        if (row.file_id) this.removeFile(row.file_id);
+        this.sql.exec("UPDATE messages SET file_id = NULL WHERE id = ?", event.id);
+        this.broadcast({ type: "deleted", id: event.id });
+        return;
+      }
+      case "settings": {
+        this.setState(`nick_${side}`, event.nick);
+        this.setState(`font_${side}`, String(event.font));
+        this.sendTo(side, { type: "settings", settings: this.settingsOf(side) });
+        return;
+      }
+      case "clear": {
+        // Ամբողջ զրույցը՝ միայն տերը։ Մնում են միայն կարգավորումները (անուններ, տեքստի չափ)։
+        if (side !== "a") return;
+        this.sql.exec("DELETE FROM file_chunks");
+        this.sql.exec("DELETE FROM files");
+        this.sql.exec("DELETE FROM messages");
+        this.sql.exec("DELETE FROM state WHERE key LIKE 'read_%'");
+        for (const each of ["a", "b"] as const) this.ctx.waitUntil(this.clearNotifications(each));
+        this.broadcast({ type: "cleared" });
         return;
       }
     }
@@ -127,15 +209,27 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   async webSocketClose(socket: WebSocket, code: number, reason: string) {
     const me = socket.deserializeAttachment() as Attachment | null;
     try { socket.close(code === 1005 ? 1000 : code, reason); } catch { /* արդեն փակ է */ }
-    if (me && !this.ctx.getWebSockets(me.side).some((other) => other !== socket)) this.sendTo(otherSide(me.side), { type: "presence", online: false });
+    if (me) this.presenceChanged(me.side, socket);
   }
 
   async webSocketError(socket: WebSocket) {
     await this.webSocketClose(socket, 1011, "error");
   }
 
+  /** Նոր հաղորդագրություն. բոլորին, և ծանուցում, եթե մյուսը հիմա չատին չի նայում։ */
+  private delivered(side: ChatSide, message: ChatMessage, clientId: string) {
+    this.broadcast({ type: "message", message, clientId });
+    const other = otherSide(side);
+    if (this.statusOf(other) !== "chat") this.ctx.waitUntil(this.notify(other).catch((error: unknown) => console.error("chat notify", error instanceof Error ? error.message : "failed")));
+  }
+
+  private removeFile(id: number) {
+    this.sql.exec("DELETE FROM file_chunks WHERE file_id = ?", id);
+    this.sql.exec("DELETE FROM files WHERE id = ?", id);
+  }
+
   private initFor(side: ChatSide): ServerEvent {
-    const rows = this.sql.exec<Row>("SELECT id, side, body, at, deleted FROM messages ORDER BY id DESC LIMIT ?", PAGE_SIZE + 1).toArray();
+    const rows = this.sql.exec<Row>(`SELECT ${COLUMNS} FROM messages ORDER BY id DESC LIMIT ?`, PAGE_SIZE + 1).toArray();
     const names: Partial<Record<ChatSide, string>> = {};
     for (const row of this.sql.exec<{ side: string; name: string }>("SELECT side, name FROM members WHERE name != '' ORDER BY seen_at").toArray()) {
       names[row.side === "a" ? "a" : "b"] = row.name;
@@ -146,9 +240,42 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       messages: rows.slice(0, PAGE_SIZE).reverse().map(toMessage),
       hasMore: rows.length > PAGE_SIZE,
       read: { a: this.readOf("a"), b: this.readOf("b") },
-      online: this.ctx.getWebSockets(otherSide(side)).length > 0,
+      presence: this.presenceOf(otherSide(side)),
       names,
+      settings: this.settingsOf(side),
     };
+  }
+
+  private unreadOf(side: ChatSide) {
+    return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages WHERE side != ? AND deleted = 0 AND id > ?", side, this.readOf(side)).one().count;
+  }
+
+  private settingsOf(side: ChatSide): ChatSettings {
+    return { nick: this.getState(`nick_${side}`) ?? "", font: clampFont(Number(this.getState(`font_${side}`) ?? FONT_DEFAULT)) };
+  }
+
+  private socketsOf(side: ChatSide, except?: WebSocket) {
+    return this.ctx.getWebSockets(side).filter((socket) => socket !== except)
+      .map((socket) => socket.deserializeAttachment() as Attachment | null)
+      .filter((value): value is Attachment => Boolean(value));
+  }
+
+  private statusOf(side: ChatSide, except?: WebSocket): ChatStatus {
+    return statusOf(this.socketsOf(side, except));
+  }
+
+  private presenceOf(side: ChatSide, except?: WebSocket): ChatPresence {
+    const status = this.statusOf(side, except);
+    return { status, lastSeen: status === "away" ? Number(this.getState(`seen_${side}`) ?? 0) || null : null };
+  }
+
+  /** Այս կողմի վիճակը փոխվե՞լ է. եթե այո, մյուսին հայտնել (փակելիս՝ «վերջին անգամ»-ը պահել)։ */
+  private presenceChanged(side: ChatSide, closing?: WebSocket) {
+    const status = this.statusOf(side, closing);
+    if (this.getState(`status_${side}`) === status) return;
+    if (status === "away") this.setState(`seen_${side}`, String(Date.now()));
+    this.setState(`status_${side}`, status);
+    this.sendTo(otherSide(side), { type: "presence", presence: this.presenceOf(side, closing) });
   }
 
   private readOf(side: ChatSide) {
@@ -172,11 +299,6 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   private sendTo(side: ChatSide, event: ServerEvent) {
     const text = JSON.stringify(event);
     for (const socket of this.ctx.getWebSockets(side)) { try { socket.send(text); } catch { /* փակվում է */ } }
-  }
-
-  /** Մյուսը հիմա նայու՞մ է չատին (բաց է և էկրանին)։ */
-  private isWatching(side: ChatSide) {
-    return this.ctx.getWebSockets(side).some((socket) => (socket.deserializeAttachment() as Attachment | null)?.visible);
   }
 
   private tooFast(side: ChatSide) {

@@ -29,3 +29,28 @@ test("✓✓ և չկարդացվածներ", () => {
   assert.equal(unreadCount(messages, "a", 0), 1);
   assert.equal(unreadCount(messages, "b", 0), 1);
 });
+
+import { allowedMime, clampFont, statusOf, FONT_MAX, FONT_MIN } from "../app/utils/private-chat";
+
+test("լույսը. չատում → կայքում → փակ", () => {
+  assert.equal(statusOf([]), "away");
+  assert.equal(statusOf([{ where: "app", visible: false }]), "away");
+  assert.equal(statusOf([{ where: "app", visible: true }]), "app");
+  assert.equal(statusOf([{ where: "app", visible: true }, { where: "chat", visible: true }]), "chat");
+  assert.equal(statusOf([{ where: "chat", visible: false }, { where: "app", visible: true }]), "app");
+});
+
+test("ֆայլերի ձևաչափ, կարգավորումներ, փոփոխում", () => {
+  assert.equal(allowedMime("image", "image/jpeg"), "image/jpeg");
+  assert.equal(allowedMime("image", "image/svg+xml"), null);
+  assert.equal(allowedMime("audio", "audio/webm;codecs=opus"), "audio/webm");
+  assert.equal(allowedMime("audio", "text/html"), null);
+  assert.equal(allowedMime("video", "video/mp4"), null);
+  assert.equal(clampFont(100), FONT_MAX);
+  assert.equal(clampFont(1), FONT_MIN);
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: " Ա\nնի ", font: 18 })), { type: "settings", nick: "Ա նի", font: 18 });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "edit", id: 4, text: " նոր " })), { type: "edit", id: 4, text: "նոր" });
+  assert.equal(parseClientEvent(JSON.stringify({ type: "edit", id: 4, text: " " })), null);
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "where", where: "x", visible: true })), { type: "where", where: "app", visible: true });
+  assert.equal(cleanMessage("ա".repeat(20_000)).length, 20_000);
+});
