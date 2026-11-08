@@ -3,18 +3,30 @@
  *
  * Նպատակը. ամեն սարքում նվագարկվող ֆայլ (MP4, H.264 High, AAC — հին iPhone-ներից ու Android-ներից
  * մինչև նոր նոութբուքեր), հնարավորինս փոքր, առանց տեսանելի որակի կորստի։
- * - պատկերը՝ CRF 26 (որակի վրա հիմնված, ոչ թե ֆիքսված բիթրեյթ), կարճ կողմը առավելագույնը 720,
+ * - պատկերը՝ CRF 30 (որակի վրա հիմնված, ոչ թե ֆիքսված բիթրեյթ), կարճ կողմը առավելագույնը 720,
  *   վայրկյանում առավելագույնը 30 կադր, երբեք չի մեծացվում
- * - ձայնը՝ AAC. եթե ձախ և աջ ալիքները նույնն են (խոսք)՝ մոնո 64k, այլապես ստերեո 96k
+ * - ձայնը՝ AAC. եթե ձախ և աջ ալիքները նույնն են (խոսք)՝ մոնո 40k, այլապես ստերեո 64k
+ * Տիրոջ որոշում (2026-11-08)՝ առավելագույն սեղմում առանց որակը փչացնելու։ Ստուգված է կայքի
+ * տեսանյութերի վրա. CRF 26/64k-ի համեմատ −40%, SSIM 0.979–0.985, աչքով տարբերություն չկա։
+ * Ավելի ուժեղը (CRF 32, ձայն 32k) արդեն փչացնում է ձայնը. HEVC/AV1՝ ոչ բոլոր հեռախոսներում։
  * - «faststart»՝ նվագարկումը սկսվում է առանց ամբողջ ֆայլը բեռնելու
  */
 
 export const VIDEO_SHORT_SIDE_MAX = 720;
-export const VIDEO_CRF = 26;
+export const VIDEO_CRF = 30;
+/**
+ * Սեղմման կանոնների տարբերակը։ Փոխելիս արդեն սեղմված տեսանյութերը նորից են սեղմվում
+ * բնօրինակից (եթե այն դեռ կա), ոչ թե սեղմվածից՝ որակը կրկնակի չկորցնելու համար։
+ */
+export const VIDEO_PROFILE = "v2";
 /** Ֆայլը փոխարինվում է միայն եթե առնվազն այսքանով փոքրացել է (եթե բնօրինակն արդեն ամեն տեղ նվագարկվում է)։ */
 export const VIDEO_MIN_SAVING = 0.15;
-/** Բնօրինակի պատճենը պահվում է այսքան օր, հետո ջնջվում։ */
-export const VIDEO_BACKUP_DAYS = 14;
+/**
+ * Բնօրինակի պատճենը պահվում է այսքան օր։ 0՝ ջնջվում է նույն աշխատանքում, հենց որ սեղմված ֆայլը
+ * ստուգվեց (տևողություն, ձայն, ձևաչափ, R2-ում պահված բայթերը). տիրոջ որոշում, 2026-11-08։
+ * Telegram-ի տեսանյութերի բնօրինակը միշտ մնում է Telegram խմբում։
+ */
+export const VIDEO_BACKUP_DAYS = 0;
 /** Ձախ-աջ տարբերության միջին ձայնը (dB). սրանից ցածր՝ փաստացի մոնո։ */
 export const MONO_DIFFERENCE_DB = -50;
 
@@ -59,7 +71,7 @@ export function videoFacts(probe: VideoProbe): VideoFacts {
 export function audioPlan(facts: VideoFacts, nearlyMono: boolean) {
   if (!facts.hasAudio) return { channels: 0, bitRate: 0 };
   const channels = facts.audioChannels === 1 || nearlyMono ? 1 : 2;
-  const target = channels === 1 ? 64_000 : 96_000;
+  const target = channels === 1 ? 40_000 : 64_000;
   const bitRate = facts.audioBitRate ? Math.max(32_000, Math.min(target, Math.round(facts.audioBitRate / 1000) * 1000)) : target;
   return { channels, bitRate };
 }
@@ -104,13 +116,17 @@ export function parseMeanVolume(output: string) {
 /** Պահուստային պատճենի բանալին (Telegram-ի և կայքի ձայնագրությունների համար, որոնք փոխարինվում են նույն տեղում)։ */
 export const backupKeyOf = (key: string) => `originals/${key}`;
 
-/** Սրբավայրի և օգնության տեսանյութերի նոր բանալին. «places/x/video-ab.mov» → «places/x/video-ab-o.mp4»։ */
-export function optimizedKeyOf(key: string) {
+/**
+ * Սրբավայրի և օգնության տեսանյութերի նոր բանալին. «places/x/video-ab.mov» → «places/x/video-ab-o2.mp4»
+ * (v2-ի համար), որ հասցեն փոխվի, և բրաուզերը հին պատճենը չտա։
+ */
+export function optimizedKeyOf(key: string, profile: string = VIDEO_PROFILE) {
   const slash = key.lastIndexOf("/");
   const dot = key.lastIndexOf(".");
-  const base = dot > slash ? key.slice(0, dot) : key;
-  return `${base}-o.mp4`;
+  const base = (dot > slash ? key.slice(0, dot) : key).replace(/-o\d*$/u, "");
+  const number = profile.replace(/^v/u, "");
+  return `${base}-o${number === "1" ? "" : number}.mp4`;
 }
 
 /** Արդյոք բանալին արդեն սեղմված ֆայլի է (կրկին չսեղմելու համար, եթե աղյուսակի տողը կորել է)։ */
-export const isOptimizedKey = (key: string) => key.endsWith("-o.mp4");
+export const isOptimizedKey = (key: string) => /-o\d*\.mp4$/u.test(key);
