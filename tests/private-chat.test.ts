@@ -48,9 +48,22 @@ test("ֆայլերի ձևաչափ, կարգավորումներ, փոփոխու�
   assert.equal(allowedMime("video", "video/mp4"), null);
   assert.equal(clampFont(100), FONT_MAX);
   assert.equal(clampFont(1), FONT_MIN);
-  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: " Ա\nնի ", font: 18 })), { type: "settings", nick: "Ա նի", font: 18 });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: " Ա\nնի ", font: 18 })), { type: "settings", nick: "Ա նի", font: 18, bgOpacity: 0.22 });
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "edit", id: 4, text: " նոր " })), { type: "edit", id: 4, text: "նոր" });
   assert.equal(parseClientEvent(JSON.stringify({ type: "edit", id: 4, text: " " })), null);
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "where", where: "x", visible: true })), { type: "where", where: "app", visible: true });
   assert.equal(cleanMessage("ա".repeat(20_000)).length, 20_000);
+});
+
+import { clampOpacity } from "../app/utils/private-chat";
+
+test("ֆոն. միայն նկարներ, թափանցիկությունը սահմաններում", () => {
+  assert.equal(allowedMime("background", "image/png"), "image/png");
+  assert.equal(allowedMime("background", "image/svg+xml"), null);
+  assert.equal(allowedMime("background", "audio/webm"), null);
+  assert.equal(clampOpacity(2), 0.8);
+  assert.equal(clampOpacity(-1), 0.05);
+  assert.equal(clampOpacity("x"), 0.22);
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: "", font: 15, bgOpacity: 0.3 })), { type: "settings", nick: "", font: 15, bgOpacity: 0.3 });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "background-reset" })), { type: "background-reset" });
 });

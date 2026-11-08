@@ -5,8 +5,8 @@ import { dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
 import { removeOldStories } from "../app/data/stories.server";
-import { openChatSocket, readChatFile, uploadChatFile } from "../app/data/private-chat.server";
-import { CHAT_SOCKET_PATH, CHAT_UPLOAD_PATH } from "../app/utils/private-chat";
+import { openChatSocket, readChatBackground, readChatFile, uploadChatFile } from "../app/data/private-chat.server";
+import { CHAT_BACKGROUND_PATH, CHAT_SOCKET_PATH, CHAT_UPLOAD_PATH } from "../app/utils/private-chat";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -137,6 +137,7 @@ export default {
     const chatPath = new URL(request.url).pathname;
     if (chatPath === CHAT_SOCKET_PATH) return openChatSocket(request);
     if (chatPath === CHAT_UPLOAD_PATH) return uploadChatFile(request);
+    if (chatPath === CHAT_BACKGROUND_PATH) return readChatBackground(request);
     const chatFile = /^\/namak\/file\/(\d{1,12})$/u.exec(chatPath);
     if (chatFile) return readChatFile(request, Number(chatFile[1]));
     // A failure outside the app's own error pages (the database or the platform) still gets a

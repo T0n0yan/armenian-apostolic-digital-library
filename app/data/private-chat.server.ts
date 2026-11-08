@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { accountList, isOwnerIdentity, linkedAliases } from "../auth/admin.server";
 import { getOptionalTelegramUser, type TelegramUserIdentity } from "../auth/telegram-user.server";
 import { FILE_MAX, allowedMime, type ChatMeta, type ChatSide } from "../utils/private-chat";
+import { DEFAULT_BACKGROUND_BASE64, DEFAULT_BACKGROUND_MIME } from "./private-chat-background.server";
 import { getPrivateLetter } from "./private-letter.server";
 
 type ChatNamespace = DurableObjectNamespace<import("../../workers/chat-room").ChatRoom>;
@@ -62,6 +63,8 @@ const fileHeaders = (extra: Record<string, string>) => new Headers({
   "Content-Security-Policy": "default-src 'none'; sandbox",
   "Referrer-Policy": "no-referrer",
   "X-Robots-Tag": "noindex, nofollow",
+  // Ուրիշ կայքը չի կարող այս ֆայլը ներդնել (img/audio) նույնիսկ մեր cookie-ով։
+  "Cross-Origin-Resource-Policy": "same-origin",
   ...extra,
 });
 
@@ -76,10 +79,11 @@ export async function uploadChatFile(request: Request) {
   const url = new URL(request.url);
   const kind = url.searchParams.get("kind");
   const mime = allowedMime(kind ?? "", request.headers.get("Content-Type") ?? "");
-  if ((kind !== "image" && kind !== "audio") || !mime) return new Response("Unsupported.", { status: 415 });
+  if ((kind !== "image" && kind !== "audio" && kind !== "background") || !mime) return new Response("Unsupported.", { status: 415 });
   if (Number(request.headers.get("Content-Length") ?? 0) > FILE_MAX) return new Response("Too large.", { status: 413 });
   const data = await request.arrayBuffer();
   if (!data.byteLength || data.byteLength > FILE_MAX) return new Response("Too large.", { status: 413 });
+  if (kind === "background") return Response.json(await room.setBackground(who.side, mime, data), { headers: fileHeaders({}) });
   const number = (key: string) => { const value = Number(url.searchParams.get(key)); return Number.isFinite(value) && value > 0 ? Math.round(value * 10) / 10 : undefined; };
   const meta: ChatMeta = { w: number("w"), h: number("h"), duration: number("duration") };
   const result = await room.addFile(who.side, kind, mime, data, meta, (url.searchParams.get("clientId") ?? "").slice(0, 40));
@@ -108,4 +112,19 @@ export async function readChatFile(request: Request, id: number) {
     });
   }
   return new Response(request.method === "HEAD" ? null : bytes, { headers: fileHeaders({ "Content-Type": file.mime, "Content-Length": String(bytes.byteLength), "Accept-Ranges": "bytes" }) });
+}
+
+let defaultBackground: Uint8Array<ArrayBuffer> | null = null;
+
+/** Ֆոնը (GET /namak/background). իր ընտրածը, իսկ չունենալու դեպքում՝ ընդհանուրը։ Միայն կողմերին։ */
+export async function readChatBackground(request: Request) {
+  const notFound = new Response("Not found.", { status: 404 });
+  if (request.method !== "GET") return notFound;
+  const who = await chatParticipant(request);
+  const room = chatRoom();
+  if (!who || !room) return notFound;
+  const own = await room.getBackground(who.side);
+  if (own) return new Response(own.data, { headers: fileHeaders({ "Content-Type": own.mime }) });
+  defaultBackground ??= Uint8Array.from(atob(DEFAULT_BACKGROUND_BASE64), (character) => character.charCodeAt(0));
+  return new Response(defaultBackground, { headers: fileHeaders({ "Content-Type": DEFAULT_BACKGROUND_MIME }) });
 }
