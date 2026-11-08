@@ -1513,6 +1513,39 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
     body: JSON.stringify({ initData: telegramInitData({ id: 70002, first_name: "Second", last_name: "User" }) }),
   });
   const userBCookie = (userBSession.headers.get("set-cookie") ?? "").split(";", 1)[0];
+  // Էջի տվյալները (.data) բոլորի համար նույնն են և cache-ից են, անձնականը՝ միայն /api/personal-ում։
+  const canonical = /<link rel="canonical" href="([^"]+)"/u.exec(await (await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_101")).text())?.[1] ?? "";
+  const canonicalPath = new URL(canonical, "https://app.fixture").pathname;
+  assert.match(canonicalPath, /^\/[a-z]+\/[^/]+$/u, canonicalPath);
+  const dataUrl = `https://app.fixture${canonicalPath}.data?_routes=${canonicalPath.startsWith("/materials/") ? "routes%2Fmaterial" : "section-item"}`;
+  const dataA = await mf.dispatchFetch(dataUrl, { headers: { cookie } });
+  const dataAText = await dataA.text();
+  assert.equal(dataA.status, 200);
+  const dataB = await mf.dispatchFetch(dataUrl, { headers: { cookie: userBCookie } });
+  const dataBText = await dataB.text();
+  const dataAnonymous = await (await mf.dispatchFetch(dataUrl)).text();
+  assert.equal(dataBText, dataAText, "another reader gets the very same page data");
+  assert.equal(dataAnonymous, dataAText, "an anonymous reader gets the very same page data");
+  assert.match(dataB.headers.get("server-timing") ?? "", /edge;desc="hit"/u, "signed-in readers' page data comes from the edge cache");
+  assert.equal(dataB.headers.get("x-offline-public"), "1");
+  const personalA = await (await mf.dispatchFetch(`https://app.fixture/api/personal?kind=material&path=${encodeURIComponent(canonicalPath)}`, { headers: { cookie } })).json() as { canSave: boolean; savedIds: string[] };
+  assert.equal(personalA.canSave, true);
+  assert.ok(personalA.savedIds.includes("material_tg_n100900_101"));
+  const personalResponse = await mf.dispatchFetch(`https://app.fixture/api/personal?kind=material&path=${encodeURIComponent(canonicalPath)}`, { headers: { cookie: userBCookie } });
+  assert.match(personalResponse.headers.get("cache-control") ?? "", /private, no-store/u);
+  const personalB = await personalResponse.json() as { savedIds: string[] };
+  assert.ok(!personalB.savedIds.includes("material_tg_n100900_101"), "one reader's saved items never reach another");
+  const personalGuest = await (await mf.dispatchFetch(`https://app.fixture/api/personal?kind=material&path=${encodeURIComponent(canonicalPath)}`)).json() as { canSave: boolean; savedIds: string[] };
+  assert.deepEqual([personalGuest.canSave, personalGuest.savedIds], [false, []]);
+  const sectionHref = /href="(\/categories\/[^"?#]+|\/(?:psalms|pray|saints|gospel|daily|questions))"/u.exec(await (await mf.dispatchFetch("https://app.fixture/")).text())?.[1] ?? "";
+  assert.ok(sectionHref, "a section link on the home page");
+  const sectionPersonal = await (await mf.dispatchFetch(`https://app.fixture/api/personal?kind=category&path=${encodeURIComponent(sectionHref)}`, { headers: { cookie } })).json() as { canSave: boolean; savedMaterialIds: string[] };
+  assert.equal(sectionPersonal.canSave, true);
+  assert.ok(sectionPersonal.savedMaterialIds.includes("material_tg_n100900_101"));
+  assert.equal((await mf.dispatchFetch("https://app.fixture/api/personal?kind=material&path=nope")).status, 400);
+  // Արմատի (root) տվյալը անձնական է. այն cache-ից չի տրվում
+  const rootData = await mf.dispatchFetch(`${dataUrl.replace("_routes=", "_routes=root,")}`, { headers: { cookie } });
+  assert.match(rootData.headers.get("server-timing") ?? "", /edge;desc="bypass"/u);
   const userBSave = await mf.dispatchFetch("https://app.fixture/saved", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://app.fixture", cookie: userBCookie },

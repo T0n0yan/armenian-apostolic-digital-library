@@ -23,7 +23,8 @@ import { SiteNav } from "../components/site-nav";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
 import { sectionPath } from "../utils/material-path";
-import { loadMaterialPage, resolveMaterialId } from "../data/material-page.server";
+import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
+import { fetchPersonal } from "../utils/personal-data";
 import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
@@ -35,6 +36,18 @@ const PrayerLayoutEditor = lazy(() => import("../components/prayer-layout-editor
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   return loadMaterialPage(await resolveMaterialId(params), request);
+}
+
+/**
+ * Կայքի ներսում նավարկելիս էջի տվյալները ընդհանուր են (cache-ից), իսկ ընթերցողի անձնականը
+ * (պահածներ, նշումներ…) բերվում է զուգահեռ (utils/personal-data.ts)։ Առաջին բացմանը՝ սերվերի HTML-ը։
+ */
+export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
+  const [data, personal] = await Promise.all([
+    serverLoader(),
+    fetchPersonal<MaterialPersonal>("material", new URL(request.url).pathname),
+  ]);
+  return personal ? { ...data, ...personal } : data;
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {

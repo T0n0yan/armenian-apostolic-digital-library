@@ -9,7 +9,7 @@ import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
 import { MaterialResultCard } from "../components/material-result-card";
 import { cardVariantFor } from "../utils/card-variant";
-import { quizResults, type QuizResult } from "../data/poll-votes.server";
+import type { QuizResult } from "../data/poll-votes.server";
 import { InfiniteLoadControls } from "../components/infinite-load-controls";
 import { preloadArt } from "../components/art-image";
 import { EmptyState, PageShell } from "../components/page-layout";
@@ -24,7 +24,7 @@ import { SiteNav } from "../components/site-nav";
 import { countBadge, sectionHeader, sectionTitle } from "../components/ui-styles";
 import { getActiveCategoryBySlug, listActiveCategories } from "../data/categories.server";
 import { getPublicMaterialDetail } from "../data/material-detail.server";
-import { canonicalMaterialPath } from "../data/material-page.server";
+import { canonicalMaterialPath, isPageDataRequest } from "../data/material-page.server";
 import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, materialPath, sectionPath } from "../utils/material-path";
 import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
@@ -32,13 +32,15 @@ import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "..
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
 import { getTopicIntro, listPublicMaterialPageByCategory } from "../data/materials.server";
-import { listSavedMaterialIds } from "../data/saved-materials.server";
+import { loadCategoryPersonal } from "../data/category-personal.server";
 import type { SearchFilters, SearchMaterial } from "../data/search-materials";
 import { SearchSnippet } from "../components/material-result-card";
 import { searchMaterials } from "../data/search-materials.server";
 import { resolveSearchQuery } from "../data/search-query.server";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
-import { loadNavigationData, writeNavigationCache } from "../utils/navigation-cache";
+import { loadNavigationData, navigationScope, writeNavigationCache } from "../utils/navigation-cache";
+import { fetchPersonal, isAppHydrated } from "../utils/personal-data";
+import type { CategoryPersonal } from "../data/category-personal.server";
 import { NOINDEX, SITE_NAME, breadcrumbJsonLd, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 
@@ -137,9 +139,12 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     if (!topic) throw new Response("Not Found", { status: 404, statusText: "Not Found" });
     slug = topic.slug;
   }
+  // Կայքի ներսում նավարկելիս (.data) տվյալները ընդհանուր են, առանց անձնականի (material-page.server.ts,
+  // isPageDataRequest). անձնականը բերվում է /api/personal-ից։
+  const shared = isPageDataRequest(request);
   const [category, user] = await Promise.all([
     getActiveCategoryBySlug(env.DB, slug, request.signal),
-    getOptionalTelegramUser(request),
+    shared ? Promise.resolve(null) : getOptionalTelegramUser(request),
   ]);
 
   if (!category) {
@@ -161,14 +166,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     dateFrom: "",
     dateTo: "",
   };
-  const isQuestions = resolveContentCategoryId(category.id, category.name) === "category_bible_questions";
-  const [materialResult, savedMaterialIds, quizAnswers] = await Promise.all([
+  const [materialResult, personal] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
       : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
-    user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
-    // Which questions the reader already answered, and how.
-    user && isQuestions ? quizResults(env.DB, user.id, category.id).catch(() => ({})) : Promise.resolve({}),
+    loadCategoryPersonal(category, user),
   ]);
   // Grid and question topics show their introduction post as a header (it is their oldest post,
   // so on paged feeds it would otherwise only appear at the very end).
@@ -188,20 +190,26 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     total: intro && typeof materialResult.total === "number" ? Math.max(0, materialResult.total - 1) : materialResult.total,
     nextCursor: materialResult.nextCursor,
     highlightQuery: resolvedQuery?.highlightQuery ?? "",
-    savedMaterialIds,
-    quizAnswers: quizAnswers as Record<string, QuizResult>,
-    canSave: Boolean(user),
+    ...personal,
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: await getTelegramUserCacheScope(user),
   };
 }
+
 
 type CategoryLoaderData = Awaited<ReturnType<typeof loader>>;
 
 let hydrated = false;
 
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
-  const data = await loadNavigationData("topic-feed", request.url, async () => await serverLoader() as CategoryLoaderData);
+  const data = await loadNavigationData("topic-feed", request.url, async () => {
+    // Առաջին բացմանը սերվերի տվյալներն արդեն անձնականով են. նավարկելիս՝ ընդհանուր տվյալ + անձնական զուգահեռ
+    const [server, personal] = await Promise.all([
+      serverLoader() as Promise<CategoryLoaderData>,
+      isAppHydrated() ? fetchPersonal<CategoryPersonal>("category", new URL(request.url).pathname) : Promise.resolve(null),
+    ]);
+    return isAppHydrated() ? { ...server, ...(personal ?? {}), navigationCacheScope: navigationScope() } : server;
+  });
   // On navigation, wait (briefly) for the section's picture so the page shows all at once.
   if (hydrated) await preloadArt(getCategoryImage(data.category.id, data.category.name));
   hydrated = true;
