@@ -34,7 +34,7 @@ export async function action({ request }: Route.ActionArgs) {
   const letter = await getPrivateLetter(env.DB);
   const changed = recipient.toLowerCase() !== letter.recipientLabel.trim().toLowerCase();
   if (changed && letter.recipientIds.length && ((await chatRoom()?.messageCount()) ?? 0) > 0) {
-    return { error: "Զրույցում արդեն նամակներ կան. ստացողին փոխել չի կարելի, այլապես նոր մարդը կտեսներ ամբողջ զրույցը։" };
+    return { error: "Զրույցում արդեն նամակներ կան. ստացողին փոխել չի կարելի, այլապես նոր մարդը կտեսներ ամբողջ զրույցը։ Նախ ջնջեք բոլոր նամակները (ամեն մեկն իր գրածը)։" };
   }
   const found = await findRecipientAccounts(env.DB, recipient);
   if (!found.ids.length) return { error: "Այս հասցեով հաշիվ չգտնվեց։ Նա պետք է գոնե մեկ անգամ մտած լինի կայք (Google-ով կամ Telegram-ով)։" };
