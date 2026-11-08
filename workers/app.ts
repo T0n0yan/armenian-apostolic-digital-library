@@ -168,6 +168,24 @@ a,button{display:inline-block;min-height:44px;padding:10px 18px;border-radius:12
   return new Response(html, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Retry-After": "60", "Cache-Control": "no-store" } });
 }
 
+/**
+ * Էջերի տվյալներ (<էջ>.data), որոնց loader-ները կայքի ներսում նավարկելիս ընթերցողին չեն կարդում
+ * (անձնականը՝ /api/personal, app/utils/personal-data.ts). մուտք գործածներն էլ (Mini App) ստանում են
+ * նույն պատրաստ պատասխանը cache-ից։ Նոր route ավելացնելիս՝ միայն եթե նրա loader-ը .data-ի համար
+ * cookie չի կարդում (tests/telegram-bridge.test.ts-ը ստուգում է)։
+ */
+const PUBLIC_DATA_ROUTES = new Set(["routes/home", "section", "routes/category", "section-item", "routes/material", "routes/verse"]);
+
+function isPublicRouteData(url: URL) {
+  if (!url.pathname.endsWith(".data")) return false;
+  const routes = url.searchParams.get("_routes");
+  return Boolean(routes) && routes!.split(",").every((id) => PUBLIC_DATA_ROUTES.has(id));
+}
+
+function hasCredentials(request: Request) {
+  return request.headers.has("cookie") || request.headers.has("authorization") || request.headers.has("x-telegram-init-data");
+}
+
 /** These JSON endpoints carry no per-user data, so signed-in Mini App users share their cache too. */
 const SHARED_JSON = new Set(["/api/glossary", "/api/places-search", "/api/search-page", "/api/search-suggestions", "/api/search-index"]);
 
@@ -202,7 +220,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const page = url.pathname.replace(/\.data$/u, "").replace(/^\/_root$/u, "/");
     const sharedJson = SHARED_JSON.has(url.pathname) || url.pathname.startsWith("/api/categories/");
     const cacheable = request.method === "GET"
-      && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))
+      && (sharedJson || isPublicRouteData(url) || !hasCredentials(request))
       && !url.searchParams.has("refresh")
       && (page === "/"
         || page === "/search"
@@ -282,7 +300,7 @@ function store(cache: Cache, cacheKey: Request, url: URL, request: Request, resp
   if (url.pathname === "/api/search-index" && !versioned) return response;
   const copy = new Response(response.body, response);
   const sharedJson = SHARED_JSON.has(url.pathname) || url.pathname.startsWith("/api/categories/");
-  if (!import.meta.env.DEV && (sharedJson || (!request.headers.has("cookie") && !request.headers.has("authorization") && !request.headers.has("x-telegram-init-data")))) copy.headers.set("X-Offline-Public", "1");
+  if (!import.meta.env.DEV && (sharedJson || isPublicRouteData(url) || !hasCredentials(request))) copy.headers.set("X-Offline-Public", "1");
   copy.headers.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : `public, max-age=30, s-maxage=${KEEP_MS / 1000}`);
   copy.headers.set(STORED_AT, String(Date.now()));
   context.waitUntil(cache.put(cacheKey, copy.clone()));

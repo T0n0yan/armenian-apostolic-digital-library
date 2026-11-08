@@ -25,6 +25,7 @@ import {contentVersion} from "./data/content-version.server";
 import { setRemindersEnabled } from "./utils/reminder-store";
 import { setContentVersion, setRootSearchState } from "./utils/search-state";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
+import { markAppHydrated, setPersonalContext } from "./utils/personal-data";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { ReminderAlarm } from "./components/reminder-alarm";
@@ -238,12 +239,15 @@ export default function App({ loaderData }: Route.ComponentProps) {
   // The phone's title search and page keeping follow the content version (utils/local-search.ts).
   setContentVersion(loaderData.contentVersion);
   setRootSearchState({ signedIn: Boolean(loaderData.signedIn), categories: loaderData.categories });
+  // Էջերի անձնական մասը բերվում է առանձին (utils/personal-data.ts)՝ միայն մուտք գործածի կամ ադմինի համար։
+  setPersonalContext({ signedIn: Boolean(loaderData.signedIn), admin: loaderData.adminPermissions.length > 0 || loaderData.showAdminLink });
   const revalidator = useRevalidator();
   const sessionAttempted = useRef(false);
 
   useLayoutEffect(() => {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
+  useEffect(() => { markAppHydrated(); }, []);
 
   // Tells the site once that this device has visited, for the admin's visitor list. A random id
   // stays in the browser; nothing else is sent. Once per device: each request costs the free plan.

@@ -32,6 +32,7 @@ export default [
   route("api/reading-log", "routes/reading-log.ts"),
   route("api/presence", "routes/presence.ts"),
   route("api/client-error", "routes/client-error.ts"),
+  route("api/personal", "routes/personal-api.ts"),
   route("api/telegram-link", "routes/telegram-link.ts"),
   route("api/story-image", "routes/story-upload.ts"),
   route("story/:file", "routes/story-image.ts"),
