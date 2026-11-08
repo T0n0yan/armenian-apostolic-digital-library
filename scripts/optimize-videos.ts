@@ -39,6 +39,8 @@ const BUCKET = `armenian-apostolic-library-media-${ENV}`;
 const BUDGET_MS = Math.max(1, Number(process.env.VIDEO_BUDGET_MINUTES) || 40) * 60_000;
 const DRY_RUN = process.argv.includes("--dry-run");
 const LIMIT = Number(process.env.VIDEO_LIMIT) > 0 ? Number(process.env.VIDEO_LIMIT) : Infinity;
+/** wrangler-ի պատասխանը, երբ ֆայլը R2-ում չկա։ */
+const MISSING = /does not exist|NoSuchKey|not found|404/iu;
 // wrangler-ը մեկ հարցմամբ ավելի մեծ ֆայլ չի վերբեռնում
 const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
 const startedAt = Date.now();
@@ -203,13 +205,20 @@ async function optimizeOne(item: Candidate, work: string): Promise<boolean> {
   const dir = await mkdtemp(join(work, "v-"));
   try {
     const original = join(dir, "original");
-    await r2Get(item.key, original);
-    const originalBytes = (await stat(original)).size;
+    let originalBytes = 0;
     const keep = async (note: string, resultBytes = 0) => {
       await execute(recordSql({ result: item.key, source: item.key, status: "kept", originalBytes, optimizedBytes: resultBytes, version: "", backup: null, note }), work);
       log(`  թողնված է (${note})`);
       return false;
     };
+    try {
+      await r2Get(item.key, original);
+    } catch (error) {
+      // Ֆայլը R2-ում չկա (օր.՝ staging-ի մաքրումից հետո). նշում ենք, որ ամեն անգամ նորից չփորձվի
+      if (MISSING.test((error as Error).message)) return keep("missing-file");
+      throw error;
+    }
+    originalBytes = (await stat(original)).size;
     const output = join(dir, "optimized.mp4");
     let encoded;
     try { encoded = await encode(original, output); } catch { return keep("unreadable"); }
@@ -283,7 +292,7 @@ updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(row.r
       await r2Get(row.backup_key!, original);
     } catch (error) {
       const message = (error as Error).message;
-      if (!/does not exist|NoSuchKey|404/iu.test(message)) throw error;
+      if (!MISSING.test(message)) throw error;
       // Բնօրինակն այլևս չկա. մնում է ներկա սեղմվածը (սեղմվածից նորից չենք սեղմում)
       await markProfile("backup-missing");
       log("  բնօրինակը չկա, թողնված է ներկա տարբերակը");
