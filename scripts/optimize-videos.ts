@@ -6,14 +6,18 @@
  * Կանոնները՝ shared/video-optimize.ts։ Ի՞նչ է անում ամեն ֆայլի հետ.
  * 1. Բերում է R2-ից, սեղմում ffmpeg-ով, ստուգում արդյունքը (տևողություն, ձայն, ձևաչափ)։
  * 2. Telegram-ի (v1/) և կայքի (attachments/) ֆայլերը փոխարինվում են նույն բանալիով (այդպես
- *    համաժամեցումը դրանք նորից չի բերում), բնօրինակը պահվում է originals/-ում 14 օր։
+ *    համաժամեցումը դրանք նորից չի բերում), բնօրինակը փոխարինումից առաջ պահվում է originals/-ում։
  *    D1-ում թարմանում է չափը և r2_etag-ը, որ հղման ?v=-ը փոխվի և քեշը հին ֆայլը չտա։
- * 3. Սրբավայրի և օգնության ֆայլերը ստանում են նոր բանալի («…-o.mp4»), հղումը փոխվում է,
- *    հինը ջնջվում է 14 օր հետո։
+ * 3. Սրբավայրի և օգնության ֆայլերը ստանում են նոր բանալի («…-o2.mp4»), հղումը փոխվում է։
+ * 4. R2-ում պահված ֆայլը նորից կարդացվում և համեմատվում է (sha256). միայն դրանից հետո է
+ *    ջնջվում բնօրինակը (VIDEO_BACKUP_DAYS = 0, տիրոջ որոշում)։
+ * 5. Կանոնները փոխվելիս (VIDEO_PROFILE) արդեն սեղմվածները նորից են սեղմվում բնօրինակից,
+ *    քանի դեռ այն կա, և բնօրինակը ջնջվում է միայն դրանից հետո։
  * Ամեն քայլ գրանցվում է video_optimizations-ում, ուստի ընդհատված աշխատանքը շարունակվում է
  * հաջորդ անգամ, և ոչ մի ֆայլ երկու անգամ չի սեղմվում։
  *
  * Միջավայր՝ CLOUD_SYNC_ENV=production|staging, VIDEO_BUDGET_MINUTES (նոր ֆայլ չի սկսում դրանից հետո),
+ * VIDEO_LIMIT (առավելագույնը այսքան ֆայլ մեկ աշխատանքում, փորձնական գործարկման համար),
  * CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID։ `--dry-run`՝ միայն ցույց է տալիս ցանկը։
  */
 import { once } from "node:events";
@@ -25,7 +29,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 import {
-  MONO_DIFFERENCE_DB, VIDEO_BACKUP_DAYS, audioPlan, backupKeyOf, encodeArgs, isOptimizedKey,
+  MONO_DIFFERENCE_DB, VIDEO_BACKUP_DAYS, VIDEO_PROFILE, audioPlan, backupKeyOf, encodeArgs, isOptimizedKey,
   optimizeVerdict, optimizedKeyOf, parseMeanVolume, videoFacts, type VideoProbe,
 } from "../shared/video-optimize";
 
@@ -34,13 +38,14 @@ const DATABASE = `armenian-apostolic-digital-library-${ENV}`;
 const BUCKET = `armenian-apostolic-library-media-${ENV}`;
 const BUDGET_MS = Math.max(1, Number(process.env.VIDEO_BUDGET_MINUTES) || 40) * 60_000;
 const DRY_RUN = process.argv.includes("--dry-run");
+const LIMIT = Number(process.env.VIDEO_LIMIT) > 0 ? Number(process.env.VIDEO_LIMIT) : Infinity;
 // wrangler-ը մեկ հարցմամբ ավելի մեծ ֆայլ չի վերբեռնում
 const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
 const startedAt = Date.now();
 
 type Source = "telegram" | "attachment" | "place" | "help";
 type Candidate = { source: Source; key: string; bytes: number | null; mime: string | null; ref: string };
-type Row = { result_key: string; source_key: string; status: string; optimized_bytes: number; version: string; backup_key: string | null };
+type Row = { result_key: string; source_key: string; status: string; optimized_bytes: number; version: string; backup_key: string | null; profile: string; backup_deleted_at: string | null };
 
 const log = (message: string) => console.log(`[${ENV}] ${message}`);
 const mb = (bytes: number) => `${(bytes / 1_048_576).toFixed(1)} ՄԲ`;
@@ -162,11 +167,35 @@ UPDATE ${table} SET size_bytes = ${row.bytes}, mime_type = 'video/mp4', r2_etag 
 }
 
 function recordSql(input: { result: string; source: string; status: string; originalBytes: number; optimizedBytes: number; version: string; backup: string | null; note: string }) {
-  return `INSERT INTO video_optimizations (result_key, source_key, status, original_bytes, optimized_bytes, version, backup_key, note)
-VALUES (${sql(input.result)}, ${sql(input.source)}, ${sql(input.status)}, ${input.originalBytes}, ${input.optimizedBytes}, ${sql(input.version)}, ${sql(input.backup)}, ${sql(input.note)})
+  return `INSERT INTO video_optimizations (result_key, source_key, status, original_bytes, optimized_bytes, version, backup_key, note, profile)
+VALUES (${sql(input.result)}, ${sql(input.source)}, ${sql(input.status)}, ${input.originalBytes}, ${input.optimizedBytes}, ${sql(input.version)}, ${sql(input.backup)}, ${sql(input.note)}, ${sql(VIDEO_PROFILE)})
 ON CONFLICT (result_key) DO UPDATE SET source_key = excluded.source_key, status = excluded.status, original_bytes = excluded.original_bytes,
 optimized_bytes = excluded.optimized_bytes, version = excluded.version, backup_key = excluded.backup_key, note = excluded.note,
-updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now');`;
+profile = excluded.profile, backup_deleted_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now');`;
+}
+
+/** R2-ում պահված ֆայլը նույնն է, ինչ պատրաստեցինք (sha256). այլապես՝ սխալ, և բնօրինակը չի ջնջվում։ */
+async function verifyStored(key: string, version: string, dir: string) {
+  const check = join(dir, "stored-check");
+  await r2Get(key, check);
+  const stored = `o-${(await sha256(check)).slice(0, 16)}`;
+  await rm(check, { force: true });
+  if (stored !== version) throw new Error(`R2-ում պահվածը չի համընկնում (${key})`);
+}
+
+/** Սեղմում է մեկ ֆայլ ընթացիկ կանոններով և ստուգում։ */
+async function encode(input: string, output: string) {
+  const facts = videoFacts(await probe(input));
+  if (!facts.hasVideo) return { facts, error: "no-video" } as const;
+  const audio = audioPlan(facts, await nearlyMono(input, facts.audioChannels));
+  // Ամենադանդաղ դեպքն էլ (1080p→720p, 2 միջուկ) մոտ իրական ժամանակի է. 4 անգամ պահուստ
+  const timeoutMs = Math.max(15 * 60_000, facts.duration * 4_000);
+  try {
+    await run("ffmpeg", encodeArgs(input, output, audio), { timeoutMs });
+  } catch (error) {
+    return { facts, error: `encode-failed: ${(error as Error).message.slice(-120)}` } as const;
+  }
+  return { facts, error: null, bytes: (await stat(output)).size, result: videoFacts(await probe(output)) } as const;
 }
 
 /** Մեկ ֆայլ. true՝ եթե կայքում ինչ-որ բան փոխվեց։ */
@@ -181,21 +210,12 @@ async function optimizeOne(item: Candidate, work: string): Promise<boolean> {
       log(`  թողնված է (${note})`);
       return false;
     };
-    let facts;
-    try { facts = videoFacts(await probe(original)); } catch { return keep("unreadable"); }
-    if (!facts.hasVideo) return keep("no-video");
-
     const output = join(dir, "optimized.mp4");
-    const audio = audioPlan(facts, await nearlyMono(original, facts.audioChannels));
-    // Ամենադանդաղ դեպքն էլ (1080p→720p, 2 միջուկ) մոտ իրական ժամանակի է. 4 անգամ պահուստ
-    const timeoutMs = Math.max(15 * 60_000, facts.duration * 4_000);
-    try {
-      await run("ffmpeg", encodeArgs(original, output, audio), { timeoutMs });
-    } catch (error) {
-      return keep(`encode-failed: ${(error as Error).message.slice(-120)}`);
-    }
-    const resultBytes = (await stat(output)).size;
-    const verdict = optimizeVerdict({ original: facts, originalBytes, result: videoFacts(await probe(output)), resultBytes });
+    let encoded;
+    try { encoded = await encode(original, output); } catch { return keep("unreadable"); }
+    if (encoded.error !== null) return keep(encoded.error);
+    const resultBytes = encoded.bytes;
+    const verdict = optimizeVerdict({ original: encoded.facts, originalBytes, result: encoded.result, resultBytes });
     log(`  ${mb(originalBytes)} → ${mb(resultBytes)} (${Math.round((1 - resultBytes / originalBytes) * 100)}%), ${verdict.note}`);
     if (!verdict.replace) return keep(verdict.note, resultBytes);
     if (resultBytes > MAX_UPLOAD_BYTES) return keep("too-large-to-upload", resultBytes);
@@ -209,12 +229,14 @@ async function optimizeOne(item: Candidate, work: string): Promise<boolean> {
       await r2Put(backup, original, item.mime ?? "video/mp4");
       await execute(recordSql({ result: item.key, source: item.key, status: "pending", originalBytes, optimizedBytes: resultBytes, version, backup, note: verdict.note }), work);
       await r2Put(item.key, output, "video/mp4");
+      await verifyStored(item.key, version, dir);
       await execute(finalizeInPlaceSql(item, { bytes: resultBytes, version }), work);
       return true;
     }
 
     const newKey = optimizedKeyOf(item.key);
     await r2Put(newKey, output, "video/mp4", true);
+    await verifyStored(newKey, version, dir);
     // Հին ֆայլը մնում է որպես պատճեն և ջնջվում է 14 օր հետո
     await execute(recordSql({ result: newKey, source: item.key, status: "pending", originalBytes, optimizedBytes: resultBytes, version, backup: item.key, note: verdict.note }), work);
     const swapped = await query<{ id?: string; key?: string }>(swapReferenceSql(item, newKey, resultBytes));
@@ -226,6 +248,88 @@ async function optimizeOne(item: Candidate, work: string): Promise<boolean> {
       return false;
     }
     await execute(`UPDATE video_optimizations SET status = 'optimized', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(newKey)};`, work);
+    return true;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** Որ սրբավայրին կամ օգնության տեսանյութին է պատկանում ֆայլը (հղումը փոխելու համար)։ */
+async function referenceOf(key: string): Promise<{ source: "place" | "help"; ref: string } | null> {
+  const [place] = await query<{ id: string }>(`SELECT id FROM places WHERE video_url = ${sql(key)}`);
+  if (place) return { source: "place", ref: place.id };
+  const [help] = await query<{ value: string }>("SELECT value FROM site_settings WHERE key = 'help_videos'");
+  try {
+    const files = (JSON.parse(help?.value ?? "{}") as { files?: Record<string, { key?: unknown }> }).files ?? {};
+    const id = Object.entries(files).find(([, file]) => file?.key === key)?.[0];
+    if (id) return { source: "help", ref: id };
+  } catch { /* վնասված JSON */ }
+  return null;
+}
+
+/**
+ * Հին կանոններով (VIDEO_PROFILE-ից տարբեր) սեղմվածները՝ նորից, բնօրինակից։ Telegram-ի/կայքի
+ * ֆայլը փոխարինվում է նույն բանալիով, իսկ D1-ը (չափ, r2_etag, տող) թարմանում է մեկ հարցմամբ.
+ * ընդհատվելու դեպքում տողը մնում է հին կանոններով, և հաջորդ անգամ ամեն ինչ կրկնվում է նույն
+ * բնօրինակից (երբեք՝ սեղմվածից)։ true՝ եթե կայքում ինչ-որ բան փոխվեց։
+ */
+async function reencodeOne(row: Row, work: string): Promise<boolean> {
+  const dir = await mkdtemp(join(work, "r-"));
+  const markProfile = (note: string) => execute(`UPDATE video_optimizations SET profile = ${sql(VIDEO_PROFILE)}, note = ${sql(note)},
+updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(row.result_key)};`, work);
+  try {
+    const original = join(dir, "original");
+    try {
+      await r2Get(row.backup_key!, original);
+    } catch (error) {
+      const message = (error as Error).message;
+      if (!/does not exist|NoSuchKey|404/iu.test(message)) throw error;
+      // Բնօրինակն այլևս չկա. մնում է ներկա սեղմվածը (սեղմվածից նորից չենք սեղմում)
+      await markProfile("backup-missing");
+      log("  բնօրինակը չկա, թողնված է ներկա տարբերակը");
+      return false;
+    }
+    const originalBytes = (await stat(original)).size;
+    const output = join(dir, "optimized.mp4");
+    const encoded = await encode(original, output);
+    if (encoded.error !== null) { await markProfile(`reencode-${encoded.error}`); log(`  թողնված է ներկան (${encoded.error})`); return false; }
+    const verdict = optimizeVerdict({ original: encoded.facts, originalBytes, result: encoded.result, resultBytes: encoded.bytes });
+    log(`  ${mb(row.optimized_bytes)} → ${mb(encoded.bytes)} (բնօրինակը՝ ${mb(originalBytes)}), ${verdict.note}`);
+    // Նորը պետք է ճիշտ լինի և ներկայից իսկապես փոքր (առնվազն 3%), այլապես թողնում ենք ներկան
+    if (!verdict.replace || encoded.bytes > row.optimized_bytes * 0.97 || encoded.bytes > MAX_UPLOAD_BYTES) {
+      await markProfile(`reencode-kept: ${verdict.note}`);
+      return false;
+    }
+    const version = `o-${(await sha256(output)).slice(0, 16)}`;
+
+    if (row.result_key === row.source_key) {
+      const table = row.result_key.startsWith("attachments/") ? "material_attachments" : "library_media";
+      await r2Put(row.result_key, output, "video/mp4");
+      await verifyStored(row.result_key, version, dir);
+      await execute(`UPDATE video_optimizations SET optimized_bytes = ${encoded.bytes}, version = ${sql(version)}, profile = ${sql(VIDEO_PROFILE)},
+note = ${sql(`reencoded: ${verdict.note}`)}, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(row.result_key)};
+UPDATE ${table} SET size_bytes = ${encoded.bytes}, mime_type = 'video/mp4', r2_etag = ${sql(version)} WHERE r2_key = ${sql(row.result_key)};`, work);
+      return true;
+    }
+
+    // Սրբավայր/օգնություն. նոր բանալի, հղումը՝ նորին, հին սեղմվածը ջնջվում է
+    const owner = await referenceOf(row.result_key);
+    if (!owner) { await markProfile("reencode-no-reference"); return false; }
+    const newKey = optimizedKeyOf(row.backup_key!);
+    if (newKey === row.result_key) { await markProfile("reencode-same-key"); return false; }
+    await r2Put(newKey, output, "video/mp4", true);
+    await verifyStored(newKey, version, dir);
+    await execute(recordSql({ result: newKey, source: row.backup_key!, status: "pending", originalBytes, optimizedBytes: encoded.bytes, version, backup: row.backup_key, note: `reencoded: ${verdict.note}` }), work);
+    const swapped = await query<{ id?: string; key?: string }>(swapReferenceSql({ source: owner.source, key: row.result_key, bytes: null, mime: null, ref: owner.ref }, newKey, encoded.bytes));
+    if (!swapped.length) {
+      await r2Delete(newKey);
+      await execute(`DELETE FROM video_optimizations WHERE result_key = ${sql(newKey)};`, work);
+      await markProfile("reencode-reference-changed");
+      return false;
+    }
+    await execute(`UPDATE video_optimizations SET status = 'optimized', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(newKey)};
+DELETE FROM video_optimizations WHERE result_key = ${sql(row.result_key)};`, work);
+    await r2Delete(row.result_key).catch((error) => log(`  հին սեղմվածը չջնջվեց՝ ${(error as Error).message.slice(0, 120)}`));
     return true;
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -266,11 +370,15 @@ async function finishPending(rows: Row[], work: string) {
   return changed;
 }
 
-/** 14 օրից հին պատճենները ջնջվում են։ */
+/**
+ * Բնօրինակների պատճենները ջնջվում են (VIDEO_BACKUP_DAYS-ից հետո, հիմա՝ անմիջապես)։ Միայն ընթացիկ
+ * կանոններով սեղմվածներինը. հին կանոններով սեղմվածի բնօրինակը պետք է նորից սեղմելու համար։
+ */
 async function deleteOldBackups(work: string) {
   const rows = await query<{ result_key: string; backup_key: string }>(
     `SELECT result_key, backup_key FROM video_optimizations WHERE status = 'optimized' AND backup_key IS NOT NULL
-     AND backup_deleted_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${VIDEO_BACKUP_DAYS} days')`);
+     AND profile = ${sql(VIDEO_PROFILE)} AND backup_deleted_at IS NULL
+     AND updated_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${VIDEO_BACKUP_DAYS} days')`);
   for (const row of rows) {
     // Ապահովության համար. երբեք չջնջել այն, ինչ հիմա տրվում է
     if (row.backup_key === row.result_key) continue;
@@ -279,25 +387,44 @@ async function deleteOldBackups(work: string) {
       await execute(`UPDATE video_optimizations SET backup_deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(row.result_key)};`, work);
     }
   }
-  if (rows.length) log(`Ջնջված հին պատճեններ՝ ${rows.length}`);
+  if (rows.length) log(`Ջնջված բնօրինակներ՝ ${rows.length}`);
 }
 
 async function main() {
   const work = await mkdtemp(join(tmpdir(), "optimize-videos-"));
   try {
-    const readRows = () => query<Row>("SELECT result_key, source_key, status, optimized_bytes, version, backup_key FROM video_optimizations");
+    const readRows = () => query<Row>("SELECT result_key, source_key, status, optimized_bytes, version, backup_key, profile, backup_deleted_at FROM video_optimizations");
     let changed = DRY_RUN ? false : await finishPending(await readRows(), work);
     await deleteOldBackups(work);
-    // Կրկին կարդում ենք. finishPending-ը կարող էր տողեր ավարտել կամ ջնջել։ «pending»-ը (dry-run-ում)
-    // նույնպես «արված» է համարվում, որ ոչինչ երկու անգամ չսեղմվի
-    const done = new Set((await readRows()).map((row) => row.result_key));
+    let processed = 0;
+    const outOfTime = () => Date.now() - startedAt > BUDGET_MS || processed >= LIMIT;
+
+    // 1. Հին կանոններով սեղմվածները՝ նորից, բնօրինակից (մինչև բնօրինակների ջնջումը)
+    const stale = (await readRows()).filter((row) => row.status === "optimized" && row.profile !== VIDEO_PROFILE && row.backup_key && !row.backup_deleted_at)
+      .sort((a, b) => a.optimized_bytes - b.optimized_bytes);
+    log(`Նորից սեղմելու (${VIDEO_PROFILE})՝ ${stale.length}`);
+    if (DRY_RUN) for (const row of stale) log(`  ${row.result_key} ${mb(row.optimized_bytes)} ← ${row.backup_key}`);
+    if (stale.length && !DRY_RUN) await ensureFfmpeg();
+    for (const row of DRY_RUN ? [] : stale) {
+      if (outOfTime()) { log(`Ժամանակը/սահմանը սպառվեց. մնացածը՝ հաջորդ անգամ`); break; }
+      processed += 1;
+      log(`${processed}. նորից ${row.result_key}`);
+      try {
+        if (await reencodeOne(row, work)) changed = true;
+      } catch (error) {
+        log(`  սխալ՝ ${(error as Error).message.slice(0, 300)}`);
+      }
+    }
+
+    // 2. Նոր տեսանյութեր և նախկինում թողնվածները (հին կանոններով «kept»-ը նորից է փորձվում)։
+    // Կրկին կարդում ենք. «pending»-ը (dry-run-ում) նույնպես «արված» է, որ ոչինչ երկու անգամ չսեղմվի
+    const done = new Set((await readRows()).filter((row) => !(row.status === "kept" && row.profile !== VIDEO_PROFILE)).map((row) => row.result_key));
     const candidates = await findCandidates(done);
     log(`Սեղմելու տեսանյութեր՝ ${candidates.length}`);
     if (DRY_RUN) { for (const item of candidates) log(`  ${item.source} ${item.key} ${item.bytes ? mb(item.bytes) : ""}`); return; }
     if (candidates.length) await ensureFfmpeg();
-    let processed = 0;
     for (const item of candidates) {
-      if (Date.now() - startedAt > BUDGET_MS) { log(`Ժամանակը սպառվեց. մնացած ${candidates.length - processed}-ը՝ հաջորդ անգամ`); break; }
+      if (outOfTime()) { log(`Ժամանակը/սահմանը սպառվեց. մնացածը՝ հաջորդ անգամ`); break; }
       processed += 1;
       log(`${processed}/${candidates.length} ${item.source} ${item.key}`);
       try {
@@ -307,6 +434,8 @@ async function main() {
         log(`  սխալ՝ ${(error as Error).message.slice(0, 300)}`);
       }
     }
+    // 3. Ստուգված սեղմվածների բնօրինակները՝ ջնջել (VIDEO_BACKUP_DAYS = 0)
+    await deleteOldBackups(work);
     if (changed) {
       // Էջերի քեշը թարմանում է, որ նոր ?v= հղումները անմիջապես երևան
       await execute(`INSERT INTO site_settings (key, value) VALUES ('cache_epoch', '${Date.now()}')
