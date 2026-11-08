@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowLeft, Bell, Check, CheckCheck, Clock3, ImagePlus, Lock, Mic, Pencil, SendHorizontal, Settings2, Square, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, Bell, CornerUpLeft, Check, CheckCheck, Clock3, ImagePlus, Lock, Mic, Pencil, SendHorizontal, Settings2, Square, Trash2, X } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
@@ -6,11 +6,11 @@ import { STATUS_COLOR, useChatSocket } from "./chat-socket";
 import { fieldControl, fieldHint, fieldLabel } from "./ui-styles";
 import {
   BG_OPACITY_DEFAULT, CHAT_BACKGROUND_PATH, CHAT_UPLOAD_PATH, FILE_MAX, FONT_DEFAULT, FONT_MAX, FONT_MIN, MESSAGE_MAX, NICK_MAX, chatFileUrl, messageTicks, otherSide,
-  type ChatMessage, type ChatPresence, type ChatSettings, type ChatSide, type ChatStatus, type ClientEvent, type ServerEvent,
+  type ChatMessage, type ChatPresence, type ChatReply, type ChatSettings, type ChatSide, type ChatStatus, type ClientEvent, type ServerEvent,
 } from "../utils/private-chat";
 import { enablePushNotifications, pushSupport } from "../utils/web-push";
 
-type Pending = { clientId: string; kind: ChatMessage["kind"]; body: string; at: number; preview?: string };
+type Pending = { clientId: string; kind: ChatMessage["kind"]; body: string; at: number; preview?: string; replyTo?: ChatReply | null };
 
 const MONTHS = ["հունվարի", "փետրվարի", "մարտի", "ապրիլի", "մայիսի", "հունիսի", "հուլիսի", "օգոստոսի", "սեպտեմբերի", "հոկտեմբերի", "նոյեմբերի", "դեկտեմբերի"];
 const pad = (value: number) => String(value).padStart(2, "0");
@@ -93,6 +93,8 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const [editing, setEditing] = useState<ChatMessage | null>(null);
+  const [replying, setReplying] = useState<ChatMessage | null>(null);
+  const [flash, setFlash] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(Boolean(side === "a" && !recipient));
   const [canAskPush, setCanAskPush] = useState(false);
   const [notice, setNotice] = useState("");
@@ -138,7 +140,10 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
         else setTypingUntil(0);
         setMessages((list) => merge(list, [event.message]));
         break;
-      case "edited": setMessages((list) => merge(list, [event.message])); break;
+      case "edited":
+        // Մեջբերումներն էլ են թարմանում (ով պատասխանել է այս նամակին)։
+        setMessages((list) => merge(list.map((message) => (message.replyTo?.id === event.message.id ? { ...message, replyTo: { ...message.replyTo, body: event.message.body.slice(0, 200) } } : message)), [event.message]));
+        break;
       case "history":
         loadingOlder.current = false;
         restoreFrom.current = listRef.current ? listRef.current.scrollHeight - listRef.current.scrollTop : null;
@@ -148,7 +153,9 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
       case "read": setRead((value) => ({ ...value, [event.side]: Math.max(value[event.side], event.upTo) })); break;
       case "typing": setTypingUntil(Date.now() + 4000); break;
       case "presence": setPresence(event.presence); if (event.presence.status === "away") setTypingUntil(0); break;
-      case "deleted": setMessages((list) => list.map((message) => (message.id === event.id ? { ...message, body: "", deleted: true, fileId: null } : message))); break;
+      case "deleted": setMessages((list) => list.map((message) => (message.id === event.id
+        ? { ...message, body: "", deleted: true, fileId: null, replyTo: null }
+        : message.replyTo?.id === event.id ? { ...message, replyTo: { ...message.replyTo, body: "", deleted: true } } : message))); break;
       case "settings": setSettings(event.settings); setOpacityPreview(null); break;
       case "cleared": setMessages([]); setRead({ a: 0, b: 0 }); setHasMore(false); setEditing(null); break;
       case "error": setNotice(event.message); break;
@@ -226,20 +233,25 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
       setText("");
       return;
     }
-    const item: Pending = { clientId: crypto.randomUUID(), kind: "text", body, at: Date.now() };
+    const reply = replying ? toReply(replying) : null;
+    const item: Pending = { clientId: crypto.randomUUID(), kind: "text", body, at: Date.now(), replyTo: reply };
     setPending((list) => [...list, item]);
     stickToBottom.current = true;
     setText("");
-    send({ type: "send", text: body, clientId: item.clientId });
+    setReplying(null);
+    send(reply ? { type: "send", text: body, clientId: item.clientId, replyTo: reply.id } : { type: "send", text: body, clientId: item.clientId });
     inputRef.current?.focus();
   };
 
   const upload = async (kind: "image" | "audio", blob: Blob, meta: { w?: number; h?: number; duration?: number }, preview?: string) => {
     if (blob.size > FILE_MAX) { setNotice("Ֆայլը շատ մեծ է (առավելագույնը 10 ՄԲ)։"); return; }
     const clientId = crypto.randomUUID();
-    setPending((list) => [...list, { clientId, kind, body: "", at: Date.now(), preview }]);
+    const reply = replying ? toReply(replying) : null;
+    setReplying(null);
+    setPending((list) => [...list, { clientId, kind, body: "", at: Date.now(), preview, replyTo: reply }]);
     stickToBottom.current = true;
     const query = new URLSearchParams({ kind, clientId });
+    if (reply) query.set("replyTo", String(reply.id));
     for (const [key, value] of Object.entries(meta)) if (value) query.set(key, String(value));
     const response = await fetch(`${CHAT_UPLOAD_PATH}?${query}`, { method: "POST", headers: { "Content-Type": blob.type || "application/octet-stream" }, body: blob }).catch(() => null);
     const result = await response?.json().catch(() => null) as { message?: ChatMessage; error?: string } | null;
@@ -299,6 +311,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
     // Համակարգչում Enter-ը ուղարկում է (Shift+Enter՝ նոր տող), հեռախոսում՝ նոր տող։
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && window.matchMedia("(pointer: fine)").matches) submit();
     if (event.key === "Escape" && editing) { setEditing(null); setText(""); }
+    if (event.key === "Escape" && replying) setReplying(null);
   };
 
   const onType = (value: string) => {
@@ -310,7 +323,23 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
     if (window.confirm("Ջնջե՞լ այս նամակը երկուսի մոտ էլ։")) send({ type: "delete", id });
     setSelected(null);
   };
+  const reply = (message: ChatMessage) => {
+    setReplying(message);
+    setEditing(null);
+    setSelected(null);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+  /** Մեջբերման վրա սեղմելիս՝ գնալ բուն նամակին և մի պահ ընդգծել այն։ */
+  const jumpTo = (id: number) => {
+    const target = document.getElementById(`msg-${id}`);
+    if (!target) { setNotice("Այդ նամակը ավելի վերևում է. ոլորեք վերև։"); return; }
+    stickToBottom.current = false;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlash(id);
+    window.setTimeout(() => setFlash((value) => (value === id ? null : value)), 1600);
+  };
   const edit = (message: ChatMessage) => {
+    setReplying(null);
     setEditing(message);
     setText(message.body);
     setSelected(null);
@@ -391,11 +420,16 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
             const id = message?.id ?? null;
             const media = kind !== "text" && !deleted;
             return (
-              <div key={row.kind === "pending" ? `p-${row.item.clientId}` : `m-${message!.id}`} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div key={row.kind === "pending" ? `p-${row.item.clientId}` : `m-${message!.id}`} id={id !== null ? `msg-${id}` : undefined}
+                className={`flex rounded-[20px] transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${id !== null && flash === id ? "bg-[rgb(217_181_111/22%)]" : ""}`}>
                 <div
                   className={`relative max-w-[82%] rounded-[18px] ${media ? "p-1.5" : "px-3 pb-1.5 pt-2"} leading-[1.45] shadow-[0_1px_2px_rgb(0_0_0/10%)] ${mine ? "rounded-br-[6px] border border-[rgb(217_181_111/45%)] bg-[color-mix(in_srgb,rgb(217_181_111)_24%,var(--page-bg))]" : "rounded-bl-[6px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] backdrop-blur-sm"}`}
-                  onClick={(event) => { if (mine && id !== null && !deleted) { event.stopPropagation(); setSelected(selected === id ? null : id); } }}
+                  onClick={(event) => { if (id !== null && !deleted) { event.stopPropagation(); setSelected(selected === id ? null : id); } }}
                 >
+                  {!deleted && (row.kind === "pending" ? row.item.replyTo : message!.replyTo) ? (
+                    <ReplyQuote reply={(row.kind === "pending" ? row.item.replyTo : message!.replyTo)!} mine={(row.kind === "pending" ? row.item.replyTo : message!.replyTo)!.side === side}
+                      otherName={otherName} onJump={jumpTo} />
+                  ) : null}
                   {deleted ? <span className="italic text-faint">Նամակը ջնջված է</span>
                     : kind === "image" ? (
                       row.kind === "pending"
@@ -422,15 +456,20 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
                         : <Check aria-label="Ուղարկված է" size={15} />)}
                   </span>
                   {id !== null && selected === id && (
-                    <span className="absolute -top-10 right-0 z-10 flex gap-1.5">
-                      {kind === "text" && (
+                    <span className={`absolute -top-10 z-10 flex gap-1.5 ${mine ? "right-0" : "left-0"}`}>
+                      <button type="button" className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-glass-border bg-[var(--page-bg)] px-3 py-1.5 text-[12.5px] font-bold text-gold-bright shadow-md" onClick={(event) => { event.stopPropagation(); reply(message!); }}>
+                        <CornerUpLeft aria-hidden="true" size={14} /> Պատասխանել
+                      </button>
+                      {mine && kind === "text" && (
                         <button type="button" className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-glass-border bg-[var(--page-bg)] px-3 py-1.5 text-[12.5px] font-bold text-ink shadow-md" onClick={(event) => { event.stopPropagation(); edit(message!); }}>
                           <Pencil aria-hidden="true" size={14} /> Փոխել
                         </button>
                       )}
-                      <button type="button" className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[rgb(205_70_55/45%)] bg-[var(--page-bg)] px-3 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)] shadow-md" onClick={(event) => { event.stopPropagation(); remove(id); }}>
-                        <Trash2 aria-hidden="true" size={14} /> Ջնջել
-                      </button>
+                      {mine && (
+                        <button type="button" className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[rgb(205_70_55/45%)] bg-[var(--page-bg)] px-3 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)] shadow-md" onClick={(event) => { event.stopPropagation(); remove(id); }}>
+                          <Trash2 aria-hidden="true" size={14} /> Ջնջել
+                        </button>
+                      )}
                     </span>
                   )}
                 </div>
@@ -449,6 +488,17 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
             onClick={() => { stickToBottom.current = true; listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }}>
             <ArrowDown aria-hidden="true" size={19} />
           </button>
+        </div>
+      )}
+
+      {replying && !editing && (
+        <div className="relative flex shrink-0 items-center gap-2 border-t border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_86%,transparent)] px-3 py-1.5 backdrop-blur-md">
+          <CornerUpLeft aria-hidden="true" size={15} className="shrink-0 text-gold-bright" />
+          <div className="min-w-0 flex-1 border-l-2 border-[rgb(217_181_111/70%)] pl-2">
+            <strong className="block truncate text-[12.5px] text-gold-bright">{replying.side === side ? "Ձեզ" : otherName}</strong>
+            <span className="block truncate text-[12.5px] text-muted">{replyText(toReply(replying))}</span>
+          </div>
+          <button type="button" className="grid size-8 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" aria-label="Չեղարկել պատասխանը" onClick={() => setReplying(null)}><X aria-hidden="true" size={16} /></button>
         </div>
       )}
 
@@ -508,6 +558,27 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
         </div>
       )}
     </div>
+  );
+}
+
+function toReply(message: ChatMessage): ChatReply {
+  return { id: message.id, side: message.side, kind: message.kind, body: message.body.slice(0, 200), deleted: message.deleted };
+}
+function replyText(reply: ChatReply) {
+  if (reply.deleted) return "Նամակը ջնջված է";
+  if (reply.kind === "image") return "📷 Նկար";
+  if (reply.kind === "audio") return "🎙 Ձայնային հաղորդագրություն";
+  return reply.body.replace(/\s+/gu, " ");
+}
+
+/** Մեջբերումը նամակի վերևում. սեղմելիս՝ գնալ բուն նամակին։ */
+function ReplyQuote({ reply, mine, otherName, onJump }: { reply: ChatReply; mine: boolean; otherName: string; onJump: (id: number) => void }) {
+  return (
+    <button type="button" className="mb-1.5 block w-full min-w-[120px] cursor-pointer rounded-[10px] border-0 border-l-[3px] border-solid border-[rgb(217_181_111/80%)] bg-[rgb(0_0_0/7%)] px-2 py-1 text-left"
+      onClick={(event) => { event.stopPropagation(); onJump(reply.id); }}>
+      <strong className="block truncate text-[12px] text-gold-bright">{mine ? "Դուք" : otherName}</strong>
+      <span className="line-clamp-2 block text-[12.5px] leading-snug text-muted">{replyText(reply)}</span>
+    </button>
   );
 }
 
