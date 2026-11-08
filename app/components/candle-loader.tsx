@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Intro on the first visit of a session: the unlit candle (0.7 s), a spark and the flame catching
 // (~0.9 s), then the light settles and welcomes the reader before the page opens (3.6 s at least,
@@ -35,14 +35,22 @@ const VERSE = (() => {
 const LAST_LETTER_DELAY = VERSE.at(-1)!.at(-1)!.at(-1)!.delay;
 const MINIMUM_VISIBLE_MS = LIGHT_AT_MS + LAST_LETTER_DELAY + LETTER_MS + AFTER_VERSE_MS;
 const SESSION_KEY = "library-loader-seen-v4";
+// Օրը մեկ անգամ (Երևանի օրով). Telegram-ը Mini App-ի ամեն բացումը նոր session է համարում, և
+// ~8 վայրկյանանոց ներածությունը ամեն անգամ փակում էր էջը (նույն ստուգումը՝ boot-script.ts-ում)։
+const DAY_KEY = "library-loader-day";
+const yerevanDay = () => new Date(Date.now() + 4 * 60 * 60_000).toISOString().slice(0, 10);
+/** Մատով սեղմելիս ներածությունը արագ է բացում էջը։ */
+const SKIP_EXIT_MS = 400;
 
 type Phase = "unlit" | "lit" | "hidden" | "removed";
 
 const styles = `
 html[data-intro-seen] .candle-loader{display:none}
-html:not([data-intro-seen]):has(.candle-loader:not([data-phase="hidden"])){overflow:hidden}
+html:not([data-intro-seen]):not([data-intro-skip]):has(.candle-loader:not([data-phase="hidden"])){overflow:hidden}
 .candle-loader{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#07040a;transition:opacity .8s ease 1.1s}
 .candle-loader[data-phase="hidden"]{opacity:0;pointer-events:none}
+.candle-loader[data-skip],html[data-intro-skip] .candle-loader{transition:opacity .35s ease}
+html[data-intro-skip] .candle-loader{opacity:0;pointer-events:none}
 .candle-loader[data-phase="hidden"] .candle-loader__light{scale:3.4}
 /* The welcome: the flame's light swells from the wick until it fills the screen with the page's
    own colour, then the curtain of light lifts. */
@@ -97,13 +105,23 @@ export function CandleLoader() {
   // <html data-intro-seen> before paint for visitors who saw it this session (it stays hidden), and
   // readers without JavaScript never see it (<noscript> below).
   const [phase, setPhase] = useState<Phase>("unlit");
+  const [skipped, setSkipped] = useState(false);
+  const skippedRef = useRef(false);
+  const skip = () => {
+    if (phase === "hidden" || phase === "removed") return;
+    skippedRef.current = true;
+    markSeen();
+    setSkipped(true);
+    setPhase("hidden");
+    window.setTimeout(() => setPhase("removed"), SKIP_EXIT_MS);
+  };
 
   useEffect(() => {
     let active = true;
     const timers: number[] = [];
-    const later = (callback: () => void, ms: number) => { timers.push(window.setTimeout(() => active && callback(), ms)); };
+    const later = (callback: () => void, ms: number) => { timers.push(window.setTimeout(() => active && !skippedRef.current && callback(), ms)); };
     let seen = false;
-    try { seen = sessionStorage.getItem(SESSION_KEY) === "1"; } catch { /* Storage may be blocked. */ }
+    try { seen = sessionStorage.getItem(SESSION_KEY) === "1" || localStorage.getItem(DAY_KEY) === yerevanDay(); } catch { /* Storage may be blocked. */ }
     if (seen) {
       // Later visits skip the intro; the light-flood exit is only for the first one.
       setPhase("removed");
@@ -113,7 +131,7 @@ export function CandleLoader() {
     later(() => setPhase("lit"), LIGHT_AT_MS);
     // Intro only: fonts, images and network requests never prolong it.
     later(() => {
-      try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* Storage may be blocked. */ }
+      markSeen();
       setPhase("hidden");
       later(() => setPhase("removed"), EXIT_MS);
     }, MINIMUM_VISIBLE_MS);
@@ -122,7 +140,7 @@ export function CandleLoader() {
 
   if (phase === "removed") return null;
   return (
-      <div className="candle-loader" data-phase={phase} role="status" aria-live="polite" aria-label={`Բարի գալուստ գրադարան. ${VERSE_LINES.join(" ")} (${VERSE_REF})`} aria-hidden={phase === "hidden"}>
+      <div className="candle-loader" data-phase={phase} data-skip={skipped ? "" : undefined} onClick={skip} role="status" aria-live="polite" aria-label={`Բարի գալուստ գրադարան. ${VERSE_LINES.join(" ")} (${VERSE_REF})`} aria-hidden={phase === "hidden"}>
         <style>{styles}</style>
         <noscript><style>{".candle-loader{display:none!important}"}</style></noscript>
         <div className="candle-loader__scene" aria-hidden="true">
@@ -177,4 +195,9 @@ export function CandleLoader() {
         </div>
       </div>
   );
+}
+
+function markSeen() {
+  try { sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* Storage may be blocked. */ }
+  try { localStorage.setItem(DAY_KEY, yerevanDay()); } catch { /* Storage may be blocked. */ }
 }

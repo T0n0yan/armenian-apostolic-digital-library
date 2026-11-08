@@ -10,7 +10,7 @@ import { PlacesMap, type MapPlace, type NearView, type PlacesShown } from "../co
 import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { SiteNav } from "../components/site-nav";
 import { listPublicPlaceSummaries } from "../data/places.server";
-import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMatches, placeMediaUrl } from "../utils/places";
+import { formatDistance, NEARBY_RADII, nearbyPlaces, PLACE_KINDS, placeMatches, placeThumbUrl } from "../utils/places";
 import { useSignInGuard } from "../components/sign-in-sheet";
 import { findMyPosition, type LocationFailure } from "../utils/my-location";
 import { LocationHelp } from "../components/location-help";
@@ -68,7 +68,7 @@ function ProvincePlaces({ items }: { items: MapPlace[] }) {
         <li key={place.id}>
           <Link className="flex items-center gap-3 rounded-[12px] p-2 text-inherit no-underline hover:bg-subtle" to={`/places/${place.id}`}>
             <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
-              {place.icon ? <img className="size-10 object-contain" src={placeMediaUrl(place.icon)} alt="" loading="lazy" /> : place.cover ? <img className="size-full object-cover" src={placeMediaUrl(place.cover)} alt="" loading="lazy" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
+              {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
             </span>
             <span className="grid min-w-0 gap-0.5">
               <strong className="truncate font-noto text-[14px] text-ink">{place.name}</strong>
@@ -87,7 +87,7 @@ function NearbyRow({ place, km }: { place: MapPlace; km: number }) {
     <li>
       <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
         <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
-          {place.icon ? <img className="size-10 object-contain" src={placeMediaUrl(place.icon)} alt="" loading="lazy" /> : place.cover ? <img className="size-full object-cover" src={placeMediaUrl(place.cover)} alt="" loading="lazy" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
+          {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
         </span>
         <span className="grid min-w-0 flex-1 gap-0.5">
           <strong className="truncate font-noto text-[14px] text-ink">{place.name}</strong>

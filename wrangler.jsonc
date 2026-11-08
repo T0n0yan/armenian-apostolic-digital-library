@@ -21,6 +21,8 @@
 			"bucket_name": "armenian-apostolic-library-media-local"
 		}
 	],
+	// Սրբավայրերի փոքր պատկերները (app/routes/place-media.ts). փոխարկումը Worker-ի CPU-ից դուրս է։
+	"images": { "binding": "IMAGES" },
 	// The site's alarm clock (workers/clock.ts): the sync 15 minutes after new posts, and each
 	// reminder at its own minute, in place of a cron every minute. SQLite-backed: free plan.
 	"durable_objects": {
@@ -30,6 +32,9 @@
 	"observability": {
 		"enabled": true
 	},
+	// Worker-ը աշխատում է բազային (D1) մոտ. cache-ում չեղած էջը մի քանի SQL հարցում է անում, և
+	// ամեն մեկը այդպես արագ է (հատկապես մուտք գործածների և Mini App-ի համար, որոնց էջերը cache չունեն)։
+	"placement": { "mode": "smart" },
 	"upload_source_maps": true,
 	// No per-version preview addresses (…-<version>-….workers.dev): old versions stay unreachable.
 	"preview_urls": false,
@@ -37,16 +42,16 @@
 		"staging": {
 			"name": "armenian-apostolic-digital-library-staging",
 			"preview_urls": false,
-			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
-			// cloud sync on GitHub (workers/app.ts).
-			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces (workers/app.ts).
+			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces; Sundays 09:07 UTC: the
+			// Sunday reminder (workers/app.ts). Reminders and the sync after new posts: the Clock.
 			"triggers": { "crons": ["17 0 * * *", "7 9 * * SUN"] },
 			"durable_objects": {
 				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
 			},
+			// Staging-ի հաշվիչները առանձին են (նույն namespace_id-ն նշանակում է նույն հաշվիչը production-ի հետ)։
 			"ratelimits": [
-				{ "name": "WRITE_RATE_LIMIT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
-				{ "name": "READ_RATE_LIMIT", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+				{ "name": "WRITE_RATE_LIMIT", "namespace_id": "2001", "simple": { "limit": 30, "period": 60 } },
+				{ "name": "READ_RATE_LIMIT", "namespace_id": "2002", "simple": { "limit": 120, "period": 60 } }
 			],
 			"vars": {
 				"PUBLIC_URL": "https://staging.apostolic.am",
@@ -79,14 +84,14 @@
 					"binding": "MEDIA",
 					"bucket_name": "armenian-apostolic-library-media-staging"
 				}
-			]
+			],
+			"images": { "binding": "IMAGES" }
 		},
 		"production": {
 			"name": "armenian-apostolic-digital-library",
 			"preview_urls": false,
-			// Every minute: sends due reading reminders; every 30 minutes also starts the Telegram →
-			// cloud sync on GitHub when GITHUB_SYNC_TOKEN is set (workers/app.ts).
-			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces (workers/app.ts).
+			// Once a night (00:17 UTC, 04:17 in Yerevan): what no event announces; Sundays 09:07 UTC: the
+			// Sunday reminder (workers/app.ts). Reminders and the sync after new posts: the Clock.
 			"triggers": { "crons": ["17 0 * * *", "7 9 * * SUN"] },
 			"durable_objects": {
 				"bindings": [{ "name": "CLOCK", "class_name": "Clock" }]
@@ -126,14 +131,10 @@
 					"binding": "MEDIA",
 					"bucket_name": "armenian-apostolic-library-media-production"
 				}
-			]
+			],
+			"images": { "binding": "IMAGES" }
 		}
 	}
-	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-	 */
-	// "placement": {  "mode": "smart" }
 	/**
 	 * Bindings
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including

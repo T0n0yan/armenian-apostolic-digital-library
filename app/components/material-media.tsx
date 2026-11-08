@@ -211,7 +211,9 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   const common = {
     src: sources[Math.min(sourceIndex, sources.length - 1)],
     controls: true,
-    preload: "metadata" as const,
+    // Ձայնագրությունը չի բեռնվում, մինչև «Լսել» չսեղմեն (հեռախոսում սաղմոսի էջը 2.5 ՄԲ-ով
+    // թեթևանում է). տևողությունը ցույց է տրվում Telegram-ի տվյալից (fallbackDuration)։
+    preload: kind === "audio" ? "none" as const : "metadata" as const,
     onLoadStart: () => setState((current) => mediaPlaybackStateForEvent(current, "load-start")),
     onLoadedMetadata: (event: SyntheticEvent<HTMLMediaElement>) => {
       const element = event.currentTarget;

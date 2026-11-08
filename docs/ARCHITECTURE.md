@@ -151,14 +151,17 @@ sequenceDiagram
   B->>W: GET /psalms/22
   W->>W: www/workers.dev → apostolic.am (redirect)
   W->>C: Կա՞ պատրաստ էջ (անանուն ընթերցողի համար)
-  alt Կա քեշում
+  alt Կա քեշում, 5 րոպեից թարմ
     C-->>B: Պատրաստ HTML (շատ արագ)
+  else Կա, բայց 5 րոպեից հին (գրադարանի էջ, մինչև 24 ժամ)
+    C-->>B: Պատրաստ HTML անմիջապես
+    W->>RR: ֆոնում նոր պատճեն (stale-while-revalidate)
   else Չկա
     W->>RR: handle(request)
     RR->>D: loader. նյութը, բլոկները, մեդիան
     D-->>RR: տվյալ
     RR-->>W: HTML (SSR)
-    W->>C: պահել քեշում (մինչև նոր sync / «Թարմացնել կայքը»)
+    W->>C: պահել քեշում (բանալին՝ contentVersion + Երևանի օրը)
     W-->>B: HTML
   end
   B->>R: ձայն / նկար (ուղիղ R2-ից, երկար քեշով)
@@ -166,7 +169,9 @@ sequenceDiagram
 ```
 
 - **Կայքի լուսավորություն (թեմա), տառաչափ, շարժում** (`app/utils/preferences.ts`, `theme.ts`). պահվում են բրաուզերում, էջը բացվում է արդեն ճիշտ գույնով (առանց «թարթման»)։
-- **Մոմի ներածություն** (`candle-loader.tsx`). միայն այցի առաջին բացումից։ Մոմի տակ տառ առ տառ ոսկեգույն գրվում է «…Ես ձեզ հետ եմ բոլոր օրերին, / մինչև աշխարհի վախճանը» (Մատթ. 28:20՝ Էջմիածնի Աստվածաշնչից, `VERSE_LINES`), ստորակետից հետո դադար, վերջին տառից 0,5 վրկ հետո լույսը բացում է էջը (ընդհանուր ~6 վրկ)։
+- **Մոմի ներածություն** (`candle-loader.tsx`). օրը մեկ անգամ այս սարքում (`localStorage` `library-loader-day`, Երևանի օրով, նույն ստուգումը `boot-script.ts`-ում). Telegram-ը Mini App-ի ամեն բացումը նոր session է համարում, դրա համար session-ով չէ։ Մատով սեղմելիս բացվում է 0,4 վրկ-ում։ Մոմի տակ տառ առ տառ ոսկեգույն գրվում է «…Ես ձեզ հետ եմ բոլոր օրերին, / մինչև աշխարհի վախճանը» (Մատթ. 28:20՝ Էջմիածնի Աստվածաշնչից, `VERSE_LINES`), ստորակետից հետո դադար, վերջին տառից 0,5 վրկ հետո լույսը բացում է էջը (ընդհանուր ~6 վրկ)։
+- **Edge cache-ը** (`workers/app.ts`, `handle()`). բանալին՝ հասցե + `contentVersion` (նոր/փոփոխված գրառում կամ «Թարմացնել կայքը») + Երևանի օր (էջերը «այսօր»-ով)։ 5 րոպե թարմ է. գրադարանի էջերը (բաժին, նյութ, գլխավոր) 24 ժամ պահվում են և տրվում են անմիջապես, իսկ նոր պատճենը պատրաստվում է ֆոնում։ Սրբավայրերը, որոնումը և մյուսները՝ միայն 5 րոպե։ Cookie ունեցող (մուտք գործած) ընթերցողը cache չունի. նրա համար Worker-ը աշխատում է բազային մոտ (`placement: smart`, `wrangler.jsonc`)։ Ամեն պատասխան ունի `Server-Timing: edge;desc="hit|stale|miss|bypass", app;dur=…`։
+- **Ձայնագրությունը** (`material-media.tsx`) չի բեռնվում, մինչև «Լսել» (`preload="none"`), տևողությունը՝ Telegram-ի տվյալից։
 - **Էջերի քեշ հեռախոսում** (`navigation-cache.ts`, `search-state.ts`). հեռախոսը պահում է էջերը, մինչև կայքի «բովանդակության տարբերակը» փոխվի (`/api/content-version`)։
 
 ## 4. Նյութերը. Telegram-ից կայք
@@ -257,7 +262,7 @@ flowchart LR
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
 `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`, `/api/material-layout`,
 `/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
-`/api/share-prepare`, `/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
+`/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
 **Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/og/card/...`, `/sitemap.xml`։
 
 ## 6. Մուտք և հաշիվներ
@@ -380,7 +385,6 @@ flowchart LR
   WH --> G1["Խմբի նոր/փոփոխված գրառում → sync (բաժին 4)"]
   WH --> G2["/place → սրբավայր ավելացնել"]
   WH --> G3["Ընթերցողի հարց/հաղորդագրություն → թիմի փակ խումբ<br/>(support-relay), պատասխանը՝ ետ"]
-  WH --> G4["Կիսվել նյութով (share-prepare)"]
   WH --> G5["Հարցումներ (poll)"]
   BOTOUT["Բոտը գրում է"] --> H["Հիշեցումներ, կիրակնօրյա հարց"]
 ```
@@ -454,7 +458,7 @@ flowchart TD
   A --> S["Սրբավայրեր, առաջարկներ"]
   A --> G["Բառարան"]
   A --> H["Օգնության տեսանյութեր (/admin/help)"]
-  A --> U["Կայքի վիճակը. Cloudflare-ի սահմաններ,<br/>պահեստն ըստ թղթապանակների, GitHub-ի րոպեներ"]
+  A --> U["Կայքի վիճակը. Cloudflare-ի սահմաններ,<br/>պահեստն ըստ թղթապանակների, GitHub-ի րոպեներ,<br/>ընթերցողների բրաուզերի սխալները (7 օր)"]
   A --> RF["«Թարմացնել կայքը» (քեշի epoch)"]
   A --> SP["Կիրակնօրյա պատուհան · Նախադիտում (ժամանակավոր)"]
   U --> MI["Մեդիայի հաշվառում (առանց ջնջելու)"]
@@ -604,11 +608,12 @@ erDiagram
 | **Հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` |
 | **Սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) |
 | **Բառարան** | `glossary_terms` |
-| **Կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր) |
+| **Կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր), `client_errors` (բրաուզերի սխալներ, անանուն, 30 օր) |
 | **Telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` |
 | **Հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` |
 
-Բազայի ամեն փոփոխություն՝ `migrations/00NN_*.sql` ֆայլ (այժմ 44 հատ), կիրառվում է deploy-ի ժամանակ։
+Բազայի ամեն փոփոխություն՝ `migrations/00NN_*.sql` ֆայլ (այժմ 51 հատ), կիրառվում է deploy-ի ժամանակ։
+**Միայն ավելացնող migrations**. migration-ը կիրառվում է նոր կոդից առաջ, և smoke-ի ձախողման դեպքում Worker-ը վերադառնում է հին կոդին, ուստի հին կոդը պետք է աշխատի նոր բազայով։ Սյուն ջնջել/վերանվանել՝ երկու թողարկումով (նախ կոդը դադարում է օգտագործել, հետո migration)։ Migration-ից առաջ deploy-ը գրում է D1 Time Travel-ի bookmark-ը (job-ի Summary)՝ `wrangler d1 time-travel restore <db> --env <միջավայր> --bookmark <…>`։
 **Ինչպես նայել՝ ինչքան է լցված**. Կառավարում → Կայքի վիճակը → «D1 ընդհանուր պահեստ» (պետք է token-ին D1 Read իրավունք),
 կամ Cloudflare → Storage & Databases → D1 → բազան → **Metrics** (չափը) և **Console** (աղյուսակներ)։
 
@@ -618,6 +623,7 @@ erDiagram
 | --- | --- |
 | մեդիա (sync-ից) | Telegram-ի ձայնագրություններ, տեսանյութեր, նկարներ, դրանց մանրապատկերներ |
 | `places/` | Սրբավայրերի նկարներ և տեսանյութեր |
+| `thumbs/places/` | Սրբավայրերի փոքր պատկերներ (`?w=160|320`, `place-media.ts`). պատրաստում է Cloudflare Images-ը (`IMAGES` binding) առաջին անգամ, հետո՝ R2-ից. սխալի դեպքում տրվում է բնօրինակը |
 | `help/` | Օգնության (ուսուցողական) տեսանյութեր |
 | `submissions/` | Առաջարկների նկարներ (մաքրվում են 30 օր հետո) |
 | `og/` | Հղումների քարտեր |
@@ -634,11 +640,13 @@ erDiagram
 
 ```mermaid
 flowchart LR
-  BR["Ճյուղ feat/… fix/… chore/…"] -->|"թեստեր, tsc"| ST["staging ճյուղ"]
-  ST -->|"Deploy"| STS["staging.apostolic.am<br/>իր D1 + R2"]
-  STS -->|"տերը. «թողարկիր»"| PR["PR → main"]
-  PR -->|"Deploy. թեստեր → migrations → build → deploy"| PROD["apostolic.am<br/>իր D1 + R2"]
+  BR["Ճյուղ feat/… fix/… chore/…"] -->|"QA review (lint, tsc, թեստեր)"| PR["PR → main"]
+  PR -->|"Deploy. build → թեստեր → tsc/lint → bookmark → migrations → deploy → smoke"| PROD["apostolic.am<br/>իր D1 + R2"]
+  PROD -->|"smoke-ը ձախողվեց"| RB["wrangler rollback<br/>(նախորդ տարբերակը)"]
+  PR -->|"նույն ճյուղը merge"| ST["staging ճյուղ"] -->|"Deploy + smoke"| STS["staging.apostolic.am<br/>իր D1 + R2"]
 ```
+
+Smoke ստուգումը՝ `scripts/smoke.mjs <հասցե>`. գլխավոր, `/psalms`, `/pray`, մեկ սաղմոս, sitemap, robots, `/api/content-version` և էջի JS/CSS ֆայլերը, ամեն մեկը մինչև 4 փորձ։ Կարելի է աշխատեցնել նաև ձեռքով։
 
 Մանրամասն՝ `docs/ENVIRONMENTS.md`, `docs/deployment-runbook.md`։ Աշխատանքը բաժանված է 3 չատի միջև՝ `docs/work/`։
 
@@ -646,10 +654,10 @@ flowchart LR
 
 | Workflow | Երբ | Ինչ |
 | --- | --- | --- |
-| `deploy.yml` | push `main`/`staging` (ոչ `.md`, ոչ `docs/`) | թեստեր, migrations, build, deploy |
+| `deploy.yml` | push `main`/`staging` (ոչ `.md`, ոչ `docs/`) | build, թեստեր, tsc/lint (պռոդ), D1 bookmark, migrations, deploy, smoke, ձախողվելիս՝ rollback |
 | `og-cards.yml` | պռոդի deploy-ից հետո, ձեռքով | հղումների քարտեր |
 | `cloud-sync.yml` | Clock-ից, շաբաթական, ձեռքով | Telegram → D1/R2, հետո տեսանյութերի սեղմում |
-| `qa.yml` | PR | թեստեր |
+| `qa.yml` | PR | lint, typecheck, թեստեր (`bash scripts/check.sh`-ը նույնն է անում տեղում) |
 | `private-backup.yml` | շաբաթական | D1-ի գաղտնագրված պատճեն |
 | `diagnose-topic.yml` | ձեռքով | մեկ թեմայի ախտորոշում |
 | `staging-reset.yml` | staging, իր ֆայլերի փոփոխություն | staging-ը՝ ամեն բաժնից 1 նյութ + 1 տեսանյութ + 1 ձայնագրություն, ավելորդ մեդիան ջնջվում է staging-ի պահեստից |
@@ -660,7 +668,10 @@ flowchart LR
 
 ## 22. Արագություն և խնայողություն
 
-- Անանուն էջերը քեշվում են Cloudflare-ում, մինչև նոր sync կամ «Թարմացնել կայքը»։
+- Անանուն էջերը քեշվում են Cloudflare-ում (stale-while-revalidate, բաժին 3), մինչև նոր/փոփոխված գրառում կամ «Թարմացնել կայքը»։
+- Worker-ը աշխատում է D1-ին մոտ (Smart Placement). cache-ում չեղած էջի SQL հարցումները կարճ են։
+- Ձայնագրությունը բեռնվում է միայն «Լսել»-ից հետո. մեծ նկարները ունեն 880/1200/1774px տարբերակներ (`app/assets/responsive.ts`)։
+- Սրբավայրերի ցանկը և քարտեզի նշանները՝ փոքր պատկերներով (`placeThumbUrl`)։
 - Հեռախոսը պահում է էջերը և որոնման ինդեքսը, մինչև բովանդակության տարբերակը փոխվի։
 - Մեդիան ուղիղ R2-ից, անփոփոխ բանալիներով, տարի քեշով։
 - Sync-ը միայն նոր գրառումից 15 րոպե հետո (մի քանի գրառում՝ մեկ sync), գումարած գիշերը։
@@ -781,7 +792,7 @@ gantt
 ```
 
 ### Քեշի «epoch»
-`app/data/site-refresh.server.ts` · `site_settings.cache_epoch`. թիվ, որը մտնում է քեշի բանալու մեջ։ «Թարմացնել կայքը» կամ նոր sync-ը փոխում է այն → բոլոր հին պատրաստ էջերը այլևս չեն գտնվում և վերակառուցվում են։
+`app/data/site-refresh.server.ts` · `site_settings.cache_epoch`. թիվ, որը մտնում է քեշի բանալու մեջ `contentVersion`-ի միջոցով (`epoch.վերջին_գրառման_ժամը`, `content-version.server.ts`)։ «Թարմացնել կայքը» կամ գրառման ցանկացած փոփոխություն փոխում է այն → բոլոր հին պատրաստ էջերը այլևս չեն գտնվում և վերակառուցվում են։
 
 ### Բառարանի բառի նորմալացում
 `app/utils/glossary.ts`. դասական և նոր ուղղագրությունները բերում է նույն ձևի, որ «ամբարշտութիւն» և «ամբարշտություն» նույնը գտնվեն.
@@ -808,6 +819,7 @@ export function normalizeWord(word: string) {
 | Staging-ի թեստային տվյալներ | 3 օր (`TEST_DATA_DAYS`) |
 | Հին տարիների Պատարագի նշումներ | ամփոփվում են `yearly_summaries`-ում |
 | Mini App-ի story-ի նկարներ (R2 `stories/`) | 2 օր (`app/data/stories.server.ts`) |
+| Բրաուզերի սխալներ (`client_errors`) | 30 օր (վերջին տեսնելուց) |
 
 ## 25. Ինչպես փոխել. բաղադրատոմսեր
 
@@ -839,14 +851,15 @@ export function normalizeWord(word: string) {
 ### Ստուգել և թողարկել
 ```bash
 npm run dev                      # լոկալ, http://localhost:5173
-bash scripts/check.sh            # կախվածություններ, build, թեստեր, tsc՝ կարճ ելքով
+bash scripts/check.sh            # կախվածություններ, build, թեստեր, tsc, lint՝ կարճ ելքով (նույնը, ինչ QA review-ը)
+node scripts/smoke.mjs https://apostolic.am   # կենդանի կայքի արագ ստուգում
 node scripts/work-brief.mjs      # մյուս չաթերի աշխատանքը (docs/work/), առանց «Արված»-ի
 ```
-Հետո՝ staging, իսկ տիրոջ «թողարկիր»-ից հետո՝ PR → main (բաժին 20)։
+Հետո՝ PR → main (QA-ն կանաչ), merge, հետո նույն ճյուղը staging-ում (բաժին 20)։
 
 ```mermaid
 flowchart LR
-  A["1. Ճյուղ origin/main-ից"] --> B["2. Փոփոխություն + թեստ"] --> C["3. npm run dev՝ աչքով"] --> D["4. scripts/check.sh"] --> E["5. staging"] --> F["6. «թողարկիր» → PR → main"] --> G["7. ARCHITECTURE.md թարմ է"]
+  A["1. Ճյուղ origin/main-ից"] --> B["2. Փոփոխություն + թեստ"] --> C["3. npm run dev՝ աչքով"] --> D["4. scripts/check.sh"] --> F["5. PR → main (QA կանաչ)"] --> E["6. staging merge"] --> G["7. ARCHITECTURE.md թարմ է"]
 ```
 
 ## 26. Բառարան՝ նոր մարդու համար

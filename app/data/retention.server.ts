@@ -11,6 +11,8 @@ export async function removeOldData(db: D1Database, testDataDays?: string) {
     db.prepare("DELETE FROM place_submissions WHERE handled_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')"),
     // Started with /place but never sent: nothing the reader confirmed is kept.
     db.prepare("DELETE FROM place_submissions WHERE submitted_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days')"),
+    // Բրաուզերի սխալներ (client-errors.server.ts)՝ 30 օր։
+    db.prepare("DELETE FROM client_errors WHERE last_seen < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')"),
   ];
   const days = Number(testDataDays);
   if (Number.isInteger(days) && days > 0) {

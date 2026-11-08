@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { Activity, Database, GitBranch, HardDrive, RefreshCw, Server, Timer } from "lucide-react";
+import { Activity, Bug, Database, GitBranch, HardDrive, RefreshCw, Server, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 import { data, Link, useRevalidator } from "react-router";
 
@@ -11,6 +11,7 @@ import { panelSection } from "../components/ui-styles";
 import { readCloudflareUsage, type UsageEnv, type UsageMetric } from "../data/cloudflare-usage.server";
 import { readStorageBreakdown, type StorageBreakdown } from "../data/storage-breakdown.server";
 import { readGitHubUsage, type GitHubEnv, type GitHubUsage } from "../data/github-usage.server";
+import { listClientErrors, type ClientErrorRow } from "../data/client-errors.server";
 import { formatYerevanDateTime } from "../utils/armenian-date";
 
 export function meta() { return [{ title: "Կայքի վիճակը — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }]; }
@@ -18,15 +19,16 @@ export function headers() { return { "Cache-Control": "private, no-store", "X-Ro
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireOwner(request, env.DB);
-  const [usage, github, storage, videos] = await Promise.all([
+  const [usage, github, storage, videos, errors] = await Promise.all([
     readCloudflareUsage(env as UsageEnv),
     readGitHubUsage(env as GitHubEnv),
     readStorageBreakdown(env.MEDIA).catch(() => null),
     // Ավտոմատ սեղմված տեսանյութերը (scripts/optimize-videos.ts)
     env.DB.prepare("SELECT COUNT(*) AS files, COALESCE(SUM(original_bytes), 0) AS before, COALESCE(SUM(optimized_bytes), 0) AS after FROM video_optimizations WHERE status = 'optimized'")
       .first<{ files: number; before: number; after: number }>().catch(() => null),
+    listClientErrors(env.DB).catch(() => [] as ClientErrorRow[]),
   ]);
-  return data({ usage, github, storage, videos }, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
+  return data({ usage, github, storage, videos, errors }, { headers: { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" } });
 }
 
 /** Groups of the free plan's limits, in the order the owner reads them. */
@@ -175,7 +177,7 @@ function GitHubSection({ github }: { github: GitHubUsage }) {
 
 /** The owner's view of the free plan: how much of each daily, monthly and storage limit is used. */
 export default function Usage({ loaderData }: Route.ComponentProps) {
-  const { usage, github, storage, videos } = loaderData;
+  const { usage, github, storage, videos, errors } = loaderData;
   const revalidator = useRevalidator();
   const byId = new Map(usage.metrics.map((metric) => [metric.id, metric]));
   const worst = Math.max(0, ...usage.metrics.map((metric) => (metric.used === null ? 0 : (metric.used / metric.limit) * 100)));
@@ -213,6 +215,7 @@ export default function Usage({ loaderData }: Route.ComponentProps) {
         ))}
         <StorageSection storage={storage} videos={videos} />
         <GitHubSection github={github} />
+        <ClientErrorsSection errors={errors} />
         <details className={`${panelSection} text-[12.5px] leading-relaxed text-muted`}>
           <summary className="cursor-pointer text-[13px] font-semibold text-ink"><Server aria-hidden="true" size={15} className="mr-1.5 inline text-gold" />Ինչ են նշանակում թվերը</summary>
           <div className="mt-2 grid gap-2">
@@ -229,5 +232,40 @@ export default function Usage({ loaderData }: Route.ComponentProps) {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  android: "Android", ios: "iPhone", desktop: "Համակարգիչ",
+  "telegram-android": "Telegram · Android", "telegram-ios": "Telegram · iPhone", "telegram-desktop": "Telegram · համակարգիչ",
+};
+
+/** Ընթերցողների բրաուզերում եղած սխալները (անանուն), վերջին 7 օրը։ */
+function ClientErrorsSection({ errors }: { errors: ClientErrorRow[] }) {
+  return (
+    <section className={`${panelSection} grid gap-3`}>
+      <h2 className="m-0 flex items-center gap-2 text-[16px] font-bold text-ink"><span className="text-gold"><Bug aria-hidden="true" size={18} /></span>Սխալներ ընթերցողների մոտ (7 օր)</h2>
+      {errors.length === 0 ? (
+        <p className="m-0 text-[13px] text-muted">Սխալ չի գրանցվել։</p>
+      ) : (
+        <ul className="m-0 grid list-none gap-2 p-0">
+          {errors.map((error) => (
+            <li key={error.fingerprint} className="grid gap-1 rounded-[12px] border border-glass-border bg-subtle p-3 text-[12.5px]">
+              <div className="flex items-start justify-between gap-3">
+                <strong className="min-w-0 break-words font-mono text-[12px] text-ink">{error.message}</strong>
+                <span className="shrink-0 rounded-full bg-[rgb(217_181_111/22%)] px-2 py-0.5 font-bold text-ink tabular-nums">{error.count}×</span>
+              </div>
+              <span className="text-muted">{error.path || "—"} · {PLATFORM_LABELS[error.platform] ?? "անհայտ սարք"} · վերջինը՝ {formatYerevanDateTime(error.lastSeen)}</span>
+              {error.stack ? (
+                <details>
+                  <summary className="cursor-pointer text-muted">Մանրամասն (ծրագրավորողի համար)</summary>
+                  <pre className="m-0 mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] text-muted">{error.source ? `${error.source}\n` : ""}{error.stack}</pre>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

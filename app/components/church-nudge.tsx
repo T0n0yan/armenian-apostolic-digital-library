@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { Link, useRouteLoaderData } from "react-router";
 
 import { findMyPosition, hasLocationAccess } from "../utils/my-location";
-import { directionLinks, formatDistance, nearbyPlaces, placeMediaUrl } from "../utils/places";
+import { directionLinks, formatDistance, nearbyPlaces, placeThumbUrl } from "../utils/places";
 
 const ENABLED_KEY = "church-nudge";
 /** Երբից կարելի է նորից հուշել (ms). ցույց տալուց հետո՝ 30 րոպե։ */
@@ -104,7 +104,7 @@ export function ChurchNudge() {
 
   if (!nudge || typeof document === "undefined") return null;
   const { church } = nudge;
-  const picture = church.cover ? placeMediaUrl(church.cover) : null;
+  const picture = church.cover ? placeThumbUrl(church.cover, 320) : null;
   const button = "inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline";
   return createPortal(
     <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2060] flex justify-center px-3" role="dialog" aria-label="Մոտակայքում կա եկեղեցի">

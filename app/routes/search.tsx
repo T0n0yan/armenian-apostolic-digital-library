@@ -61,7 +61,7 @@ import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
-import { PLACE_KINDS, placeMediaUrl, type PlaceKind } from "../utils/places";
+import { PLACE_KINDS, placeThumbUrl, type PlaceKind } from "../utils/places";
 import { useRememberFind } from "../utils/find-flash";
 
 const PLACES_SECTION = "places";
@@ -824,7 +824,7 @@ function PlaceMatches({ query }: { query: string }) {
           <li key={place.id}>
             <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
               <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
-                {place.icon ? <img className="size-10 object-contain" src={placeMediaUrl(place.icon)} alt="" loading="lazy" /> : place.cover ? <img className="size-full object-cover" src={placeMediaUrl(place.cover)} alt="" loading="lazy" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
+                {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
               </span>
               <span className="grid min-w-0 gap-0.5">
                 <strong className="truncate font-noto text-[14px] text-ink">{place.name}</strong>

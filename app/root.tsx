@@ -17,6 +17,7 @@ import {ADMIN_PERMISSIONS, type AdminPermission} from "./utils/admin-permissions
 import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegram-user.server";
 import { ReminderError } from "./components/reminder-error";
 import { CandleLoader } from "./components/candle-loader";
+import { ClientErrorReporter } from "./components/client-error-reporter";
 import { PageShell } from "./components/page-layout";
 import { RouteErrorPage } from "./components/error-page";
 import {listActiveCategories} from "./data/categories.server";
@@ -377,6 +378,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return <>
     <Outlet />
     <CandleLoader />
+    <ClientErrorReporter />
     <InstallPrompt />
     <ReminderAlarm />
     <ReminderError />
