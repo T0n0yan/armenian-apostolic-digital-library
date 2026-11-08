@@ -34,14 +34,24 @@ export async function resolveMaterialId(params: { materialId?: string; section?:
   return "psalm" in parsed ? await findPsalmByNumber(env.DB, parsed.psalm) : parsed.materialId;
 }
 
+/**
+ * Կայքի ներսում նավարկելիս (<էջ>.data) էջի տվյալները բոլորի համար նույնն են, առանց անձնականի, որ
+ * Cloudflare-ը և հեռախոսը դրանք պահեն նաև մուտք գործածների (Mini App) համար. անձնականը բրաուզերը
+ * բերում է առանձին՝ /api/personal (routes/personal-api.ts)։ Առաջին բացման HTML-ը ներառում է երկուսն էլ։
+ */
+export function isPageDataRequest(request: Request) {
+  return new URL(request.url).pathname.endsWith(".data");
+}
+
 /** A material page's data, for its readable (/psalms/22) and old (/materials/…) addresses. */
 export async function loadMaterialPage(materialId: string | null, request: Request) {
   if (!materialId || !/^material_[a-zA-Z0-9_-]{1,220}$/.test(materialId)) {
     throw new Response("Not Found", { status: 404 });
   }
+  const shared = isPageDataRequest(request);
   const [material, user] = await Promise.all([
     getPublicMaterialDetail(env.DB, materialId, request.signal),
-    getOptionalTelegramUser(request),
+    shared ? Promise.resolve(null) : getOptionalTelegramUser(request),
   ]);
   if (!material) throw new Response("Not Found", { status: 404 });
   // Old and inexact addresses move permanently to the material's one readable address.
@@ -58,37 +68,82 @@ export async function loadMaterialPage(materialId: string | null, request: Reque
   const contentCategory = resolveContentCategoryId(null, material.categoryName);
   const isPsalm = contentCategory === "category_psalms";
   const isPrayer = contentCategory === "category_prayers";
-  const [savedIds, psalm] = await Promise.all([
-    user ? listSavedMaterialIds(env.DB, user.id) : Promise.resolve([]),
-    isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
-  ]);
-  const reference = material.poll ? parseMaterialId(material.id) : null;
-  const pollVotes = reference && material.poll
-    ? await getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
-    : null;
-  // Ձայնագրության տողերի ժամանակները (սաղմոս կամ ձայնագրություն ունեցող ցանկացած նյութ, օր.՝ աղոթք)
-  // և արդյոք այս մարդը կարող է դրանք նշել։
   const hasAudio = material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"));
   const psalmReference = isPsalm || hasAudio ? parseMaterialId(material.id) : null;
-  const [psalmTimings, canMarkPsalm] = psalmReference ? await Promise.all([
-    env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
-      .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null),
-    getOptionalTelegramAdmin(request, env.DB).then((admin) => can(admin, "psalms")).catch(() => false),
-  ]) : [null, false];
-  // When this reader marked the material as read (the page compares with their local date).
-  const own = user ? parseMaterialId(material.id) : null;
-  const readMarks = user && own ? await materialMarks(env.DB, user.id, own.chatId, own.messageId).catch(() => []) : [];
-  // The verses of this psalm the reader saved (the verse popup's "Պահել").
-  const savedVerses = user && psalmReference ? await listMarkedVerses(env.DB, user.id, psalmReference.chatId, psalmReference.messageId).catch(() => []) : [];
-  // Աղոթքի ձևավորումը (եթե ադմինը ձևավորել է) և արդյոք այս մարդը կարող է այն փոխել։
   const prayerReference = isPrayer ? parseMaterialId(material.id) : null;
-  const [savedLayout, canLayout] = prayerReference ? await Promise.all([
-    getMaterialLayout(env.DB, prayerReference).catch(() => null),
-    user ? getOptionalTelegramAdmin(request, env.DB).then((admin) => can(admin, "layout")).catch(() => false) : Promise.resolve(false),
-  ]) : [null, false];
+  const pollReference = material.poll ? parseMaterialId(material.id) : null;
+  const [psalm, psalmTimings, savedLayout, personal, publicPollVotes] = await Promise.all([
+    isPsalm ? findPsalmNeighbors(env.DB, material.categorySlug, material.id).catch(() => null) : Promise.resolve(null),
+    // Ձայնագրության տողերի ժամանակները (սաղմոս կամ ձայնագրություն ունեցող ցանկացած նյութ, օր.՝ աղոթք)
+    psalmReference
+      ? env.DB.prepare("SELECT starts_json FROM psalm_timings WHERE chat_id = ? AND message_id = ?").bind(psalmReference.chatId, psalmReference.messageId)
+        .first<{ starts_json: string }>().then((row) => row ? JSON.parse(row.starts_json) as Array<number | null> : null).catch(() => null)
+      : Promise.resolve(null),
+    // Աղոթքի ձևավորումը (եթե ադմինը ձևավորել է)
+    prayerReference ? getMaterialLayout(env.DB, prayerReference).catch(() => null) : Promise.resolve(null),
+    shared ? Promise.resolve(EMPTY_MATERIAL_PERSONAL) : loadMaterialPersonal(material, user, request),
+    // Հարցման ընդհանուր արդյունքները (առանց ընթերցողի ձայնի)՝ անանուն ընթերցողի համար
+    shared && pollReference && material.poll
+      ? getPollVotes(env.DB, pollReference.chatId, pollReference.messageId, material.poll.options.length, null).catch(() => null)
+      : Promise.resolve(null),
+  ]);
   const layout = savedLayout?.layout ?? null;
-  // Telegram-ում տեքստը փոխվել է ձևավորելուց հետո. ցույց է տրվում միայն ադմինին։
-  const layoutStale = Boolean(canLayout && savedLayout && savedLayout.sourceHash !== sourceHash(material));
   // Link previews point at this address's own pictures (staging's at staging).
-  return { origin: address.origin, material, canonicalPath: canonical, canSave: Boolean(user), savedIds, psalm, pollVotes, psalmTimings, canMarkPsalm, readMarks, savedVerses, layout, canLayout, layoutStale };
+  return { origin: address.origin, material, canonicalPath: canonical, psalm, psalmTimings, layout, ...personal, pollVotes: personal.pollVotes ?? publicPollVotes };
+}
+
+export type MaterialPersonal = {
+  canSave: boolean;
+  savedIds: string[];
+  pollVotes: Awaited<ReturnType<typeof getPollVotes>> | null;
+  canMarkPsalm: boolean;
+  readMarks: Awaited<ReturnType<typeof materialMarks>>;
+  savedVerses: Awaited<ReturnType<typeof listMarkedVerses>>;
+  canLayout: boolean;
+  layoutStale: boolean;
+};
+
+/** Անանուն ընթերցողի (և ընդհանուր .data-ի) անձնական մասը։ */
+export const EMPTY_MATERIAL_PERSONAL: MaterialPersonal = {
+  canSave: false, savedIds: [], pollVotes: null, canMarkPsalm: false, readMarks: [], savedVerses: [], canLayout: false, layoutStale: false,
+};
+
+/** Ընթերցողի անձնականը մեկ նյութի համար. պահածներ, նշումներ, հարցման ձայնը, ադմինի իրավունքները։ */
+export async function loadMaterialPersonal(material: MaterialDetail, user: Awaited<ReturnType<typeof getOptionalTelegramUser>>, request: Request): Promise<MaterialPersonal> {
+  const contentCategory = resolveContentCategoryId(null, material.categoryName);
+  const isPsalm = contentCategory === "category_psalms";
+  const isPrayer = contentCategory === "category_prayers";
+  const hasAudio = material.media.some((asset) => asset.url && (asset.kind === "audio" || asset.kind === "voice"));
+  const reference = parseMaterialId(material.id);
+  if (!reference) return EMPTY_MATERIAL_PERSONAL;
+  const [pollVotes, admin] = await Promise.all([
+    // Հարցման արդյունքները (ձայներով)՝ միշտ թարմ, ընթերցողի ձայնով
+    material.poll
+      ? getPollVotes(env.DB, reference.chatId, reference.messageId, material.poll.options.length, user?.id ?? null).catch(() => null)
+      : Promise.resolve(null),
+    // Ադմինը կարող է մտած լինել նաև Cloudflare Access-ով (առանց կայքի հաշվի)
+    getOptionalTelegramAdmin(request, env.DB).catch(() => null),
+  ]);
+  const canMarkPsalm = (isPsalm || hasAudio) && can(admin, "psalms");
+  if (!user) return { ...EMPTY_MATERIAL_PERSONAL, pollVotes, canMarkPsalm };
+  const [savedIds, readMarks, savedVerses, savedLayout] = await Promise.all([
+    listSavedMaterialIds(env.DB, user.id),
+    // When this reader marked the material as read (the page compares with their local date).
+    materialMarks(env.DB, user.id, reference.chatId, reference.messageId).catch(() => []),
+    // The verses of this psalm the reader saved (the verse popup's "Պահել").
+    isPsalm || hasAudio ? listMarkedVerses(env.DB, user.id, reference.chatId, reference.messageId).catch(() => []) : Promise.resolve([]),
+    isPrayer && can(admin, "layout") ? getMaterialLayout(env.DB, reference).catch(() => null) : Promise.resolve(null),
+  ]);
+  const canLayout = isPrayer && can(admin, "layout");
+  return {
+    canSave: true,
+    savedIds,
+    pollVotes,
+    canMarkPsalm,
+    readMarks,
+    savedVerses,
+    canLayout,
+    // Telegram-ում տեքստը փոխվել է ձևավորելուց հետո. ցույց է տրվում միայն ադմինին։
+    layoutStale: Boolean(canLayout && savedLayout && savedLayout.sourceHash !== sourceHash(material)),
+  };
 }

@@ -30,6 +30,11 @@ function prune() {
   }
 }
 
+/** Ընթացիկ ընթերցողի scope-ը (anonymous՝ «guest:…»)։ */
+export function navigationScope() {
+  return activeScope;
+}
+
 export function setNavigationCacheScope(scope: string) {
   const nextScope = scope.trim() || "guest";
   if (nextScope === activeScope) return;
