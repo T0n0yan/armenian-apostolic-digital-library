@@ -17,7 +17,13 @@ type ChatEnv = {
 };
 
 /** Ամեն socket-ին կցված. ով է, որտեղ է (չատում թե կայքի այլ էջում) և արդյոք էջը էկրանին է։ */
-type Attachment = { side: ChatSide; userId: string; visible: boolean; where: ChatWhere };
+type Attachment = { side: ChatSide; userId: string; visible: boolean; where: ChatWhere; revoked?: boolean; at?: number };
+/**
+ * Էջը 25 վայրկյանը մեկ «ping» է ուղարկում։ Եթե այսքան ժամանակ ոչինչ չի եկել, կապը «մեռած» է
+ * (հեռախոսը փակել է էջը առանց կապը փակելու). այն չի հաշվվում լույսի համար և փակվում է։
+ */
+const ALIVE_MS = 90_000;
+const SWEEP_MS = 60_000;
 
 type Row = {
   id: number; side: string; body: string; at: number; deleted: number; kind: string; file_id: number | null; meta: string | null; edited_at: number | null;
@@ -95,7 +101,8 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server, [side]);
-    server.serializeAttachment({ side, userId, visible: true, where } satisfies Attachment);
+    server.serializeAttachment({ side, userId, visible: true, where, at: Date.now() } satisfies Attachment);
+    await this.scheduleSweep();
     server.send(JSON.stringify(where === "chat" ? this.initFor(side) : { type: "lite", unread: this.unreadOf(side), presence: this.presenceOf(otherSide(side)) } satisfies ServerEvent));
     this.presenceChanged(side);
     return new Response(null, { status: 101, webSocket: client });
@@ -115,6 +122,8 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     for (const socket of this.ctx.getWebSockets("b")) {
       const me = socket.deserializeAttachment() as Attachment | null;
       if (me && keepIds.includes(me.userId)) continue;
+      // Նշում ենք, որ փակումը «վերջին այց» չգրանցի (դա նախկին ստացողն է, ոչ թե նորը)։
+      if (me) socket.serializeAttachment({ ...me, revoked: true, visible: false } satisfies Attachment);
       try { socket.close(4001, "recipient changed"); } catch { /* արդեն փակ է */ }
     }
     const marks = keepIds.length ? keepIds.map(() => "?").join(",") : "''";
@@ -241,7 +250,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       }
       case "typing": this.sendTo(otherSide(side), { type: "typing" }); return;
       case "where":
-        socket.serializeAttachment({ ...me, where: event.where, visible: event.visible } satisfies Attachment);
+        socket.serializeAttachment({ ...me, where: event.where, visible: event.visible, at: Date.now() } satisfies Attachment);
         this.presenceChanged(side);
         return;
       case "history": {
@@ -293,7 +302,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   async webSocketClose(socket: WebSocket, code: number, reason: string) {
     const me = socket.deserializeAttachment() as Attachment | null;
     try { socket.close(code === 1005 ? 1000 : code, reason); } catch { /* արդեն փակ է */ }
-    if (me) this.presenceChanged(me.side, socket);
+    if (me && !me.revoked) this.presenceChanged(me.side, socket);
   }
 
   async webSocketError(socket: WebSocket) {
@@ -362,9 +371,32 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   }
 
   private socketsOf(side: ChatSide, except?: WebSocket) {
-    return this.ctx.getWebSockets(side).filter((socket) => socket !== except)
+    return this.ctx.getWebSockets(side).filter((socket) => socket !== except && this.isAlive(socket))
       .map((socket) => socket.deserializeAttachment() as Attachment | null)
-      .filter((value): value is Attachment => Boolean(value));
+      .filter((value): value is Attachment => Boolean(value) && !value?.revoked);
+  }
+
+  /** Կապը կենդա՞նի է. վերջին «ping»-ը (ավտոմատ պատասխան) կամ վերջին իրադարձությունը՝ ALIVE_MS-ից ոչ հին։ */
+  private isAlive(socket: WebSocket, now = Date.now()) {
+    const me = socket.deserializeAttachment() as Attachment | null;
+    const pinged = this.ctx.getWebSocketAutoResponseTimestamp(socket)?.getTime() ?? 0;
+    return now - Math.max(pinged, me?.at ?? 0) < ALIVE_MS;
+  }
+
+  private async scheduleSweep() {
+    if (!(await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + SWEEP_MS);
+  }
+
+  /** Րոպեն մեկ (միայն երբ կապեր կան). «մեռած» կապերը փակվում են, և լույսը թարմանում է։ */
+  async alarm() {
+    const now = Date.now();
+    for (const socket of this.ctx.getWebSockets()) {
+      if (this.isAlive(socket, now)) continue;
+      try { socket.close(4000, "stale"); } catch { /* արդեն փակ է */ }
+    }
+    this.presenceChanged("a");
+    this.presenceChanged("b");
+    if (this.ctx.getWebSockets().some((socket) => this.isAlive(socket, now))) await this.ctx.storage.setAlarm(now + SWEEP_MS);
   }
 
   private statusOf(side: ChatSide, except?: WebSocket): ChatStatus {
