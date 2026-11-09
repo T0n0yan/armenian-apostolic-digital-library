@@ -28,6 +28,9 @@ let memo: { value: string; at: number } | null = null;
  * The site's cache version: part of every edge-cache key, so changing it makes all cached pages
  * fresh at once. Read from D1 at most every 15 seconds per Worker instance.
  */
+/** Բովանդակության տարբերակի հասցեն Cloudflare-ի cache-ում։ */
+export const CONTENT_VERSION_KEY = "https://edge-cache.internal/__content-version";
+
 export async function cacheEpoch(database: D1Database) {
   if (memo && Date.now() - memo.at < 15_000) return memo.value;
   const row = await database.prepare("SELECT value FROM site_settings WHERE key = 'cache_epoch'").first<{ value: string }>().catch(() => null);
@@ -40,5 +43,7 @@ export async function bumpCacheEpoch(database: D1Database) {
   const value = String(Date.now());
   await database.prepare("INSERT INTO site_settings (key, value) VALUES ('cache_epoch', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')").bind(value).run();
   memo = { value, at: Date.now() };
+  // Cloudflare-ի cache-ում պահված տարբերակը (workers/app.ts) նույնպես ջնջում ենք, որ փոփոխությունն անմիջապես երևա։
+  await (globalThis.caches as (CacheStorage & { default?: Cache }) | undefined)?.default?.delete(CONTENT_VERSION_KEY).catch(() => false);
   return value;
 }

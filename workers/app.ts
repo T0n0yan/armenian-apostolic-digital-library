@@ -1,6 +1,7 @@
 import { createRequestHandler } from "react-router";
 
 import { contentVersion } from "../app/data/content-version.server";
+import { CONTENT_VERSION_KEY } from "../app/data/site-refresh.server";
 import { dispatchCloudSync } from "../app/data/site-refresh.server";
 import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
@@ -253,7 +254,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     // the library's content version (a new or changed post, or an admin's «Թարմացնել հիմա»), so a
     // change makes every page fresh at once, while unchanged pages can be kept long.
     const keyUrl = new URL(url);
-    keyUrl.searchParams.set("__cache", await contentVersion((env as unknown as { DB: D1Database }).DB));
+    keyUrl.searchParams.set("__cache", await edgeContentVersion(cache, context, (env as unknown as { DB: D1Database }).DB));
     // Pages that show "today" (the day's verse, saint, readings) change at midnight in Yerevan.
     keyUrl.searchParams.set("__day", yerevanDay());
     // Ամեն deploy-ի JS/CSS ֆայլերը նոր անուններ ունեն, իսկ հինները այլևս չկան. նախորդ build-ի
@@ -282,6 +283,19 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const response = await requestHandler(request);
     return timed(store(cache, cacheKey, url, request, response, context), "miss", started);
   }
+}
+
+/**
+ * Բովանդակության տարբերակը՝ Cloudflare-ի տեղական cache-ից (15 վ)։ Առանց սրա cache-ից տրվող ամեն էջ
+ * նախ գնում էր D1 բազա (150–250 մվ). հիմա բազային հարցնում է 15 վայրկյանը մեկ անգամ։
+ */
+async function edgeContentVersion(cache: Cache, context: ExecutionContext, database: D1Database) {
+  const key = new Request(CONTENT_VERSION_KEY);
+  const hit = await cache.match(key).catch(() => undefined);
+  if (hit) return hit.text();
+  const value = await contentVersion(database);
+  context.waitUntil(cache.put(key, new Response(value, { headers: { "Cache-Control": "public, max-age=15" } })).catch(() => undefined));
+  return value;
 }
 
 let build: Promise<string> | null = null;
