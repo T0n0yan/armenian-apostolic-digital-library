@@ -6,7 +6,7 @@ import { STATUS_COLOR, useChatSocket } from "./chat-socket";
 import { fieldControl, fieldHint, fieldLabel } from "./ui-styles";
 import {
   BG_OPACITY_DEFAULT, CHAT_BACKGROUND_PATH, CHAT_UPLOAD_PATH, FILE_MAX, FONT_DEFAULT, FONT_MAX, FONT_MIN, MESSAGE_MAX, NICK_MAX, chatFileUrl, messageTicks, otherSide,
-  type ChatMessage, type ChatPresence, type ChatReply, type ChatSettings, type ChatSide, type ChatStatus, type ClientEvent, type ServerEvent,
+  type ChatDiagnostics, type ChatMessage, type ChatPresence, type ChatReply, type ChatSettings, type ChatSide, type ChatStatus, type ClientEvent, type ServerEvent,
 } from "../utils/private-chat";
 import { enablePushNotifications, pushSupport } from "../utils/web-push";
 
@@ -78,7 +78,7 @@ function recorderType() {
  * Անձնական չատը։ Socket-ով. նոր նամակը, «գրում է…», ✓✓, լույսը (🟢🟡🔴)՝ միանգամից։
  * Ոչինչ չի պահվում բրաուզերում (localStorage չկա). էջը փակելուց հետո հեռախոսում ոչինչ չի մնում։
  */
-export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; recipient: string | null; actionData?: { error?: string; saved?: string } }) {
+export function PrivateChat({ side, recipient, diagnostics, actionData }: { side: ChatSide; recipient: string | null; diagnostics: ChatDiagnostics | null; actionData?: { error?: string; saved?: string } }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<Pending[]>([]);
   const [read, setRead] = useState<Record<ChatSide, number>>({ a: 0, b: 0 });
@@ -392,7 +392,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
           <ChatPreferences settings={settings} owner={side === "a"} placeholder={names[other] ?? ""} onPreview={setOpacityPreview}
             onSave={(next) => { send({ type: "settings", ...next }); setNotice("Պահված է։"); }}
             onBackground={(file) => void uploadBackground(file)} onReset={() => { send({ type: "background-reset" }); setNotice("Վերադարձված է ընդհանուր ֆոնը։"); }} />
-          {side === "a" && <OwnerSettings recipient={recipient} actionData={actionData} onClear={() => send({ type: "clear" })} />}
+          {side === "a" && <OwnerSettings recipient={recipient} diagnostics={diagnostics} actionData={actionData} onClear={() => send({ type: "clear" })} />}
         </div>
       )}
       {notice && (
@@ -638,10 +638,11 @@ function ChatPreferences({ settings, owner, placeholder, onSave, onPreview, onBa
 }
 
 /** Միայն տիրոջ համար. ով է երկրորդ կողմը և ամբողջ զրույցի ջնջումը։ */
-function OwnerSettings({ recipient, actionData, onClear }: { recipient: string | null; actionData?: { error?: string; saved?: string }; onClear: () => void }) {
+function OwnerSettings({ recipient, diagnostics, actionData, onClear }: { recipient: string | null; diagnostics: ChatDiagnostics | null; actionData?: { error?: string; saved?: string }; onClear: () => void }) {
   const busy = useNavigation().state !== "idle";
   return (
     <div className="mx-3 my-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3">
+      {diagnostics && <ChatCheck diagnostics={diagnostics} />}
       <Form method="post" className="grid gap-3">
         <label className={fieldLabel}>Զրույցի երկրորդ կողմը (Gmail կամ @Telegram username, ստորակետով՝ մի քանիսը)
           <input className={fieldControl} name="recipient" defaultValue={recipient ?? ""} required maxLength={300} placeholder="anun@gmail.com" autoComplete="off" />
@@ -660,6 +661,36 @@ function OwnerSettings({ recipient, actionData, onClear }: { recipient: string |
         }}>
         <Trash2 aria-hidden="true" size={16} /> Ջնջել ամբողջ զրույցը
       </button>
+    </div>
+  );
+}
+
+/** Տիրոջ «Ստուգում»-ը. ✓/✗ տողեր, որ տերը ինքը տեսնի, թե ինչպես է կարգավորված (նամակների տեքստ չկա)։ */
+function ChatCheck({ diagnostics: d }: { diagnostics: ChatDiagnostics }) {
+  const line = (ok: boolean | null, text: string, hint?: string) => (
+    <li className="flex gap-2 text-[13px] leading-snug">
+      <span aria-hidden="true">{ok === null ? "•" : ok ? "✅" : "⚠️"}</span>
+      <span>{text}{hint ? <span className="block text-[12px] text-muted">{hint}</span> : null}</span>
+    </li>
+  );
+  const seen = d.recipientLastSeen ? `${dayLabel(d.recipientLastSeen)}, ${timeOf(d.recipientLastSeen)}` : "";
+  return (
+    <div className="grid gap-2">
+      <strong className="text-[14px]">Ստուգում</strong>
+      <ul className="m-0 grid list-none gap-1.5 p-0">
+        {line(d.recipientAccounts.length > 0,
+          d.recipientAccounts.length ? `Ստացողը՝ ${d.recipientAccounts.map((account) => `${account.name || "—"} (${account.kind === "google" ? "Google" : "Telegram"}՝ ${account.label})`).join(", ")}` : "Ստացողը նշված չէ",
+          d.recipientAccounts.length ? "Նրա նամակները կհասնեն միայն այս հաշիվ(ներ)ով մտնելիս։" : "Ներքևում գրեք նրա Gmail-ը և պահեք։")}
+        {line(d.recipientAccounts.some((account) => account.kind === "telegram") || d.recipientTelegram, "Telegram-ով (Mini App) մուտք",
+          d.recipientAccounts.some((account) => account.kind === "telegram") || d.recipientTelegram ? "Նա կարող է բացել նաև Telegram-ից։" : "Եթե նա կայքը բացում է Telegram-ից, իսկ Telegram-ը կապված չէ իր Google-ին, ներքևում ստորակետով ավելացրեք նրա @username-ը։")}
+        {line(d.recipientConnected, d.recipientConnected ? `Նա արդեն մտել է չատ/կայք${d.recipientStatus !== "away" ? " (հիմա՝ ներսում է)" : seen ? ` (վերջին անգամ՝ ${seen})` : ""}` : "Նա դեռ չի մտել կայք այս հաշվով",
+          d.recipientConnected ? undefined : "Երբ առաջին անգամ մտնի, լույսը կվառվի, և ձեզ կգա ծանուցում։")}
+        {line(d.recipientTelegram || d.recipientPush > 0, `Ծանուցումներ նրան՝ ${[d.recipientTelegram ? "Telegram բոտ" : "", d.recipientPush ? `բրաուզեր (${d.recipientPush})` : ""].filter(Boolean).join(", ") || "դեռ ոչ մի տեղ"}`,
+          d.recipientTelegram || d.recipientPush ? undefined : "Նա ծանուցում կստանա, երբ բացի բոտը Telegram-ում կամ չատում սեղմի 🔔։ Մինչ այդ նամակները կսպասեն չատում։")}
+        {line(d.ownerTelegram || d.ownerPush > 0, `Ծանուցումներ ձեզ՝ ${[d.ownerTelegram ? "Telegram բոտ" : "", d.ownerPush ? `բրաուզեր (${d.ownerPush})` : ""].filter(Boolean).join(", ") || "դեռ ոչ մի տեղ"}`,
+          d.ownerTelegram || d.ownerPush ? undefined : "Բացեք չատը Telegram-ից (բոտի «Բացել») կամ սեղմեք 🔔։")}
+        {line(null, d.presenceNotify ? "«Նա կայքում է» ծանուցումը՝ միացված" : "«Նա կայքում է» ծանուցումը՝ անջատված")}
+      </ul>
     </div>
   );
 }

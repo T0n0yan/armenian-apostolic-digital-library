@@ -129,6 +129,17 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     this.sendTo("a", { type: "presence", presence: this.presenceOf("b") });
   }
 
+  /** Տիրոջ «Ստուգում»-ի համար. ով է մտել ինչ կողմով, և «b»-ի վիճակը (նամակների տեքստ չկա)։ */
+  async diagnostics() {
+    const members = this.sql.exec<{ user_id: string; side: string; telegram_id: string | null; seen_at: number }>("SELECT user_id, side, telegram_id, seen_at FROM members").toArray();
+    return {
+      members: members.map((row) => ({ userId: row.user_id, side: row.side === "a" ? "a" as const : "b" as const, telegram: Boolean(row.telegram_id), seenAt: row.seen_at })),
+      statusB: this.statusOf("b"),
+      seenB: Number(this.getState("seen_b") ?? 0) || null,
+      presenceNotify: this.getState("presence_notify_a") !== "0",
+    };
+  }
+
   async messageCount() {
     return this.sql.exec<{ count: number }>("SELECT COUNT(*) AS count FROM messages WHERE deleted = 0").one().count;
   }

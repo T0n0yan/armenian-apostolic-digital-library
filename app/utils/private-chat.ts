@@ -67,7 +67,8 @@ export const PRESENCE_AWAY_MIN_MS = 3 * 60_000;
 
 /** Ծանուցե՞լ տիրոջը, որ մյուսը եկավ. միայն «փակ»-ից, երկար բացակայությունից հետո և ոչ շատ հաճախ։ */
 export function shouldNotifyPresence(previous: string | null, next: string, awaySince: number | null, lastNotified: number | null, now = Date.now()) {
-  if (previous !== "away" || next === "away") return false;
+  // previous === null՝ առաջին անգամ (կամ ստացողին նոր պահելուց հետո). նույնն է, ինչ «փակ»։
+  if ((previous !== null && previous !== "away") || next === "away") return false;
   if (awaySince && now - awaySince < PRESENCE_AWAY_MIN_MS) return false;
   return !lastNotified || now - lastNotified >= PRESENCE_NOTIFY_EVERY_MS;
 }
@@ -87,6 +88,14 @@ export function allowedMime(kind: string, mime: string) {
   const type = kind === "background" ? "image" : kind;
   return (type === "image" || type === "audio") && MIME[type].test(base) ? base : null;
 }
+
+/** Տիրոջ «Ստուգում»-ը. ինչպես է իրականում կարգավորված ստացողը և ծանուցումները (տեքստ չկա)։ */
+export type ChatDiagnostics = {
+  recipientAccounts: { kind: "google" | "telegram"; label: string; name: string }[];
+  recipientConnected: boolean; recipientLastSeen: number | null; recipientStatus: ChatStatus;
+  recipientTelegram: boolean; recipientPush: number;
+  ownerTelegram: boolean; ownerPush: number; presenceNotify: boolean;
+};
 
 export const otherSide = (side: ChatSide): ChatSide => (side === "a" ? "b" : "a");
 export const clampOpacity = (value: unknown) => {

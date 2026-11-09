@@ -88,3 +88,8 @@ test("«Նա կայքում է» ծանուցումը. միայն փակից, ե
   assert.equal(shouldNotifyPresence("away", "app", null, now - PRESENCE_NOTIFY_EVERY_MS + 1, now), false);
   assert.equal(shouldNotifyPresence("away", "app", null, now - PRESENCE_NOTIFY_EVERY_MS, now), true);
 });
+
+test("առաջին մուտքը (վիճակ դեռ չկա) նույնպես ծանուցում է", () => {
+  assert.equal(shouldNotifyPresence(null, "app", null, null, 10_000_000), true);
+  assert.equal(shouldNotifyPresence(null, "away", null, null, 10_000_000), false);
+});
