@@ -48,7 +48,7 @@ test("ֆայլերի ձևաչափ, կարգավորումներ, փոփոխու�
   assert.equal(allowedMime("video", "video/mp4"), null);
   assert.equal(clampFont(100), FONT_MAX);
   assert.equal(clampFont(1), FONT_MIN);
-  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: " Ա\nնի ", font: 18 })), { type: "settings", nick: "Ա նի", font: 18, bgOpacity: 0.22 });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: " Ա\nնի ", font: 18 })), { type: "settings", nick: "Ա նի", font: 18, bgOpacity: 0.22, notifyPresence: true });
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "edit", id: 4, text: " նոր " })), { type: "edit", id: 4, text: "նոր" });
   assert.equal(parseClientEvent(JSON.stringify({ type: "edit", id: 4, text: " " })), null);
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "where", where: "x", visible: true })), { type: "where", where: "app", visible: true });
@@ -64,7 +64,7 @@ test("ֆոն. միայն նկարներ, թափանցիկությունը սահ
   assert.equal(clampOpacity(2), 0.8);
   assert.equal(clampOpacity(-1), 0.05);
   assert.equal(clampOpacity("x"), 0.22);
-  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: "", font: 15, bgOpacity: 0.3 })), { type: "settings", nick: "", font: 15, bgOpacity: 0.3 });
+  assert.deepEqual(parseClientEvent(JSON.stringify({ type: "settings", nick: "", font: 15, bgOpacity: 0.3 })), { type: "settings", nick: "", font: 15, bgOpacity: 0.3, notifyPresence: true });
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "background-reset" })), { type: "background-reset" });
 });
 
@@ -72,4 +72,19 @@ test("պատասխան (reply). միայն թիվ, սխալը՝ առանց պա�
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "send", text: "այո", clientId: "c", replyTo: 7 })), { type: "send", text: "այո", clientId: "c", replyTo: 7 });
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "send", text: "այո", clientId: "c", replyTo: "7" })), { type: "send", text: "այո", clientId: "c" });
   assert.deepEqual(parseClientEvent(JSON.stringify({ type: "send", text: "այո", clientId: "c", replyTo: -1 })), { type: "send", text: "այո", clientId: "c" });
+});
+
+import { PRESENCE_AWAY_MIN_MS, PRESENCE_NOTIFY_EVERY_MS, shouldNotifyPresence } from "../app/utils/private-chat";
+
+test("«Նա կայքում է» ծանուցումը. միայն փակից, երկար բացակայությունից հետո, ոչ հաճախ", () => {
+  const now = 10_000_000;
+  assert.equal(shouldNotifyPresence("away", "app", now - PRESENCE_AWAY_MIN_MS - 1, null, now), true);
+  assert.equal(shouldNotifyPresence("away", "chat", null, null, now), true);
+  assert.equal(shouldNotifyPresence("app", "chat", null, null, now), false);
+  assert.equal(shouldNotifyPresence("away", "away", null, null, now), false);
+  // կարճ վերամիացում (էջի թարմացում)՝ ոչ
+  assert.equal(shouldNotifyPresence("away", "app", now - 10_000, null, now), false);
+  // 20 րոպեից շուտ՝ ոչ
+  assert.equal(shouldNotifyPresence("away", "app", null, now - PRESENCE_NOTIFY_EVERY_MS + 1, now), false);
+  assert.equal(shouldNotifyPresence("away", "app", null, now - PRESENCE_NOTIFY_EVERY_MS, now), true);
 });

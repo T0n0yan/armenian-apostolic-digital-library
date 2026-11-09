@@ -22,6 +22,8 @@ export type ChatSettings = {
   nick: string; font: number;
   /** Ֆոնի նկարը որքան երևա (0.05–0.8)։ background՝ իր նկարի համարը, null՝ ընդհանուր (տիրոջ ընտրած) ֆոնը։ */
   bgOpacity: number; background: number | null;
+  /** Միայն տիրոջ համար. ծանուցել, երբ մյուսը բացում է կայքը։ */
+  notifyPresence: boolean;
 };
 
 /** Բրաուզերից սերվեր։ */
@@ -33,7 +35,7 @@ export type ClientEvent =
   | { type: "where"; where: ChatWhere; visible: boolean }
   | { type: "history"; before: number }
   | { type: "delete"; id: number }
-  | { type: "settings"; nick: string; font: number; bgOpacity: number }
+  | { type: "settings"; nick: string; font: number; bgOpacity: number; notifyPresence: boolean }
   | { type: "background-reset" }
   | { type: "clear" };
 
@@ -59,6 +61,16 @@ export const FONT_MAX = 24;
 export const FONT_DEFAULT = 15.5;
 export const BG_OPACITY_DEFAULT = 0.22;
 export const PAGE_SIZE = 60;
+/** «Նա կայքում է» ծանուցումը՝ ոչ ավելի հաճախ, և միայն եթե նա առնվազն այսքան բացակա էր (վերամիացումները չեն հաշվվում)։ */
+export const PRESENCE_NOTIFY_EVERY_MS = 20 * 60_000;
+export const PRESENCE_AWAY_MIN_MS = 3 * 60_000;
+
+/** Ծանուցե՞լ տիրոջը, որ մյուսը եկավ. միայն «փակ»-ից, երկար բացակայությունից հետո և ոչ շատ հաճախ։ */
+export function shouldNotifyPresence(previous: string | null, next: string, awaySince: number | null, lastNotified: number | null, now = Date.now()) {
+  if (previous !== "away" || next === "away") return false;
+  if (awaySince && now - awaySince < PRESENCE_AWAY_MIN_MS) return false;
+  return !lastNotified || now - lastNotified >= PRESENCE_NOTIFY_EVERY_MS;
+}
 export const FILE_MAX = 10 * 1024 * 1024;
 export const CHAT_SOCKET_PATH = "/namak/socket";
 export const CHAT_UPLOAD_PATH = "/namak/upload";
@@ -118,7 +130,7 @@ export function parseClientEvent(raw: unknown): ClientEvent | null {
     case "where": return { type: "where", where: value.where === "chat" ? "chat" : "app", visible: value.visible === true };
     case "history": return id("before") === null ? null : { type: "history", before: id("before")! };
     case "delete": return id("id") === null ? null : { type: "delete", id: id("id")! };
-    case "settings": return { type: "settings", nick: cleanMessage(value.nick, NICK_MAX).replace(/\n/gu, " "), font: clampFont(value.font), bgOpacity: clampOpacity(value.bgOpacity) };
+    case "settings": return { type: "settings", nick: cleanMessage(value.nick, NICK_MAX).replace(/\n/gu, " "), font: clampFont(value.font), bgOpacity: clampOpacity(value.bgOpacity), notifyPresence: value.notifyPresence !== false };
     case "background-reset": return { type: "background-reset" };
     case "clear": return { type: "clear" };
     default: return null;

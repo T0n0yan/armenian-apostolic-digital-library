@@ -84,7 +84,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
   const [read, setRead] = useState<Record<ChatSide, number>>({ a: 0, b: 0 });
   const [names, setNames] = useState<Partial<Record<ChatSide, string>>>({});
   const [presence, setPresence] = useState<ChatPresence>({ status: "away", lastSeen: null });
-  const [settings, setSettings] = useState<ChatSettings>({ nick: "", font: FONT_DEFAULT, bgOpacity: BG_OPACITY_DEFAULT, background: null });
+  const [settings, setSettings] = useState<ChatSettings>({ nick: "", font: FONT_DEFAULT, bgOpacity: BG_OPACITY_DEFAULT, background: null, notifyPresence: true });
   const [opacityPreview, setOpacityPreview] = useState<number | null>(null);
   const [awayFromBottom, setAwayFromBottom] = useState(false);
   const [typingUntil, setTypingUntil] = useState(0);
@@ -389,7 +389,7 @@ export function PrivateChat({ side, recipient, actionData }: { side: ChatSide; r
 
       {settingsOpen && (
         <div className="relative max-h-[42%] min-h-0 shrink overflow-y-auto">
-          <ChatPreferences settings={settings} placeholder={names[other] ?? ""} onPreview={setOpacityPreview}
+          <ChatPreferences settings={settings} owner={side === "a"} placeholder={names[other] ?? ""} onPreview={setOpacityPreview}
             onSave={(next) => { send({ type: "settings", ...next }); setNotice("Պահված է։"); }}
             onBackground={(file) => void uploadBackground(file)} onReset={() => { send({ type: "background-reset" }); setNotice("Վերադարձված է ընդհանուր ֆոնը։"); }} />
           {side === "a" && <OwnerSettings recipient={recipient} actionData={actionData} onClear={() => send({ type: "clear" })} />}
@@ -583,19 +583,21 @@ function ReplyQuote({ reply, mine, otherName, onJump }: { reply: ChatReply; mine
 }
 
 /** Երկուսի համար. ինչպես եմ տեսնում մյուսի անունը և տեքստի չափը։ */
-function ChatPreferences({ settings, placeholder, onSave, onPreview, onBackground, onReset }: {
+function ChatPreferences({ settings, owner, placeholder, onSave, onPreview, onBackground, onReset }: {
   settings: ChatSettings; placeholder: string;
-  onSave: (next: { nick: string; font: number; bgOpacity: number }) => void;
+  owner: boolean;
+  onSave: (next: { nick: string; font: number; bgOpacity: number; notifyPresence: boolean }) => void;
   onPreview: (opacity: number | null) => void; onBackground: (file: File | undefined) => void; onReset: () => void;
 }) {
   const [nick, setNick] = useState(settings.nick);
   const [font, setFont] = useState(settings.font);
   const [opacity, setOpacity] = useState(settings.bgOpacity);
+  const [notifyPresence, setNotifyPresence] = useState(settings.notifyPresence);
   const backgroundRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { setNick(settings.nick); setFont(settings.font); setOpacity(settings.bgOpacity); }, [settings]);
+  useEffect(() => { setNick(settings.nick); setFont(settings.font); setOpacity(settings.bgOpacity); setNotifyPresence(settings.notifyPresence); }, [settings]);
   const step = (delta: number) => setFont((value) => Math.min(FONT_MAX, Math.max(FONT_MIN, value + delta)));
   return (
-    <form className="mx-3 mt-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3" onSubmit={(event) => { event.preventDefault(); onSave({ nick: nick.trim(), font, bgOpacity: opacity }); }}>
+    <form className="mx-3 mt-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3" onSubmit={(event) => { event.preventDefault(); onSave({ nick: nick.trim(), font, bgOpacity: opacity, notifyPresence }); }}>
       <label className={fieldLabel}>Ինչ անունով տեսնեմ նրան
         <input className={fieldControl} value={nick} onChange={(event) => setNick(event.target.value)} maxLength={NICK_MAX} placeholder={placeholder || "Անուն"} autoComplete="off" />
       </label>
@@ -624,6 +626,12 @@ function ChatPreferences({ settings, placeholder, onSave, onPreview, onBackgroun
             onChange={(event) => { const value = Number(event.target.value) / 100; setOpacity(value); onPreview(value); }} />
         </label>
       </div>
+      {owner && (
+        <label className="flex cursor-pointer items-start gap-2.5 text-[13px] leading-snug">
+          <input type="checkbox" className="mt-0.5 size-4 accent-[rgb(217_181_111)]" checked={notifyPresence} onChange={(event) => setNotifyPresence(event.target.checked)} />
+          <span>Ծանուցել ինձ, երբ նա բացում է կայքը <span className="block text-[12px] text-muted">Առանց ձայնի, ոչ ավելի հաճախ, քան 20 րոպեն մեկ</span></span>
+        </label>
+      )}
       <button type="submit" className="min-h-11 cursor-pointer rounded-full border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/18%)] px-5 text-[14px] font-bold text-gold-bright">Պահել</button>
     </form>
   );
