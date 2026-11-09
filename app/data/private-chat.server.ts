@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 
 import { accountList, isOwnerIdentity, linkedAliases } from "../auth/admin.server";
 import { getOptionalTelegramUser, type TelegramUserIdentity } from "../auth/telegram-user.server";
-import { FILE_MAX, allowedMime, type ChatMeta, type ChatSide } from "../utils/private-chat";
+import { FILE_MAX, allowedMime, type ChatDiagnostics, type ChatMeta, type ChatSide } from "../utils/private-chat";
 import { DEFAULT_BACKGROUND_BASE64, DEFAULT_BACKGROUND_MIME } from "./private-chat-background.server";
 import { getPrivateLetter } from "./private-letter.server";
 
@@ -128,4 +128,41 @@ export async function readChatBackground(request: Request) {
   if (own) return new Response(own.data, { headers: fileHeaders({ "Content-Type": own.mime }) });
   defaultBackground ??= Uint8Array.from(atob(DEFAULT_BACKGROUND_BASE64), (character) => character.charCodeAt(0));
   return new Response(defaultBackground, { headers: fileHeaders({ "Content-Type": DEFAULT_BACKGROUND_MIME }) });
+}
+
+/**
+ * Տիրոջ «Ստուգում»-ը. ստացողի հաշիվները (Google/Telegram), մտե՞լ է արդյոք, և ծանուցումները
+ * որտեղ կհասնեն (երկու կողմի համար)։ Միայն տիրոջ loader-ից։
+ */
+export async function chatDiagnostics(recipientIds: string[]): Promise<ChatDiagnostics | null> {
+  const room = chatRoom();
+  if (!room) return null;
+  const state = await room.diagnostics();
+  const ownerIds = state.members.filter((member) => member.side === "a").map((member) => member.userId);
+  const herIds = [...new Set([...recipientIds, ...state.members.filter((member) => member.side === "b").map((member) => member.userId)])];
+  const all = [...new Set([...ownerIds, ...herIds])];
+  const marks = all.map(() => "?").join(",") || "''";
+  const [accounts, pushes] = await Promise.all([
+    env.DB.prepare(`SELECT id, display_name AS name, username, telegram_id FROM app_users WHERE id IN (${marks})`).bind(...all).all<{ id: string; name: string; username: string | null; telegram_id: string }>(),
+    env.DB.prepare(`SELECT user_id, COUNT(*) AS count FROM push_subscriptions WHERE user_id IN (${marks}) GROUP BY user_id`).bind(...all).all<{ user_id: string; count: number }>(),
+  ]);
+  const byId = new Map(accounts.results.map((row) => [row.id, row]));
+  const pushOf = (ids: string[]) => pushes.results.filter((row) => ids.includes(row.user_id)).reduce((sum, row) => sum + row.count, 0);
+  const telegramOf = (ids: string[]) => ids.some((id) => /^\d+$/u.test(byId.get(id)?.telegram_id ?? ""));
+  return {
+    recipientAccounts: recipientIds.map((id) => {
+      const row = byId.get(id);
+      return id.startsWith("google:")
+        ? { kind: "google" as const, label: row?.username ?? "Google", name: row?.name ?? "" }
+        : { kind: "telegram" as const, label: row?.username ? `@${row.username}` : "Telegram", name: row?.name ?? "" };
+    }),
+    recipientConnected: state.members.some((member) => member.side === "b"),
+    recipientLastSeen: state.seenB,
+    recipientStatus: state.statusB,
+    recipientTelegram: telegramOf(herIds),
+    recipientPush: pushOf(herIds),
+    ownerTelegram: telegramOf(ownerIds),
+    ownerPush: pushOf(ownerIds),
+    presenceNotify: state.presenceNotify,
+  };
 }
