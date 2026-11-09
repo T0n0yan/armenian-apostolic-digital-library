@@ -4,7 +4,7 @@ import type { Route } from "./+types/private-chat";
 import { requireSameOrigin } from "../auth/admin.server";
 import { RouteErrorPage } from "../components/error-page";
 import { PrivateChat } from "../components/private-chat";
-import { chatParticipant, chatRoom } from "../data/private-chat.server";
+import { chatDiagnostics, chatParticipant, chatRoom } from "../data/private-chat.server";
 import { findRecipientAccounts, getPrivateLetter, savePrivateLetter } from "../data/private-letter.server";
 
 export function meta() {
@@ -19,9 +19,9 @@ const notFound = () => new Response("Not found.", { status: 404, statusText: "No
 export async function loader({ request }: Route.LoaderArgs) {
   const who = await chatParticipant(request);
   if (!who) throw notFound();
-  if (who.side !== "a") return { side: who.side, recipient: null };
+  if (who.side !== "a") return { side: who.side, recipient: null, diagnostics: null };
   const letter = await getPrivateLetter(env.DB);
-  return { side: who.side, recipient: letter.recipientLabel };
+  return { side: who.side, recipient: letter.recipientLabel, diagnostics: await chatDiagnostics(letter.recipientIds).catch(() => null) };
 }
 
 /** Տերը նշում է ստացողին։ Երբ արդեն նամակներ կան, ուրիշին փոխել չի կարելի (նա կտեսներ ամբողջ զրույցը)։ */
@@ -46,7 +46,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function PrivateChatPage({ loaderData, actionData }: Route.ComponentProps) {
-  return <PrivateChat side={loaderData.side} recipient={loaderData.recipient} actionData={actionData} />;
+  return <PrivateChat side={loaderData.side} recipient={loaderData.recipient} diagnostics={loaderData.diagnostics} actionData={actionData} />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
