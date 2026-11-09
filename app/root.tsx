@@ -1,6 +1,6 @@
 import { BOOT_SCRIPT } from "./utils/boot-script";
 import {env} from "cloudflare:workers";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Links,
   Meta,
@@ -29,18 +29,36 @@ import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-
 import { markAppHydrated, setPersonalContext } from "./utils/personal-data";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
-import { ReminderAlarm } from "./components/reminder-alarm";
 import { NavigationProgress } from "./components/navigation-progress";
-import { GlossaryLayer } from "./components/glossary-layer";
-import { HighlightLayer } from "./components/highlight-layer";
 import { ChurchNudge } from "./components/church-nudge";
 import { HelpOnboarding } from "./components/help-onboarding";
 import { PrivateChatPresence } from "./components/private-chat-presence";
 import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
-import { SundayPrompt } from "./components/sunday-prompt";
 import "./app.css";
+
+// Այս շերտերը էջի առաջին պատկերին պետք չեն. բեռնվում են առանձին ֆայլով, երբ բրաուզերը ազատ է
+// (հին հեռախոսներում էջը ավելի շուտ է բացվում)։
+const GlossaryLayer = lazy(() => import("./components/glossary-layer").then((m) => ({ default: m.GlossaryLayer })));
+const HighlightLayer = lazy(() => import("./components/highlight-layer").then((m) => ({ default: m.HighlightLayer })));
+const ReminderAlarm = lazy(() => import("./components/reminder-alarm").then((m) => ({ default: m.ReminderAlarm })));
+const SundayPrompt = lazy(() => import("./components/sunday-prompt").then((m) => ({ default: m.SundayPrompt })));
+
+/** true՝ երբ էջը բացվել է և բրաուզերը ազատ է (առավելագույնը 2.5 վ հետո)։ */
+function useIdleReady() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => setReady(true), { timeout: 2500 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(() => setReady(true), 1200);
+    return () => window.clearTimeout(id);
+  }, []);
+  return ready;
+}
 
 // Runs before paint. Inside Telegram the launch hash carries Telegram's theme, which already follows
 // the phone's light/dark setting; elsewhere the browser's prefers-color-scheme does.
@@ -53,6 +71,8 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export async function loader({request}: Route.LoaderArgs) {
+  // Բազայի հարցումները զուգահեռ՝ որ էջի առաջին պատասխանը արագ գա։
+  const version = contentVersion(env.DB).catch(() => "0");
   const [telegramAdmin, categories, telegramUser] = await Promise.all([
     getOptionalTelegramAdmin(request, env.DB),
     listActiveCategories(env.DB, false, request.signal).catch(() => []),
@@ -60,7 +80,10 @@ export async function loader({request}: Route.LoaderArgs) {
   ]);
 
   // Անձնական չատ (/namak). մենյուի թաքուն կետը՝ միայն երկու կողմին, չկարդացվածների թվով։
-  const chat = telegramUser ? await chatParticipant(request).catch(() => null) : null;
+  const [chat, navigationCacheScope] = await Promise.all([
+    telegramUser ? chatParticipant(request).catch(() => null) : null,
+    getTelegramUserCacheScope(telegramUser),
+  ]);
 
   const value = {
     // «Կառավարում» is the owner's alone; other admins get links to what they were allowed.
@@ -73,9 +96,9 @@ export async function loader({request}: Route.LoaderArgs) {
     // Shown with "Ելք" at the bottom of the menu.
     account: telegramUser ? { name: telegramUser.displayName, source: telegramUser.source } : null,
     categories,
-    navigationCacheScope: await getTelegramUserCacheScope(telegramUser),
+    navigationCacheScope,
     // Phones keep pages and the title index until this changes (public/sw.js, utils/local-search.ts).
-    contentVersion: await contentVersion(env.DB).catch(() => "0"),
+    contentVersion: await version,
   };
   return value;
 }
@@ -241,6 +264,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ loaderData }: Route.ComponentProps) {
   // Անձնական չատում ոչ մի պատուհան չի բացվում (կիրակնօրյա հարց, ուղեցույց, «Ավելացնել էկրանին»…)։
   const quiet = useLocation().pathname === "/namak";
+  const idle = useIdleReady();
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
   // Մուտք չգործածի մոտ այս սարքում անձնական ոչինչ չի մնում (վերջին կարդացածը, սմայլիկները…)։
@@ -393,16 +417,18 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <CandleLoader />
     <ClientErrorReporter />
     {!quiet && <InstallPrompt />}
-    <ReminderAlarm />
     <ReminderError />
     <NavigationProgress />
-    <GlossaryLayer />
-    <HighlightLayer />
     {!quiet && <ChurchNudge />}
     {!quiet && <HelpOnboarding />}
     <PlaceTracker />
     <PrivateChatPresence />
-    {!quiet && <SundayPrompt />}
+    {idle && <Suspense fallback={null}>
+      <ReminderAlarm />
+      <GlossaryLayer />
+      <HighlightLayer />
+      {!quiet && <SundayPrompt />}
+    </Suspense>}
   </>;
 }
 
