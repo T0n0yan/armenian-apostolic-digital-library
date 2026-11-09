@@ -209,7 +209,7 @@ self.addEventListener("push", (event) => {
       body: data.body || "Նոր ծանուցում",
       icon: "/icon-192.png",
       badge: "/favicon-64.png",
-      tag: "quiet",
+      tag: data.tag === "presence" ? "presence" : "quiet",
       silent: true,
       data: { url: data.url || "/" },
     }));

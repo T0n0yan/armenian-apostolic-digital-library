@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 import { pushKeysFrom, sendWebPush, type PushSubscriptionRow } from "../app/data/web-push.server";
 import {
-  BG_OPACITY_DEFAULT, FONT_DEFAULT, PAGE_SIZE, clampFont, clampOpacity, otherSide, parseClientEvent, statusOf,
+  BG_OPACITY_DEFAULT, FONT_DEFAULT, PAGE_SIZE, clampFont, clampOpacity, otherSide, parseClientEvent, shouldNotifyPresence, statusOf,
   type ChatKind, type ChatMessage, type ChatMeta, type ChatPresence, type ChatSettings, type ChatSide, type ChatStatus, type ChatWhere, type ServerEvent,
 } from "../app/utils/private-chat";
 import { parseLetter } from "../app/utils/private-letter";
@@ -251,6 +251,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
         this.setState(`nick_${side}`, event.nick);
         this.setState(`font_${side}`, String(event.font));
         this.setState(`bgop_${side}`, String(event.bgOpacity));
+        if (side === "a") this.setState("presence_notify_a", event.notifyPresence ? "1" : "0");
         this.sendTo(side, { type: "settings", settings: this.settingsOf(side) });
         return;
       }
@@ -345,6 +346,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       font: clampFont(Number(this.getState(`font_${side}`) ?? FONT_DEFAULT)),
       bgOpacity: clampOpacity(Number(this.getState(`bgop_${side}`) ?? BG_OPACITY_DEFAULT)),
       background: Number(this.getState(`bg_${side}`) ?? 0) || null,
+      notifyPresence: this.getState(`presence_notify_${side}`) !== "0",
     };
   }
 
@@ -366,7 +368,14 @@ export class ChatRoom extends DurableObject<ChatEnv> {
   /** Այս կողմի վիճակը փոխվե՞լ է. եթե այո, մյուսին հայտնել (փակելիս՝ «վերջին անգամ»-ը պահել)։ */
   private presenceChanged(side: ChatSide, closing?: WebSocket) {
     const status = this.statusOf(side, closing);
-    if (this.getState(`status_${side}`) === status) return;
+    const previous = this.getState(`status_${side}`);
+    if (previous === status) return;
+    // Սառան (b) եկավ կայք. տիրոջը՝ լուռ ծանուցում (եթե տերը հիմա չատում չէ և անջատած չէ)։
+    if (side === "b" && this.getState("presence_notify_a") !== "0" && this.statusOf("a") !== "chat"
+      && shouldNotifyPresence(previous, status, Number(this.getState("seen_b") ?? 0) || null, Number(this.getState("presence_at") ?? 0) || null)) {
+      this.setState("presence_at", String(Date.now()));
+      this.ctx.waitUntil(this.notifyPresence().catch((error: unknown) => console.error("presence notify", error instanceof Error ? error.message : "failed")));
+    }
     if (status === "away") this.setState(`seen_${side}`, String(Date.now()));
     this.setState(`status_${side}`, status);
     this.sendTo(otherSide(side), { type: "presence", presence: this.presenceOf(side, closing) });
@@ -455,6 +464,49 @@ export class ChatRoom extends DurableObject<ChatEnv> {
       if (body?.ok && body.result?.message_id) sent.push({ chat: Number(chat), message: body.result.message_id });
     }
     this.setState(`notified_${side}`, JSON.stringify(sent));
+  }
+
+  /**
+   * «Նա կայքում է»՝ միայն տիրոջը, առանց ձայնի և առանց անվան։ Նախորդ նման ծանուցումը Telegram-ից
+   * ջնջվում է, որ զրույցում կուտակված չլինեն։
+   */
+  private async notifyPresence() {
+    const ids = await this.accountsOf("a");
+    if (!ids.length) return;
+    const marks = ids.map(() => "?").join(",");
+    const site = (this.env.PUBLIC_URL ?? "https://apostolic.am").replace(/\/$/u, "");
+    const text = "🟢 Նա հիմա կայքում է";
+    const keys = pushKeysFrom(this.env);
+    if (keys) {
+      const { results } = await this.env.DB.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id IN (${marks})`).bind(...ids).all<PushSubscriptionRow>();
+      for (const subscription of results) {
+        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Հոգևոր ժառանգություն", body: text, url: "/namak", tag: "presence" }, keys).catch(() => "failed" as const);
+        if (outcome === "gone") await this.env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(subscription.endpoint).run();
+      }
+    }
+    const token = this.env.TELEGRAM_BOT_TOKEN;
+    if (!token) return;
+    let previous: Sent[] = [];
+    try { previous = JSON.parse(this.getState("presence_sent") ?? "[]") as Sent[]; } catch { previous = []; }
+    for (const item of previous) {
+      await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: item.chat, message_id: item.message }) }).catch(() => null);
+    }
+    const people = await this.env.DB.prepare(`SELECT DISTINCT telegram_id FROM app_users WHERE id IN (${marks})`).bind(...ids).all<{ telegram_id: string }>();
+    const sent: Sent[] = [];
+    for (const { telegram_id: chat } of people.results) {
+      if (!/^\d+$/u.test(chat)) continue;
+      const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          chat_id: Number(chat), text, disable_notification: true, protect_content: true,
+          reply_markup: { inline_keyboard: [[{ text: "Բացել", web_app: { url: `${site}/namak` } }]] },
+        }),
+      }).catch(() => null);
+      const body = await response?.json<{ ok?: boolean; result?: { message_id?: number } }>().catch(() => null);
+      if (body?.ok && body.result?.message_id) sent.push({ chat: Number(chat), message: body.result.message_id });
+    }
+    this.setState("presence_sent", JSON.stringify(sent));
   }
 
   /** Կարդալուց հետո Telegram-ի ծանուցումը ջնջվում է, և հաջորդ նոր հաղորդագրությունը նորից կծանուցի։ */
