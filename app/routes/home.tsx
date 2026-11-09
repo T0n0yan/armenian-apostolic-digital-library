@@ -18,6 +18,10 @@ import LastSupperImg from '../assets/last-supper.webp'
 import {ArtImage, preloadArt} from "../components/art-image";
 import {getCategoryImage} from "../components/section-header";
 import AngelLeft from "../assets/angel-left.webp"
+import AngelLeftSmall from "../assets/angel-left-240.webp"
+// Հրեշտակը էկրանի 27%-ն է. փոքր էկրանին բավական է 240px տարբերակը։
+const ANGEL_SRCSET = `${AngelLeftSmall} 240w, ${AngelLeft} 540w`;
+const ANGEL_SIZES = "(max-width: 1180px) 27vw, 320px";
 import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
@@ -168,12 +172,12 @@ export default function Home({loaderData}: Route.ComponentProps) {
     return (<PageShell width="library">
         <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
             <div className="absolute top-[12px] -left-[10px] z-4 w-[27%] min-[560px]:top-[20px]">
-                <img className="reveal-img block h-auto w-full" src={AngelLeft} alt="" width={540} height={728} decoding="async"/>
+                <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async"/>
             </div>
             <ArtImage
                 className="relative z-1 block h-auto w-full"
                 src={LastSupperImg}
-                sizes="(max-width: 1100px) 100vw, 1100px"
+                sizes="(max-width: 1100px) calc(100vw - 28px), 1100px"
                 alt="Խորհրդավոր ընթրիքը"
                 width={1774}
                 height={887}
@@ -181,7 +185,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
                 decoding="async"
             />
             <div className="absolute top-[12px] -right-[10px] z-4 w-[27%] scale-x-[-1] min-[560px]:top-[20px]">
-                <img className="reveal-img block h-auto w-full" src={AngelLeft} alt="" width={540} height={728} decoding="async"/>
+                <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async"/>
             </div>
         </div>
         <HomeTitle/>
