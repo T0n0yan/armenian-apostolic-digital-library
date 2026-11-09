@@ -28,10 +28,13 @@ export function preloadArt(src: string, timeoutMs = 600) {
 
 export function ArtImage({ src, className = "", sizes, ...props }: ImgHTMLAttributes<HTMLImageElement> & { src: string }) {
   const responsive = responsiveImage(src);
+  // Էջի գլխավոր նկարը (fetchPriority="high") միանգամից է երևում, առանց «հայտնվելու» էֆեկտի.
+  // թաքցված նկարը Lighthouse-ի LCP-ն 2 վայրկյանով ուշացնում էր։
+  const hero = props.fetchPriority === "high";
   return (
-    <span className="reveal-frame reveal-art relative block h-full w-full">
+    <span className={hero ? "relative block h-full w-full" : "reveal-frame reveal-art relative block h-full w-full"}>
       <img
-        className={`reveal-img ${className}`}
+        className={hero ? className : `reveal-img ${className}`}
         src={src}
         srcSet={responsive?.srcSet}
         sizes={sizes ?? DEFAULT_SIZES}
