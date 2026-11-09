@@ -711,6 +711,7 @@ Smoke ստուգումը՝ `scripts/smoke.mjs <հասցե>`. գլխավոր, `/p
 - Worker-ը աշխատում է D1-ին մոտ (Smart Placement). cache-ում չեղած էջի SQL հարցումները կարճ են։
 - Ձայնագրությունը բեռնվում է միայն «Լսել»-ից հետո. մեծ նկարները ունեն 560/880/1200/1774px տարբերակներ (`app/assets/responsive.ts`), հրեշտակը՝ 240/540 (`home.tsx`), մենյուի պսակը՝ 112/168 (`site-nav.tsx`)։ Նոր նկարին՝ նույնպես փոքր տարբերակ + `srcSet`/`sizes`։
 - Cache-ից տրվող էջը բազային չի դիմում. բովանդակության տարբերակը պահվում է Cloudflare-ի cache-ում 15 վ (`edgeContentVersion`, `workers/app.ts`), `bumpCacheEpoch`-ը այն ջնջում է։ Root loader-ի բազայի հարցումները զուգահեռ են։
+- Էջի գլխավոր նկարը (`ArtImage` + `fetchPriority="high"`) `reveal-img` չունի՝ միանգամից է երևում (LCP)։
 - Բառարան, նշումներ, հիշեցման զանգ, կիրակնօրյա հարց՝ առանձին JS ֆայլեր, բեռնվում են էջը բացվելուց հետո (`useIdleReady`, `root.tsx`)։ Նման «ամբողջ կայքի» նոր շերտը՝ նույն ձևով։
 - `ArianGrqi` տառատեսակը կրճատված է (միայն հայերեն, լատիներեն, կետադրություն; 100 → 22 ԿԲ, `pyftsubset`)։ Նոր տառատեսակ ավելացնելիս՝ նույնը։
 - Ստուգում՝ `lighthouse https://apostolic.am/` (cloud-ում `CHROME_PATH=/opt/pw-browsers/chromium`)։
