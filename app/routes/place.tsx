@@ -36,7 +36,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   // Նույն անունով շատ եկեղեցիներ կան («Սուրբ Աստվածածին»). բնակավայրը վերնագրում դրանք տարբերում է։
   const name = locality && !place.name.includes(locality) ? `${place.name}, ${locality}` : place.name;
   const where = place.region ? `${place.region}, Հայաստան` : "Հայաստան";
-  const fallback = `${place.name}՝ ${kind.toLocaleLowerCase("hy")} (${where})։ Տեղը քարտեզի վրա և ճանապարհը։`;
+  // «Սուրբ Աստվածածին եկեղեցի՝ եկեղեցի» չգրելու համար տեսակը դրվում է միայն երբ անվան մեջ չկա։
+  const kindWord = kind.toLocaleLowerCase("hy");
+  const fallback = `${place.name}${place.name.toLocaleLowerCase("hy").includes(kindWord) ? "" : `՝ ${kindWord}`} (${where})։ Տեղը քարտեզի վրա և ճանապարհը։`;
   const description = describe(place.description, fallback);
   const path = `/places/${place.id}`;
   return seoMeta({
