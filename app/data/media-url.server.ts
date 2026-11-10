@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { materialPath } from "../utils/material-path";
 import { cardImage } from "../utils/seo";
+import { CARD_IMAGE_WIDTH } from "./image-thumb.server";
 
 type MediaEnv = { MEDIA_BASE_URL?: string; MEDIA_DIRECT_FROM?: string };
 
@@ -49,11 +50,21 @@ export function mediaFallbackUrl(
 }
 
 /**
+ * Նկարի փոքրացված WebP-ն (800 px)՝ ցանկի քարտի և նյութի էջի համար. միշտ կայքի /media հասցեով,
+ * որտեղ Worker-ը այն մեկ անգամ պատրաստում և պահում է R2-ում։ Բնօրինակը (`mediaUrl`) մնում է դիտիչին։
+ */
+export function mediaCardUrl(post: { chatId: string; messageId: number }, asset: { index: number; version?: string | null }) {
+  return `/media/${encodeURIComponent(post.chatId)}/${post.messageId}/${asset.index}?w=${CARD_IMAGE_WIDTH}${asset.version ? `&v=${asset.version}` : ""}`;
+}
+
+/**
  * A gospel teaching video's cover: its drawn preview card (title and the clergy member), the same
  * picture its shared link shows. Telegram's own video covers are often black (a fade-in first frame),
  * and taking a frame from the video on the phone cost a large download, so the card stands in.
  */
-export function gospelVideoCover(post: { id: string; categoryId?: string | null; categoryName?: string | null }) {
+export function gospelVideoCover(post: { id: string; categoryId?: string | null; categoryName?: string | null }, small = false) {
   if (resolveContentCategoryId(post.categoryId, post.categoryName) !== "category_gospel_teachings") return null;
-  return cardImage("", materialPath(post.id, "category_gospel_teachings"));
+  const card = cardImage("", materialPath(post.id, "category_gospel_teachings"));
+  // small՝ ցանկի քարտի համար (800 px WebP), ոչ թե 1200 px JPEG-ը։
+  return card && small ? `${card}?w=${CARD_IMAGE_WIDTH}` : card;
 }

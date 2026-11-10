@@ -7,7 +7,7 @@ import {
   type BridgeRichContent,
 } from "../../shared/telegram-bridge-contract";
 import { getCloudLibraryPost } from "./cloud-library.server";
-import { gospelVideoCover, mediaFallbackUrl, mediaUrl } from "./media-url.server";
+import { gospelVideoCover, mediaCardUrl, mediaFallbackUrl, mediaUrl } from "./media-url.server";
 
 export type MaterialMedia = {
   id: string;
@@ -25,6 +25,8 @@ export type MaterialMedia = {
   thumbnailUrl: string | null;
   altText: string;
   url: string | null;
+  /** Նկարի փոքրացված WebP-ն էջում ցույց տալու համար. `url`-ը (բնօրինակը) բացում է դիտիչը։ */
+  displayUrl?: string | null;
   /** The same file through the site's own /media route, tried when `url` fails to load. */
   fallbackUrl?: string | null;
   thumbnailFallbackUrl?: string | null;
@@ -86,6 +88,7 @@ export async function getPublicMaterialDetail(database: D1Database, id: string, 
       status: "ready",
       attached: asset.index >= 100,
       url: mediaUrl(post, asset),
+      displayUrl: asset.kind === "photo" ? mediaCardUrl(post, asset) : null,
       fallbackUrl: mediaFallbackUrl(post, asset),
       thumbnailUrl: (asset.kind === "video" ? gospelVideoCover(post) : null) ?? (asset.hasThumbnail
         ? mediaUrl(post, asset, true)
