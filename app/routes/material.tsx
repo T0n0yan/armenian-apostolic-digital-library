@@ -25,7 +25,7 @@ import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type Brid
 import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
 import { fetchPersonal } from "../utils/personal-data";
-import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, sectionImage, seoMeta } from "../utils/seo";
+import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, pageTitle, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
 import { prayerParagraphs, seedLayout } from "../utils/prayer-layout";
@@ -63,7 +63,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
   return seoMeta({
-    title: `${material.title} — ${material.categoryName} | Հոգևոր ժառանգություն`,
+    title: pageTitle(material.title, material.categoryName),
     description,
     path,
     origin: loaderData.origin,

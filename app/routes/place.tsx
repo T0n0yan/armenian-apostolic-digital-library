@@ -14,10 +14,10 @@ import { FillPlaceButton, PlacesMap, VisitButton } from "../components/places-ma
 import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
 import { getPlace } from "../data/places.server";
-import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeMediaUrl } from "../utils/places";
+import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeHasContent, placeLocality, placeMediaUrl, placeThumbUrl } from "../utils/places";
 import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { readAccess } from "../utils/place-answers";
-import { seoMeta } from "../utils/seo";
+import { absoluteUrl, breadcrumbJsonLd, describe, pageTitle, seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
 
@@ -31,12 +31,36 @@ export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [{ title: "Սրբավայր — Հոգևոր ժառանգություն" }];
   const { place, origin } = loaderData;
   const cover = place.photos[0];
+  const kind = PLACE_KINDS[place.kind];
+  const locality = placeLocality(place.region);
+  // Նույն անունով շատ եկեղեցիներ կան («Սուրբ Աստվածածին»). բնակավայրը վերնագրում դրանք տարբերում է։
+  const name = locality && !place.name.includes(locality) ? `${place.name}, ${locality}` : place.name;
+  const where = place.region ? `${place.region}, Հայաստան` : "Հայաստան";
+  const fallback = `${place.name}՝ ${kind.toLocaleLowerCase("hy")} (${where})։ Տեղը քարտեզի վրա և ճանապարհը։`;
+  const description = describe(place.description, fallback);
+  const path = `/places/${place.id}`;
   return seoMeta({
-    title: `${place.name} — Սրբավայրեր | Հոգևոր ժառանգություն`,
-    description: place.description.replace(/\s+/gu, " ").slice(0, 160) || `${PLACE_KINDS[place.kind]}${place.region ? `, ${place.region}` : ""}`,
-    path: `/places/${place.id}`,
+    title: pageTitle(name, "Սրբավայրեր"),
+    // Շատ կարճ պատմության («Պահպանվել են ավերակները։») առջև դրվում է անունն ու տեղը, որ նկարագրությունները չկրկնվեն։
+    description: description.length < 70 && description !== fallback ? `${place.name}, ${where}։ ${description}` : description,
+    path,
     origin,
-    ...(cover ? { image: `${origin}${placeMediaUrl(cover)}` } : {}),
+    index: placeHasContent(place),
+    ...(cover ? { image: `${origin}${placeThumbUrl(cover, 1200)}` } : {}),
+    jsonLd: [
+      {
+        "@context": "https://schema.org",
+        "@type": place.kind === "church" ? "Church" : "PlaceOfWorship",
+        name: place.name,
+        url: absoluteUrl(path),
+        ...(place.description.trim() ? { description } : {}),
+        ...(place.photos.length ? { image: place.photos.slice(0, 5).map((key) => absoluteUrl(placeMediaUrl(key))) } : {}),
+        geo: { "@type": "GeoCoordinates", latitude: place.latitude, longitude: place.longitude },
+        address: { "@type": "PostalAddress", addressCountry: "AM", ...(place.region ? { addressRegion: place.region.split(",")[0].trim() } : {}), ...(locality ? { addressLocality: locality } : {}) },
+        hasMap: `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`,
+      },
+      breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: "Սրբավայրեր", path: "/places" }, { name: place.name, path }]),
+    ],
   });
 }
 
@@ -80,7 +104,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             {place.photos.map((key, index) => (
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
                 className="relative shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 [transform:translateZ(0)]">
-                <img className="block h-auto max-h-[min(56svh,440px)] w-auto max-w-[min(84vw,560px)] rounded-[18px] shadow-card" src={placeMediaUrl(key)} alt={index === 0 ? place.name : ""} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
+                <img className="block h-auto max-h-[min(56svh,440px)] w-auto max-w-[min(84vw,560px)] rounded-[18px] shadow-card" src={placeThumbUrl(key, 1200)} alt={index === 0 ? place.name : ""} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
                 {index === 0 && place.photos.length > 1 ? <span className="absolute right-2.5 bottom-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-semibold text-white">{place.photos.length} նկար</span> : null}
               </button>
             ))}

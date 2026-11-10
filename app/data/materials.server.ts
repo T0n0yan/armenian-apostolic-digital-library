@@ -3,6 +3,9 @@ import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract"
 import { summarizeDailyReading, type DailyReadingSummary } from "../utils/daily-reading";
 import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
 import { gospelVideoCover, mediaUrl } from "./media-url.server";
+import { remember } from "./memory-cache.server";
+import { createMaterialId } from "../../shared/telegram-bridge-contract";
+import { materialPath } from "../utils/material-path";
 
 /**
  * How a topic's feed loads: Psalms all at once (their grid sorts by number, at most 151), Saints
@@ -138,4 +141,22 @@ export async function getTopicIntro(database: D1Database, categoryId: string): P
   const first = page.posts[0];
   // The whole text with its line breaks: an intro is often a short poem or quote laid out by line.
   return first && first.contentType === "text" && first.media.length === 0 ? { ...bridgePostToPublic(first), introText: first.contentText } : null;
+}
+
+/**
+ * Բաժնի բոլոր նյութերի հասցեն ու վերնագիրը (թեթև ցանկ)։ Էջում դրվում են թաքնված հղումներով, որ
+ * որոնիչները հասնեն նաև այն նյութերին, որոնք ընթերցողի մոտ բեռնվում են միայն թերթելիս։
+ */
+export function listSectionLinks(database: D1Database, category: { name: string; slug: string }) {
+  return remember(database, `section-links:${category.slug}`, 10 * 60_000, async () => {
+    const { results } = await database.prepare(
+      `SELECT materials.chat_id, materials.message_id, materials.title
+       FROM library_materials AS materials
+       INNER JOIN library_topics AS topics ON topics.id = materials.topic_key
+       WHERE topics.slug = ? AND topics.is_general = 0 AND topics.status != 'hidden'
+         AND materials.sync_state = 'ready' AND materials.deleted_at IS NULL
+       ORDER BY materials.message_id DESC LIMIT 500`,
+    ).bind(category.slug).all<{ chat_id: string; message_id: number; title: string }>();
+    return results.map((row) => ({ path: materialPath(createMaterialId(row.chat_id, row.message_id), category.name), title: row.title }));
+  });
 }

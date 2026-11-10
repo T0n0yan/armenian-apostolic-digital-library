@@ -51,15 +51,17 @@ export async function listPublicPlaceSummaries(db: D1Database) {
   return remember(db, "public-places", 30_000, async () => {
     const { results } = await db.prepare(`SELECT id, name, kind, latitude, longitude, region,
       substr(description, 1, 180) AS description, icon, json_extract(photos_json, '$[0]') AS cover,
-      verified, updated_at FROM places WHERE published = 1 ORDER BY name`).all<{
+      verified, updated_at,
+      (COALESCE(liturgy, '') != '' OR COALESCE(services, '') != '' OR COALESCE(clergy, '') != '') AS details
+      FROM places WHERE published = 1 ORDER BY name`).all<{
         id: string; name: string; kind: string; latitude: number; longitude: number; region: string;
-        description: string; icon: string | null; cover: string | null; verified: number; updated_at: string;
+        description: string; icon: string | null; cover: string | null; verified: number; updated_at: string; details: number;
       }>();
     const words = await listBlocklist(db);
     return results.filter((row) => !blockedWords(row.name, words).length).map((row) => ({
       id: row.id, name: row.name, kind: isPlaceKind(row.kind) ? row.kind : "church" as PlaceKind,
       latitude: row.latitude, longitude: row.longitude, region: row.region, description: row.description,
-      icon: row.icon, cover: row.cover, verified: Boolean(row.verified), updatedAt: row.updated_at,
+      icon: row.icon, cover: row.cover, verified: Boolean(row.verified), updatedAt: row.updated_at, hasDetails: Boolean(row.details),
     }));
   });
 }

@@ -2,6 +2,7 @@
 
 Հին «Արված» տողերը (նորերը՝ վերևում)։ Գործից առաջ կարդալ պետք չէ։
 
+- 2026-11-08 — (տիրոջ խնդրանքով, «Բագեր»-ի հերթից) «Ելք բոլոր սարքերից»-ից հետո բրաուզերում/PWA-ում `/saved`-ը ցույց է տալիս Google/Telegram մուտքի կոճակները՝ Mini App-ի հաղորդագրության փոխարեն (`saved.tsx`)։
 - 2026-11-08 — Չատ. production-ում `OWNER_ACCOUNTS` չկա, ուստի տերը 404 էր ստանում. նոր `CHAT_OWNER_ACCOUNTS` (`wrangler.jsonc`, production)՝ միայն տիրոջ 4 հաշիվը։
 - 2026-11-08 — Չատ. տերը ճանաչվում է նաև կապված հաշվով (Google-ը Telegram-ին կապելուց հետո չատը կորչում էր), `/admin`-ի տերն էլ նույն ձևով (`isOwnerIdentity`)։ [PR #144](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/144)
 - 2026-11-08 — Անձնական չատ `/namak` (նամակի փոխարեն)՝ socket (`ChatRoom` DO), ✓✓, «գրում է…», առցանց, ջնջել, ծանուցում առանց ձայնի/տեքստի, մենյուում փոքր ✉ միայն երկու կողմին։ [PR #143](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/143)

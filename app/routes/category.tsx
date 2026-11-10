@@ -31,7 +31,7 @@ import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
-import { getTopicIntro, listPublicMaterialPageByCategory } from "../data/materials.server";
+import { getTopicIntro, listPublicMaterialPageByCategory, listSectionLinks } from "../data/materials.server";
 import { loadCategoryPersonal } from "../data/category-personal.server";
 import type { SearchFilters, SearchMaterial } from "../data/search-materials";
 import { SearchSnippet } from "../components/material-result-card";
@@ -180,11 +180,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : null;
   const materials = intro ? materialResult.materials.filter((material) => material.id !== intro.id) : materialResult.materials;
 
+  // Առաջին էջում, երբ բաժինը շարունակություն ունի՝ մնացած նյութերի հղումները (թաքնված, որոնիչների համար)։
+  const moreLinks = !query && !cursor && materialResult.nextCursor
+    ? await listSectionLinks(env.DB, category).catch(() => [])
+    : [];
+
   return {
     origin: url.origin,
     category,
     intro,
     materials,
+    moreLinks,
     query,
     // The intro is shown as the header, not counted as a material.
     total: intro && typeof materialResult.total === "number" ? Math.max(0, materialResult.total - 1) : materialResult.total,
@@ -646,6 +652,11 @@ export default function Category({ loaderData }: Route.ComponentProps) {
             hasError={pageError}
             onLoadMore={loadMore}
           />
+        ) : null}
+        {loaderData.moreLinks.length ? (
+          <ul hidden>
+            {loaderData.moreLinks.map((link) => <li key={link.path}><a href={link.path}>{link.title}</a></li>)}
+          </ul>
         ) : null}
       </section>
     </PageShell>

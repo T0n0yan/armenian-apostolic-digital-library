@@ -15,16 +15,17 @@ import { useSignInGuard } from "../components/sign-in-sheet";
 import { findMyPosition, type LocationFailure } from "../utils/my-location";
 import { LocationHelp } from "../components/location-help";
 import { usePlaceVisits } from "../utils/place-visits";
-import { seoMeta } from "../utils/seo";
+import { breadcrumbJsonLd, seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
 
 export function meta({ loaderData }: Route.MetaArgs) {
   return seoMeta({
     origin: loaderData?.origin,
-    title: "Սրբավայրեր — Հոգևոր ժառանգություն",
+    title: "Սրբավայրեր — Հայաստանի վանքեր և եկեղեցիներ | Հոգևոր ժառանգություն",
     description: "Հայաստանի վանքերը, եկեղեցիները, մատուռներն ու սրբավայրերը քարտեզի վրա՝ նկարներով, պատմությամբ և ճանապարհով։",
     path: "/places",
+    jsonLd: [breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: "Սրբավայրեր", path: "/places" }])],
   });
 }
 
@@ -336,6 +337,12 @@ export default function Places({ loaderData }: Route.ComponentProps) {
                 </button>
               ))}
               {row.some(([province]) => province === open) ? <ProvincePlaces items={row.find(([province]) => province === open)?.[1] ?? []} /> : null}
+              {/* Փակ մարզերի սրբավայրերը՝ թաքնված, բայց HTML-ում իսկական հղումներով, որ որոնիչները հասնեն ամեն էջի։ */}
+              {row.filter(([province]) => province !== open).map(([province, items]) => (
+                <ul key={`links-${province}`} hidden>
+                  {items.map((place) => <li key={place.id}><a href={`/places/${place.id}`}>{place.name}</a></li>)}
+                </ul>
+              ))}
             </Fragment>
           ))}
         </div>
