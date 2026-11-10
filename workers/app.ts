@@ -84,11 +84,12 @@ function contentSecurityPolicy(env: Env) {
     // 'unsafe-inline'. էջերը edge cache-ում ընդհանուր են, ուստի ամեն հարցման nonce հնարավոր չէ, իսկ
     // React Router-ի տվյալների script-ը ամեն էջում տարբեր է (հաշով չի ծածկվում)։ Ներարկված script-ի
     // տվյալների արտահոսքը փակ է connect-src/img-src/form-action կանոններով։
-    "script-src 'self' 'unsafe-inline' https://telegram.org 'wasm-unsafe-eval'",
+    // static.cloudflareinsights.com / cloudflareinsights.com՝ Cloudflare Web Analytics (անանուն, առանց cookie)։
+    "script-src 'self' 'unsafe-inline' https://telegram.org https://static.cloudflareinsights.com 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${mediaSrc} https://tiles.openfreemap.org`,
     "font-src 'self' data:",
-    `connect-src 'self'${socketSrc}${mediaSrc} https://tiles.openfreemap.org https://api.github.com`,
+    `connect-src 'self'${socketSrc}${mediaSrc} https://tiles.openfreemap.org https://api.github.com https://cloudflareinsights.com`,
     "worker-src 'self' blob:",
     `media-src 'self' blob:${mediaSrc}`,
     "frame-src https://www.youtube-nocookie.com https://www.youtube.com",

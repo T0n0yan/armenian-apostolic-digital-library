@@ -7,6 +7,7 @@ import { createMaterialId, resolveContentCategoryId } from "../../shared/telegra
 import { psalmNumber } from "../utils/psalm-number";
 import { materialPath, sectionPath } from "../utils/material-path";
 import { SITE_URL } from "../utils/seo";
+import { placeHasContent } from "../utils/places";
 
 function escape(value: string) {
   return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
@@ -42,7 +43,8 @@ export async function loader() {
         return entry(materialPath(createMaterialId(row.chat_id, row.message_id), row.category_name, { title: row.title, psalm }), row.changed_at);
       }),
       entry("/places", null, "0.7"),
-      ...(await listPublicPlaceSummaries(env.DB)).map((place) => entry(`/places/${place.id}`, place.updatedAt)),
+      // Միայն բովանդակություն ունեցող սրբավայրերը. դատարկները noindex են (place.tsx)։
+      ...(await listPublicPlaceSummaries(env.DB)).filter(placeHasContent).map((place) => entry(`/places/${place.id}`, place.updatedAt)),
       entry("/mer-masin", null, "0.3"),
       entry("/kap", null, "0.3"),
       entry("/ognutyun", null, "0.4"),

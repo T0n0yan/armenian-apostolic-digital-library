@@ -103,7 +103,7 @@ export function placeMediaUrl(key: string) {
 }
 
 /** Փոքր պատկեր (քարտեզի նշան, ցանկ). սերվերը այն պատրաստում է մեկ անգամ ու պահում R2-ում։ */
-export const PLACE_THUMB_WIDTHS = [160, 320] as const;
+export const PLACE_THUMB_WIDTHS = [160, 320, 1200] as const;
 export function placeThumbUrl(key: string, width: (typeof PLACE_THUMB_WIDTHS)[number] = 160) {
   return `${placeMediaUrl(key)}?w=${width}`;
 }
@@ -161,4 +161,18 @@ export function circleRing(center: { latitude: number; longitude: number }, radi
     ring.push([pointLon / rad, pointLat / rad]);
   }
   return ring;
+}
+
+/** Բնակավայրը հասցեից («Լոռու մարզ, Սանահին» → «Սանահին», «Երևան» → «Երևան»)։ */
+export function placeLocality(region: string) {
+  return region.split(",").at(-1)?.trim() ?? "";
+}
+
+/**
+ * Արժե՞ էջը ցույց տալ որոնման մեջ. միայն երբ անունից ու քարտեզից բացի բան ունի (պատմություն,
+ * նկար, արարողություններ, ծառայողներ)։ Դատարկ էջերը Google-ը համարում է անորակ։
+ */
+export function placeHasContent(place: { description: string; cover?: string | null; photos?: string[]; liturgy?: string; services?: string; clergy?: string; hasDetails?: boolean }) {
+  return place.description.replace(/\s+/gu, " ").trim().length >= 80 || Boolean(place.cover) || Boolean(place.photos?.length)
+    || Boolean(place.hasDetails) || Boolean(place.liturgy?.trim() || place.services?.trim() || place.clergy?.trim());
 }

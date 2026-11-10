@@ -61,8 +61,23 @@ export function describe(text: string | null | undefined, fallback: string, titl
   return `${clean.slice(0, 157).replace(/\s+\S*$/u, "")}…`;
 }
 
-export function seoMeta({ title, description, path, image, type = "website", jsonLd = [], origin }: {
+/**
+ * Էջի վերնագիրը որոնման արդյունքի համար՝ մինչև 65 նիշ. նախ ամբողջը («… — բաժին | կայք»), հետո
+ * առանց կայքի անվան, վերջում՝ բառի վրա կտրած։
+ */
+export function pageTitle(main: string, section: string) {
+  const clean = main.replace(/\s+/gu, " ").trim();
+  const full = `${clean} — ${section} | ${SITE_NAME}`;
+  if (full.length <= 65) return full;
+  const short = `${clean} — ${section}`;
+  if (short.length <= 65) return short;
+  return `${clean.slice(0, 64 - section.length - 3).replace(/\s+\S*$/u, "")}… — ${section}`;
+}
+
+export function seoMeta({ title, description, path, image, type = "website", jsonLd = [], origin, index = true }: {
   title: string; description: string; path: string; image?: string | null; type?: "website" | "article"; jsonLd?: object[];
+  /** false՝ էջը դեռ քիչ բան ունի, որոնման մեջ չի մտնում (հղումներով անցնում են)։ */
+  index?: boolean;
   /** The address the page was opened on: previews (Telegram) follow og:url, so staging links stay on staging. */
   origin?: string;
 }) {
@@ -71,7 +86,7 @@ export function seoMeta({ title, description, path, image, type = "website", jso
   return [
     { title },
     { name: "description", content: description },
-    { name: "robots", content: "index, follow, max-image-preview:large" },
+    { name: "robots", content: index ? "index, follow, max-image-preview:large" : "noindex, follow" },
     { tagName: "link", rel: "canonical", href: url },
     { property: "og:site_name", content: SITE_NAME },
     { property: "og:locale", content: "hy_AM" },
@@ -90,7 +105,9 @@ export function seoMeta({ title, description, path, image, type = "website", jso
     { name: "twitter:title", content: title },
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: picture },
-    ...jsonLd.map((data) => ({ "script:ld+json": data })),
+    // Սեփական structured data չունեցող էջը («Մեր մասին», «Կապ») ստանում է գոնե իր ճանապարհը՝ Գլխավոր → էջ։
+    ...(jsonLd.length || path === "/" ? jsonLd : [breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: title.split(" — ")[0], path }])])
+      .map((data) => ({ "script:ld+json": data })),
   ];
 }
 
