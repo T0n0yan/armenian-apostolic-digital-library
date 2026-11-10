@@ -1,15 +1,20 @@
+import { CARD_IMAGE_WIDTH, requestedWidth, storedThumb } from "./image-thumb.server";
+
 type CloudMediaRow = {
   r2_key: string | null;
   thumbnail_r2_key: string | null;
   mime_type: string | null;
 };
 
+const MEDIA_CACHE = "public, max-age=604800, stale-while-revalidate=2592000";
+const CARD_WIDTHS = new Set([CARD_IMAGE_WIDTH]);
+
 function mediaHeaders(object: R2Object, contentType: string | null) {
   const headers = new Headers({
     "Accept-Ranges": "bytes",
     // R2 objects are immutable per key (an edit gets a new key), so clients may keep media for a
     // week; the ETag still lets them revalidate cheaply after that.
-    "Cache-Control": "public, max-age=604800, stale-while-revalidate=2592000",
+    "Cache-Control": MEDIA_CACHE,
     "Content-Type": contentType ?? object.httpMetadata?.contentType ?? "application/octet-stream",
     "X-Content-Type-Options": "nosniff",
   });
@@ -40,6 +45,7 @@ export async function readCloudMedia(
   messageId: number,
   mediaIndex: number,
   request: Request,
+  images?: ImagesBinding,
 ): Promise<Response> {
   const row = await database.prepare(
     `SELECT media.r2_key, media.thumbnail_r2_key, media.mime_type
@@ -64,6 +70,17 @@ export async function readCloudMedia(
   const thumbnail = new URL(request.url).searchParams.get("thumbnail") === "1";
   const key = thumbnail ? row?.thumbnail_r2_key : row?.r2_key;
   if (!row || !key) return new Response("Media not found", { status: 404 });
+
+  // ?w=800 — նկարի փոքրացված WebP-ն ցանկի քարտի և նյութի էջի համար. բնօրինակը մնում է դիտիչին։
+  // Չստացվեց (կամ նկար չէ)՝ ներքևում տրվում է բնօրինակը։
+  const width = requestedWidth(request, CARD_WIDTHS);
+  if (width && !thumbnail && request.method === "GET" && !request.headers.has("Range") && /^image\/(?:jpeg|png|webp)$/u.test(row.mime_type ?? "")) {
+    const thumb = await storedThumb(bucket, images, key, width, { cacheControl: MEDIA_CACHE }).catch((error: unknown) => {
+      console.error("media thumb", key, width, error);
+      return null;
+    });
+    if (thumb) return thumb;
+  }
 
   const head = await bucket.head(key);
   if (!head) return new Response("Media not found", { status: 404 });

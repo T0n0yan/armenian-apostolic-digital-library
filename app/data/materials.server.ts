@@ -2,7 +2,7 @@ import type { BridgeContentType, BridgePost } from "../../shared/telegram-bridge
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { summarizeDailyReading, type DailyReadingSummary } from "../utils/daily-reading";
 import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
-import { gospelVideoCover, mediaUrl } from "./media-url.server";
+import { gospelVideoCover, mediaCardUrl, mediaUrl } from "./media-url.server";
 import { remember } from "./memory-cache.server";
 import { createMaterialId } from "../../shared/telegram-bridge-contract";
 import { materialPath } from "../utils/material-path";
@@ -37,7 +37,7 @@ export type PublicMaterial = {
 
 export type MaterialCardPreview = {
   thumbnailUrl: string | null;
-  /** Full-size first photo, for cards that use the picture as a background. */
+  /** The first photo resized to card width (800 px WebP), for cards that use the picture as a background. */
   imageUrl: string | null;
   width: number | null;
   height: number | null;
@@ -85,13 +85,13 @@ export function bridgePostToPublic(post: BridgePost): PublicMaterial {
 export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
   const asset = post.media[0] ?? null;
   const canPreview = Boolean(asset && (asset.kind === "photo" || asset.hasThumbnail));
-  const cover = asset?.kind === "video" ? gospelVideoCover(post) : null;
+  const cover = asset?.kind === "video" ? gospelVideoCover(post, true) : null;
   return {
     thumbnailUrl: cover ?? (asset && canPreview
       ? mediaUrl(post, asset, true)
       : null),
     imageUrl: asset?.kind === "photo"
-      ? mediaUrl(post, asset)
+      ? mediaCardUrl(post, asset)
       : null,
     width: asset?.width ?? null,
     height: asset?.height ?? null,

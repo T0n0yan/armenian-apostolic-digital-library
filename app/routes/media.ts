@@ -20,7 +20,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       : /^bytes=\d+-$/u.test(range) ? "open"
         : /^bytes=-\d+$/u.test(range) ? "suffix" : "unsupported";
   try {
-    const response = await readCloudMedia(env.DB, env.MEDIA, params.chatId, messageId, mediaIndex, request);
+    const response = await readCloudMedia(env.DB, env.MEDIA, params.chatId, messageId, mediaIndex, request, (env as unknown as { IMAGES?: ImagesBinding }).IMAGES);
     response.headers.set("X-Media-Request-Id", requestId);
     // Successful responses are not logged: every picture would be a log line (errors still are).
     return response;
