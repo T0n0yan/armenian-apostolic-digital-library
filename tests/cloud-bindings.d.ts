@@ -6,7 +6,13 @@ declare global {
     list(options?: { limit?: number; cursor?: string }): Promise<{ objects: Array<{ key: string; size: number; uploaded: Date }>; truncated: boolean; cursor?: string }>;
     head(key: string): Promise<R2Object | null>;
     get(key: string, options?: { range?: { offset: number; length: number } }): Promise<R2ObjectBody | null>;
+    put(key: string, value: ArrayBuffer, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
   }
+  interface ImagesTransformer {
+    transform(options: { width?: number; fit?: "scale-down" }): ImagesTransformer;
+    output(options: { format: "image/webp"; quality?: number }): Promise<{ response(): Response }>;
+  }
+  interface ImagesBinding { input(stream: ReadableStream): ImagesTransformer }
   interface D1Result<T = Record<string, unknown>> { results: T[]; success: boolean; meta: { changes: number; [key: string]: unknown } }
   interface D1PreparedStatement {
     bind(...values: unknown[]): D1PreparedStatement;

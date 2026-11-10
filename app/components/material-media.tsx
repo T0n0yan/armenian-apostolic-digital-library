@@ -305,7 +305,7 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
 }
 
 /** A picture over the whole screen; a tap anywhere, the close button or Esc closes it. */
-function PhotoViewer({ source, alt, onClose }: { source: string; alt: string; onClose: () => void }) {
+function PhotoViewer({ source, fallback, alt, onClose }: { source: string; fallback?: string; alt: string; onClose: () => void }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
     const unlock = lockScroll();
@@ -314,7 +314,7 @@ function PhotoViewer({ source, alt, onClose }: { source: string; alt: string; on
   }, [onClose]);
   return createPortal(
     <div className="fixed inset-0 z-[90] grid place-items-center bg-[rgb(8_4_10/94%)] p-[max(12px,env(safe-area-inset-top))_12px_max(12px,env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-label="Նկարը ամբողջ էկրանով" onClick={onClose}>
-      <img className="max-h-full max-w-full object-contain" src={source} alt={alt} />
+      <img className="max-h-full max-w-full object-contain" src={source} alt={alt} onError={(event) => { if (fallback && event.currentTarget.getAttribute("src") !== fallback) event.currentTarget.src = fallback; }} />
       <button className="absolute top-[max(12px,env(safe-area-inset-top))] right-3 grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white backdrop-blur-md" type="button" onClick={onClose} aria-label="Փակել" autoFocus>
         <X aria-hidden="true" size={20} />
       </button>
@@ -338,8 +338,11 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   const imageRef = useRef<HTMLImageElement>(null);
   useEffect(() => { if (imageRef.current?.complete && imageRef.current.naturalWidth > 0) setLoaded(true); }, []);
   const first = asset.url ?? asset.thumbnailUrl;
-  const sources = first ? mediaSources(first, asset.url ? asset.fallbackUrl : asset.thumbnailFallbackUrl, attempt) : [];
+  const originals = first ? mediaSources(first, asset.url ? asset.fallbackUrl : asset.thumbnailFallbackUrl, attempt) : [];
+  // Էջում՝ փոքրացված WebP-ն (չբեռնվեց՝ բնօրինակը). ամբողջ էկրանով դիտիչը միշտ բացում է բնօրինակը։
+  const sources = asset.displayUrl && attempt === 0 ? [asset.displayUrl, ...originals] : originals;
   const source = sources[Math.min(sourceIndex, sources.length - 1)];
+  const original = originals[Math.min(Math.max(sourceIndex - (sources.length - originals.length), 0), originals.length - 1)];
   const preview = asset.url && asset.thumbnailUrl && !loaded ? asset.thumbnailUrl : null;
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
@@ -378,7 +381,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
           onError={() => (sourceIndex < sources.length - 1 ? setSourceIndex(sourceIndex + 1) : setFailed(true))}
         />
       </button>
-      {viewing ? <PhotoViewer source={source} alt={shortAlt(asset.altText)} onClose={closeViewer} /> : null}
+      {viewing ? <PhotoViewer source={original} fallback={originals[originals.length - 1]} alt={shortAlt(asset.altText)} onClose={closeViewer} /> : null}
     </figure>
   );
 }
