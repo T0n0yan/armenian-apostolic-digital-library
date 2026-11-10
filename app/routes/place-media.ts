@@ -5,7 +5,8 @@ import { requirePermission } from "../auth/admin.server";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket; IMAGES?: ImagesBinding };
 
-const THUMB_WIDTHS = new Set([160, 320]);
+// 1200՝ սրբավայրի էջի և հղման նախադիտման նկարը (բնօրինակը կարող է 2 ՄԲ լինել)։
+const THUMB_WIDTHS = new Set([160, 320, 1200]);
 
 /**
  * A place's photo, drawing or video from R2 (/place-media/haghpat/photo-x.jpg). Pictures of a place

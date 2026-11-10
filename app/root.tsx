@@ -264,6 +264,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App({ loaderData }: Route.ComponentProps) {
   // Անձնական չատում ոչ մի պատուհան չի բացվում (կիրակնօրյա հարց, ուղեցույց, «Ավելացնել էկրանին»…)։
   const quiet = useLocation().pathname === "/namak";
+  // Մոմի ներածությունը՝ միայն երբ այցը սկսվում է գլխավոր էջից. որոնումից կամ հղումով ներքին էջ
+  // (սաղմոս, աղոթք) եկողը անմիջապես տեսնում է իր փնտրածը։
+  const [introHere] = useState(useLocation().pathname === "/");
   const idle = useIdleReady();
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
@@ -414,7 +417,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
 
   return <>
     <Outlet />
-    <CandleLoader />
+    {introHere && <CandleLoader />}
     <ClientErrorReporter />
     {!quiet && <InstallPrompt />}
     <ReminderError />
