@@ -10,6 +10,9 @@ const errors = [];
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+  const verification = await context.request.get(base + '/yandex_b6a0ffc7e6521155.html', { maxRedirects: 0 });
+  assert.equal(verification.status(), 200);
+  assert.ok((await verification.text()).includes('Verification: b6a0ffc7e6521155'));
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   const open = async path => {
