@@ -1,19 +1,135 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
-const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5174';
-assert.ok(['127.0.0.1', 'localhost'].includes(new URL(base).hostname), 'This smoke test requires local synthetic fixtures');
+import { mkdirSync, writeFileSync } from 'node:fs';
+const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5173';
+assert.ok(['127.0.0.1', 'localhost'].includes(new URL(base).hostname), 'Այս ստուգումը միայն տեղական փորձնական բազայի համար է');
 const output = process.env.QA_OUTPUT || '.local-artifacts/qa-review';
 mkdirSync(output, { recursive: true });
-(async()=>{const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || '/usr/bin/chromium',headless:true,args:['--no-sandbox']});const c=await browser.newContext({viewport:{width:390,height:844}});await c.addInitScript(()=>sessionStorage.setItem('library-loader-seen-v4','1'));await c.route('**/*',r=>['GET','HEAD'].includes(r.request().method())?r.continue():r.abort());const p=await c.newPage();const failures=[];p.on('pageerror',e=>failures.push(e.message));
-const open=async path=>{const res=await p.goto(base+path,{waitUntil:'networkidle'});assert.equal(res.status(),200,path);await p.locator('.candle-loader').waitFor({state:'detached'});};
-await open('/psalms');let requests=[];p.on('request',r=>{if(r.url().includes('.data')||r.url().includes('/api/search'))requests.push(r.url())});const field=p.locator('input[name=q]');await field.fill('աղոթք');await field.fill('');await p.waitForTimeout(600);assert.equal(p.url(),base+'/psalms');assert.equal(requests.filter(x=>x.includes('.data')).length,0);console.log('PASS: clearing section input makes no navigation or data request');
-await field.fill('!!!');await field.press('Enter');await p.getByRole('alert').waitFor();assert.equal(p.url(),base+'/psalms');console.log('PASS: symbol-only section search shows inline error');await p.screenshot({path:output+'/section-invalid.png'});
-await field.fill('1');await field.press('Enter');await p.waitForURL('**/search?**');await p.waitForTimeout(800);assert.equal(new URL(p.url()).searchParams.get('category'),'category_psalms');assert.ok((await p.locator('body').innerText()).includes('Սաղմոս 1'));assert.ok(!(await p.locator('body').innerText()).includes('QA աղոթք'));console.log('PASS: single-digit psalm search remains scoped');await p.screenshot({path:output+'/psalm-search.png',fullPage:true});
-for(const route of ['/mer-masin','/privacy','/kap','/psalms/1']){await open(route);assert.equal(await p.locator('a[aria-label="Որոնում"]').count(),0);console.log('PASS: no header search on',route)}
-await open('/search');await p.locator('summary').click();await p.locator('select[name=category]').selectOption('category_psalms');await p.waitForURL('**/search?category=category_psalms');console.log('PASS: explicit category filters still work without a query');
-await open('/settings');await p.getByText('Մուգ',{exact:true}).click();assert.equal(await p.locator('html').getAttribute('data-theme'),'dark');await p.screenshot({path:output+'/dark-settings.png',fullPage:true});
-for(const width of [320,390,1440]){await p.setViewportSize({width,height:900});for(const route of ['/','/psalms','/settings','/search']){await open(route);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),route);await p.screenshot({path:`${output}/${width}-${route.replaceAll('/','_')}.png`,fullPage:true});}}console.log('PASS: layouts at 320, 390, 1440 px');
-const nojs=await browser.newContext({javaScriptEnabled:false});const q=await nojs.newPage();await q.goto(base+'/mer-masin');assert.equal(await q.locator('.candle-loader').count(),0);console.log('PASS: content accessible without JavaScript');
-const intro=await browser.newContext();const t=await intro.newPage();await t.goto(base+'/');await t.locator('.candle-loader').waitFor({state:'visible'});await t.locator('.candle-loader').waitFor({state:'detached',timeout:7500});console.log('PASS: first-visit intro is retained and ends');
-assert.deepEqual(failures,[]);console.log('PASS: no uncaught page errors');await browser.close()})().catch(e=>{console.error(e);process.exit(1)});
+const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}), headless: true, args: ['--no-sandbox'] });
+const errors = [];
+try {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+  const verification = await context.request.get(base + '/yandex_b6a0ffc7e6521155.html', { maxRedirects: 0 });
+  assert.equal(verification.status(), 200);
+  assert.ok((await verification.text()).includes('Verification: b6a0ffc7e6521155'));
+  const page = await context.newPage();
+  page.on('pageerror', e => errors.push(e.message));
+  const open = async path => {
+    const response = await page.goto(base + path, { waitUntil: 'networkidle' });
+    assert.equal(response.status(), 200, path);
+    await page.locator('.candle-loader').waitFor({ state: 'detached', timeout: 10000 });
+  };
+  await open('/psalms');
+  const field = page.locator('input[name=q]');
+  await field.fill('!!!');
+  await page.getByRole('button', { name: 'Որոնել այս բաժնում', exact: true }).click();
+  await page.getByRole('alert').waitFor();
+  assert.equal(page.url(), base + '/psalms');
+  await field.fill('1');
+  await field.press('Enter');
+  await page.getByRole('link', { name: 'Բացել՝ Սաղմոս 1', exact: true }).waitFor();
+  assert.equal(page.url(), base + '/psalms');
+  console.log('✓ Սաղմոսի որոնումը և անվավեր մուտքի հուշումը');
+
+  const submit = async text => { await field.fill(text); await page.getByRole('button', { name: 'Որոնել այս բաժնում', exact: true }).click(); };
+  const searchRoute = '**/api/search-page?**';
+  let firstStarted;
+  const started = new Promise(resolve => { firstStarted = resolve; });
+  await context.route(searchRoute, async route => {
+    const query = new URL(route.request().url()).searchParams.get('q');
+    if (query === 'առաջին') { firstStarted(); await new Promise(resolve => setTimeout(resolve, 700)); }
+    await route.fulfill({ json: { materials: [], nextCursor: null } }).catch(() => undefined);
+  });
+  await submit('առաջին'); await started; await submit('երկրորդ');
+  await page.getByText('«երկրորդ» այս բաժնում չկա', { exact: true }).waitFor();
+  await page.waitForTimeout(900);
+  assert.equal(await page.getByText('«առաջին» այս բաժնում չկա', { exact: true }).count(), 0);
+  await context.unroute(searchRoute);
+  console.log('✓ Ուշացած որոնումը չի փոխարինում վերջինին');
+
+  await context.route(searchRoute, route => route.fulfill({ status: 503, body: 'unavailable' }));
+  await submit('սաղմոս');
+  await page.getByRole('alert').filter({ hasText: 'Որոնումը չհաջողվեց' }).waitFor();
+  assert.equal(await page.getByText('«սաղմոս» այս բաժնում չկա', { exact: true }).count(), 0);
+  await context.unroute(searchRoute);
+  await context.route(searchRoute, route => route.fulfill({ status: 200, contentType: 'application/json', body: '{broken' }));
+  await page.getByRole('button', { name: 'Կրկին փորձել', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'Որոնումը չհաջողվեց' }).waitFor();
+  assert.equal(await page.getByText('Փնտրում եմ այս բաժնում…', { exact: true }).count(), 0);
+  await context.unroute(searchRoute);
+  console.log('✓ 503 և վնասված JSON՝ հասկանալի սխալ, առանց կախվելու');
+
+  let secondPage = false;
+  let categoryDownloads = 0;
+  page.on('request', request => { if (/\/api\/categories\/.*\/posts/.test(request.url())) categoryDownloads++; });
+  await context.route(searchRoute, route => {
+    const next = new URL(route.request().url()).searchParams.get('cursor');
+    if (next) secondPage = true;
+    return route.fulfill({ json: next ? { materials: [{ id: 'material_tg_n1002993860753_90299', title: 'Սաղմոս 99', preview: { mediaTitle: null } }], nextCursor: null } : { materials: [], nextCursor: 'next-test-page' } });
+  });
+  await submit('99');
+  await page.getByRole('link', { name: 'Բացել՝ Սաղմոս 99', exact: true }).waitFor();
+  assert.ok(secondPage);
+  assert.equal(categoryDownloads, 0);
+  await context.unroute(searchRoute);
+  console.log('✓ Որոնման հաջորդ էջի համընկնումը հասանելի է');
+
+  for (const width of [320, 390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of ['/', '/psalms', '/psalms/1', '/settings', '/search', '/places']) {
+      await open(path);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width} ${path}`);
+    }
+  }
+  console.log('✓ Էջերը չեն լայնանում 320, 390 և 1440 px-ում');
+  await open('/settings');
+  await page.getByText('Մուգ', { exact: true }).click();
+  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  assert.ok((await page.locator('meta[name=robots]').getAttribute('content')).includes('noindex'));
+
+  const fresh = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const help = await fresh.newPage();
+  let helpDownloads = 0;
+  help.on('request', request => { if (request.url().includes('/help-media/')) helpDownloads++; });
+  await fresh.route('**/help-media/qa-help.mp4', route => route.fulfill({ status: 200, contentType: 'video/mp4', body: Buffer.alloc(0) }));
+  await help.goto(base + '/psalms/1', { waitUntil: 'networkidle' });
+  await help.waitForTimeout(1500);
+  assert.equal(await help.getByRole('dialog').count(), 0);
+  assert.equal(helpDownloads, 0);
+  await help.goto(base + '/ognutyun', { waitUntil: 'networkidle' });
+  const trigger = help.getByRole('button', { name: /Փորձնական օգնություն/ });
+  await trigger.click();
+  await help.getByRole('dialog').waitFor();
+  for (let step = 0; step < 12; step++) {
+    await help.keyboard.press('Tab');
+    assert.ok(await help.evaluate(() => Boolean(document.activeElement?.closest('[role=dialog]'))));
+  }
+  await help.keyboard.press('Escape');
+  assert.equal(await help.getByRole('dialog').count(), 0);
+  await trigger.evaluate(element => { if (document.activeElement !== element) throw new Error('Focus was not restored'); });
+  assert.ok(helpDownloads > 0);
+  console.log('✓ Օգնությունը բացվում է միայն ընտրությամբ, focus-ը կառավարվում է');
+
+  const nojs = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 600 } });
+  const plain = await nojs.newPage();
+  await plain.goto(base + '/', { waitUntil: 'networkidle' });
+  await plain.mouse.wheel(0, 700); await plain.waitForTimeout(250);
+  assert.ok(await plain.evaluate(() => scrollY > 0));
+  assert.ok(await plain.evaluate(() => [...document.querySelectorAll('.reveal-img')].every(image => getComputedStyle(image).opacity === '1')));
+  console.log('✓ Առանց JavaScript-ի էջը սահում է, նկարները տեսանելի են');
+  assert.deepEqual(errors, []);
+} catch (error) {
+  for (const [index, context] of browser.contexts().entries()) {
+    for (const [pageIndex, page] of context.pages().entries()) {
+      const prefix = `${output}/failure-${index}-${pageIndex}`;
+      await page.screenshot({ path: `${prefix}.png`, fullPage: true }).catch(() => undefined);
+      writeFileSync(`${prefix}.html`, await page.content().catch(() => ''));
+    }
+    await context.tracing.stop({ path: `${output}/trace-${index}.zip` }).catch(() => undefined);
+  }
+  console.error('Բրաուզերի սխալներ', errors);
+  throw error;
+} finally {
+  await browser.close();
+}

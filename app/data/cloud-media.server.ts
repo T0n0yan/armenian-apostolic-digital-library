@@ -74,12 +74,15 @@ export async function readCloudMedia(
   // ?w=800 — նկարի փոքրացված WebP-ն ցանկի քարտի և նյութի էջի համար. բնօրինակը մնում է դիտիչին։
   // Չստացվեց (կամ նկար չէ)՝ ներքևում տրվում է բնօրինակը։
   const width = requestedWidth(request, CARD_WIDTHS);
-  if (width && !thumbnail && request.method === "GET" && !request.headers.has("Range") && /^image\/(?:jpeg|png|webp)$/u.test(row.mime_type ?? "")) {
+  if (width && !thumbnail && (request.method === "GET" || request.method === "HEAD") && !request.headers.has("Range") && /^image\/(?:jpeg|png|webp)$/u.test(row.mime_type ?? "")) {
     const thumb = await storedThumb(bucket, images, key, width, { cacheControl: MEDIA_CACHE }).catch((error: unknown) => {
       console.error("media thumb", key, width, error);
       return null;
     });
-    if (thumb) return thumb;
+    if (thumb) {
+      if (request.method === "HEAD") { void thumb.body?.cancel().catch(() => undefined); return new Response(null, { headers: thumb.headers }); }
+      return thumb;
+    }
   }
 
   const head = await bucket.head(key);

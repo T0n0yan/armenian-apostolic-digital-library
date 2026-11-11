@@ -180,7 +180,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : null;
   const materials = intro ? materialResult.materials.filter((material) => material.id !== intro.id) : materialResult.materials;
 
-  // Առաջին էջում, երբ բաժինը շարունակություն ունի՝ մնացած նյութերի հղումները (թաքնված, որոնիչների համար)։
+  // Առաջին էջում, երբ բաժինը շարունակություն ունի՝ մնացած նյութերի բացվող ցանկը։
   const moreLinks = !query && !cursor && materialResult.nextCursor
     ? await listSectionLinks(env.DB, category).catch(() => [])
     : [];
@@ -462,47 +462,76 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   // Searching inside a section finds among the section's own items: the page scrolls to the first
   // match and lights it up (psalms by their number on the phone, words through the library's search),
   // and only when nothing here matches offers the whole library.
-  type Hit = { id: string; title: string; excerpt?: string | null; searchHit?: SearchMaterial["searchHit"] };
+  type Hit = SearchMaterial;
   const [found, setFound] = useState<{ query: string; ids: string[]; hits: Record<string, Hit>; index: number } | null>(null);
   const [finding, setFinding] = useState(false);
   const isPsalms = contentCategory === "category_psalms";
   const hrefOf = useCallback((material: CategoryMaterial) =>
     materialPath(material.id, contentCategory, { psalm: isPsalms ? psalmNumber(material) : null, title: material.title }), [contentCategory, isPsalms]);
+  const searchAbort = useRef<AbortController | null>(null);
+  const [findError, setFindError] = useState<string | null>(null);
+  const lastFind = useRef("");
   const findInSection = useCallback(async (query: string) => {
-    if (!query) { setFound(null); return; }
-    setFinding(true);
-    // Every item of the section on the page first (sections are a few dozen to a few hundred posts).
-    let pool = materials;
-    let cursor = nextCursor;
-    for (let page = 0; cursor && page < 25; page += 1) {
-      const response = await fetch(`/api/categories/${category.slug}/posts?cursor=${encodeURIComponent(cursor)}`).catch(() => null);
-      if (!response?.ok) break;
-      const data = await response.json() as { materials: CategoryMaterial[]; nextCursor: string | null };
-      const byId = new Map(pool.map((material) => [material.id, material]));
-      for (const material of data.materials) if (material.id !== loaderData.intro?.id) byId.set(material.id, material);
-      pool = [...byId.values()];
-      cursor = data.nextCursor;
+    searchAbort.current?.abort();
+    const controller = new AbortController();
+    searchAbort.current = controller;
+    lastFind.current = query;
+    setFindError(null);
+    setFound(null);
+    setFinding(Boolean(query));
+    if (!query) return;
+    let timedOut = false;
+    const timeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 60_000);
+    const readPage = async (url: string) => {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`Search request failed: ${response.status}`);
+      const data = await response.json() as { materials: CategoryMaterial[]; nextCursor?: string | null };
+      if (!Array.isArray(data.materials)) throw new Error("Invalid search response");
+      return data;
+    };
+    try {
+      let ids: string[] = [];
+      const hits: Record<string, Hit> = {};
+      const wantedPsalm = isPsalms && /^\d{1,3}$/u.test(query) ? Number(query) : null;
+      const localPsalm = wantedPsalm ? materials.find((material) => psalmNumber(material) === wantedPsalm) : null;
+      if (localPsalm) {
+        ids = [localPsalm.id];
+      } else {
+        // Բաժնի ամբողջ բովանդակությունը ներբեռնելու փոխարեն՝ միայն համընկնումները։
+        const seenSearch = new Set<string>();
+        let next: string | null = null;
+        do {
+          const parameters = new URLSearchParams({ category: category.id, q: wantedPsalm ? `Սաղմոս ${wantedPsalm}` : query });
+          if (next) parameters.set("cursor", next);
+          const data = await readPage(`/api/search-page?${parameters}`);
+          for (const material of data.materials) if (material.id !== loaderData.intro?.id && !hits[material.id] && (!wantedPsalm || psalmNumber(material) === wantedPsalm)) {
+            ids.push(material.id); hits[material.id] = material as SearchMaterial;
+          }
+          next = data.nextCursor ?? null;
+          if (next && seenSearch.has(next)) throw new Error("Repeated search cursor");
+          if (next) seenSearch.add(next);
+        } while (next);
+      }
+      if (controller.signal.aborted || searchAbort.current !== controller) return;
+      setFound({ query, ids, hits, index: 0 });
+    } catch {
+      if ((timedOut || !controller.signal.aborted) && searchAbort.current === controller) {
+        setFindError("Որոնումը չհաջողվեց։ Կրկին փորձեք։");
+      }
+    } finally {
+      window.clearTimeout(timeout);
+      if (searchAbort.current === controller) setFinding(false);
     }
-    if (pool !== materials) { setMaterials(pool); setNextCursor(cursor); }
-    let ids: string[] = [];
-    const hits: Record<string, Hit> = {};
-    if (isPsalms && /^\d{1,3}$/u.test(query)) {
-      ids = pool.filter((material) => psalmNumber(material) === Number(query)).map((material) => material.id);
-    } else {
-      const response = await fetch(`/api/search-page?category=${encodeURIComponent(category.id)}&q=${encodeURIComponent(query)}`).catch(() => null);
-      const data = response?.ok ? await response.json() as { materials: Hit[] } : { materials: [] };
-      const here = new Set(pool.map((material) => material.id));
-      for (const material of data.materials) if (here.has(material.id)) { ids.push(material.id); hits[material.id] = material; }
-    }
-    setFound({ query, ids, hits, index: 0 });
-    setFinding(false);
-  }, [category.id, category.slug, isPsalms, loaderData.intro?.id, materials, nextCursor]);
+  }, [category.id, isPsalms, loaderData.intro?.id, materials]);
 
   // A found item opened from here: the words light up on its page (not a psalm's number).
   useRememberFind(found?.ids.length && !/^\d+$/u.test(found.query) ? found.query : "");
 
   // Another section starts clean: no earlier search in its field, nothing found yet.
-  useEffect(() => { setFound(null); setFinding(false); }, [category.id]);
+  useEffect(() => {
+    setFound(null); setFinding(false); setFindError(null);
+    return () => { searchAbort.current?.abort(); searchAbort.current = null; };
+  }, [category.id]);
 
   // A link from elsewhere (/psalms?find=5) finds on arrival.
   useEffect(() => {
@@ -549,11 +578,15 @@ export default function Category({ loaderData }: Route.ComponentProps) {
       {/* Վերջին կարդացածը/լսածը այս բաժնում («Օրվա ընթերցումները» չեն հիշվում)։ */}
       <ContinueCard className="mb-3" section={sectionOfPath(sectionPath(category))} />
 
+      {findError ? <div role="alert" className="mb-3 rounded-xl border border-glass-border p-3 text-sm">
+        <p>{findError}</p>
+        <button type="button" className="min-h-11 text-gold-bright" onClick={() => void findInSection(lastFind.current)}>Կրկին փորձել</button>
+      </div> : null}
       {finding || found ? (() => {
         const count = found?.ids.length ?? 0;
         const position = count ? (found!.index % count + count) % count : 0;
         const currentId = count ? found!.ids[position] : null;
-        const current = currentId ? materials.find((material) => material.id === currentId) : null;
+        const current = currentId ? materials.find((material) => material.id === currentId) ?? found?.hits[currentId] : null;
         const hit = currentId ? found?.hits[currentId] : null;
         const step = (delta: number) => found && setFound({ ...found, index: found.index + delta });
         const label = current ? (isPsalms && psalmNumber(current) ? `Սաղմոս ${psalmNumber(current)}` : current.title) : "";
@@ -589,7 +622,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
                 <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-gold-bright hover:bg-subtle" onClick={() => step(1)} aria-label="Հաջորդը"><ChevronDown aria-hidden="true" size={17} /></button>
               </>
             ) : null}
-            {!finding ? <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:bg-subtle hover:text-ink" onClick={() => setFound(null)} aria-label="Փակել որոնումը"><X aria-hidden="true" size={16} /></button> : null}
+            {!finding ? <button type="button" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:bg-subtle hover:text-ink" onClick={() => void findInSection("")} aria-label="Փակել որոնումը"><X aria-hidden="true" size={16} /></button> : null}
           </div>
         );
       })() : null}
@@ -654,9 +687,9 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           />
         ) : null}
         {loaderData.moreLinks.length ? (
-          <ul hidden>
+          <details className="mt-4 rounded-xl border border-glass-border p-3"><summary className="cursor-pointer text-gold-bright">Բաժնի բոլոր նյութերը</summary><ul className="grid gap-2 pt-3">
             {loaderData.moreLinks.map((link) => <li key={link.path}><a href={link.path}>{link.title}</a></li>)}
-          </ul>
+          </ul></details>
         ) : null}
       </section>
     </PageShell>
