@@ -237,6 +237,7 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
 }) {
   const [mine, setMine] = useState<number | null>(votes?.mine ?? null);
   const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
   const answered = mine !== null;
   const canAnswer = canVote && Boolean(materialId) && !answered && !poll.closed;
   const correctIndex = poll.quiz ? poll.options.findIndex((option) => option.correct) : -1;
@@ -246,8 +247,11 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
   const vote = async (index: number) => {
     if (!canAnswer || sending) return;
     setSending(true);
+    setFailed(false);
     setMine(index);
-    await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index, day: localDay() }) }).catch(() => null);
+    const response = await fetch("/api/poll-vote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ materialId, option: index, day: localDay() }) }).catch(() => null);
+    // Սերվերը չպահեց. ընտրությունը հետ է բերվում, որ ընթերցողը կարողանա նորից պատասխանել։
+    if (!response?.ok) { setMine(null); setFailed(true); }
     setSending(false);
   };
 
@@ -258,7 +262,7 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
         <div className="grid gap-1">
           {repeatsTitle ? <h2 className="m-0 text-[13px] font-semibold tracking-[0.3px] text-gold-bright">{poll.quiz ? "Վիկտորինա" : "Հարցում"}</h2> : <h2 className="m-0 text-[16px] leading-[1.5] text-ink"><FormattedTelegramText value={poll.question} /></h2>}
           <p className="m-0 text-[11.5px] text-faint">
-            {canAnswer ? "Ընտրեք պատասխանը" : answered ? (correctIndex < 0 ? "Ձեր պատասխանը պահված է" : mine === correctIndex ? "Ճիշտ է, ապրեք 🙏" : "Սխալ է. ճիշտ պատասխանը նշված է կանաչով") : poll.closed ? "Հարցումը փակված է" : "Պատասխանելու համար մուտք գործեք"}
+            {failed && canAnswer ? "Չհաջողվեց պահել պատասխանը։ Ընտրեք նորից։" : canAnswer ? "Ընտրեք պատասխանը" : answered ? (correctIndex < 0 ? "Ձեր պատասխանը պահված է" : mine === correctIndex ? "Ճիշտ է, ապրեք 🙏" : "Սխալ է. ճիշտ պատասխանը նշված է կանաչով") : poll.closed ? "Հարցումը փակված է" : "Պատասխանելու համար մուտք գործեք"}
           </p>
         </div>
       </header>

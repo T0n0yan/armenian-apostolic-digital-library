@@ -27,7 +27,14 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - name: Բրաուզերի տեղադրում
-        run: pnpm exec playwright install --with-deps chromium
+        # apt-ի ցանցային սխալի դեպքում՝ ևս երկու փորձ (2026-11-11-ին մեկ սխալից QA-ն բրաուզերին չհասավ)։
+        timeout-minutes: 8
+        run: |
+          for attempt in 1 2 3; do
+            if pnpm exec playwright install --with-deps chromium; then exit 0; fi
+            echo "Տեղադրումը չստացվեց (փորձ $attempt/3)"; sleep 20
+          done
+          exit 1
       - name: Տեղական բազա և բրաուզերային ստուգումներ
         run: |
           pnpm db:migrate:local
