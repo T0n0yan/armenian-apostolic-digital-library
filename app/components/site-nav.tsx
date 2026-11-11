@@ -169,17 +169,14 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               </section>
             ) : null}
 
-            <section className="grid gap-2" aria-labelledby="menu-settings">
-              <div className="flex items-center justify-between">
-                <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Այլ</h2>
-                {/* Անձնական չատը. փոքր, առանց անվան, միայն երկու կողմին (root-ը ուրիշներին null է տալիս)։ */}
-                {rootData?.privateChat ? (
-                  <NavLink className="relative grid size-7 place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
-                    <Mail aria-hidden="true" size={14} />
-                    {chatUnread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
-                  </NavLink>
-                ) : null}
-              </div>
+            <section className="grid gap-2 border-t border-glass-border pt-3" aria-label="Կարգավորումներ և օգնություն">
+              {/* Անձնական չատը. փոքր, առանց անվան, միայն երկու կողմին (root-ը ուրիշներին null է տալիս)։ */}
+              {rootData?.privateChat ? (
+                <NavLink className="relative grid size-7 justify-self-end place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                  <Mail aria-hidden="true" size={14} />
+                  {chatUnread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
+                </NavLink>
+              ) : null}
               {/* Փոքր սալիկներ՝ պատկերակ և կարճ անուն, նույն ձևով, ինչ վերևի գլխավոր էջերը։ */}
               <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0">
                 <li>

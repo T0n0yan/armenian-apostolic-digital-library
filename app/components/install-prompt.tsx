@@ -169,7 +169,7 @@ export function InstallPrompt() {
     <>
       <aside
         ref={toast}
-        className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-card border border-glass-border bg-[var(--page-bg)] p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
+        className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-card border border-glass-border liquid-sheet p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
         data-phase={phase}
         role="dialog"
         aria-label="Ավելացնել գլխավոր էկրանին"

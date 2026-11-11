@@ -258,7 +258,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 
 
       {marking ? (
-        <div className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
+        <div className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
           <p className="m-0 text-[12px] leading-snug text-muted">
             Լսեք ձայնագրությունը և սեղմեք <strong className="text-ink">«Հաջորդ համարը»</strong> հենց որ սկսվի նոր համարը (համակարգչում՝ Space)։ Սխալը ուղղելու համար սեղմեք տողի վրա՝ ճիշտ պահին։
           </p>

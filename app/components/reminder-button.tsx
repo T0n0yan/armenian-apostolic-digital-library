@@ -231,7 +231,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
   const close = useCallback(() => setOpen(false), []);
   const Icon = hasReminder ? BellRing : Bell;
   const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-button border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
-  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-control border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
+  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-control border-0 text-[13px] font-semibold ${active ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`;
   return (
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">

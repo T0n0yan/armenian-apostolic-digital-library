@@ -25,7 +25,7 @@ export function AdminRightsDialog({ person, permissions, onClose }: {
   const box = "flex cursor-pointer items-start gap-3 rounded-button border border-glass-border bg-subtle px-3 py-2.5 text-[14px] text-ink";
   return createPortal(
     <div className="fixed inset-0 z-[2100] grid place-items-center bg-[rgb(8_4_10/70%)] p-4 backdrop-blur-[5px]" role="dialog" aria-modal="true" aria-labelledby="rights-title" onClick={onClose}>
-      <Form method="post" preventScrollReset className="grid max-h-[90svh] border border-glass-border bg-[var(--page-bg)] w-full max-w-[460px] gap-3 overflow-y-auto rounded-card p-4 shadow-glass" onClick={(event) => event.stopPropagation()}>
+      <Form method="post" preventScrollReset className="grid max-h-[90svh] border border-glass-border liquid-sheet w-full max-w-[460px] gap-3 overflow-y-auto rounded-card p-4 shadow-glass" onClick={(event) => event.stopPropagation()}>
         <input type="hidden" name="intent" value="admin-rights" />
         <input type="hidden" name="userId" value={person.id} />
         <div className="flex items-start justify-between gap-2">

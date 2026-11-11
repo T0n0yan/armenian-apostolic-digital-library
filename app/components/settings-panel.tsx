@@ -14,18 +14,18 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
   value: T; options: Array<{ value: T; label: string; icon?: ReactNode; sample?: ReactNode }>; onChange: (value: T) => void; columns?: number;
 }) {
   return (
-    <div className="grid gap-1.5 rounded-button border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
+    <div className="grid gap-1 rounded-card border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
       {options.map((option) => {
         const active = option.value === value;
         return (
           <button
             key={option.value}
-            className={`grid h-[60px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-control border-0 px-0.5 py-2 text-[11px] font-semibold transition-colors ${active ? "bg-glass-strong text-gold-bright shadow-[0_2px_10px_rgb(12_4_17/18%)]" : "bg-transparent text-muted hover:text-ink"}`}
+            className={`grid h-[58px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-button border-0 px-0 py-2 text-[11px] font-semibold transition-colors ${active ? "glass-selected text-gold-bright" : "bg-transparent text-muted hover:text-ink"}`}
             type="button" role="radio" aria-checked={active} onClick={() => onChange(option.value)}
           >
             {option.sample ?? option.icon}
             {/* One line in every option, so the rows keep one height. */}
-            <span className="max-w-full whitespace-normal text-center leading-tight tracking-[-0.01em]">{option.label}</span>
+            <span className="max-w-full whitespace-nowrap text-center leading-tight tracking-[-0.02em]">{option.label}</span>
           </button>
         );
       })}
@@ -35,7 +35,7 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
 
 function Setting({ icon, title, hint, children }: { icon: ReactNode; title: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <section className="frosted-panel grid gap-3 px-4 py-4">
+    <section className="frosted-panel grid gap-3 px-3 py-3.5">
       <div className="flex items-start gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] text-gold-bright">{icon}</span>
         <div className="grid gap-0.5">

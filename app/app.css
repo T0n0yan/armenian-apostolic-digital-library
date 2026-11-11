@@ -388,6 +388,20 @@
   -webkit-backdrop-filter: blur(26px) saturate(190%);
   backdrop-filter: blur(26px) saturate(190%);
 }
+/* Ստատիկ տարրի վրա լույսի օղակը (::before) պետք է իր մեջ մնա։ */
+.liquid-sheet:not(.fixed, .absolute, .sticky) { position: relative; }
+.liquid-sheet { color: var(--ink); }
+/* Փոքր պատուհանի «սլաքը» (բառարան, նշումներ)՝ նույն ապակով։ */
+.glass-arrow {
+  background: var(--lg-menu-tint);
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  backdrop-filter: blur(26px) saturate(190%);
+}
+/* Ընտրված հատված (segment)՝ ապակե «քար», ոչ թե էջի գույնով հարթ ֆոն։ */
+.glass-selected {
+  background: radial-gradient(120% 90% at 0% 0%, var(--lg-spec), transparent 55%), var(--lg-tile-hover);
+  box-shadow: var(--lg-inner), 0 2px 8px rgb(40 20 40 / 12%);
+}
 html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-sheet { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 @media (prefers-reduced-transparency: reduce) {
   .menu-panel, .liquid-sheet, .liquid-fab { background: var(--nav-surface) !important; }
@@ -715,6 +729,23 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
 :root .action-bar .action-tile:hover, :root[data-theme] .action-bar .action-tile:hover { background: var(--lg-tile-hover); }
 :root .action-bar .action-tile[aria-pressed="true"], :root[data-theme] .action-bar .action-tile[aria-pressed="true"] { background: rgb(217 181 111 / 18%); }
 
+/* Սահող ներդիրի ֆոն (Իմ անկյունը և նման ներդիրներ)։ */
+.tab-glider {
+  background: radial-gradient(120% 90% at 0% 0%, var(--lg-spec), transparent 55%), var(--lg-tile-hover);
+  box-shadow: var(--lg-inner), 0 4px 14px rgb(40 20 40 / 14%);
+  transition: transform 420ms cubic-bezier(.2, 1.15, .3, 1);
+}
+@media (prefers-reduced-motion: reduce) { .tab-glider { transition: none; } }
+
+/* «Կարդացել եմ»՝ նույն ապակով, ինչ գործողությունների գոտին (երկու թեմայում էլ)։ */
+:root .read-mark:not(.is-done), :root[data-theme] .read-mark:not(.is-done) {
+  border-color: transparent;
+  background: radial-gradient(130% 95% at 0% 0%, var(--lg-spec), transparent 48%), var(--lg-tint);
+  box-shadow: var(--lg-inner), var(--lg-shadow);
+  color: var(--gold-bright);
+}
+:root .read-mark:not(.is-done):hover, :root[data-theme] .read-mark:not(.is-done):hover { background: radial-gradient(130% 95% at 0% 0%, var(--lg-spec), transparent 48%), var(--lg-tint-hover); }
+
 /* «Կարդացել եմ / Լսել եմ / Դիտել եմ»՝ նույն տեսքը, ինչ մյուս կոճակները (.action-tile), նշվածը՝ կանաչ։ */
 .read-mark.is-done {
   border: 1px solid rgb(74 160 96 / 50%);
@@ -823,7 +854,7 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 @media (prefers-reduced-motion: reduce) { .find-bar { animation: none; } }
 
 /* The places filters open over the map: a soft fade and slide, and the same way out. */
-.places-filters { background: var(--page-bg); border: 1px solid rgb(217 181 111 / 40%); transform-origin: top center; transition: opacity .22s ease, transform .22s cubic-bezier(.2, .9, .3, 1), visibility .22s; box-shadow: 0 18px 44px rgb(20 10 5 / 30%); }
+.places-filters { background: radial-gradient(110% 50% at 0% 0%, var(--lg-spec), transparent 55%), var(--lg-menu-tint); -webkit-backdrop-filter: blur(26px) saturate(190%); backdrop-filter: blur(26px) saturate(190%); border: 0.5px solid var(--frost-border); box-shadow: var(--lg-inner), 0 24px 60px rgb(20 8 24 / 30%); transform-origin: top center; transition: opacity .22s ease, transform .22s cubic-bezier(.2, .9, .3, 1), visibility .22s; box-shadow: 0 18px 44px rgb(20 10 5 / 30%); }
 .places-filters[data-open="false"] { opacity: 0; transform: translateY(-8px) scale(.98); visibility: hidden; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .places-filters { transition: none; } }
 

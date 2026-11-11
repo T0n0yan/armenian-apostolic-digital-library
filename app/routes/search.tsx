@@ -61,6 +61,8 @@ import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
+import { buildSearchVocabulary, correctSearchQuery, type SearchCorrection, type SearchVocabulary } from "../../shared/search-correction";
+import { searchVocabulary } from "../data/search-correction.server";
 import { PLACE_KINDS, placeThumbUrl, type PlaceKind } from "../utils/places";
 import { useRememberFind } from "../utils/find-flash";
 
@@ -132,6 +134,27 @@ function placesSectionRedirect(href: string) {
   if (url.searchParams.get("category") !== PLACES_SECTION) return;
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   throw redirect(query ? `/places?q=${encodeURIComponent(query)}` : "/places");
+}
+
+const EXACT_MATCHES = new Set(["exact-token", "exact-primary", "message-id"]);
+
+/**
+ * «Գուցե նկատի ունեիք…». լատինատառ կամ սխալ գրված որոնման համար՝ ուղղված բառը։
+ * Լատինատառը կամ ոչինչ չգտած որոնումը ինքնաբերաբար բացվում է ուղղվածով (?asked=-ում՝ ինչ գրել էր
+ * մարդը), մնացած դեպքերում ուղղումը միայն առաջարկվում է։ ?exact=1՝ որոնել ճիշտ գրածը։
+ */
+function searchCorrection(url: URL, materials: SearchMaterial[], vocabulary: SearchVocabulary | null): { redirectTo: string | null; correction: SearchCorrection | null } {
+  const query = (url.searchParams.get("q") ?? "").trim();
+  if (!vocabulary || !query || url.searchParams.has("exact") || url.searchParams.has("asked") || url.searchParams.has("cursor") || url.searchParams.get("scope") === "saved") return { redirectTo: null, correction: null };
+  if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
+  const correction = correctSearchQuery(query, vocabulary);
+  if (correction.corrected && (correction.latin || materials.length === 0)) {
+    const next = new URL(url);
+    next.searchParams.set("q", correction.corrected);
+    next.searchParams.set("asked", query);
+    return { redirectTo: `${next.pathname}${next.search}`, correction };
+  }
+  return { redirectTo: null, correction };
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -248,6 +271,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   });
   const personalMaterials = [...noteById.values()].sort(stableSearchOrder);
+  const vocabulary = hasSearchQuery && scope === "library" ? await searchVocabulary(env.DB).catch(() => null) : null;
+  const { redirectTo, correction } = searchCorrection(url, telegramMaterials, vocabulary);
+  if (redirectTo) throw redirect(redirectTo);
   const materials = (scope === "saved" ? savedPageMaterials : telegramMaterials).sort(stableSearchOrder);
   const total = scope === "saved"
     ? savedMatches.length
@@ -279,6 +305,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     canSave: Boolean(user),
     highlightQuery: resolvedQuery.highlightQuery,
     correctedQuery: resolvedQuery.correctedQuery,
+    askedQuery: url.searchParams.get("asked")?.slice(0, 120) ?? "",
+    didYouMean: correction?.corrected ?? "",
+    similarWords: correction?.similar ?? [],
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: await getTelegramUserCacheScope(user),
     titlesOnly: false,
@@ -291,6 +320,15 @@ type SearchLoaderData = Awaited<ReturnType<typeof loader>>;
  * Titles are searched on the phone (utils/local-search.ts), with no request; the texts only on the
  * server, when no title answers or the reader asks for them («Փնտրել նաև տեքստերում», &text=1).
  */
+// Հեռախոսի բառարանը՝ վերնագրերի ցուցակից, մեկ անգամ ամեն տարբերակի համար։
+let phoneVocabularyCache: { version: string; vocabulary: SearchVocabulary } | null = null;
+function phoneVocabulary(index: { version: string; index: { categories: Record<string, [string, string]>; items: Array<[string, string, string, ...unknown[]]> } }) {
+  if (phoneVocabularyCache?.version !== index.version) {
+    phoneVocabularyCache = { version: index.version, vocabulary: buildSearchVocabulary([...Object.values(index.index.categories).map(([name]) => name), ...index.index.items.map((item) => item[2])]) };
+  }
+  return phoneVocabularyCache.vocabulary;
+}
+
 async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
   const url = new URL(href);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
@@ -300,6 +338,8 @@ async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
   const index = await loadSearchIndex();
   if (!index) return null;
   const materials = searchTitles(index, query, categoryId);
+  const { redirectTo, correction } = searchCorrection(url, materials, phoneVocabulary(index));
+  if (redirectTo) throw redirect(redirectTo);
   if (materials.length === 0) return null;
   const root = rootSearchState();
   return {
@@ -314,6 +354,9 @@ async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
     canSave: root.signedIn,
     highlightQuery: normalizeTelegramSearchText(translateQuery(query)),
     correctedQuery: "",
+    askedQuery: url.searchParams.get("asked")?.slice(0, 120) ?? "",
+    didYouMean: correction?.corrected ?? "",
+    similarWords: correction?.similar ?? [],
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: "phone",
     titlesOnly: true,
@@ -333,6 +376,30 @@ export async function clientLoader({ request, serverLoader }: Route.ClientLoader
   return loadNavigationData("search-results", request.url, async () => await serverLoader() as SearchLoaderData);
 }
 clientLoader.hydrate = true as const;
+
+/** «Ցույց ենք տալիս…», «Գուցե նկատի ունեիք…» և նման բառեր՝ սեղմելու համար։ */
+function SearchHelp({ query, asked, didYouMean, similar, hrefFor }: {
+  query: string; asked: string; didYouMean: string; similar: string[]; hrefFor: (query: string, exact?: boolean) => string;
+}) {
+  const words = similar.filter((word) => word !== query && word !== didYouMean);
+  if (!asked && !didYouMean && !words.length) return null;
+  const chip = "inline-flex min-h-8 items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] px-3 text-[13px] font-semibold text-gold-bright no-underline hover:bg-[rgb(217_181_111/18%)]";
+  return (
+    <div className="mx-1 mt-3 grid gap-2 text-[13px] leading-snug text-muted" role="status">
+      {asked ? (
+        <p className="m-0">
+          Ցույց ենք տալիս <strong className="text-gold-bright">«{query}»</strong>-ի արդյունքները։{" "}
+          <Link className="text-faint underline underline-offset-2" to={hrefFor(asked, true)}>Փնտրել հենց «{asked}»</Link>
+        </p>
+      ) : didYouMean ? (
+        <p className="m-0 flex flex-wrap items-center gap-2">Գուցե նկատի ունեիք՝ <Link className={chip} to={hrefFor(didYouMean)}>{didYouMean}</Link></p>
+      ) : null}
+      {words.length ? (
+        <p className="m-0 flex flex-wrap items-center gap-1.5">Նման բառեր՝ {words.map((word) => <Link key={word} className={chip} to={hrefFor(word)}>{word}</Link>)}</p>
+      ) : null}
+    </div>
+  );
+}
 
 const SearchForm = memo(function SearchForm({
   categories,
@@ -656,11 +723,13 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         filters={filters}
       />
 
-      {loaderData.correctedQuery ? (
-        <p className="mx-1 mt-3 mb-0 text-[13px] text-muted [&_strong]:text-gold-bright" role="status">
-          Որոնումը ներառում է նաև տառադարձումը՝ <strong>{loaderData.correctedQuery}</strong>
-        </p>
-      ) : null}
+      <SearchHelp
+        query={filters.query}
+        asked={loaderData.askedQuery}
+        didYouMean={loaderData.didYouMean}
+        similar={loaderData.similarWords}
+        hrefFor={(q, exact) => getPageHref({ ...filters, query: q }) + (exact ? "&exact=1" : "")}
+      />
 
       {filters.query && !filters.categoryId && filters.scope === "library" && loaderData.canSave ? <NoteMatches query={filters.query} /> : null}
       {filters.query && !filters.categoryId && filters.scope === "library" ? <PlaceMatches query={filters.query} /> : null}

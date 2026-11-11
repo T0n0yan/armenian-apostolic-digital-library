@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { BookOpenCheck, Bookmark, ChevronDown, Highlighter, Search } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, useSearchParams, type ShouldRevalidateFunctionArgs } from "react-router";
 
 import type { Route } from "./+types/saved";
 import {
@@ -43,6 +43,16 @@ export function meta({}: Route.MetaArgs) {
     { title: "Իմ անկյունը — Հոգևոր ժառանգություն" },
     { name: "robots", content: "noindex, nofollow, noarchive" },
   ];
+}
+
+// Ներդիրը փոխելիս (միայն ?tab=) էջի տվյալները նորից չեն բեռնվում. փոխվում է միայն ներդիրի մասը։
+export function shouldRevalidate({ currentUrl, nextUrl, formMethod, defaultShouldRevalidate }: ShouldRevalidateFunctionArgs) {
+  if (!formMethod && currentUrl.pathname === nextUrl.pathname) {
+    const before = new URLSearchParams(currentUrl.search); before.delete("tab");
+    const after = new URLSearchParams(nextUrl.search); after.delete("tab");
+    if (before.toString() === after.toString()) return false;
+  }
+  return defaultShouldRevalidate;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -190,10 +200,13 @@ function CornerTabs({ tab, onChoose, notes, saved }: { tab: CornerTab; onChoose:
   const questions = notes.filter((item) => item.kind === "question" && !item.answeredAt).length;
   const count: Record<CornerTab, string> = { saved: saved ? String(saved) : "", reading: "", notes: notes.length ? String(notes.length) : "" };
   return (
-    <div className="grid grid-cols-3 gap-1 rounded-card border border-glass-border bg-subtle p-1" role="tablist" aria-label="Իմ անկյունը">
+    <div className="relative grid grid-cols-3 gap-1 rounded-card border border-glass-border bg-subtle p-1.5" role="tablist" aria-label="Իմ անկյունը">
+      {/* Ակտիվ ներդիրի ապակե ֆոնը սահում է ներդիրից ներդիր։ */}
+      <span aria-hidden="true" className="tab-glider pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-20px)/3)] rounded-button"
+        style={{ transform: `translateX(calc(${CORNER_TABS.findIndex((item) => item.id === tab)} * (100% + 4px)))` }} />
       {CORNER_TABS.map(({ id, label, icon: Icon }) => (
         <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => onChoose(id)}
-          className={`relative grid min-h-[58px] cursor-pointer justify-items-center gap-0.5 rounded-button border-0 px-1 py-1.5 text-[12px] leading-tight font-semibold ${tab === id ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`}>
+          className={`relative z-[1] grid min-h-[58px] cursor-pointer justify-items-center gap-0.5 rounded-button border-0 bg-transparent px-1 py-1.5 text-[12px] leading-tight font-semibold outline-none transition-colors duration-300 focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/42%)] ${tab === id ? "text-gold-bright" : "text-muted hover:text-ink"}`}>
           <Icon aria-hidden="true" size={18} strokeWidth={1.9} />
           <span>{label}{count[id] ? <span className="ml-1 tabular-nums opacity-70">{count[id]}</span> : null}</span>
           {id === "notes" && questions ? <span className="absolute top-1 right-1.5 rounded-full bg-[rgb(120_165_230/22%)] px-1.5 text-[10.5px] font-bold text-[rgb(70_120_200)]">❓ {questions}</span> : null}
@@ -252,13 +265,13 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           {loaderData.authStatus === "guest" || loaderData.authStatus === "invalid" ? (
             <div className="mt-1 grid w-full max-w-[320px] gap-2">
               {loaderData.googleAvailable ? (
-                <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-button border border-glass-border bg-[var(--page-bg)] px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
+                <a className="flex min-h-12 w-full items-center justify-center gap-3 glass-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                   Մուտք Google-ով
                 </a>
               ) : null}
               {/* Telegram's own sign-in page; the same account as in the Mini App. */}
-              <a className="flex min-h-12 w-full items-center justify-center gap-3 rounded-button border border-glass-border bg-[var(--page-bg)] px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/telegram/start?return=/saved">
+              <a className="flex min-h-12 w-full items-center justify-center gap-3 glass-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/telegram/start?return=/saved">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE" /><path fill="#fff" d="M5.4 11.8l11.6-4.5c.54-.2 1 .13.83.94l-1.98 9.3c-.15.66-.54.82-1.1.51l-3-2.22-1.45 1.4c-.16.16-.3.3-.6.3l.21-3.05 5.56-5.02c.24-.21-.05-.33-.38-.12l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.14-.95z" /></svg>
                   Մուտք Telegram-ով
               </a>

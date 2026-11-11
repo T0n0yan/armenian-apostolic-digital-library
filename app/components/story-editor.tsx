@@ -59,7 +59,7 @@ function Segmented<T extends string | number | boolean>({ label, value, options,
       <div className="flex gap-1 rounded-control bg-[rgb(127_127_127/12%)] p-[3px]" role="radiogroup" aria-label={label}>
         {options.map(([option, text]) => (
           <button key={String(option)} type="button" role="radio" aria-checked={option === value}
-            className={`min-h-8 flex-1 cursor-pointer rounded-chip border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "bg-[var(--page-bg)] text-gold-bright shadow-[0_1px_4px_rgb(0_0_0/18%)]" : "bg-transparent text-muted"}`}
+            className={`min-h-8 flex-1 cursor-pointer rounded-chip border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`}
             onClick={() => onChange(option)}>{text}</button>
         ))}
       </div>
@@ -524,7 +524,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
         </div>
 
         {editing ? (
-          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-card border-t border-glass-border bg-[var(--page-bg)] shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-card min-[860px]:border">
+          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-card border-t border-glass-border liquid-sheet shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-card min-[860px]:border">
             <nav className="grid grid-cols-3 gap-1 p-2 pb-1" aria-label="Ձևավորման բաժիններ">
               <button className={tabButton(tab === "background")} type="button" aria-pressed={tab === "background"} onClick={() => setTab("background")}><ImageIcon size={18} aria-hidden="true" />Ֆոն</button>
               <button className={tabButton(tab === "title")} type="button" aria-pressed={tab === "title"} onClick={() => setTab("title")}><Heading size={18} aria-hidden="true" />Վերնագիր</button>
