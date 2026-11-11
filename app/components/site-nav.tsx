@@ -26,6 +26,9 @@ const quickItems = [
 
 const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-[13px] font-semibold text-muted no-underline outline-none transition-[background,color,transform,translate,scale] duration-150 hover:bg-subtle hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] active:scale-[.985]";
 
+// Բաժնի սալիկ մենյուում (2 սյուն)։
+const tileClass = "glass-tile relative flex min-h-[54px] items-center gap-2 rounded-[16px] px-2.5 py-2 text-[12.5px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
   // Անձնական չատի չկարդացվածները՝ կենդանի (PrivateChatPresence-ից), սկզբում՝ root-ից։
@@ -131,7 +134,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
-                  <NavLink className={({ isActive }) => `flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[14px] border px-1 text-center text-[11px] font-semibold no-underline outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                  <NavLink className={({ isActive }) => `glass-tile flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[18px] px-1 text-center text-[11px] font-semibold no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "text-gold-bright" : "text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                     <Icon aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
                     <span>{label}</span>
                   </NavLink>
@@ -142,23 +145,23 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             {topicItems.length > 0 ? (
               <section className="grid gap-1" aria-labelledby="menu-topics">
                 <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-topics">Բաժիններ</h2>
-                <ul className="m-0 grid list-none gap-0.5 p-0">
+                <ul className="m-0 grid list-none grid-cols-2 gap-1.5 p-0">
                   {topicItems.map((topic) => {
                     return (
                       <li key={topic.id}>
-                        <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to={sectionPath(topic)} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                        <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to={sectionPath(topic)} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                           <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
-                          <span className="min-w-0 flex-1 truncate">{topic.name}</span>
+                          <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{topic.name}</span>
                           {/* A closed Telegram topic only means that just admins post there; readers aren't told. */}
-                          {topic.status === "hidden" ? <span className="text-[10px] text-faint">թաքցված</span> : null}
+                          {topic.status === "hidden" ? <span className="absolute top-1 right-2 text-[9px] text-faint">թաքցված</span> : null}
                         </NavLink>
                       </li>
                     );
                   })}
                   <li>
-                    <NavLink className={({ isActive }) => `${linkClass} ${isActive ? "bg-[rgb(217_181_111/10%)] text-gold-bright" : ""}`} to="/places" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                    <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to="/places" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                       <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><PlacesIcon aria-hidden="true" size={17} /></span>
-                      <span className="min-w-0 flex-1 truncate">Սրբավայրեր</span>
+                      <span className="line-clamp-2 min-w-0 flex-1 leading-tight">Սրբավայրեր</span>
                     </NavLink>
                   </li>
                 </ul>
@@ -167,7 +170,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
             <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
               <div className="flex items-center justify-between">
-                <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Կարգավորումներ</h2>
+                <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Այլ</h2>
                 {/* Անձնական չատը. փոքր, առանց անվան, միայն երկու կողմին (root-ը ուրիշներին null է տալիս)։ */}
                 {rootData?.privateChat ? (
                   <NavLink className="relative grid size-7 place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
@@ -178,7 +181,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               </div>
               <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")}>
                 <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings2 aria-hidden="true" size={17} /></span>
-                <span className="flex-1">Կայքի լուսավորություն, տառաչափ, տառատեսակ…</span>
+                <span className="grid flex-1 leading-tight">Կարգավորումներ<span className="text-[11px] font-medium text-faint">Լույս, տառաչափ, տառատեսակ</span></span>
                 <ChevronRight aria-hidden="true" size={17} className="text-faint" />
               </button>
               <NavLink className={linkClass} to="/ognutyun" end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
@@ -229,7 +232,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         <ReminderIndicator hidden={isOpen} />
         <button
           ref={triggerRef}
-          className={`relative grid size-[62px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] p-0 shadow-[var(--fab-shadow)] backdrop-blur-xl outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
+          className={`relative grid size-[62px] cursor-pointer place-items-center liquid-fab rounded-full p-0 outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
           type="button"
           aria-label={isOpen ? "Փակել մենյուն" : "Բացել մենյուն"}
           aria-expanded={isOpen}
