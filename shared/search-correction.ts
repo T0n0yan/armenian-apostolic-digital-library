@@ -84,10 +84,10 @@ function nearestWords(reading: string, vocabulary: SearchVocabulary, take: numbe
       if (distance <= limit) candidates.push({ word, score: distance, count: vocabulary.words.get(word) ?? 0 });
     }
   }
-  // Բառի սկիզբը (serm → սերմնացանի)՝ միայն «նման բառերի» համար։
+  // Բառի սկիզբը (serm → սերմնացանի)՝ ավելի մոտ, քան մեկ տառի սխալը։
   if (length >= 4) {
     for (const [word, count] of vocabulary.words) {
-      if (word !== reading && word.startsWith(reading)) candidates.push({ word, score: 1.5, count });
+      if (word !== reading && word.startsWith(reading)) candidates.push({ word, score: 0.9, count });
     }
   }
   candidates.sort((left, right) => left.score - right.score || right.count - left.count);
@@ -109,6 +109,8 @@ export function correctSearchQuery(query: string, vocabulary: SearchVocabulary):
   const tokens = normalized.split(" ").filter(Boolean);
   const latin = /\p{Script=Latin}/u.test(normalized);
   if (!tokens.length || tokens.length > 6) return { corrected: null, similar: [], latin };
+  // Ուղղում ենք միայն եթե ամեն բառ գտնվեց բառարանում. մնացածը թողնում ենք սովորական որոնմանը։
+  let confident = true;
   const corrected = tokens.map((token) => {
     if (/^\d+$/u.test(token)) return token;
     const readings = armenianReadings(token);
@@ -118,6 +120,7 @@ export function correctSearchQuery(query: string, vocabulary: SearchVocabulary):
       const best = nearestWords(reading, vocabulary, 1)[0];
       if (best && best.score < 1.5) return best.word;
     }
+    confident = false;
     return readings[0] ?? token;
   });
   const joined = corrected.join(" ");
@@ -125,5 +128,5 @@ export function correctSearchQuery(query: string, vocabulary: SearchVocabulary):
     ? [...new Set(armenianReadings(tokens[0]).flatMap((reading) => nearestWords(reading, vocabulary, 5).map((item) => item.word)))]
       .filter((word) => word !== joined).slice(0, 4)
     : [];
-  return { corrected: joined && joined !== normalized && /\p{Script=Armenian}/u.test(joined) ? joined : null, similar, latin };
+  return { corrected: confident && joined && joined !== normalized && /\p{Script=Armenian}/u.test(joined) ? joined : null, similar, latin };
 }

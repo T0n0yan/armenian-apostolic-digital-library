@@ -32,6 +32,11 @@ test("ճիշտ հայերեն բառը չի փոխվում", () => {
 });
 
 test("նման բառեր", () => {
-  const { similar } = correctSearchQuery("Serm", vocabulary);
-  assert.ok(similar.includes("սերմնացանի"), similar.join(","));
+  // Բառի սկիզբը նախընտրելի է մեկ տառի սխալից (serm → սերմնացանի, ոչ թե «սեր»)։
+  assert.equal(correctSearchQuery("Serm", vocabulary).corrected, "սերմնացանի");
+  assert.ok(correctSearchQuery("Saxmo", vocabulary).similar.length > 0);
+});
+
+test("անհայտ բառը չի «ուղղվում» պարզ տառադարձությամբ", () => {
+  assert.equal(correctSearchQuery("Barekendan", vocabulary).corrected, null);
 });
