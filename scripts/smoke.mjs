@@ -61,13 +61,50 @@ const psalm = psalms.match(/href="(\/psalms\/\d+)"/u)?.[1];
 if (psalm) await step(psalm, /<article/u);
 else if (psalms) failures.push("/psalms: սաղմոսի հղում չգտնվեց");
 
-// Էջի JS և CSS ֆայլերը. սխալ build-ի դեպքում էջը բացվում է, բայց չի աշխատում։ Ստուգվում է նաև
-// այն էջը, որը ընթերցողը կստանա cache-ից (նախորդ build-ի ֆայլերի հղումներով էջը կոտրված կլիներ)։
-const cachedHome = await step("/", /<html lang="hy"/u, { fresh: false });
+// Էջի JS և CSS ֆայլերը. սխալ build-ի դեպքում էջը բացվում է, բայց չի աշխատում։
 const assetsOf = (html) => [...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/gu)].map((match) => match[1]))];
-const assets = [...new Set([...assetsOf(home).slice(0, 6), ...assetsOf(cachedHome).slice(0, 6)])];
-for (const asset of assets) await step(asset, null, { accept: "*/*" });
-if (home && assetsOf(home).length === 0) failures.push("/: JS/CSS ֆայլերի հղումներ չգտնվեցին");
+const homeAssets = assetsOf(home).slice(0, 6);
+for (const asset of homeAssets) await step(asset, null, { accept: "*/*" });
+if (home && homeAssets.length === 0) failures.push("/: JS/CSS ֆայլերի հղումներ չգտնվեցին");
+
+// Այն էջը, որը ընթերցողը կստանա (առանց ?smoke, cache-ով)։ Նախորդ build-ի պատրաստ էջը հին ֆայլերի
+// հղումներով կոտրված կլիներ։ Բայց deploy-ից անմիջապես հետո որոշ հարցումներ դեռ պատասխանում է
+// Worker-ի նախորդ տարբերակը (տարածումը մի քանի վայրկյան է). նրա էջի ֆայլերը նոր տարբերակում
+// չկան և 404 են։ Ուստի էջը կրկին վերցնում ենք մինչև ~1 րոպե. ձախողում է միայն այն դեպքում, երբ
+// հին էջը այդքան ժամանակ հետո էլ է տրվում (իսկական cache-ի խնդիր)։
+const CACHED_ROUNDS = 6;
+const CACHED_WAIT_MS = 10_000;
+async function missingAssets(html) {
+  const missing = [];
+  for (const asset of assetsOf(html).slice(0, 6)) {
+    if (homeAssets.includes(asset)) continue; // արդեն ստուգված է վերևում
+    try {
+      const response = await fetch(`${base}${asset}`, { headers: { accept: "*/*", "user-agent": "apostolic-smoke-check" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      await response.arrayBuffer();
+      if (response.status !== 200) missing.push(`${asset}: ${response.status}`);
+    } catch (error) {
+      missing.push(`${asset}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return missing;
+}
+if (home) {
+  let missing = [];
+  for (let round = 1; round <= CACHED_ROUNDS; round++) {
+    const cachedHome = await step("/", /<html lang="hy"/u, { fresh: false });
+    if (!cachedHome) break; // ձախողումն արդեն գրանցված է
+    missing = await missingAssets(cachedHome);
+    if (missing.length === 0) { console.log("✓ cache-ի էջի ֆայլերը"); break; }
+    if (round < CACHED_ROUNDS) {
+      console.log(`… cache-ի էջը դեռ հին ֆայլերի հղումներով է (${missing.length}), ${CACHED_WAIT_MS / 1000} վրկ հետո կրկին (${round}/${CACHED_ROUNDS})`);
+      await new Promise((resolve) => setTimeout(resolve, CACHED_WAIT_MS));
+    }
+  }
+  for (const item of missing) {
+    failures.push(`/ (cache): ${item}`);
+    console.error(`✗ / (cache): ${item}`);
+  }
+}
 
 if (failures.length) {
   console.error(`\n${failures.length} ստուգում ձախողվեց`);
