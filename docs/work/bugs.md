@@ -1,6 +1,7 @@
 # Բագեր
 
 ## Հիմա
+- 2026-11-11 — #165-ից հետո կրկնակի խորքային audit (`chore/followup-audit`), չատը դուրս է շրջանակից։
 - GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 ## Հերթ
