@@ -26,9 +26,9 @@ const quickItems = [
 
 
 // Փոքր սալիկ (պատկերակ վերևում, անունը տակը)՝ գլխավոր էջեր և «Այլ»։
-const smallTileClass = "glass-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-1 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const smallTileClass = "glass-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-0.5 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Բաժնի սալիկ մենյուում (2 սյուն)։
-const tileClass = "glass-tile relative flex min-h-[54px] items-center gap-2 rounded-button px-2.5 py-2 text-[12.5px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const tileClass = "glass-tile relative flex min-h-[54px] items-center gap-2 rounded-button px-2 py-2 text-[12px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
@@ -151,7 +151,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                     return (
                       <li key={topic.id}>
                         <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to={sectionPath(topic)} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
-                          <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
+                          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright" data-telegram-emoji-id={topic.iconEmojiId ?? undefined}><CategoryIcon categoryId={topic.id} categoryName={topic.name} aria-hidden="true" size={16} strokeWidth={1.8} /></span>
                           <span className="line-clamp-2 min-w-0 flex-1 leading-tight">{topic.name}</span>
                           {/* A closed Telegram topic only means that just admins post there; readers aren't told. */}
                           {topic.status === "hidden" ? <span className="absolute top-1 right-2 text-[9px] text-faint">թաքցված</span> : null}
@@ -161,7 +161,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   })}
                   <li>
                     <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to="/places" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><PlacesIcon aria-hidden="true" size={17} /></span>
+                      <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><PlacesIcon aria-hidden="true" size={17} /></span>
                       <span className="line-clamp-2 min-w-0 flex-1 leading-tight">Սրբավայրեր</span>
                     </NavLink>
                   </li>

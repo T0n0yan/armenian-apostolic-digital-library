@@ -232,7 +232,13 @@ export default function Places({ loaderData }: Route.ComponentProps) {
         <div ref={filterBox} className="relative z-30 mx-auto mb-3 grid w-full max-w-[560px] gap-2">
           <div className="flex items-stretch gap-2">
             <div className="frosted-card flex flex-1 gap-1 p-1.5" role="group" aria-label="Ցույց տալ քարտեզում">
-              {segment("all", filtered.length, "բոլորը", "text-gold-bright")}
+              {/* Մուտք չգործածը տեսնում է միայն ընդհանուր թիվը. մեկ «ընտրված» կոճակը իմաստ չունի։ */}
+              {signedIn ? segment("all", filtered.length, "բոլորը", "text-gold-bright") : (
+                <div className="grid min-w-0 flex-1 place-items-center gap-0 px-1 py-1.5">
+                  <strong className="font-noto text-[17px] leading-tight text-gold-bright">{filtered.length}</strong>
+                  <span className="truncate text-[11px] leading-tight text-muted">սրբավայր քարտեզում</span>
+                </div>
+              )}
               {/* «Եղել եմ» is a signed-in reader's own: guests see only the total. */}
               {signedIn ? segment("visited", been, "եղել եմ", "text-[#3f8f5a]") : null}
               {signedIn ? segment("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]") : null}
