@@ -1,23 +1,26 @@
 import { cacheEpoch } from "./site-refresh.server";
 
-let memo: { epoch: string; updated: string; at: number } | null = null;
+type VersionState = { memo?: { updated: string; at: number }; pending?: Promise<string> };
+const versions = new WeakMap<D1Database, VersionState>();
 
-/**
- * Changes whenever the library's content does (a sync writes or takes down a post) or an admin
- * presses «Թարմացնել հիմա». Phones keep pages and the title index until it changes, so they ask
- * the server again only for something new; it is also part of the edge-cache key (workers/app.ts).
- * The newest post is read from D1 at most every 15 seconds per instance; the cache version has its
- * own memory, which an admin action in this instance resets at once.
- */
-export async function contentVersion(database: D1Database) {
-  const fresh = memo && Date.now() - memo.at < 15_000;
-  const [epoch, row] = await Promise.all([
-    cacheEpoch(database),
-    fresh ? null : database.prepare("SELECT MAX(updated_at) AS updated FROM library_materials").first<{ updated: string | null }>().catch(() => null),
-  ]);
-  if (!fresh || !memo) {
+/** Բովանդակության վերջին փոփոխությունը՝ 15 վրկ հիշողությամբ և միավորված միաժամանակյա ընթերցումներով։ */
+async function latestUpdate(database: D1Database) {
+  let state = versions.get(database);
+  if (!state) { state = {}; versions.set(database, state); }
+  if (state.memo && Date.now() - state.memo.at < 15_000) return state.memo.updated;
+  if (state.pending) return state.pending;
+  const current = state;
+  const task = database.prepare("SELECT MAX(updated_at) AS updated FROM library_materials").first<{ updated: string | null }>().catch(() => null).then(row => {
     const updated = row?.updated ? Date.parse(row.updated) : 0;
-    memo = { epoch, updated: Number.isFinite(updated) ? updated.toString(36) : "0", at: Date.now() };
-  }
-  return `${epoch}.${memo.updated}`;
+    current.memo = { updated: Number.isFinite(updated) ? updated.toString(36) : "0", at: Date.now() };
+    return current.memo.updated;
+  });
+  current.pending = task;
+  try { return await task; }
+  finally { if (current.pending === task) current.pending = undefined; }
+}
+
+export async function contentVersion(database: D1Database) {
+  const [epoch, updated] = await Promise.all([cacheEpoch(database), latestUpdate(database)]);
+  return `${epoch}.${updated}`;
 }

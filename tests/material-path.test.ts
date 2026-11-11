@@ -65,3 +65,11 @@ test("a gospel teaching's shortest timed question, without its time", async () =
   assert.equal(shortestTimedQuestion(text), "Ինչո՞ւ անապատում փորձվեց Հիսուս։");
   assert.equal(shortestTimedQuestion("ՎԵՐՆԱԳԻՐ\nՆկարագրություն"), null);
 });
+
+test("աղոթքի SEO վերնագիրը վերցնում է բացահայտ անունը և տարբերում ընդհանուր անվանումները", async () => {
+  const { materialHeading } = await import("../app/utils/seo");
+  const narrative = 'Սոյն աղօթքը, որ յայտնի է նաեւ «Հայր մեր» անուամբ, իբրեւ մեր Տէր Յիսուս Քրիստոսի շուրթերից ելած ուսուցում';
+  assert.equal(materialHeading(narrative, '', 'Աղոթքներ'), 'Հայր մեր');
+  assert.notEqual(materialHeading('ԱՂՕԹՔ Ա', 'Առաջնորդի՛ր մեզ, Տէր Աստուած մեր', 'Աղոթքներ'), materialHeading('ԱՂՕԹՔ Ա', 'Պահպանիր մեզ քո խաղաղությամբ', 'Աղոթքներ'));
+  assert.equal(materialHeading('ՃԱՆԱՊԱՐՀ ԳՆԱԼՈՒՑ ԱՌԱՋ', '', 'Աղոթքներ'), 'ՃԱՆԱՊԱՐՀ ԳՆԱԼՈՒՑ ԱՌԱՋ');
+});

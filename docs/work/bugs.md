@@ -1,6 +1,7 @@
 # Բագեր
 
 ## Հիմա
+- 2026-11-11 — Ամբողջական audit-ի ուղղումներ՝ որոնում, օգնություն, նկարներ, SEO, հասանելիություն և թեստեր (`fix/comprehensive-site-audit`)։
 - GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 ## Հերթ

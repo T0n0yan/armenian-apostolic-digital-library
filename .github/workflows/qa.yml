@@ -26,3 +26,18 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Բրաուզերի տեղադրում
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Տեղական բազա և բրաուզերային ստուգումներ
+        run: |
+          pnpm db:migrate:local
+          python3 scripts/qa-ui-fixture.py
+          pnpm dev --host 127.0.0.1 --port 5173 > /tmp/qa-dev.log 2>&1 &
+          qa_server_pid=$!
+          trap 'kill "$qa_server_pid" || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:5173/psalms > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5173/psalms > /dev/null
+          node scripts/qa-ui-smoke.mjs

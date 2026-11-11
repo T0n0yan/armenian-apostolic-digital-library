@@ -128,3 +128,10 @@ test("existing unchanged media is not reuploaded during the file-identity rollou
   state.objectKeys.add(cloudMediaObjectKey(edited, media));
   assert.equal((await target.stageMaterial(edited, false)).mediaToUpload.length, 0);
 });
+
+test("offline օրվա cache-ը փոխվում է Երևանի կեսգիշերին, ոչ սարքի կեսգիշերին", async () => {
+  const context = vm.createContext({ self: { location: { origin: "https://library.test" }, addEventListener() {} }, URL, Date });
+  vm.runInContext(await readFile(new URL("../public/sw.js", import.meta.url), "utf8"), context);
+  assert.equal(context.sameDay(Date.parse("2026-11-10T19:59:00Z"), Date.parse("2026-11-10T20:01:00Z")), false);
+  assert.equal(context.sameDay(Date.parse("2026-11-10T20:01:00Z"), Date.parse("2026-11-11T00:01:00Z")), true);
+});

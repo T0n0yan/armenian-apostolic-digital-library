@@ -1,6 +1,8 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { lockScroll } from "../utils/scroll-lock";
+
 import type { HelpVideo } from "../utils/help-videos";
 
 /**
@@ -12,18 +14,46 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
 }) {
   const video = videos[index];
   const player = useRef<HTMLVideoElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const last = index === videos.length - 1;
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const element = dialog.current;
+    if (!element) return;
+    const release = lockScroll();
+    const controls = () => Array.from(element.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input, select, textarea, video[controls], [tabindex="0"]')).filter((item) => item.tabIndex >= 0 && item.getClientRects().length > 0);
+    (controls()[0] ?? element).focus();
+    const onTab = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const items = controls();
+      const first = items[0], last = items.at(-1);
+      if (!first || !last) { event.preventDefault(); element.focus(); return; }
+      if (event.shiftKey && (document.activeElement === first || !element.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !element.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    const keepFocus = (event: FocusEvent) => {
+      if (!element.contains(event.target as Node)) (controls()[0] ?? element).focus();
+    };
+    document.addEventListener("keydown", onTab);
+    document.addEventListener("focusin", keepFocus);
+    return () => {
+      document.removeEventListener("keydown", onTab);
+      document.removeEventListener("focusin", keepFocus);
+      release();
+      if (previous?.isConnected) previous.focus();
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
+      if ((event.target as HTMLElement)?.closest("video, input, textarea, select")) return;
       if (event.key === "ArrowRight" && !last) onIndex(index + 1);
       if (event.key === "ArrowLeft" && index > 0) onIndex(index - 1);
     };
     window.addEventListener("keydown", onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
+    return () => window.removeEventListener("keydown", onKey);
   }, [index, last, onClose, onIndex]);
 
   // Նոր տեսանյութը սկսվում է սկզբից (ձայն չունի, ուստի կարող է ինքն իրեն սկսել)
@@ -32,7 +62,7 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
   if (!video?.url) return null;
   const step = "inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[14px] border text-[14px] font-bold disabled:cursor-default disabled:opacity-35";
   return (
-    <div className="fixed inset-0 z-[2100] grid place-items-center bg-[rgb(20_12_6/62%)] p-3 backdrop-blur-[6px] animate-glass-enter" role="dialog" aria-modal="true" aria-label={video.title}
+    <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-[2100] grid place-items-center bg-[rgb(20_12_6/62%)] p-3 backdrop-blur-[6px] animate-glass-enter" role="dialog" aria-modal="true" aria-label={video.title}
       onClick={(event) => { if (event.target === event.currentTarget && mode === "help") onClose(); }}>
       <div className="grid w-full max-w-[400px] gap-3 rounded-[24px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 shadow-[0_24px_60px_rgb(20_10_4/45%)]">
         <div className="flex items-start gap-2 px-1 pt-1">
@@ -50,7 +80,7 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
             պատուհանը չփոքրանա ու չմեծանա. տեսանյութը լցվում է շրջանակի մեջ։ */}
         <div className="relative mx-auto aspect-[9/16] h-[min(62svh,640px)] max-w-full overflow-hidden rounded-[16px] bg-[#e9dcc0]">
           <video key={video.url} ref={player} className="absolute inset-0 block size-full object-contain"
-            src={video.url} controls autoPlay muted playsInline preload="auto" />
+            src={video.url} controls autoPlay muted playsInline preload="metadata" />
         </div>
         {/* Քանի տեսանյութ կա և որերորդն է */}
         <div className="grid justify-items-center gap-1.5">
