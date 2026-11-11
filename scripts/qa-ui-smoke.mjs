@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 const base = process.env.QA_BASE_URL || 'http://127.0.0.1:5173';
 assert.ok(['127.0.0.1', 'localhost'].includes(new URL(base).hostname), 'Այս ստուգումը միայն տեղական փորձնական բազայի համար է');
 const output = process.env.QA_OUTPUT || '.local-artifacts/qa-review';
@@ -9,6 +9,7 @@ const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { execut
 const errors = [];
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   const open = async path => {
@@ -115,6 +116,17 @@ try {
   assert.ok(await plain.evaluate(() => [...document.querySelectorAll('.reveal-img')].every(image => getComputedStyle(image).opacity === '1')));
   console.log('✓ Առանց JavaScript-ի էջը սահում է, նկարները տեսանելի են');
   assert.deepEqual(errors, []);
+} catch (error) {
+  for (const [index, context] of browser.contexts().entries()) {
+    for (const [pageIndex, page] of context.pages().entries()) {
+      const prefix = `${output}/failure-${index}-${pageIndex}`;
+      await page.screenshot({ path: `${prefix}.png`, fullPage: true }).catch(() => undefined);
+      writeFileSync(`${prefix}.html`, await page.content().catch(() => ''));
+    }
+    await context.tracing.stop({ path: `${output}/trace-${index}.zip` }).catch(() => undefined);
+  }
+  console.error('Բրաուզերի սխալներ', errors);
+  throw error;
 } finally {
   await browser.close();
 }
