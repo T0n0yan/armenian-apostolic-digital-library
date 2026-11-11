@@ -339,9 +339,9 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               {row.some(([province]) => province === open) ? <ProvincePlaces items={row.find(([province]) => province === open)?.[1] ?? []} /> : null}
               {/* Փակ մարզերի սրբավայրերը՝ թաքնված, բայց HTML-ում իսկական հղումներով, որ որոնիչները հասնեն ամեն էջի։ */}
               {row.filter(([province]) => province !== open).map(([province, items]) => (
-                <ul key={`links-${province}`} hidden>
+                <details key={`links-${province}`} className="col-span-2 rounded-xl border border-glass-border p-3"><summary className="cursor-pointer text-gold-bright">{province}․ բոլոր սրբավայրերը</summary><ul className="grid gap-2 pt-3">
                   {items.map((place) => <li key={place.id}><a href={`/places/${place.id}`}>{place.name}</a></li>)}
-                </ul>
+                </ul></details>
               ))}
             </Fragment>
           ))}

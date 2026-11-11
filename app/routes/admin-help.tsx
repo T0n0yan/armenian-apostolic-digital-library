@@ -99,19 +99,7 @@ export default function AdminHelp({ loaderData }: Route.ComponentProps) {
             Վերբեռնված է <strong className="text-ink">{count} / {total}</strong>։ Տեսանյութերը երևում են{" "}
             <Link className="text-gold-bright" to="/ognutyun">«Օգնություն»</Link> էջում։ Ֆայլը՝ MP4, մինչև 95 ՄԲ։
           </p>
-          {/* Առաջին այցի ուղեցույց. նոր մարդուն մեկ անգամ ցույց է տալիս վերբեռնված տեսանյութերը */}
-          <Form method="post" className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-glass-border bg-subtle px-3.5 py-3">
-            <input type="hidden" name="intent" value="onboarding" />
-            <input type="hidden" name="on" value={loaderData.onboarding ? "0" : "1"} />
-            <span className="grid min-w-0 gap-0.5">
-              <strong className="text-[14.5px]">Ցույց տալ նոր այցելուներին</strong>
-              <span className="text-[12.5px] text-muted">Առաջին անգամ մտնողը կտեսնի տեսանյութերը հերթով՝ «Բաց թողնել» կոճակով։</span>
-            </span>
-            <button type="submit" role="switch" aria-checked={loaderData.onboarding} aria-label="Ցույց տալ նոր այցելուներին"
-              className={`relative h-8 w-14 shrink-0 cursor-pointer rounded-full border-0 transition-colors ${loaderData.onboarding ? "bg-[rgb(74_160_96)]" : "bg-[rgb(160_130_90/35%)]"}`}>
-              <span className={`absolute top-1 size-6 rounded-full bg-white shadow transition-[left] ${loaderData.onboarding ? "left-7" : "left-1"}`} />
-            </button>
-          </Form>
+          <p className="m-0 text-[13px] text-muted">Տեսանյութերը բացվում են միայն ընթերցողի ընտրությամբ՝ «Օգնություն» էջից։</p>
         </section>
 
         <ol className="m-0 grid list-none gap-2.5 p-0">

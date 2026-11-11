@@ -74,6 +74,18 @@ export function pageTitle(main: string, section: string) {
   return `${clean.slice(0, 64 - section.length - 3).replace(/\s+\S*$/u, "")}… — ${section}`;
 }
 
+/** Վերնագրում բացահայտ նշված անունը պահում ենք, ընդհանուր վերնագիրը տարբերում ենք տեքստի սկզբով։ */
+export function materialHeading(title: string, text: string | null | undefined, categoryName: string) {
+  if (resolveContentCategoryId(null, categoryName) !== "category_prayers") return title;
+  const named = title.length > 100 ? /«([^»]{2,60})»\s*(?:անուամբ|անվամբ|անունով)/u.exec(title)?.[1] : null;
+  if (named) return named;
+  if (/^աղ[օո]թք\s+[ա-ֆ\d]+$/iu.test(title.trim())) {
+    const opening = describe(text, "", title);
+    if (opening) return `${title}․ ${opening.slice(0, 65).replace(/\s+\S*$/u, "")}…`;
+  }
+  return title;
+}
+
 export function seoMeta({ title, description, path, image, type = "website", jsonLd = [], origin, index = true }: {
   title: string; description: string; path: string; image?: string | null; type?: "website" | "article"; jsonLd?: object[];
   /** false՝ էջը դեռ քիչ բան ունի, որոնման մեջ չի մտնում (հղումներով անցնում են)։ */

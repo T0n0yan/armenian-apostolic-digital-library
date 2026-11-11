@@ -8,20 +8,28 @@ import { cacheEpoch } from "./site-refresh.server";
  * Only public data goes here, never a reader's own.
  */
 const MAX_ENTRIES = 400;
-const entries = new Map<string, { expiresAt: number; value: unknown }>();
+type Entry = { expiresAt: number; value: unknown };
+const databases = new WeakMap<D1Database, { entries: Map<string, Entry>; pending: Map<string, Promise<unknown>> }>();
 
 export async function remember<T>(database: D1Database, key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+  let state = databases.get(database);
+  if (!state) { state = { entries: new Map(), pending: new Map() }; databases.set(database, state); }
   const fullKey = `${await cacheEpoch(database)}:${key}`;
-  const now = Date.now();
-  const hit = entries.get(fullKey);
-  if (hit && hit.expiresAt > now) {
-    // Most recently used last, so the oldest is dropped first.
-    entries.delete(fullKey);
-    entries.set(fullKey, hit);
+  const hit = state.entries.get(fullKey);
+  if (hit && hit.expiresAt > Date.now()) {
+    state.entries.delete(fullKey);
+    state.entries.set(fullKey, hit);
     return hit.value as T;
   }
-  const value = await load();
-  entries.set(fullKey, { expiresAt: now + ttlMs, value });
-  while (entries.size > MAX_ENTRIES) entries.delete(entries.keys().next().value as string);
-  return value;
+  const existing = state.pending.get(fullKey);
+  if (existing) return existing as Promise<T>;
+  const current = state;
+  const task = Promise.resolve().then(load).then(value => {
+    current.entries.set(fullKey, { expiresAt: Date.now() + ttlMs, value });
+    while (current.entries.size > MAX_ENTRIES) current.entries.delete(current.entries.keys().next().value as string);
+    return value;
+  });
+  current.pending.set(fullKey, task);
+  try { return await task; }
+  finally { if (current.pending.get(fullKey) === task) current.pending.delete(fullKey); }
 }

@@ -31,7 +31,7 @@ import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { NavigationProgress } from "./components/navigation-progress";
 import { ChurchNudge } from "./components/church-nudge";
-import { HelpOnboarding } from "./components/help-onboarding";
+
 import { PrivateChatPresence } from "./components/private-chat-presence";
 import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
@@ -250,6 +250,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="theme-color" content="#f4ead6" />
         <Meta />
         <Links />
+        <noscript><style>{"html{overflow:auto!important}.reveal-img{opacity:1!important}"}</style></noscript>
         <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />
       </head>
       <body>
@@ -423,7 +424,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <ReminderError />
     <NavigationProgress />
     {!quiet && <ChurchNudge />}
-    {!quiet && <HelpOnboarding />}
     <PlaceTracker />
     <PrivateChatPresence />
     {idle && <Suspense fallback={null}>

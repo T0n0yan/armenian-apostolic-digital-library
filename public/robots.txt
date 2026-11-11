@@ -3,10 +3,8 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /saved
-Disallow: /settings
 Disallow: /auth/
 Disallow: /api/
 Disallow: /telegram/
-Disallow: /search
 
 Sitemap: https://apostolic.am/sitemap.xml

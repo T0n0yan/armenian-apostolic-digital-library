@@ -25,7 +25,7 @@ import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type Brid
 import { sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
 import { fetchPersonal } from "../utils/personal-data";
-import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, pageTitle, sectionImage, seoMeta } from "../utils/seo";
+import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, pageTitle, materialHeading, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
 import { prayerParagraphs, seedLayout } from "../utils/prayer-layout";
@@ -63,7 +63,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const description = describe(material.contentText || material.captionText, `${material.title}՝ ${material.categoryName}, Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`, material.title);
   const categoryPath = sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug });
   return seoMeta({
-    title: pageTitle(material.title, material.categoryName),
+    title: pageTitle(materialHeading(material.title, material.contentText || material.captionText, material.categoryName), material.categoryName),
     description,
     path,
     origin: loaderData.origin,
@@ -73,7 +73,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
       {
         "@context": "https://schema.org",
         "@type": "Article",
-        headline: material.title.slice(0, 110),
+        headline: materialHeading(material.title, material.contentText || material.captionText, material.categoryName).slice(0, 110),
         description,
         inLanguage: "hy",
         url: absoluteUrl(path),
@@ -179,7 +179,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       <PageHeader showSearch={false}
         backTo={sectionPath({ id: material.categoryId, name: material.categoryName, slug: material.categorySlug })}
         backLabel={material.categoryName}
-        title={material.title}
+        title={materialHeading(material.title, material.contentText || material.captionText, material.categoryName)}
       />
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>

@@ -1,4 +1,5 @@
 import sqlite3
+import json
 from pathlib import Path
 p=next(p for p in (Path(__file__).resolve().parents[1] / '.wrangler/state/v3/d1/miniflare-D1DatabaseObject').glob('*.sqlite') if p.name!='metadata.sqlite')
 c=sqlite3.connect(p)
@@ -11,6 +12,7 @@ if "--remove" in sys.argv:
  c.execute("delete from library_materials where chat_id='-1002993860753' and message_id in (90200,90201,90210,90211)")
  c.execute("delete from library_topics where id in ('category_psalms','category_prayers')")
  c.execute("delete from library_sources where chat_id='-1002993860753' and title='QA only'")
+ c.execute("delete from site_settings where key='help_videos' and value like '%qa-help%'")
  c.commit()
  print('Removed synthetic LOCAL QA rows')
  sys.exit(0)
@@ -23,5 +25,6 @@ for topic,name,slug in [('category_psalms','Սաղմոսներ','qa-psalms'),('c
   mid=90000+tid*10+n
   title='QA ներածություն' if n==0 else ('Սաղմոս 1' if tid==20 else 'QA աղոթք')
   c.execute("insert into library_materials(chat_id,message_id,material_id,topic_key,topic_id,content_type,title,telegram_url,content_text,number_value,content_hash,source_revision,sync_state,synced_at) values(?,?,?,?,?,'text',?,'https://t.me/example',?,?,?,'1','ready','2026-10-25')",('-1002993860753',mid,f'material_tg_n1002993860753_{mid}',topic,tid,title,'QA synthetic text',1 if tid==20 and n==1 else None,'a'*64))
+c.execute("INSERT INTO site_settings(key,value) VALUES('help_videos',?)", (json.dumps({"items":[{"id":"qa-help","title":"Փորձնական օգնություն"}],"files":{"qa-help":{"key":"help/qa-help.mp4","size":1,"updatedAt":"2026-11-11"}},"onboarding":True}),))
 c.commit()
-print('Seeded four synthetic LOCAL QA rows')
+print('Seeded four synthetic LOCAL QA rows and help fixture')

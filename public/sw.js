@@ -54,7 +54,9 @@ async function stamped(response, version) {
 }
 
 function sameDay(left, right) {
-  return new Date(left).toDateString() === new Date(right).toDateString();
+  // Օրվա ընթերցումները փոխվում են Երևանի կեսգիշերին՝ անկախ սարքի ժամային գոտուց։
+  const day = (value) => new Date(value + 4 * 60 * 60_000).toISOString().slice(0, 10);
+  return day(left) === day(right);
 }
 
 /** Page data from the phone when nothing can have changed it; otherwise from the site. */
