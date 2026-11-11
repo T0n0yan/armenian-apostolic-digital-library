@@ -123,6 +123,8 @@ export function ReminderButton({ materialId, title, className, label = false, pa
   const [repeat, setRepeat] = useState<Repeat>("none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Հիշեցումը չբեռնվեց. պահելը փակ է, որ գոյություն ունեցողը կուրորեն չվերագրվի։
+  const [loadFailed, setLoadFailed] = useState(false);
   const [push, setPush] = useState<PushSupport>("unsupported");
   const [granted, setGranted] = useState(false);
   const otherDayRef = useRef<HTMLInputElement>(null);
@@ -135,7 +137,13 @@ export function ReminderButton({ materialId, title, className, label = false, pa
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/reminders?materialId=${encodeURIComponent(materialId)}`).catch(() => null);
-    const data = response?.ok ? await response.json() as { reminder: Reminder | null } : { reminder: null };
+    // Բեռնման սխալը (503, վնասված պատասխան) «հիշեցում չկա» չէ. մնում է չբեռնված, հաջորդ բացելիս նորից է փորձում։
+    const data = response?.ok ? await (response.json() as Promise<{ reminder: Reminder | null }>).catch(() => null) : null;
+    if (!data || typeof data !== "object" || !("reminder" in data)) {
+      setLoadFailed(true);
+      return null;
+    }
+    setLoadFailed(false);
     setReminder(data.reminder);
     setLoaded(true);
     return data.reminder;
@@ -323,6 +331,12 @@ export function ReminderButton({ materialId, title, className, label = false, pa
           <p className="m-0 text-center text-[12px] leading-snug text-muted">Ծանուցումներն այս բրաուզերում արգելված են. դրանք կարող եք միացնել բրաուզերի կարգավորումներում։</p>
         ) : null}
 
+        {loadFailed ? (
+          <p className="m-0 text-center text-[12.5px] text-[#b4472f]" role="alert">
+            Չհաջողվեց բեռնել հիշեցումը։{" "}
+            <button type="button" className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-gold-bright underline" onClick={() => void openSheet()}>Կրկին փորձել</button>
+          </p>
+        ) : null}
         {error ? <p className="m-0 text-center text-[12.5px] text-[#b4472f]" role="alert">{error}</p> : null}
         <div className="grid gap-2">
           {channel === "calendar" ? (
@@ -332,7 +346,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
               <CalendarPlus aria-hidden="true" size={17} /> Ավելացնել հեռախոսի օրացույցին
             </a>
           ) : (
-            <button className={primary} type="button" disabled={busy || tooSoon} onClick={save}>
+            <button className={primary} type="button" disabled={busy || tooSoon || loadFailed} onClick={save}>
               {busy ? <LoaderCircle aria-hidden="true" size={17} className="animate-search-spin" /> : <Bell aria-hidden="true" size={17} />}
               {reminder ? "Փոխել հիշեցումը" : "Դնել հիշեցում"}
             </button>

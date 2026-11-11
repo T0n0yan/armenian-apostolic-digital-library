@@ -16,9 +16,11 @@ type ShareButtonProps = {
   story?: StorySource | null;
 };
 
+/** Պատճենում է տեքստը։ true՝ միայն երբ իսկապես պատճենվեց։ */
 export async function copyText(value: string) {
   try {
     await navigator.clipboard.writeText(value);
+    return true;
   } catch {
     // Older WebViews: fall back to a hidden selection.
     const field = document.createElement("textarea");
@@ -28,8 +30,10 @@ export async function copyText(value: string) {
     field.style.opacity = "0";
     document.body.appendChild(field);
     field.select();
-    try { document.execCommand("copy"); } catch { /* Nothing more to try. */ }
+    let copied = false;
+    try { copied = document.execCommand("copy"); } catch { /* Nothing more to try. */ }
     field.remove();
+    return copied;
   }
 }
 
@@ -61,8 +65,10 @@ export async function systemShare(data: ShareData) {
  */
 export async function shareLink(url: string) {
   if (await systemShare({ url })) return "shared" as const;
-  await copyText(url);
-  return "copied" as const;
+  if (await copyText(url)) return "copied" as const;
+  // Ո՛չ կիսվել, ո՛չ պատճենել չստացվեց. հղումը ցույց է տրվում, որ ընթերցողը ինքը պատճենի։
+  window.prompt("Չհաջողվեց պատճենել։ Պատճենեք հղումը այստեղից.", url);
+  return "failed" as const;
 }
 
 export function useCopied() {

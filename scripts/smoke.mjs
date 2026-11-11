@@ -65,8 +65,24 @@ else if (psalms) failures.push("/psalms: սաղմոսի հղում չգտնվե�
 // այն էջը, որը ընթերցողը կստանա cache-ից (նախորդ build-ի ֆայլերի հղումներով էջը կոտրված կլիներ)։
 const cachedHome = await step("/", /<html lang="hy"/u, { fresh: false });
 const assetsOf = (html) => [...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/gu)].map((match) => match[1]))];
-const assets = [...new Set([...assetsOf(home).slice(0, 6), ...assetsOf(cachedHome).slice(0, 6)])];
-for (const asset of assets) await step(asset, null, { accept: "*/*" });
+const assetsNow = (pages) => [...new Set(pages.flatMap((html) => assetsOf(html).slice(0, 6)))];
+/** Ֆայլը տալի՞ս է 200 (մեկ փորձ, առանց ձախողում գրանցելու)։ */
+const reachable = async (asset) => {
+  try { return (await fetch(`${base}${asset}`, { headers: { accept: "*/*", "user-agent": "apostolic-smoke-check" }, signal: AbortSignal.timeout(TIMEOUT_MS) })).status === 200; } catch { return false; }
+};
+// Թողարկումից անմիջապես հետո մի քանի վայրկյան Cloudflare-ը դեռ կարող է տալ նախորդ տարբերակի էջը,
+// որի JS ֆայլերն արդեն չկան (2026-11-11-ին staging-ը սրա պատճառով սխալմամբ հետ վերադարձվեց)։
+// Ուստի, եթե որևէ ֆայլ չկա, էջերը նորից են վերցվում, և վերջնական ստուգվում են միայն դրանց ֆայլերը։
+let assets = assetsNow([home, cachedHome]);
+for (let round = 1; round <= 3; round++) {
+  const missing = [];
+  for (const asset of assets) if (!(await reachable(asset))) missing.push(asset);
+  if (!missing.length) break;
+  console.log(`… ${missing.length} ֆայլ դեռ չկա (հնարավոր է՝ նախորդ տարբերակի էջ), սպասում եմ և նորից վերցնում էջը (${round}/3)`);
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  assets = assetsNow([await step("/", /<html lang="hy"/u), await step("/", /<html lang="hy"/u, { fresh: false })]);
+}
+for (const asset of assets) await step(asset, null, { accept: "*/*", fresh: false });
 if (home && assetsOf(home).length === 0) failures.push("/: JS/CSS ֆայլերի հղումներ չգտնվեցին");
 
 if (failures.length) {
