@@ -52,8 +52,8 @@ export function SundayPrompt() {
   // Երկուշաբթի (կամ տոնի հաջորդ օրը) հարցնում ենք «Երեկ…», ոչ թե «Այսօր…»։
   const when = day === yerevanDay() ? "Այսօր" : "Երեկ";
   const title = feast ? "Օրհնյալ տոն" : "Օրհնյալ կիրակի";
-  const gold = "min-h-12 cursor-pointer rounded-[16px] border-0 bg-[linear-gradient(135deg,#fff3c8,#e3b24b)] px-4 text-[15px] font-bold text-[#3a2206] shadow-[0_8px_22px_rgb(240_190_90/45%)] disabled:opacity-60";
-  const plain = "sunday-ghost min-h-12 cursor-pointer rounded-[16px] border px-4 text-[15px] font-bold disabled:opacity-60";
+  const gold = "min-h-12 cursor-pointer rounded-button border-0 bg-[linear-gradient(135deg,#fff3c8,#e3b24b)] px-4 text-[15px] font-bold text-[#3a2206] shadow-[0_8px_22px_rgb(240_190_90/45%)] disabled:opacity-60";
+  const plain = "sunday-ghost min-h-12 cursor-pointer rounded-button border px-4 text-[15px] font-bold disabled:opacity-60";
   const link = "cursor-pointer border-0 bg-transparent p-1 text-[13px] underline-offset-4 hover:underline";
   const date = new Date(`${day}T12:00:00Z`);
   const dateLine = `${["ԿԻՐԱԿԻ", "ԵՐԿՈՒՇԱԲԹԻ", "ԵՐԵՔՇԱԲԹԻ", "ՉՈՐԵՔՇԱԲԹԻ", "ՀԻՆԳՇԱԲԹԻ", "ՈՒՐԲԱԹ", "ՇԱԲԱԹ"][date.getUTCDay()]} · ${date.getUTCDate()} ${["ՀՈՒՆՎԱՐԻ", "ՓԵՏՐՎԱՐԻ", "ՄԱՐՏԻ", "ԱՊՐԻԼԻ", "ՄԱՅԻՍԻ", "ՀՈՒՆԻՍԻ", "ՀՈՒԼԻՍԻ", "ՕԳՈՍՏՈՍԻ", "ՍԵՊՏԵՄԲԵՐԻ", "ՀՈԿՏԵՄԲԵՐԻ", "ՆՈՅԵՄԲԵՐԻ", "ԴԵԿՏԵՄԲԵՐԻ"][date.getUTCMonth()]}`;
@@ -140,9 +140,9 @@ function SundayPrayer({ withThanks, onDone }: { withThanks: boolean; onDone: () 
   const end = letter * LETTER_MS + parts.length * PAUSE_MS + 400;
   return (
     // Ապակյա վահանակ աղոթքի հետևում, որ տեքստը շողերի վրա հեշտ կարդացվի։
-    <div className="sunday-glass grid gap-4 rounded-[24px] px-5 py-5">
+    <div className="sunday-glass grid gap-4 rounded-panel px-5 py-5">
       {paragraphs}
-      <button className="sunday-prayer-end mx-auto min-h-11 cursor-pointer rounded-[16px] border border-[color-mix(in_srgb,var(--sunday-ink)_35%,transparent)] bg-transparent px-6 text-[14px] font-semibold text-inherit"
+      <button className="sunday-prayer-end mx-auto min-h-11 cursor-pointer rounded-button border border-[color-mix(in_srgb,var(--sunday-ink)_35%,transparent)] bg-transparent px-6 text-[14px] font-semibold text-inherit"
         style={{ animationDelay: `${end}ms` }} type="button" onClick={onDone}>Ամէն</button>
     </div>
   );

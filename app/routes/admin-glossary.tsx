@@ -70,7 +70,7 @@ function TermForm({ term, error, onDone, kind }: { term?: GlossaryTerm; error?: 
       {error ? <p className="m-0 text-[13px] font-semibold text-danger">{error}</p> : null}
       <div className="flex gap-2">
         <button className={primaryButton} type="submit" disabled={busy}>{term ? <Check aria-hidden="true" size={16} /> : <Plus aria-hidden="true" size={16} />} {term ? "Պահել" : "Ավելացնել"}</button>
-        {onDone ? <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[14px] border border-glass-border bg-transparent px-3 text-[13px] text-muted" type="button" onClick={onDone}><X aria-hidden="true" size={15} /> Չեղարկել</button> : null}
+        {onDone ? <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-button border border-glass-border bg-transparent px-3 text-[13px] text-muted" type="button" onClick={onDone}><X aria-hidden="true" size={15} /> Չեղարկել</button> : null}
       </div>
     </Form>
   );
@@ -117,10 +117,10 @@ export default function AdminGlossary({ loaderData, actionData }: Route.Componen
                       <span className="text-[13.5px] leading-snug text-ink">{term.meaning}</span>
                       {term.forms.length ? <span className="text-[12px] text-faint">Ձևեր՝ {term.forms.join(", ")}</span> : null}
                     </div>
-                    <button className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-[10px] border border-glass-border bg-subtle text-ink" type="button" onClick={() => setEditing(term.id)} aria-label={`Փոխել «${term.word}»-ը`}><Pencil aria-hidden="true" size={15} /></button>
+                    <button className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control border border-glass-border bg-subtle text-ink" type="button" onClick={() => setEditing(term.id)} aria-label={`Փոխել «${term.word}»-ը`}><Pencil aria-hidden="true" size={15} /></button>
                     <Form method="post" preventScrollReset onSubmit={(event) => { if (!window.confirm(`Ջնջե՞լ «${term.word}»-ը բառարանից։`)) event.preventDefault(); }}>
                       <input type="hidden" name="id" value={term.id} />
-                      <button className="grid size-9 cursor-pointer place-items-center rounded-[10px] border border-glass-border bg-subtle text-danger" type="submit" name="intent" value="delete" disabled={busy} aria-label={`Ջնջել «${term.word}»-ը`}><Trash2 aria-hidden="true" size={15} /></button>
+                      <button className="grid size-9 cursor-pointer place-items-center rounded-control border border-glass-border bg-subtle text-danger" type="submit" name="intent" value="delete" disabled={busy} aria-label={`Ջնջել «${term.word}»-ը`}><Trash2 aria-hidden="true" size={15} /></button>
                     </Form>
                   </div>
                 )}

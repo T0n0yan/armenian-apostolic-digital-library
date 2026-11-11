@@ -14,13 +14,13 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
   value: T; options: Array<{ value: T; label: string; icon?: ReactNode; sample?: ReactNode }>; onChange: (value: T) => void; columns?: number;
 }) {
   return (
-    <div className="grid gap-1.5 rounded-[15px] border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
+    <div className="grid gap-1.5 rounded-button border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
       {options.map((option) => {
         const active = option.value === value;
         return (
           <button
             key={option.value}
-            className={`grid h-[60px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-[11px] border-0 px-0.5 py-2 text-[11px] font-semibold transition-colors ${active ? "bg-glass-strong text-gold-bright shadow-[0_2px_10px_rgb(12_4_17/18%)]" : "bg-transparent text-muted hover:text-ink"}`}
+            className={`grid h-[60px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-control border-0 px-0.5 py-2 text-[11px] font-semibold transition-colors ${active ? "bg-glass-strong text-gold-bright shadow-[0_2px_10px_rgb(12_4_17/18%)]" : "bg-transparent text-muted hover:text-ink"}`}
             type="button" role="radio" aria-checked={active} onClick={() => onChange(option.value)}
           >
             {option.sample ?? option.icon}
@@ -50,7 +50,7 @@ function Setting({ icon, title, hint, children }: { icon: ReactNode; title: stri
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
-    <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-[13px] border border-glass-border bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+    <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-control border border-glass-border bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
       {label}
       <span className={`relative h-6 w-11 rounded-full transition-colors ${checked ? "bg-[linear-gradient(135deg,#e2c27e,#b07d2e)]" : "bg-[rgb(120_100_80/30%)]"}`}>
         <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] duration-200 ${checked ? "left-[22px]" : "left-0.5"}`} />
@@ -128,7 +128,7 @@ export function SettingsPanel() {
             { value: "dark", label: "Մուգ", icon: <Moon aria-hidden="true" size={17} /> },
           ]} />
           {theme === "sun" ? (
-            <button className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-2 rounded-[12px] border border-glass-border bg-transparent px-3 text-[12.5px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
+            <button className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-2 rounded-control border border-glass-border bg-transparent px-3 text-[12.5px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
               <LocateFixed aria-hidden="true" size={15} /> {readSunPlace() ? "Թարմացնել իմ վայրը" : "Օգտագործել իմ վայրը"}
             </button>
           ) : null}
@@ -141,7 +141,7 @@ export function SettingsPanel() {
             { value: "serif", label: "Նոտո", sample: <span className="font-noto text-[18px] leading-none">Աա</span> },
             { value: "sans", label: "Պարզ", sample: <span className="font-sans text-[18px] leading-none">Աա</span> },
           ]} />
-          <p className={`m-0 rounded-[12px] bg-subtle px-3.5 py-2.5 text-center text-ink ${font === "book" ? "font-book" : font === "serif" ? "font-noto" : "font-sans"}`} style={{ fontSize: textSize + 1, lineHeight: 1.7 }}>{sample}</p>
+          <p className={`m-0 rounded-control bg-subtle px-3.5 py-2.5 text-center text-ink ${font === "book" ? "font-book" : font === "serif" ? "font-noto" : "font-sans"}`} style={{ fontSize: textSize + 1, lineHeight: 1.7 }}>{sample}</p>
         </Setting>
 
         <Setting icon={<Type aria-hidden="true" size={18} />} title="Տառաչափ" hint={`${textSize} px`}>
@@ -157,7 +157,7 @@ export function SettingsPanel() {
             { value: "large", label: "Մեծ", sample: <span className="font-noto text-[23px] leading-none">Ա</span> },
           ]} />
           {/* Shows right here how page titles will look. */}
-          <p className="m-0 rounded-[12px] bg-subtle px-3.5 py-3 text-center font-noto font-medium leading-tight text-ink transition-[font-size] duration-200" style={{ fontSize: `${(titleSize === "small" ? 0.85 : titleSize === "large" ? 1.18 : 1) * 26}px` }}>Սաղմոս Դաւթի</p>
+          <p className="m-0 rounded-control bg-subtle px-3.5 py-3 text-center font-noto font-medium leading-tight text-ink transition-[font-size] duration-200" style={{ fontSize: `${(titleSize === "small" ? 0.85 : titleSize === "large" ? 1.18 : 1) * 26}px` }}>Սաղմոս Դաւթի</p>
         </Setting>
 
         <Setting icon={<Sparkles aria-hidden="true" size={18} />} title="Այլ">

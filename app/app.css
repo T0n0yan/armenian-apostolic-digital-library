@@ -49,6 +49,20 @@
   font-display: swap;
 }
 
+/*
+ * Կլորացման կանոն (docs/DESIGN.md). միայն այս 5 չափը + rounded-full.
+ *   chip 8 — փոքր նշաններ, պիտակներ · control 12 — պատկերակի կոճակներ, փոքր դաշտեր
+ *   button 16 — կոճակներ, input-ներ, սալիկներ · card 22 — քարտեր · panel 28 — վահանակներ, մենյու, պատուհաններ
+ * Ներդրված էլեմենտ՝ ներսի շառավիղը = դրսինը − padding (օր.՝ panel 28, p-3 → ներսը 16)։
+ */
+@theme static {
+  --radius-chip: 8px;
+  --radius-control: 12px;
+  --radius-button: 16px;
+  --radius-card: 22px;
+  --radius-panel: 28px;
+}
+
 @theme inline {
   --spacing: 4px;
   --text-xs: 12px;
@@ -119,6 +133,7 @@
   --glass-border: rgb(168 126 64 / 24%);
   --glass-highlight: rgb(255 255 255 / 62%);
   --control-bg: rgb(255 251 242 / 74%);
+  --field-border: rgb(140 100 40 / 30%);
   --subtle-bg: rgb(120 86 40 / 6%);
   --shadow: 0 24px 80px rgb(92 64 30 / 14%);
   --card-shadow: 0 14px 40px rgb(92 64 30 / 12%);
@@ -155,8 +170,9 @@
   --nav-surface: rgb(27 15 35 / 88%);
   --glass-border: rgb(255 255 255 / 12%);
   --glass-highlight: rgb(255 255 255 / 9%);
-  --control-bg: rgb(8 4 13 / 48%);
-  --subtle-bg: rgb(8 4 13 / 26%);
+  --control-bg: rgb(255 255 255 / 6%);
+  --subtle-bg: rgb(255 255 255 / 5%);
+  --field-border: rgb(255 255 255 / 20%);
   --shadow: 0 24px 80px rgb(2 0 7 / 34%);
   --card-shadow: 0 16px 48px rgb(2 0 7 / 24%);
   --icon-ink: #f0d397;
@@ -196,8 +212,9 @@
     --nav-surface: rgb(27 15 35 / 88%);
     --glass-border: rgb(255 255 255 / 12%);
     --glass-highlight: rgb(255 255 255 / 9%);
-    --control-bg: rgb(8 4 13 / 48%);
-    --subtle-bg: rgb(8 4 13 / 26%);
+    --control-bg: rgb(255 255 255 / 6%);
+    --subtle-bg: rgb(255 255 255 / 5%);
+    --field-border: rgb(255 255 255 / 20%);
     --shadow: 0 24px 80px rgb(2 0 7 / 34%);
     --card-shadow: 0 16px 48px rgb(2 0 7 / 24%);
     --icon-ink: #f0d397;
@@ -376,6 +393,29 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
   .menu-panel, .liquid-sheet, .liquid-fab { background: var(--nav-surface) !important; }
 }
 
+/*
+ * Որոնման դաշտ (բոլոր էջերում նույնը). ներսի կոճակը կլոր է և երևում է միայն տեքստ գրելուց հետո,
+ * որ դատարկ դաշտում ավելորդ ֆոն չլինի։ Enter-ը/ստեղնաշարի «Որոնել»-ը նույնն է անում։
+ */
+.search-field {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 52px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--field-border);
+  background: var(--control-bg);
+  color: var(--faint);
+  box-shadow: inset 0 1px 0 var(--lg-tile-hi, transparent), 0 1px 2px rgb(40 20 40 / 6%);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.search-field:focus-within, .search-field.is-open { border-color: rgb(217 181 111 / 55%); box-shadow: 0 0 0 3px rgb(217 181 111 / 14%); }
+.search-go {
+  display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(135deg, #e2c27e, #b07d2e); color: #2a1708;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 4px 12px rgb(150 100 30 / 25%);
+  transition: opacity 180ms ease, scale 220ms cubic-bezier(.2, 1.3, .3, 1);
+}
+.search-field input:placeholder-shown ~ .search-go { opacity: 0; scale: .8; pointer-events: none; }
+
 /* Audio scrubber: thin gold track that fills as the psalm plays. */
 .audio-scrubber { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; }
 .audio-scrubber::-webkit-slider-runnable-track { height: 5px; border-radius: 999px; background: linear-gradient(90deg, var(--gold) var(--progress, 0%), rgb(150 110 50 / 22%) var(--progress, 0%)); }
@@ -448,7 +488,7 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
 }
 .frosted-card {
   overflow: hidden;
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   transition: transform 260ms cubic-bezier(.2, .8, .2, 1), background 220ms ease, box-shadow 220ms ease;
 }
 .frosted-card:hover {
@@ -464,7 +504,7 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
 
 /* Նույն ապակին՝ անշարժ վահանակների համար (նյութի տեքստ, որոնում, դատարկ վիճակ). իսկական blur-ով։ */
 .frosted-panel {
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   -webkit-backdrop-filter: blur(18px) saturate(175%);
   backdrop-filter: blur(18px) saturate(175%);
 }
@@ -658,6 +698,23 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 8%), 0 4px 14px rgb(0 0 0 / 30%);
 }
 
+/*
+ * Նյութի գործողությունների գոտի (Պահել · Հիշեցնել · Կիսվել). մեկ ապակե «գոտի», ներսում՝ թափանցիկ
+ * կոճակներ (կլորացումը՝ card 22 − padding 6 = button 16)։ Telegram-ի կոճակը հանված է (տիրոջ որոշում)։
+ */
+.action-bar {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 6px;
+  border-radius: var(--radius-card);
+  background: radial-gradient(130% 95% at 0% 0%, var(--lg-spec), transparent 48%), var(--lg-tint);
+  box-shadow: var(--lg-inner), var(--lg-shadow);
+}
+:root .action-bar .action-tile, :root[data-theme] .action-bar .action-tile {
+  border: 0; background: transparent; box-shadow: none; color: var(--gold-bright);
+  border-radius: var(--radius-button);
+}
+:root .action-bar .action-tile:hover, :root[data-theme] .action-bar .action-tile:hover { background: var(--lg-tile-hover); }
+:root .action-bar .action-tile[aria-pressed="true"], :root[data-theme] .action-bar .action-tile[aria-pressed="true"] { background: rgb(217 181 111 / 18%); }
+
 /* «Կարդացել եմ / Լսել եմ / Դիտել եմ»՝ նույն տեսքը, ինչ մյուս կոճակները (.action-tile), նշվածը՝ կանաչ։ */
 .read-mark.is-done {
   border: 1px solid rgb(74 160 96 / 50%);
@@ -697,6 +754,9 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
   touch-action: none; /* մատով քաշելը շարժում է քարտեզը, ոչ թե ոլորում էջը */
   max-height: min(78svh, 720px);
   min-height: 320px;
+  /* Մոտեցնելիս քարտեզի եզրը կտրում է երկիրը. անկյունները՝ նույն կլորացմամբ, ինչ քարտերը։ */
+  border-radius: var(--radius-card);
+  overflow: hidden;
   /* The cut-out shape casts a soft shadow, like a paper map laid on the page. */
   filter: drop-shadow(0 10px 22px rgb(40 20 10 / 22%));
 }
@@ -704,11 +764,11 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 @media (min-width: 860px) { .places-map-free { width: 100%; max-width: 1040px; margin-inline: auto; } .places-map-free .places-map { min-height: 560px; max-height: min(72svh, 780px); } }
 .places-map-small .places-map {
   width: 100%; aspect-ratio: 16 / 10; touch-action: none; min-height: 220px; max-height: 360px;
-  overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: 18px;
+  overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: var(--radius-card);
 }
 /* Shown in the map's place until its first tiles are drawn: Armenia's outline, shimmering. */
 .places-map-loading { position: absolute; inset: 0; z-index: 0; display: grid; padding: 14px; pointer-events: none; transition: opacity .45s ease, visibility 0s .45s; }
-.places-map-small .places-map-loading { padding: 0; overflow: hidden; border-radius: 18px; }
+.places-map-small .places-map-loading { padding: 0; overflow: hidden; border-radius: var(--radius-card); }
 .places-map-loading.is-ready { opacity: 0; visibility: hidden; }
 .places-map { transition: opacity .45s ease; }
 .places-map.is-loading { opacity: 0; }
@@ -725,13 +785,13 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
 .places-map-small .places-map-zoom { top: 12px; left: 12px; }
 .places-map-zoom button {
   display: grid; width: 34px; height: 34px; place-items: center; cursor: pointer;
-  border: 1px solid rgb(217 181 111 / 40%); border-radius: 11px; background: var(--page-bg); color: var(--gold-bright);
+  border: 1px solid rgb(217 181 111 / 40%); border-radius: var(--radius-control); background: var(--page-bg); color: var(--gold-bright);
   box-shadow: 0 4px 12px rgb(40 20 10 / 18%);
 }
 .place-card {
   position: absolute; z-index: 1000; right: 10px; bottom: 10px; left: 10px;
   max-width: 420px; margin: 0 auto; padding: 10px;
-  border: 1px solid rgb(217 181 111 / 45%); border-radius: 18px;
+  border: 1px solid rgb(217 181 111 / 45%); border-radius: var(--radius-card);
   background: var(--page-bg); box-shadow: 0 16px 40px rgb(40 20 10 / 32%);
   animation: place-card-in 200ms ease-out;
 }

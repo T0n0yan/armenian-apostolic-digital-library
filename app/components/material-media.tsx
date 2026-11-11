@@ -64,7 +64,7 @@ function PlaybackStatus({ state, onRetry }: { state: MediaPlaybackState; onRetry
         <span>{mediaPlaybackLabel(state)}</span>
       </span>
       {isRetryableMediaError(state) ? (
-        <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] border border-white/15 bg-white/8 px-3 font-bold text-white" type="button" onClick={onRetry}>
+        <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-control border border-white/15 bg-white/8 px-3 font-bold text-white" type="button" onClick={onRetry}>
           <RotateCw aria-hidden="true" size={14} /> Կրկին փորձել
         </button>
       ) : null}
@@ -253,7 +253,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   };
 
   return (
-    <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-[18px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
+    <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-card border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
       {kind === "video" ? (
         <video controlsList="nodownload"
           {...common}
@@ -295,7 +295,7 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
       ? "Մեդիան առայժմ հասանելի չէ։"
       : "Մեդիան բեռնվում է Telegram-ից…";
   return (
-    <div className="grid min-h-[180px] place-items-center rounded-[18px] border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
+    <div className="grid min-h-[180px] place-items-center rounded-card border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
       <span className="grid justify-items-center gap-3">
         <Icon aria-hidden="true" className="text-gold" size={30} strokeWidth={1.5} />
         <span className="max-w-[280px] text-[12px] leading-[1.6]">{message}</span>
@@ -349,11 +349,11 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   if (!source) return <PendingMedia asset={asset} />;
   if (failed) {
     return (
-      <div className="grid min-h-[180px] place-items-center rounded-[18px] border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
+      <div className="grid min-h-[180px] place-items-center rounded-card border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
         <span className="grid justify-items-center gap-3">
           <AlertCircle aria-hidden="true" className="text-gold" size={28} strokeWidth={1.6} />
           <span className="text-[12px]">Նկարը չբեռնվեց, սակայն մյուս մեդիան շարունակում է աշխատել։</span>
-          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-glass-border bg-glass px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => { setFailed(false); setAttempt((current) => current + 1); setSourceIndex(0); }}>
+          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-glass-border bg-glass px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => { setFailed(false); setAttempt((current) => current + 1); setSourceIndex(0); }}>
             <RotateCw aria-hidden="true" size={15} /> Կրկին փորձել
           </button>
         </span>
@@ -362,7 +362,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   }
 
   return (
-    <figure className="reveal-frame relative m-0 overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
+    <figure className="reveal-frame relative m-0 overflow-hidden rounded-card border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
       <button className="relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => setViewing(true)} aria-label="Բացել նկարը ամբողջ էկրանով">
         {preview ? <img className="reveal-img absolute inset-0 size-full object-contain" src={preview} alt="" aria-hidden="true" decoding="async" /> : null}
         <img
@@ -427,7 +427,7 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
   }
 
   return (
-    <a className="flex min-h-14 items-center gap-3 rounded-[16px] border border-glass-border bg-subtle px-4 text-[13px] font-bold text-gold-bright no-underline" href={asset.url} download={asset.fileName ?? undefined}>
+    <a className="flex min-h-14 items-center gap-3 rounded-button border border-glass-border bg-subtle px-4 text-[13px] font-bold text-gold-bright no-underline" href={asset.url} download={asset.fileName ?? undefined}>
       <FileText aria-hidden="true" size={20} />
       <span>{asset.fileName || "Բեռնել ֆայլը"}</span>
     </a>
@@ -443,7 +443,7 @@ export const MaterialMediaGallery = memo(function MaterialMediaGallery({ media }
         {media.map((asset, index) => <div className="min-w-0 snap-center" key={asset.id}><MaterialMediaItem asset={asset} priority={index === 0} /></div>)}
       </div>
       {hasUnavailable ? (
-        <p className="m-0 flex items-start gap-2 rounded-[12px] border border-[rgb(217_181_111/18%)] bg-[rgb(217_181_111/7%)] px-3 py-2.5 text-[11px] leading-[1.55] text-muted">
+        <p className="m-0 flex items-start gap-2 rounded-control border border-[rgb(217_181_111/18%)] bg-[rgb(217_181_111/7%)] px-3 py-2.5 text-[11px] leading-[1.55] text-muted">
           <AlertCircle aria-hidden="true" className="mt-0.5 shrink-0 text-gold" size={15} />
           Մեդիայի մի մասը Telegram-ից առայժմ հասանելի չէ։ Ամբողջական նյութը կարող ես բացել Telegram-ում։
         </p>

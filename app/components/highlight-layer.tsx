@@ -423,8 +423,8 @@ export function HighlightLayer() {
   const length = sources().reduce((total, source) => total + source.quote.length, 0);
   const tooLong = spans.length > 0 && sources().some((source) => source.quote.length > QUOTE_MAX);
   const single = spans.length === 1;
-  const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-[14px] border-0 bg-subtle text-ink disabled:opacity-50";
-  const main = "inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-[14px] border-0 px-1.5 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
+  const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-button border-0 bg-subtle text-ink disabled:opacity-50";
+  const main = "inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-button border-0 px-1.5 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
 
   if (typeof document === "undefined") return null;
   return (
@@ -444,7 +444,7 @@ export function HighlightLayer() {
           <div className={`${closing ? "highlight-pop-out" : "highlight-pop"} relative`} data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
             <span className="absolute size-3.5 rotate-45 border-[rgb(217_181_111/55%)] bg-[var(--page-bg)]" aria-hidden="true"
               style={{ left: place.arrow - 7, ...(place.above ? { bottom: -7, borderRightWidth: 1, borderBottomWidth: 1 } : { top: -7, borderLeftWidth: 1, borderTopWidth: 1 }) }} />
-            <div className="relative grid gap-1.5 rounded-[18px] border border-[rgb(217_181_111/55%)] bg-[var(--page-bg)] p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
+            <div className="relative grid gap-1.5 rounded-card border border-[rgb(217_181_111/55%)] bg-[var(--page-bg)] p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
               onMouseDown={(event) => event.preventDefault()}>
               {tooLong ? <p className="m-0 px-1 text-center text-[11.5px] text-muted">Շատ երկար է. ընտրեք ավելի կարճ (մինչև {QUOTE_MAX} նշան)։</p> : null}
               <div className="flex items-center gap-1">

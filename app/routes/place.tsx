@@ -74,7 +74,7 @@ function youtubeEmbed(url: string) {
   return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
 }
 
-const PHOTO_CLASS = "block rounded-[18px] shadow-card";
+const PHOTO_CLASS = "block rounded-card shadow-card";
 /**
  * Նկարի տուփը։ Չափը հայտնի լինելիս բարձրությունը հաշվվում է նախապես (նույն սահմաններով՝ 56svh,
  * 440px, 84vw/560px լայնություն, ոչ ավելի քան բուն նկարը), որ նկարը բեռնվելիս էջը չցատկի։
@@ -123,24 +123,24 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           <div className={`-mx-1 flex snap-x snap-mandatory items-center gap-3 overflow-x-auto overscroll-x-contain scroll-px-1 px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${place.photos.length + (video ? 1 : 0) === 1 ? "justify-center" : "[justify-content:safe_center]"}`}>
             {place.photos.map((key, index) => (
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
-                className="relative shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 [transform:translateZ(0)]">
+                className="relative shrink-0 cursor-zoom-in snap-center rounded-card border-0 bg-transparent p-0 [transform:translateZ(0)]">
                 <img {...photoBox(loaderData.photoSizes[key])} src={placeThumbUrl(key, 1200)} alt={index === 0 ? place.name : ""} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
                 {index === 0 && place.photos.length > 1 ? <span className="absolute right-2.5 bottom-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-semibold text-white">{place.photos.length} նկար</span> : null}
               </button>
             ))}
-            {video ? <video className="block max-h-[min(56svh,440px)] max-w-[min(84vw,560px)] shrink-0 snap-center rounded-[18px] bg-black shadow-card [transform:translateZ(0)]" src={video} controls preload="metadata" playsInline /> : null}
+            {video ? <video className="block max-h-[min(56svh,440px)] max-w-[min(84vw,560px)] shrink-0 snap-center rounded-card bg-black shadow-card [transform:translateZ(0)]" src={video} controls preload="metadata" playsInline /> : null}
           </div>
         ) : null}
         <div className="mx-auto w-full max-w-[420px]"><VisitButton visited={visited.has(place.id)} onToggle={() => toggle(place.id)} /></div>
         <div className="mx-auto w-full max-w-[420px]"><FillPlaceButton placeId={place.id} /></div>
         {canManage ? (
           // Only the admin sees it: straight to this place's editor.
-          <Link className="mx-auto flex min-h-11 w-full max-w-[420px] items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" to={`/admin/places/${place.id}`}>
+          <Link className="mx-auto flex min-h-11 w-full max-w-[420px] items-center justify-center gap-2 rounded-button border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" to={`/admin/places/${place.id}`}>
             <Pencil aria-hidden="true" size={16} /> Խմբագրել (միայն ադմին)
           </Link>
         ) : null}
         {!place.verified ? (
-          <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13px] text-muted">⚑ Ճշտել. տեղեկությունը ուղարկել են մեր ընթերցողները, և այն դեռ ստուգվում է հոգևորականների կողմից։</p>
+          <p className="m-0 rounded-button border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13px] text-muted">⚑ Ճշտել. տեղեկությունը ուղարկել են մեր ընթերցողները, և այն դեռ ստուգվում է հոգևորականների կողմից։</p>
         ) : null}
         {place.description ? <section className={panel}><h2 className={heading}>Պատմություն</h2><RichText text={place.description} /></section> : null}
         {place.liturgy || place.services ? (
@@ -161,13 +161,13 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             ))}
           </section>
         ) : null}
-        {embed ? <iframe className="aspect-video w-full rounded-[18px] border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}
+        {embed ? <iframe className="aspect-video w-full rounded-card border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}
         {!video && !embed && place.videoUrl ? <a className="text-gold-bright" href={place.videoUrl} target="_blank" rel="noreferrer">Դիտել տեսանյութը →</a> : null}
         <section className={panel}>
           <h2 className={heading}>Ինչպես հասնել</h2>
           <div className="flex flex-wrap gap-2">
             {directionLinks(place.latitude, place.longitude).map((link) => (
-              <a key={link.href} className="inline-flex min-h-10 items-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer">
+              <a key={link.href} className="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer">
                 <Navigation aria-hidden="true" size={15} /> {link.label}
               </a>
             ))}

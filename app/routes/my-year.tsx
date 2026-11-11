@@ -88,7 +88,7 @@ export default function MyYear({ loaderData }: Route.ComponentProps) {
             {summary.sections.length ? (
               <ul className="m-0 grid list-none gap-1.5 p-0">
                 {summary.sections.map((section) => (
-                  <li key={section.name} className="flex items-center justify-between rounded-[12px] bg-subtle px-3 py-2 text-[14px] text-ink">
+                  <li key={section.name} className="flex items-center justify-between rounded-control bg-subtle px-3 py-2 text-[14px] text-ink">
                     <span>{section.name}</span><strong className="tabular-nums text-gold-bright">{section.count}</strong>
                   </li>
                 ))}
@@ -107,7 +107,7 @@ export default function MyYear({ loaderData }: Route.ComponentProps) {
             <section className={`${panelSection} grid gap-2`}>
               <h2 className="m-0 text-[16px] font-bold text-ink">Ամիսներով</h2>
               {summary.months.map((month) => (
-                <Link key={month.month} to={`/my-year?period=${month.month}`} className="flex items-center justify-between rounded-[12px] bg-subtle px-3 py-2 text-[13.5px] text-ink no-underline">
+                <Link key={month.month} to={`/my-year?period=${month.month}`} className="flex items-center justify-between rounded-control bg-subtle px-3 py-2 text-[13.5px] text-ink no-underline">
                   <span>{MONTHS[Number(month.month.slice(5)) - 1]}</span>
                   <span className="text-muted tabular-nums">🕊 {month.liturgies} · 📖 {month.read}</span>
                 </Link>
@@ -141,9 +141,9 @@ function MarkRow({ mark }: { mark: { day: string; communion: boolean; note: stri
     void revalidator.revalidate();
   };
   return (
-    <div className="flex items-center gap-2 rounded-[12px] bg-subtle px-3 py-2 text-[13.5px] text-ink">
+    <div className="flex items-center gap-2 rounded-control bg-subtle px-3 py-2 text-[13.5px] text-ink">
       <span className="min-w-0 flex-1">{shortDate(mark.day)}{mark.note ? ` · ${mark.note}` : ""}{mark.communion ? " · ✝ Հաղորդություն" : ""}</span>
-      {canMarkDay(mark.day) ? <button className="grid size-8 cursor-pointer place-items-center rounded-[9px] border-0 bg-transparent text-faint hover:text-danger" type="button" onClick={() => void remove()} aria-label="Հանել"><Trash2 aria-hidden="true" size={15} /></button> : null}
+      {canMarkDay(mark.day) ? <button className="grid size-8 cursor-pointer place-items-center rounded-chip border-0 bg-transparent text-faint hover:text-danger" type="button" onClick={() => void remove()} aria-label="Հանել"><Trash2 aria-hidden="true" size={15} /></button> : null}
     </div>
   );
 }
@@ -167,9 +167,9 @@ function AddLiturgy({ today }: { today: string }) {
     if (response?.ok) { setOpen(false); setNote(""); setCommunion(false); void revalidator.revalidate(); }
   };
   if (!open) {
-    return <button className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 justify-self-center rounded-[14px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" size={16} /> Նշել Պատարագ</button>;
+    return <button className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 justify-self-center rounded-button border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" size={16} /> Նշել Պատարագ</button>;
   }
-  const field = "min-h-11 rounded-[12px] border border-glass-border bg-control px-3 text-[14px] text-ink";
+  const field = "min-h-11 rounded-control border border-glass-border bg-control px-3 text-[14px] text-ink";
   return (
     <section className={`${panelSection} grid gap-3`}>
       <h2 className="m-0 text-[16px] font-bold text-ink">Նշել Պատարագ</h2>
@@ -178,8 +178,8 @@ function AddLiturgy({ today }: { today: string }) {
       <label className="grid gap-1 text-[13px] font-semibold text-ink">Առիթը (ոչ պարտադիր)<input className={field} value={note} maxLength={120} onChange={(event) => setNote(event.target.value)} placeholder="Օր.՝ Սուրբ Գրիգոր Նարեկացու տոն" /></label>
       <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={communion} onChange={(event) => setCommunion(event.target.checked)} /> Ստացել եմ Սուրբ Հաղորդություն</label>
       <div className="flex gap-2">
-        <button className="min-h-11 cursor-pointer rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-5 text-[14px] font-bold text-[#2a1708] disabled:opacity-60" type="button" disabled={busy || !canMarkDay(day)} onClick={() => void save()}>Պահել</button>
-        <button className="min-h-11 cursor-pointer rounded-[14px] border border-glass-border bg-transparent px-4 text-[13.5px] text-muted" type="button" onClick={() => setOpen(false)}>Չեղարկել</button>
+        <button className="min-h-11 cursor-pointer rounded-button border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-5 text-[14px] font-bold text-[#2a1708] disabled:opacity-60" type="button" disabled={busy || !canMarkDay(day)} onClick={() => void save()}>Պահել</button>
+        <button className="min-h-11 cursor-pointer rounded-button border border-glass-border bg-transparent px-4 text-[13.5px] text-muted" type="button" onClick={() => setOpen(false)}>Չեղարկել</button>
       </div>
     </section>
   );

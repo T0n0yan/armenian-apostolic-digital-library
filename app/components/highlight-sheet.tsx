@@ -31,8 +31,8 @@ function rememberEmoji(emoji: string) {
   return next;
 }
 
-const chip = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
-const field = "min-h-[96px] w-full resize-y rounded-[14px] border border-glass-border bg-control px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-[rgb(217_181_111/60%)]";
+const chip = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
+const field = "min-h-[96px] w-full resize-y rounded-button border border-glass-border bg-control px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-[rgb(217_181_111/60%)]";
 
 /**
  * Նշման քարտը. տողը, սմայլիկը, նոթը (կամ հարցը և պատասխանը), հիշեցումը, պատճենել, ջնջել։
@@ -122,7 +122,7 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
         <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={close} aria-label="Փակել"><X aria-hidden="true" size={17} /></button>
       </div>
 
-      <blockquote className={`prayer-text m-0 max-h-40 overflow-y-auto rounded-[14px] border-l-4 px-3 py-2 text-[15px] leading-[1.7] whitespace-pre-line text-ink ${question ? "border-[rgb(120_165_230/70%)] bg-[rgb(120_165_230/10%)]" : "border-[rgb(226_190_90/85%)] bg-[rgb(250_214_92/14%)]"}`}>
+      <blockquote className={`prayer-text m-0 max-h-40 overflow-y-auto rounded-button border-l-4 px-3 py-2 text-[15px] leading-[1.7] whitespace-pre-line text-ink ${question ? "border-[rgb(120_165_230/70%)] bg-[rgb(120_165_230/10%)]" : "border-[rgb(226_190_90/85%)] bg-[rgb(250_214_92/14%)]"}`}>
         {current.quote}
       </blockquote>
 
@@ -134,7 +134,7 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
             <button key={emoji} type="button" onClick={() => pickEmoji(emoji)} aria-pressed={current.emoji === emoji}
               className={`grid size-10 cursor-pointer place-items-center rounded-full border text-[19px] ${current.emoji === emoji ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)]" : "border-glass-border bg-subtle"}`}>{emoji}</button>
           ))}
-          <input className="h-10 w-[74px] rounded-full border border-glass-border bg-control px-3 text-center text-[17px] text-ink outline-none" value={customEmoji} inputMode="text" maxLength={16}
+          <input className="h-10 w-[74px] rounded-full border border-[var(--field-border)] bg-control px-3 text-center text-[17px] text-ink outline-none" value={customEmoji} inputMode="text" maxLength={16}
             placeholder="այլ" aria-label="Ձեր սմայլիկը" onChange={(event) => setCustomEmoji(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addEmoji(); } }} />
           {customEmoji ? (
@@ -160,7 +160,7 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
       ) : null}
 
       {question ? (
-        <div className="grid gap-2 rounded-[16px] border border-glass-border bg-subtle p-3">
+        <div className="grid gap-2 rounded-button border border-glass-border bg-subtle p-3">
           {!answered ? (
             <ReminderButton materialId={current.materialId} title={current.title} path={current.path} label
               heading="Հիշեցնել հարցնել հոգևորականին" buttonText="Հիշեցնել հարցնել հոգևորականին" className={`${chip} w-full`} />

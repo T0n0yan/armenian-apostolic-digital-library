@@ -383,7 +383,7 @@ const SearchForm = memo(function SearchForm({
       {filters.scope === "saved" ? (
         <input type="hidden" name="scope" value="saved" />
       ) : null}
-      <div className="relative flex min-h-[52px] w-full min-w-0 items-center gap-2.5 rounded-2xl border border-glass-border bg-control pl-[13px] text-faint">
+      <div className="search-field relative pr-[6px] pl-[14px]">
         <SearchSuggestions categoryId={filters.categoryId} inputRef={inputRef} onPick={submitImmediately} />
         <SearchIcon aria-hidden="true" size={20} strokeWidth={1.9} />
         <input
@@ -400,8 +400,8 @@ const SearchForm = memo(function SearchForm({
           aria-describedby={error ? "search-error" : undefined}
           onInput={clearError}
         />
-        {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
-        <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 font-[750] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
+        {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-control text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
+        <button className="search-go disabled:cursor-wait" type="submit" aria-label="Որոնել" disabled={isSearching}>
           {isSearching ? (
             <LoaderCircle className="animate-search-spin" aria-hidden="true" size={18} />
           ) : (
@@ -412,7 +412,7 @@ const SearchForm = memo(function SearchForm({
 
       {error ? <p id="search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
       <details
-        className="group w-full min-w-0 overflow-hidden rounded-2xl border border-glass-border bg-subtle"
+        className="group w-full min-w-0 overflow-hidden rounded-button border border-glass-border bg-subtle"
         open={Boolean(
           filters.categoryId ||
             filters.dateFrom ||
@@ -473,7 +473,7 @@ function DateField({ name, label, value, onChange }: { name: string; label: stri
   const [current, setCurrent] = useState(value);
   const shown = current ? `${Number(current.slice(8))} ${DATE_MONTHS[Number(current.slice(5, 7)) - 1]} ${current.slice(0, 4)}` : "Ընտրել";
   return (
-    <label className="relative grid cursor-pointer gap-0.5 rounded-[14px] border border-glass-border bg-control px-3 py-1.5">
+    <label className="relative grid cursor-pointer gap-0.5 rounded-button border border-glass-border bg-control px-3 py-1.5">
       <span className="text-[11px] font-semibold text-muted">{label}</span>
       <span className={`text-[14px] ${current ? "text-ink" : "text-faint"}`}>{shown}</span>
       <input
@@ -674,7 +674,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ) : null}
         {/* Found on the phone among the titles: the texts are one tap (and one request) away. */}
         {loaderData.titlesOnly && !isRefreshing ? (
-          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)] px-4 text-[13px] font-bold text-gold-bright no-underline" to={`${getPageHref(filters)}&text=1`}>
+          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-button border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)] px-4 text-[13px] font-bold text-gold-bright no-underline" to={`${getPageHref(filters)}&text=1`}>
             <SearchIcon aria-hidden="true" size={16} /> Փնտրել նաև տեքստերում
           </Link>
         ) : null}
@@ -693,7 +693,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
             {filters.categoryId && filters.query ? (
               <Link
-                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
+                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
               >
                 Փորձել բոլոր բաժիններում <ArrowRight aria-hidden="true" size={16} />
@@ -706,7 +706,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
               <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
                 {/* Say so when nothing has the exact word, and that these are the closest matches. */}
                 {filters.query && !telegramResults.some((item) => item.scoreCategory === "exact-token" || item.scoreCategory === "exact-primary" || item.scoreCategory === "message-id") ? (
-                  <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
+                  <p className="m-0 rounded-button border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
                     «<strong>{filters.query}</strong>» բառով ճշգրիտ համընկնում չգտնվեց։ Ահա ամենամոտ արդյունքները։
                   </p>
                 ) : null}
@@ -823,7 +823,7 @@ function PlaceMatches({ query }: { query: string }) {
         {found.places.map((place) => (
           <li key={place.id}>
             <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
-              <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
+              <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
                 {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
               </span>
               <span className="grid min-w-0 gap-0.5">

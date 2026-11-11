@@ -67,8 +67,8 @@ function ProvincePlaces({ items }: { items: MapPlace[] }) {
     <ul className="frosted-card col-span-2 m-0 grid list-none gap-1.5 p-2 min-[560px]:grid-cols-2">
       {items.map((place) => (
         <li key={place.id}>
-          <Link className="flex items-center gap-3 rounded-[12px] p-2 text-inherit no-underline hover:bg-subtle" to={`/places/${place.id}`}>
-            <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
+          <Link className="flex items-center gap-3 rounded-control p-2 text-inherit no-underline hover:bg-subtle" to={`/places/${place.id}`}>
+            <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
               {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
             </span>
             <span className="grid min-w-0 gap-0.5">
@@ -87,7 +87,7 @@ function NearbyRow({ place, km }: { place: MapPlace; km: number }) {
   return (
     <li>
       <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
-        <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
+        <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
           {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
         </span>
         <span className="grid min-w-0 flex-1 gap-0.5">
@@ -187,7 +187,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   const chip = (active: boolean, label: string, onClick: () => void) => (
     <button key={label} type="button" aria-pressed={active} onClick={onClick}
       className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold transition-colors ${active ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
-      <span className={`grid size-4 place-items-center rounded-[5px] border ${active ? "border-gold-bright bg-gold-bright text-[#2a1708]" : "border-current"}`}>{active ? <Check aria-hidden="true" size={11} strokeWidth={3} /> : null}</span>
+      <span className={`grid size-4 place-items-center rounded-chip border ${active ? "border-gold-bright bg-gold-bright text-[#2a1708]" : "border-current"}`}>{active ? <Check aria-hidden="true" size={11} strokeWidth={3} /> : null}</span>
       {label}
     </button>
   );
@@ -206,7 +206,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   // One segment of the bar above the map: its count and what it shows.
   const segment = (value: PlacesShown, count: number, label: string, color: string) => (
     <button type="button" aria-pressed={show === value} onClick={() => setShow(value)}
-      className={`grid min-w-0 flex-1 cursor-pointer place-items-center gap-0 rounded-[12px] border-0 px-1 py-1.5 transition-colors ${show === value ? "bg-[rgb(217_181_111/18%)] shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : "bg-transparent"}`}>
+      className={`grid min-w-0 flex-1 cursor-pointer place-items-center gap-0 rounded-button border-0 px-1 py-1.5 transition-colors ${show === value ? "bg-[rgb(217_181_111/18%)] shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : "bg-transparent"}`}>
       <strong className={`font-noto text-[17px] leading-tight ${color}`}>{count}</strong>
       <span className="truncate text-[11px] leading-tight text-muted">{label}</span>
     </button>
@@ -216,7 +216,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       <SiteNav />
       <PageHeader backTo="/" backLabel="Գրադարան" title="Սրբավայրեր" onSearch={searchOpen ? closeSearch : openSearch} />
       {searchOpen ? (
-        <div className="mx-auto mt-2 flex w-full max-w-[560px] items-center gap-2 rounded-[16px] border border-[rgb(217_181_111/45%)] bg-subtle px-3 motion-safe:animate-[glass-enter_200ms_ease-out]">
+        <div className="search-field is-open mx-auto mt-2 max-w-[560px] gap-2 px-3 motion-safe:animate-[glass-enter_200ms_ease-out]">
           <Search aria-hidden="true" size={17} className="shrink-0 text-gold-bright" />
           <input ref={searchInput} className="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint" type="search" enterKeyHint="search"
             value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") closeSearch(); if (event.key === "Enter") event.currentTarget.blur(); }}
@@ -231,7 +231,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
         // One bar above the map: all / visited / not yet (each shows just those), and the filters.
         <div ref={filterBox} className="relative z-30 mx-auto mb-3 grid w-full max-w-[560px] gap-2">
           <div className="flex items-stretch gap-2">
-            <div className="frosted-card flex flex-1 gap-1 p-1" role="group" aria-label="Ցույց տալ քարտեզում">
+            <div className="frosted-card flex flex-1 gap-1 p-1.5" role="group" aria-label="Ցույց տալ քարտեզում">
               {segment("all", filtered.length, "բոլորը", "text-gold-bright")}
               {/* «Եղել եմ» is a signed-in reader's own: guests see only the total. */}
               {signedIn ? segment("visited", been, "եղել եմ", "text-[#3f8f5a]") : null}
@@ -244,7 +244,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
             </button>
           </div>
           {/* Opens over the map (the page doesn't move), fading and sliding in and out. */}
-          <div className="places-filters absolute rounded-[20px] top-full right-0 left-0 mt-2 grid gap-3 p-3.5" data-open={filtersOpen} aria-hidden={!filtersOpen} inert={!filtersOpen}>
+          <div className="places-filters absolute rounded-card top-full right-0 left-0 mt-2 grid gap-3 p-3.5" data-open={filtersOpen} aria-hidden={!filtersOpen} inert={!filtersOpen}>
               <div className="grid gap-2">
                 <span className="text-[12px] font-semibold text-faint">Մարզ</span>
                 <div className="flex flex-wrap gap-1.5">{allProvinces.map((name) => chip(provinces.has(name), name, () => toggleIn(provinces, name, setProvinces)))}</div>
@@ -270,11 +270,11 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               <span className="grid size-9 shrink-0 place-items-center text-[#2f7fd8]"><LocateFixed aria-hidden="true" size={18} /></span>
               {NEARBY_RADII.map((radius) => (
                 <button key={radius} type="button" aria-pressed={near.view.radiusKm === radius} onClick={() => setRadius(radius)}
-                  className={`min-h-9 flex-1 cursor-pointer rounded-[11px] border-0 px-2 text-[13px] font-semibold transition-colors ${near.view.radiusKm === radius ? "bg-[rgb(217_181_111/18%)] text-gold-bright shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : "bg-transparent text-muted"}`}>
+                  className={`min-h-9 flex-1 cursor-pointer rounded-button border-0 px-2 text-[13px] font-semibold transition-colors ${near.view.radiusKm === radius ? "bg-[rgb(217_181_111/18%)] text-gold-bright shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : "bg-transparent text-muted"}`}>
                   {radius} կմ
                 </button>
               ))}
-              <button type="button" onClick={stopNear} aria-label="Անջատել «Իմ մոտակայքում»-ը" className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-[11px] border-0 bg-transparent text-faint hover:text-ink"><X aria-hidden="true" size={17} /></button>
+              <button type="button" onClick={stopNear} aria-label="Անջատել «Իմ մոտակայքում»-ը" className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-ink"><X aria-hidden="true" size={17} /></button>
             </div>
           ) : (
             <button type="button" disabled={near.status === "locating"} onClick={() => guard("գտնեք Ձեզ մոտ գտնվող սրբավայրերը", () => void locate())}
@@ -294,11 +294,11 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       <PlacesMap places={places} visited={visited} onToggleVisit={toggle} only={only} fitKey={[...provinces].sort().join("|") + (searching ? `?${shownKey}` : "")} near={nearView} />
       {/* Adding a place: on the site (any signed-in reader, Google too) or through the bot. */}
       <div className="mx-auto mt-4 flex flex-wrap justify-center gap-2">
-        <Link className="flex items-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13.5px] font-bold text-[#2a1708] no-underline shadow-[0_6px_16px_rgb(150_100_30/22%)]" to="/places/new"
+        <Link className="flex items-center gap-2 rounded-button border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13.5px] font-bold text-[#2a1708] no-underline shadow-[0_6px_16px_rgb(150_100_30/22%)]" to="/places/new"
           onClick={(event) => { if (!signedIn) { event.preventDefault(); guard("ավելացնեք նոր սրբավայր", () => navigate("/places/new")); } }}>
           <Plus aria-hidden="true" size={16} strokeWidth={2.4} /> Ավելացնել սրբավայր
         </Link>
-        <a className="flex items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer"
+        <a className="flex items-center gap-2 rounded-button border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 text-[13.5px] font-semibold text-gold-bright no-underline" href="https://t.me/armenian_apostolic_church_bot?start=place" target="_blank" rel="noreferrer"
           onClick={(event) => { if (!signedIn) { event.preventDefault(); guard("ավելացնեք նոր սրբավայր", () => undefined); } }}>
           <Send aria-hidden="true" size={16} /> Բոտի միջոցով
         </a>
@@ -312,7 +312,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               {nearby.filter(({ place }) => shown.includes(place)).map(({ place, km }) => <NearbyRow key={place.id} place={place} km={km} />)}
             </ul>
           ) : (
-            <p className="m-0 rounded-[16px] bg-subtle px-4 py-5 text-center text-[13px] text-muted">
+            <p className="m-0 rounded-button bg-subtle px-4 py-5 text-center text-[13px] text-muted">
               Այս շառավղում սրբավայր դեռ չկա։
               {nearView.radiusKm < NEARBY_RADII[NEARBY_RADII.length - 1] ? <> <button type="button" className="cursor-pointer border-0 bg-transparent p-0 text-[13px] font-semibold text-gold-bright underline" onClick={() => setRadius(NEARBY_RADII[NEARBY_RADII.length - 1])}>Ցույց տալ {NEARBY_RADII[NEARBY_RADII.length - 1]} կմ-ում</button></> : null}
             </p>
@@ -322,7 +322,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
         // What was typed, as one list; the map shows the same places.
         <section className="mt-5 grid gap-2" aria-labelledby="found-title">
           <h2 className="m-0 px-1 text-[13px] font-semibold text-muted" id="found-title">Գտնվեց՝ {shown.length}</h2>
-          {shown.length ? <ProvincePlaces items={shown} /> : <p className="m-0 rounded-[16px] bg-subtle px-4 py-5 text-center text-[13px] text-muted">«{query.trim()}» անունով սրբավայր դեռ չկա քարտեզում։</p>}
+          {shown.length ? <ProvincePlaces items={shown} /> : <p className="m-0 rounded-button bg-subtle px-4 py-5 text-center text-[13px] text-muted">«{query.trim()}» անունով սրբավայր դեռ չկա քարտեզում։</p>}
         </section>
       ) : places.length ? (
         // Մարզերը՝ երկու-երկու։ Ամեն մարզ մեկ բացվող քարտ է (<details>). բացվածը և իր զույգը գրավում են ամբողջ
@@ -340,7 +340,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               <div className="mt-2 grid">
                 {open === province ? <ProvincePlaces items={items} /> : (
                   <ul className="frosted-card m-0 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
-                    {items.map((place) => <li key={place.id}><a className="block rounded-[10px] px-2 py-1.5 text-ink no-underline hover:bg-subtle" href={`/places/${place.id}`}>{place.name}</a></li>)}
+                    {items.map((place) => <li key={place.id}><a className="block rounded-control px-2 py-1.5 text-ink no-underline hover:bg-subtle" href={`/places/${place.id}`}>{place.name}</a></li>)}
                   </ul>
                 )}
               </div>

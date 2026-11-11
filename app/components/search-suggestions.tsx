@@ -120,11 +120,11 @@ export function SearchSuggestions({ inputRef, onPick, categoryId = "" }: { categ
 
   if (!visible) return null;
   return (
-    <ul className="search-suggestions absolute inset-x-0 top-[calc(100%+6px)] z-30 m-0 grid list-none gap-0.5 overflow-hidden rounded-[16px] border border-glass-border bg-[var(--page-bg)] p-1.5 text-left shadow-[0_18px_44px_rgb(40_20_10/22%)]" role="listbox" aria-label="Հուշումներ">
+    <ul className="search-suggestions absolute inset-x-0 top-[calc(100%+6px)] z-30 m-0 grid list-none gap-0.5 overflow-hidden rounded-button border border-glass-border bg-[var(--page-bg)] p-1.5 text-left shadow-[0_18px_44px_rgb(40_20_10/22%)]" role="listbox" aria-label="Հուշումներ">
       {suggestions.map((term, index) => (
         <li key={term} role="option" aria-selected={index === active}>
           <button
-            className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-[11px] border-0 bg-transparent px-3 text-left text-[14.5px] text-ink hover:bg-subtle ${index === active ? "bg-subtle" : ""}`}
+            className={`flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-control border-0 bg-transparent px-3 text-left text-[14.5px] text-ink hover:bg-subtle ${index === active ? "bg-subtle" : ""}`}
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => pick(term)}
