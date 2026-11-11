@@ -56,7 +56,8 @@ export function describe(text: string | null | undefined, fallback: string, titl
     .replace(/(^|[\s։.!?»])\d{1,3}\.?\s+(?=\p{L})/gu, "$1")
     .replace(/\s+/gu, " ")
     .trim();
-  if (!clean) return fallback;
+  // Պահեստային տեքստն էլ է կտրվում (երկար հարցի վերնագիրը նկարագրությունը 220 նիշ էր դարձնում)։
+  if (!clean) clean = fallback.replace(/\s+/gu, " ").trim();
   if (clean.length <= 160) return clean;
   return `${clean.slice(0, 157).replace(/\s+\S*$/u, "")}…`;
 }
