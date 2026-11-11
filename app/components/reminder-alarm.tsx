@@ -191,7 +191,7 @@ export function ReminderAlarm() {
   return (
     <aside
       ref={card}
-      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-card border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
+      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
       data-phase={phase}
       role="alertdialog"
       aria-live="assertive"

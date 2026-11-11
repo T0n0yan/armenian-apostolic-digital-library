@@ -190,7 +190,7 @@ export function ReadingCalendar({ days, joinedAt }: { days: Record<string, numbe
       {ranges.length > 1 ? (
       <div className="grid gap-1 rounded-control bg-subtle p-1" style={{ gridTemplateColumns: `repeat(${ranges.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="Ժամանակահատված">
         {ranges.map((option) => (
-          <button key={option.value} className={`min-h-8 cursor-pointer rounded-chip border-0 text-[11.5px] font-semibold ${range === option.value ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
+          <button key={option.value} className={`min-h-8 cursor-pointer rounded-chip border-0 text-[11.5px] font-semibold ${range === option.value ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
         ))}
       </div>
       ) : null}

@@ -108,7 +108,7 @@ export function ChurchNudge() {
   const button = "inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline";
   return createPortal(
     <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2060] flex justify-center px-3" role="dialog" aria-label="Մոտակայքում կա եկեղեցի">
-      <div data-phase={phase} className="install-toast pointer-events-auto grid w-full max-w-[420px] gap-2.5 rounded-card border border-[rgb(120_165_230/45%)] bg-[var(--page-bg)] p-3.5 text-ink shadow-[0_18px_44px_rgb(40_20_10/26%)]">
+      <div data-phase={phase} className="install-toast pointer-events-auto grid w-full max-w-[420px] gap-2.5 rounded-card border border-[rgb(120_165_230/45%)] liquid-sheet p-3.5 text-ink shadow-[0_18px_44px_rgb(40_20_10/26%)]">
         <div className="flex items-start gap-2">
           <div className="grid flex-1 gap-0.5">
             <strong className="text-[15px]">❓ Դուք ունեք {nudge.questions === 1 ? "հարց" : `${nudge.questions} հարց`}</strong>

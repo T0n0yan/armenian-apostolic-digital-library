@@ -26,7 +26,7 @@ const cardAction = "grid size-8 cursor-pointer place-items-center rounded-full b
 /** One rung reminder: open it, mark it read (✓), set it again (bell) or remove it (trash). */
 function MissedCard({ item, opening, onOpen }: { item: { materialId: string; rangAt: string; title: string; categoryName: string | null }; opening: boolean; onOpen: () => void }) {
   return (
-    <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-button border border-glass-border bg-[var(--page-bg)] px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
+    <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-button border border-glass-border liquid-sheet px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
       <Link className="relative z-[3] grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName, { title: item.title })} onClick={onOpen} aria-busy={opening}>
         <ItemIcon categoryName={item.categoryName} busy={opening} />
         <span className="grid min-w-0">
@@ -114,7 +114,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
         <span className={`absolute -top-1 -right-1 grid min-w-[17px] place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-1 text-[10px] font-bold leading-[17px] ${missed.length ? "bg-[rgb(205_70_55)] !bg-none text-white" : "text-[#2a1708]"}`}>{count}</span>
       </button>
       {open && anchor ? createPortal(
-        <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(380px,calc(100vw-24px))] gap-1 rounded-card border border-glass-border bg-[var(--page-bg)] p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
+        <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(380px,calc(100vw-24px))] gap-1 rounded-card border border-glass-border liquid-sheet p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
           {missed.length ? (
             <>
               <span className="flex items-center justify-between px-2 pt-1 pb-1.5">

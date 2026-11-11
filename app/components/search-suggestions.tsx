@@ -120,7 +120,7 @@ export function SearchSuggestions({ inputRef, onPick, categoryId = "" }: { categ
 
   if (!visible) return null;
   return (
-    <ul className="search-suggestions absolute inset-x-0 top-[calc(100%+6px)] z-30 m-0 grid list-none gap-0.5 overflow-hidden rounded-button border border-glass-border bg-[var(--page-bg)] p-1.5 text-left shadow-[0_18px_44px_rgb(40_20_10/22%)]" role="listbox" aria-label="Հուշումներ">
+    <ul className="search-suggestions absolute inset-x-0 top-[calc(100%+6px)] z-30 m-0 grid list-none gap-0.5 overflow-hidden rounded-button border border-glass-border liquid-sheet p-1.5 text-left shadow-[0_18px_44px_rgb(40_20_10/22%)]" role="listbox" aria-label="Հուշումներ">
       {suggestions.map((term, index) => (
         <li key={term} role="option" aria-selected={index === active}>
           <button
