@@ -287,3 +287,32 @@ export async function applySubmissionToPlace(db: D1Database, bucket: R2Bucket, t
   await db.prepare("UPDATE place_submissions SET status = 'used', handled_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(submissionId).run();
   return place.id;
 }
+
+export type PhotoSize = { width: number; height: number };
+
+/**
+ * Նկարների չափերը՝ `place_photo_sizes`-ից։ Չունեցողի չափը մեկ անգամ կարդացվում է Cloudflare
+ * Images-ով (առանց փոխարկման) և պահվում. մեկ հարցումով՝ առավելագույնը 4 նոր նկար։ Ցանկացած սխալի
+ * դեպքում էջը պարզապես բացվում է առանց չափերի։
+ */
+export async function placePhotoSizes(db: D1Database, media: R2Bucket, images: ImagesBinding | undefined, keys: string[]) {
+  const sizes: Record<string, PhotoSize> = {};
+  if (!keys.length) return sizes;
+  try {
+    const { results } = await db.prepare(`SELECT photo_key, width, height FROM place_photo_sizes WHERE photo_key IN (${keys.map(() => "?").join(",")})`)
+      .bind(...keys).all<{ photo_key: string; width: number; height: number }>();
+    for (const row of results) sizes[row.photo_key] = { width: row.width, height: row.height };
+    if (!images) return sizes;
+    for (const key of keys.filter((item) => !sizes[item]).slice(0, 4)) {
+      const object = await media.get(key);
+      if (!object) continue;
+      const info = await images.info(object.body);
+      if (!("width" in info) || !(info.width > 0) || !(info.height > 0)) continue;
+      sizes[key] = { width: info.width, height: info.height };
+      await db.prepare("INSERT OR REPLACE INTO place_photo_sizes (photo_key, width, height) VALUES (?, ?, ?)").bind(key, info.width, info.height).run();
+    }
+  } catch (error) {
+    console.error("place photo sizes", error);
+  }
+  return sizes;
+}

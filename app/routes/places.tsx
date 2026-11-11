@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { Check, LoaderCircle, LocateFixed, MapPin, Plus, Search, Send, SlidersHorizontal, X } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 import type { Route } from "./+types/places";
@@ -325,26 +325,27 @@ export default function Places({ loaderData }: Route.ComponentProps) {
           {shown.length ? <ProvincePlaces items={shown} /> : <p className="m-0 rounded-[16px] bg-subtle px-4 py-5 text-center text-[13px] text-muted">«{query.trim()}» անունով սրբավայր դեռ չկա քարտեզում։</p>}
         </section>
       ) : places.length ? (
-        // Provinces two by two; the open one's places fill the row under it.
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          {rows.map((row) => (
-            <Fragment key={row[0][0]}>
-              {row.map(([province, items]) => (
-                <button key={province} type="button" aria-expanded={open === province} onClick={() => setOpen(open === province ? null : province)}
-                  className={`frosted-card flex min-h-12 cursor-pointer items-center justify-between gap-2 px-4 py-3 text-left text-[14px] font-semibold text-ink ${row.length === 1 ? "col-span-2" : ""} ${open === province ? "ring-2 ring-[rgb(217_181_111/60%)]" : ""}`}>
-                  <span className="min-w-0 leading-snug">{province}</span>
-                  <span className="shrink-0 text-[12.5px] font-normal text-muted">{items.length} <span className={`inline-block transition-transform ${open === province ? "rotate-90" : ""}`}>›</span></span>
-                </button>
-              ))}
-              {row.some(([province]) => province === open) ? <ProvincePlaces items={row.find(([province]) => province === open)?.[1] ?? []} /> : null}
-              {/* Փակ մարզերի սրբավայրերը՝ թաքնված, բայց HTML-ում իսկական հղումներով, որ որոնիչները հասնեն ամեն էջի։ */}
-              {row.filter(([province]) => province !== open).map(([province, items]) => (
-                <details key={`links-${province}`} className="col-span-2 rounded-xl border border-glass-border p-3"><summary className="cursor-pointer text-gold-bright">{province}․ բոլոր սրբավայրերը</summary><ul className="grid gap-2 pt-3">
-                  {items.map((place) => <li key={place.id}><a href={`/places/${place.id}`}>{place.name}</a></li>)}
-                </ul></details>
-              ))}
-            </Fragment>
-          ))}
+        // Մարզերը՝ երկու-երկու։ Ամեն մարզ մեկ բացվող քարտ է (<details>). բացվածը և իր զույգը գրավում են ամբողջ
+        // լայնությունը, սրբավայրերը՝ բացվածի տակ։ Փակի մեջ հղումները կան HTML-ում (որոնիչների և առանց
+        // JavaScript-ի ընթերցողի համար), նկարներով ցանկը գծվում է միայն բացելիս։
+        <div className="mt-5 grid grid-cols-2 items-start gap-2">
+          {rows.flatMap((row) => row.map(([province, items]) => (
+            <details key={province} open={open === province}
+              onToggle={(event) => { const isOpen = event.currentTarget.open; setOpen((current) => (isOpen ? province : current === province ? null : current)); }}
+              className={row.length === 1 || row.some(([name]) => name === open) ? "col-span-2" : ""}>
+              <summary className={`frosted-card flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-left text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden ${open === province ? "ring-2 ring-[rgb(217_181_111/60%)]" : ""}`}>
+                <span className="min-w-0 leading-snug">{province}</span>
+                <span className="shrink-0 text-[12.5px] font-normal text-muted">{items.length} <span className={`inline-block transition-transform ${open === province ? "rotate-90" : ""}`}>›</span></span>
+              </summary>
+              <div className="mt-2 grid">
+                {open === province ? <ProvincePlaces items={items} /> : (
+                  <ul className="frosted-card m-0 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
+                    {items.map((place) => <li key={place.id}><a className="block rounded-[10px] px-2 py-1.5 text-ink no-underline hover:bg-subtle" href={`/places/${place.id}`}>{place.name}</a></li>)}
+                  </ul>
+                )}
+              </div>
+            </details>
+          )))}
         </div>
       ) : <p className="mt-5 text-center text-[13px] text-faint">Քարտեզը դեռ լրացվում է։</p>}
       {/* OpenStreetMap's licence asks for its credit: one quiet line at the end of the page. */}

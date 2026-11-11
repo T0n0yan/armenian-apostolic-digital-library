@@ -687,9 +687,15 @@ export default function Category({ loaderData }: Route.ComponentProps) {
           />
         ) : null}
         {loaderData.moreLinks.length ? (
-          <details className="mt-4 rounded-xl border border-glass-border p-3"><summary className="cursor-pointer text-gold-bright">Բաժնի բոլոր նյութերը</summary><ul className="grid gap-2 pt-3">
-            {loaderData.moreLinks.map((link) => <li key={link.path}><a href={link.path}>{link.title}</a></li>)}
-          </ul></details>
+          <details className="group mt-4">
+            <summary className="frosted-card flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+              <span>Բաժնի բոլոր նյութերը</span>
+              <span className="shrink-0 text-[12.5px] font-normal text-muted">{loaderData.moreLinks.length} <span className="inline-block transition-transform group-open:rotate-90">›</span></span>
+            </summary>
+            <ul className="frosted-card m-0 mt-2 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
+              {loaderData.moreLinks.map((link) => <li key={link.path}><a className="block rounded-[10px] px-2 py-1.5 text-ink no-underline hover:bg-subtle" href={link.path}>{link.title}</a></li>)}
+            </ul>
+          </details>
         ) : null}
       </section>
     </PageShell>

@@ -13,7 +13,7 @@ import { PhotoGallery } from "../components/photo-gallery";
 import { FillPlaceButton, PlacesMap, VisitButton } from "../components/places-map";
 import { usePlaceVisits } from "../utils/place-visits";
 import { SiteNav } from "../components/site-nav";
-import { getPlace } from "../data/places.server";
+import { getPlace, placePhotoSizes } from "../data/places.server";
 import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeHasContent, placeLocality, placeMediaUrl, placeThumbUrl } from "../utils/places";
 import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { readAccess } from "../utils/place-answers";
@@ -24,7 +24,9 @@ export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapC
 export async function loader({ params, request }: Route.LoaderArgs) {
   const place = await getPlace(env.DB, params.id, { publishedOnly: true });
   if (!place) throw new Response("Not found", { status: 404 });
-  return { place, origin: new URL(request.url).origin };
+  const bindings = env as unknown as { MEDIA: R2Bucket; IMAGES?: ImagesBinding };
+  const photoSizes = await placePhotoSizes(env.DB, bindings.MEDIA, bindings.IMAGES, place.photos);
+  return { place, photoSizes, origin: new URL(request.url).origin };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -72,6 +74,22 @@ function youtubeEmbed(url: string) {
   return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
 }
 
+const PHOTO_CLASS = "block rounded-[18px] shadow-card";
+/**
+ * Նկարի տուփը։ Չափը հայտնի լինելիս բարձրությունը հաշվվում է նախապես (նույն սահմաններով՝ 56svh,
+ * 440px, 84vw/560px լայնություն, ոչ ավելի քան բուն նկարը), որ նկարը բեռնվելիս էջը չցատկի։
+ */
+function photoBox(size: { width: number; height: number } | undefined) {
+  if (!size) return { className: `${PHOTO_CLASS} h-auto max-h-[min(56svh,440px)] w-auto max-w-[min(84vw,560px)]` };
+  const ratio = size.height / size.width;
+  return {
+    className: `${PHOTO_CLASS} w-auto`,
+    width: size.width,
+    height: size.height,
+    style: { aspectRatio: `${size.width} / ${size.height}`, height: `min(56svh, 440px, calc(min(84vw, 560px) * ${ratio.toFixed(4)}), ${size.height}px)` },
+  };
+}
+
 const panel = "frosted-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
 
@@ -106,7 +124,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             {place.photos.map((key, index) => (
               <button key={key} type="button" onClick={() => setViewing(index)} aria-label={`Բացել նկար ${index + 1}-ը`}
                 className="relative shrink-0 cursor-zoom-in snap-center rounded-[18px] border-0 bg-transparent p-0 [transform:translateZ(0)]">
-                <img className="block h-auto max-h-[min(56svh,440px)] w-auto max-w-[min(84vw,560px)] rounded-[18px] shadow-card" src={placeThumbUrl(key, 1200)} alt={index === 0 ? place.name : ""} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
+                <img {...photoBox(loaderData.photoSizes[key])} src={placeThumbUrl(key, 1200)} alt={index === 0 ? place.name : ""} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
                 {index === 0 && place.photos.length > 1 ? <span className="absolute right-2.5 bottom-2.5 rounded-full bg-black/55 px-2.5 py-1 text-[12px] font-semibold text-white">{place.photos.length} նկար</span> : null}
               </button>
             ))}
