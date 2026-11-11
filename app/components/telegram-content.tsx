@@ -79,7 +79,7 @@ function TimestampText({ text }: { text: string }) {
     parts.push(
       <button
         key={`${index}-${match[0]}`}
-        className="mr-1 inline-block min-w-[3.4em] cursor-pointer rounded-[7px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/12%)] px-1.5 py-0 text-center text-[0.92em] leading-[1.5] font-bold text-gold-bright tabular-nums hover:bg-[rgb(217_181_111/24%)]"
+        className="mr-1 inline-block min-w-[3.4em] cursor-pointer rounded-chip border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/12%)] px-1.5 py-0 text-center text-[0.92em] leading-[1.5] font-bold text-gold-bright tabular-nums hover:bg-[rgb(217_181_111/24%)]"
         type="button"
         onClick={() => seekMediaTo(seconds)}
         aria-label={`Դիտել ${match[0]}-ից`}
@@ -166,13 +166,13 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
       return <h4 className={className} id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}>{content}</h4>;
     }
     if (block.type === "paragraph") return <p className="m-0 whitespace-pre-wrap break-words" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><RichInlineNodes nodes={block.content} hit={blockHit} ornate={ornate} /></p>;
-    if (block.type === "pre") return <pre className="m-0 overflow-x-auto rounded-[14px] border border-glass-border bg-subtle p-4 text-[0.86em] leading-relaxed" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><code data-language={block.language ?? undefined}><RichInlineNodes nodes={block.content} hit={blockHit} /></code></pre>;
+    if (block.type === "pre") return <pre className="m-0 overflow-x-auto rounded-button border border-glass-border bg-subtle p-4 text-[0.86em] leading-relaxed" id={targetId} tabIndex={blockHit ? -1 : undefined} key={key}><code data-language={block.language ?? undefined}><RichInlineNodes nodes={block.content} hit={blockHit} /></code></pre>;
     if (block.type === "divider") return <hr className="my-1 w-full border-0 border-t border-gold/25" key={key} />;
     if (block.type === "media") {
       const asset = media[block.mediaIndex];
       const captionId = `${blockId}-caption`;
       const captionHit = hit?.blockId === captionId ? hit : undefined;
-      return asset ? <figure className="m-0 grid gap-2" key={key}><MaterialMediaItem asset={asset} />{block.caption.length ? <figcaption className="text-[13px] leading-relaxed text-muted" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></figcaption> : null}</figure> : <p className="m-0 rounded-[12px] border border-dashed border-glass-border p-3 text-[12px] text-muted" key={key}>Մեդիան առայժմ հասանելի չէ։</p>;
+      return asset ? <figure className="m-0 grid gap-2" key={key}><MaterialMediaItem asset={asset} />{block.caption.length ? <figcaption className="text-[13px] leading-relaxed text-muted" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></figcaption> : null}</figure> : <p className="m-0 rounded-control border border-dashed border-glass-border p-3 text-[12px] text-muted" key={key}>Մեդիան առայժմ հասանելի չէ։</p>;
     }
     if (block.type === "list") {
       const List = block.ordered ? "ol" : "ul";
@@ -183,9 +183,9 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
       const captionHit = hit?.blockId === captionId ? hit : undefined;
       const body = <><div className="grid gap-2"><RichBlocks blocks={block.blocks} media={media} hit={hit} prefix={blockId} /></div>{block.caption.length ? <footer className="mt-2 text-[12px] text-faint" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></footer> : null}</>;
       // Telegram's collapsed ("expandable") quotes hold the day's readings: shown open, like any quote.
-      return <blockquote className="m-0 rounded-r-[14px] border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}>{body}</blockquote>;
+      return <blockquote className="m-0 rounded-r-button border-l-2 border-gold/45 bg-subtle px-4 py-3 text-muted" key={key}>{body}</blockquote>;
     }
-    return <p className="m-0 rounded-[12px] border border-dashed border-glass-border p-3 text-[11px] text-muted" key={key}>Այս հատվածի ձևաչափը դեռ ամբողջությամբ չի աջակցվում։</p>;
+    return <p className="m-0 rounded-control border border-dashed border-glass-border p-3 text-[11px] text-muted" key={key}>Այս հատվածի ձևաչափը դեռ ամբողջությամբ չի աջակցվում։</p>;
   });
 }
 
@@ -193,7 +193,7 @@ export function TelegramRichMessage({ value, media, hit, title, ornateInitial = 
   const skipFirst = title ? richContentStartsWithTitle(value, title) : false;
   // A fresh marker per render: only the first paragraph's first letter becomes the initial.
   const ornate = ornateInitial ? { done: false } : undefined;
-  return <section className="reading-body grid gap-4 frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} ornate={ornate} />{value.partial ? <p className="m-0 rounded-[12px] border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
+  return <section className="reading-body grid gap-4 frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-5 min-[560px]:px-7 min-[560px]:py-7" aria-label="Telegram ձևաչափված նյութ"><RichBlocks blocks={value.blocks} media={media} hit={hit} skipFirst={skipFirst} ornate={ornate} />{value.partial ? <p className="m-0 rounded-control border border-glass-border bg-subtle p-3 text-[11px] text-muted">Telegram-ը փոխանցել է նյութի մասնակի տարբերակը։</p> : null}</section>;
 }
 
 export function FormattedTelegramText({ value, hit, from = 0, to, ornateInitial = false }: { value: BridgeFormattedText; hit?: BridgeSearchHit; from?: number; to?: number; ornateInitial?: boolean }) {
@@ -281,9 +281,9 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
           return (
             <li key={`${index}-${option.text.text}`}>
               {canAnswer ? (
-                <button className={`w-full cursor-pointer rounded-[13px] border p-3.5 text-left transition-[background,transform,translate,scale,border-color] duration-200 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending} onClick={() => vote(index)}>{content}</button>
+                <button className={`w-full cursor-pointer rounded-control border p-3.5 text-left transition-[background,transform,translate,scale,border-color] duration-200 hover:bg-[rgb(217_181_111/12%)] active:scale-[.99] ${tone}`} type="button" disabled={sending} onClick={() => vote(index)}>{content}</button>
               ) : (
-                <div className={`rounded-[13px] border p-3.5 transition-[background,border-color] duration-500 ${tone}`}>{content}</div>
+                <div className={`rounded-control border p-3.5 transition-[background,border-color] duration-500 ${tone}`}>{content}</div>
               )}
             </li>
           );
@@ -293,7 +293,7 @@ export function TelegramPollCard({ poll, title, materialId, votes, canVote = fal
       {poll.quiz && poll.solution ? (
         <div className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] ${answered ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`} aria-hidden={!answered}>
           <div className="overflow-hidden">
-            <p className="m-0 rounded-[13px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-4 py-3 text-[13.5px] leading-[1.65] text-ink whitespace-pre-line"><strong className="mb-1 block text-[11.5px] tracking-[0.4px] text-gold uppercase">Բացատրություն</strong>{poll.solution}</p>
+            <p className="m-0 rounded-control border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-4 py-3 text-[13.5px] leading-[1.65] text-ink whitespace-pre-line"><strong className="mb-1 block text-[11.5px] tracking-[0.4px] text-gold uppercase">Բացատրություն</strong>{poll.solution}</p>
           </div>
         </div>
       ) : null}
@@ -307,17 +307,17 @@ export function TelegramLocationCard({ location }: { location: BridgeLocation })
     <section className="grid gap-3 frosted-panel p-5 shadow-card" aria-label="Telegram տեղադրություն">
       <header className="flex items-start gap-3"><MapPin className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={22} /><div><h2 className="m-0 text-[16px] leading-[1.5] text-ink">{location.title || "Տեղադրություն"}</h2>{location.address ? <p className="mt-1 mb-0 text-[13px] leading-[1.55] text-muted">{location.address}</p> : null}</div></header>
       <p className="m-0 font-mono text-[11px] text-faint">{location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}{location.live ? " · live location" : ""}</p>
-      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright no-underline" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել քարտեզում</a>
+      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-control border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright no-underline" href={mapUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել քարտեզում</a>
     </section>
   );
 }
 
 export function TelegramUnsupportedCard({ telegramUrl }: { type: string | null; telegramUrl: string }) {
   return (
-    <section className="grid gap-3 rounded-[18px] border border-dashed border-[rgb(217_181_111/28%)] bg-subtle p-5 text-muted" aria-label="Չաջակցվող Telegram նյութ">
+    <section className="grid gap-3 rounded-card border border-dashed border-[rgb(217_181_111/28%)] bg-subtle p-5 text-muted" aria-label="Չաջակցվող Telegram նյութ">
       <span className="flex items-center gap-2 text-[13px] font-bold text-ink"><TriangleAlert className="text-gold" aria-hidden="true" size={19} /> Այս նյութի տեսակը դեռ չի ցուցադրվում հավելվածում</span>
       <span className="text-[11px]">Telegram-ում հասանելի հավելված կամ ձևաչափ</span>
-      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-[13px] border border-glass-border bg-glass px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել Telegram-ում</a>
+      <a className="inline-flex min-h-11 w-fit items-center gap-2 rounded-control border border-glass-border bg-glass px-4 text-[12px] font-bold text-gold-bright no-underline" href={telegramUrl} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={16} /> Բացել Telegram-ում</a>
     </section>
   );
 }

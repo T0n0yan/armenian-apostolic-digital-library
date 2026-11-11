@@ -29,7 +29,7 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
     <div className={`place-card${closing ? " place-card-closing" : ""}`} role="dialog" aria-label={place.name}>
       <button className="place-card-close" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={16} /></button>
       <div className="flex gap-3">
-        <span className={`grid size-[60px] shrink-0 place-items-center overflow-hidden rounded-[14px] ${place.cover ? "" : "bg-[#efe3c8]"}`}>
+        <span className={`grid size-[60px] shrink-0 place-items-center overflow-hidden rounded-button ${place.cover ? "" : "bg-[#efe3c8]"}`}>
           {picture ? <img className={place.cover ? "size-full object-cover" : "size-[54px] object-contain"} src={picture} alt="" /> : <MapPin aria-hidden="true" size={22} className="text-[#a06d22]" />}
         </span>
         <div className="grid min-w-0 content-start gap-0.5 pr-7">
@@ -41,15 +41,15 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
       <VisitButton visited={visited} onToggle={onToggleVisit} />
       {place.verified ? null : <FillPlaceButton placeId={place.id} className="mt-2" />}
       <div className="mt-2 flex items-center gap-1.5">
-        <Link className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-[11px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
+        <Link className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-control bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
           Մանրամասն <ChevronRight aria-hidden="true" size={15} />
         </Link>
         {directionLinks(place.latitude, place.longitude).map((link) => (
-          <a key={link.href} className="inline-flex min-h-9 items-center gap-1 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
+          <a key={link.href} className="inline-flex min-h-9 items-center gap-1 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
             <Navigation aria-hidden="true" size={13} /> {link.label.replace(" Maps", "")}
           </a>
         ))}
-        <ShareButton pageUrl={`/places/${place.id}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-[11px] border border-glass-border bg-subtle px-2.5 text-gold-bright" />
+        <ShareButton pageUrl={`/places/${place.id}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-control border border-glass-border bg-subtle px-2.5 text-gold-bright" />
       </div>
     </div>
   );
@@ -63,7 +63,7 @@ export function FillPlaceButton({ placeId, className = "" }: { placeId: string; 
   return (
     <>
       <button type="button" onClick={() => (signedIn ? navigate(`/places/new?place=${encodeURIComponent(placeId)}`) : setAsking(true))}
-        className={`inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-[11px] border border-dashed border-[rgb(217_181_111/50%)] bg-transparent text-[12.5px] font-semibold text-gold-bright ${className}`}>
+        className={`inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-control border border-dashed border-[rgb(217_181_111/50%)] bg-transparent text-[12.5px] font-semibold text-gold-bright ${className}`}>
         <Pencil aria-hidden="true" size={14} /> Գիտե՞ք այս վայրը. լրացրեք տվյալները
       </button>
       <SignInSheet open={asking} onClose={() => setAsking(false)} reason="լրացնեք այս սրբավայրի տվյալները" />
@@ -79,7 +79,7 @@ export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle:
   if (!signedIn) {
     return (
       <>
-        <button type="button" onClick={() => setAsking(true)} className="mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] border border-glass-border bg-subtle text-[13px] font-semibold text-muted">
+        <button type="button" onClick={() => setAsking(true)} className="mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-glass-border bg-subtle text-[13px] font-semibold text-muted">
           <span className="grid size-[18px] place-items-center rounded-full border-[1.5px] border-current" /> Նշել, որ եղել եմ
         </button>
         <SignInSheet open={asking} onClose={() => setAsking(false)} reason="նշեք այն սրբավայրերը, որտեղ եղել եք" />
@@ -89,7 +89,7 @@ export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle:
   // A quiet checkbox: an empty ring until the reader marks it, then a green tick.
   return (
     <button type="button" onClick={onToggle} aria-pressed={visited}
-      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] border text-[13px] font-semibold transition-colors ${visited ? "border-[rgb(63_143_90/45%)] bg-[rgb(63_143_90/12%)] text-[#3f8f5a]" : "border-glass-border bg-subtle text-muted"}`}>
+      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-control border text-[13px] font-semibold transition-colors ${visited ? "border-[rgb(63_143_90/45%)] bg-[rgb(63_143_90/12%)] text-[#3f8f5a]" : "border-glass-border bg-subtle text-muted"}`}>
       <span className={`grid size-[18px] place-items-center rounded-full border-[1.5px] ${visited ? "border-[#3f8f5a] bg-[#3f8f5a] text-white" : "border-current"}`}>{visited ? <Check aria-hidden="true" size={12} strokeWidth={3} /> : null}</span>
       {visited ? "Եղել եմ այստեղ" : "Նշել, որ եղել եմ"}
     </button>

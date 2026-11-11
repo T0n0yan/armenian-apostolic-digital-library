@@ -40,7 +40,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
             // Placeholders for psalms not posted yet: seen in the grid, skipped by screen readers.
             return (
               <li key={number} aria-hidden="true">
-                <span className="grid aspect-square place-items-center rounded-[12px] border border-dashed border-[rgb(160_130_90/28%)] text-[14px] font-semibold text-faint/60 tabular-nums select-none min-[640px]:text-[16px]" aria-disabled="true" title={`Սաղմոս ${number}՝ շուտով`}>
+                <span className="grid aspect-square place-items-center rounded-control border border-dashed border-[rgb(160_130_90/28%)] text-[14px] font-semibold text-faint/60 tabular-nums select-none min-[640px]:text-[16px]" aria-disabled="true" title={`Սաղմոս ${number}՝ շուտով`}>
                   {number}
                 </span>
               </li>
@@ -51,7 +51,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
           return (
             <li key={number}>
               <Link
-                className={`frosted-card grid aspect-square place-items-center rounded-[12px] text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
+                className={`frosted-card grid aspect-square place-items-center rounded-control text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
                 to={targetPath}
                 aria-label={`Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}`}
                 title={material.title}
@@ -80,7 +80,7 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
         return (
           <li key={material.id}>
             <Link
-              className="reveal-frame group relative block aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,translate,scale,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
+              className="reveal-frame group relative block aspect-[3/4] overflow-hidden rounded-card border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,translate,scale,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
               to={targetPath}
               aria-busy={isOpening || undefined}
             >
@@ -208,7 +208,7 @@ export const DailyReadingCard = memo(function DailyReadingCard({ material }: { m
         ) : null}
         <span className="grid gap-3 p-4">
           <span className="grid grid-cols-[78px_1fr] items-center gap-3.5">
-            <span className="grid h-[68px] content-center justify-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+            <span className="grid h-[68px] content-center justify-items-center rounded-button border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
               <span className="font-noto text-[26px] leading-none font-semibold text-gold-bright tabular-nums">{parts?.day ?? "•"}</span>
               <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] tracking-[-0.1px] font-semibold text-muted">{parts?.month ?? ""}</span>
             </span>

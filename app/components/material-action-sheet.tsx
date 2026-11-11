@@ -1,11 +1,10 @@
-import { Bookmark, ExternalLink, Pencil } from "lucide-react";
+import { Bookmark, Pencil } from "lucide-react";
 
 import { BottomSheet } from "./bottom-sheet";
-import { openTelegramPost } from "./material-result-card";
 import { ReminderButton } from "./reminder-button";
 import { ShareButton } from "./share-button";
 
-const tile = "action-tile flex min-h-[70px] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline active:scale-[.96] disabled:opacity-60";
+const tile = "action-tile flex min-h-[70px] w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-1 text-[11.5px] font-bold no-underline active:scale-[.96] disabled:opacity-60";
 
 /**
  * A material's actions, opened by holding its card: save, remind, open in Telegram, share, and
@@ -27,7 +26,7 @@ export function MaterialActionSheet({ open, onClose, material, canSave, isSaved,
   return (
     <BottomSheet open={open} onClose={onClose} label="Գործողություններ" className="gap-3 p-4">
       <strong className="line-clamp-2 px-1 text-center font-noto text-[15px] leading-snug text-ink">{material.title}</strong>
-      <div className={`grid gap-2 ${canSave ? "grid-cols-4" : "grid-cols-2"}`}>
+      <div className="action-bar">
         {canSave ? (
           <button className={tile} type="button" disabled={isSaving} onClick={onBookmark}>
             <Bookmark aria-hidden="true" size={20} strokeWidth={1.9} fill={isSaved ? "currentColor" : "none"} />
@@ -35,14 +34,10 @@ export function MaterialActionSheet({ open, onClose, material, canSave, isSaved,
           </button>
         ) : null}
         {canSave ? <ReminderButton className={tile} materialId={material.id} title={material.title} label /> : null}
-        <a className={tile} href={material.telegramUrl} target="_blank" rel="noreferrer" onClick={(event) => { openTelegramPost(event); onClose(); }}>
-          <ExternalLink aria-hidden="true" size={20} strokeWidth={1.9} />
-          <span>Telegram</span>
-        </a>
         <ShareButton className={tile} pageUrl={pageUrl} label />
       </div>
       {allowNoteEditing && isSaved ? (
-        <button className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-glass-border bg-subtle text-[13px] font-semibold text-ink" type="button" onClick={onEditNote}>
+        <button className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-button border border-glass-border bg-subtle text-[13px] font-semibold text-ink" type="button" onClick={onEditNote}>
           <Pencil aria-hidden="true" size={16} /> Խմբագրել նշումը
         </button>
       ) : null}

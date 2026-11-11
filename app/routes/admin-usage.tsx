@@ -195,12 +195,12 @@ export default function Usage({ loaderData }: Route.ComponentProps) {
               <span className="text-[12.5px] text-muted">Չափված՝ {formatYerevanDateTime(usage.sampledAt)} · օրական սահմանները զրոյանում են Երևանի 04:00-ին</span>
             </div>
             <button type="button" onClick={() => void revalidator.revalidate()} disabled={revalidator.state !== "idle"}
-              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-[12px] border border-[rgb(217_181_111/45%)] bg-transparent px-3.5 text-[13px] font-semibold text-gold-bright disabled:opacity-60">
+              className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-[rgb(217_181_111/45%)] bg-transparent px-3.5 text-[13px] font-semibold text-gold-bright disabled:opacity-60">
               <RefreshCw aria-hidden="true" size={15} className={revalidator.state !== "idle" ? "animate-search-spin" : ""} /> Թարմացնել
             </button>
           </div>
           {!usage.configured ? (
-            <p className="m-0 rounded-[12px] bg-subtle px-3 py-2.5 text-[13px] leading-relaxed text-ink">
+            <p className="m-0 rounded-control bg-subtle px-3 py-2.5 text-[13px] leading-relaxed text-ink">
               Իրական թվերի համար Cloudflare-ում պետք է մեկ անգամ ավելացնել ընթերցման բանալի (Analytics Read)։ Դա «Ինտեգրացիաներ» չատի գործն է. նա քայլ առ քայլ ցույց կտա, թե որտեղ սեղմել։ Բանալին մուտքագրում եք ինքներդ, այն չի երևում ոչ մեկին։
             </p>
           ) : null}
@@ -250,7 +250,7 @@ function ClientErrorsSection({ errors }: { errors: ClientErrorRow[] }) {
       ) : (
         <ul className="m-0 grid list-none gap-2 p-0">
           {errors.map((error) => (
-            <li key={error.fingerprint} className="grid gap-1 rounded-[12px] border border-glass-border bg-subtle p-3 text-[12.5px]">
+            <li key={error.fingerprint} className="grid gap-1 rounded-control border border-glass-border bg-subtle p-3 text-[12.5px]">
               <div className="flex items-start justify-between gap-3">
                 <strong className="min-w-0 break-words font-mono text-[12px] text-ink">{error.message}</strong>
                 <span className="shrink-0 rounded-full bg-[rgb(217_181_111/22%)] px-2 py-0.5 font-bold text-ink tabular-nums">{error.count}×</span>

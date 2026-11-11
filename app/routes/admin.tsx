@@ -137,8 +137,8 @@ export async function action({ request }: Route.ActionArgs) {
   return data({ error: "Անհայտ գործողություն։" }, { status: 400 });
 }
 
-const smallButton = "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-glass-border bg-subtle px-3 text-[12px] font-bold text-gold-bright disabled:opacity-60";
-const row = "flex flex-wrap items-center justify-between gap-2 rounded-[14px] border border-glass-border bg-subtle px-3 py-2.5";
+const smallButton = "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[12px] font-bold text-gold-bright disabled:opacity-60";
+const row = "flex flex-wrap items-center justify-between gap-2 rounded-button border border-glass-border bg-subtle px-3 py-2.5";
 
 function ActionButton({ intent, telegramUserId, userId, displayName, children, danger = false }: {
   intent: string; telegramUserId?: string; userId?: string; displayName?: string; children: React.ReactNode; danger?: boolean;
@@ -173,7 +173,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
     <PageShell>
       <SiteNav />
       <PageHeader eyebrow="Միայն ադմինների համար" title="Կառավարում" description="Ով կարող է հրապարակել Telegram խմբից կայք, և ով ունի կառավարման հասանելիություն։" />
-      {error ? <p className="m-0 mb-3 rounded-[12px] border border-[rgb(239_145_136/35%)] bg-[rgb(239_145_136/10%)] px-3 py-2.5 text-[13px] text-danger" role="alert">{error}</p> : null}
+      {error ? <p className="m-0 mb-3 rounded-control border border-[rgb(239_145_136/35%)] bg-[rgb(239_145_136/10%)] px-3 py-2.5 text-[13px] text-danger" role="alert">{error}</p> : null}
 
       <div className="grid gap-4">
         <section className={panelSection + " grid gap-3"}>
@@ -190,7 +190,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
             Telegram-ում փոփոխություն անելուց հետո սեղմիր. կայքը կվերցնի նոր տվյալները Telegram-ից{canSync ? "" : " (ավտոմատ համաժամեցումը միացված չէ, կթարմանան միայն պահված էջերը)"}, և բոլոր էջերը կթարմանան։
           </p>
           {refreshed ? (
-            <p className="m-0 rounded-[12px] border border-[rgb(74_160_96/40%)] bg-[rgb(74_160_96/10%)] px-3 py-2.5 text-[13px] text-[rgb(52_130_74)]" role="status">
+            <p className="m-0 rounded-control border border-[rgb(74_160_96/40%)] bg-[rgb(74_160_96/10%)] px-3 py-2.5 text-[13px] text-[rgb(52_130_74)]" role="status">
               {refreshed === "sync" ? "✓ Էջերը թարմացված են։ Telegram-ի համաժամեցումը սկսվեց. նոր փոփոխությունները կհայտնվեն 2–5 րոպեում։" : "✓ Էջերը թարմացված են։"}
             </p>
           ) : null}
@@ -255,7 +255,7 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
               <p className="m-0 text-[12px] text-faint">Տեքստը փոխեք այստեղ, սեղմեք «Պահել տեքստը», հետո՝ «Նախադիտում»։ Նկարն ու կոճակները ավելանում են ինքնաբերաբար։ Նկարով հաղորդագրությունում տեքստը կարող է լինել մինչև 1024 նիշ. ավելի երկարը կգնա առանց նկարի։</p>
               <div className="flex flex-wrap gap-2">
                 <button className={primaryButton} type="submit" name="intent" value="welcome-save">Պահել տեքստը</button>
-                <button className="inline-flex min-h-[46px] cursor-pointer items-center rounded-[14px] border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-muted" type="submit" name="intent" value="welcome-reset">Վերադարձնել նախնականը</button>
+                <button className="inline-flex min-h-[46px] cursor-pointer items-center rounded-button border border-glass-border bg-subtle px-4 text-[13px] font-semibold text-muted" type="submit" name="intent" value="welcome-reset">Վերադարձնել նախնականը</button>
               </div>
             </Form>
             <div className="flex flex-wrap gap-2">
@@ -378,7 +378,7 @@ const PLATFORM_NAMES: Record<Platform, string> = { ios: "iPhone / iPad", android
 
 function Stat({ label, value, note }: { label: string; value: number; note?: string }) {
   return (
-    <div className="grid gap-0.5 rounded-[14px] border border-glass-border bg-subtle px-3 py-2.5">
+    <div className="grid gap-0.5 rounded-button border border-glass-border bg-subtle px-3 py-2.5">
       <span className="text-[11.5px] text-muted">{label}</span>
       <strong className="text-[22px] leading-tight text-ink tabular-nums">{value}</strong>
       {note ? <span className="text-[11px] text-faint">{note}</span> : null}

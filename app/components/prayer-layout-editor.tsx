@@ -49,7 +49,7 @@ function Chip({ active = false, onClick, label, children, disabled = false }: { 
   return (
     <button
       type="button"
-      className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center gap-1 rounded-[10px] border px-2 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-gold/70 bg-[rgb(217_181_111/22%)] text-gold-bright" : "border-glass-border bg-subtle text-ink hover:bg-[rgb(217_181_111/12%)]"}`}
+      className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center gap-1 rounded-control border px-2 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-gold/70 bg-[rgb(217_181_111/22%)] text-gold-bright" : "border-glass-border bg-subtle text-ink hover:bg-[rgb(217_181_111/12%)]"}`}
       aria-pressed={active}
       aria-label={label}
       title={label}
@@ -198,7 +198,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
         <Chip onClick={undo} label="Հետարկել" disabled={!dirty}><Undo2 size={17} aria-hidden="true" /></Chip>
         <button
           type="button"
-          className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[10px] bg-gold px-3.5 text-[13px] font-bold text-[#1d1022] disabled:opacity-50"
+          className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control bg-gold px-3.5 text-[13px] font-bold text-[#1d1022] disabled:opacity-50"
           disabled={status === "saving" || !nonEmpty}
           onClick={() => void send(layout)}
         >
@@ -208,9 +208,9 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
 
       <div className="flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-40 min-[560px]:px-5">
         <div className="mx-auto grid max-w-[760px] gap-3">
-          {status === "error" ? <p className="m-0 rounded-[12px] border border-[rgb(205_70_55/50%)] bg-[rgb(205_70_55/10%)] p-3 text-[13px]">Չհաջողվեց պահել։ Ստուգեք կապը և նորից փորձեք։</p> : null}
+          {status === "error" ? <p className="m-0 rounded-control border border-[rgb(205_70_55/50%)] bg-[rgb(205_70_55/10%)] p-3 text-[13px]">Չհաջողվեց պահել։ Ստուգեք կապը և նորից փորձեք։</p> : null}
           {stale ? (
-            <div className="grid gap-2 rounded-[12px] border border-gold/50 bg-[rgb(217_181_111/12%)] p-3 text-[13px] leading-snug">
+            <div className="grid gap-2 rounded-control border border-gold/50 bg-[rgb(217_181_111/12%)] p-3 text-[13px] leading-snug">
               <span className="flex items-start gap-2"><TriangleAlert className="mt-0.5 shrink-0 text-gold" size={17} aria-hidden="true" /> Telegram-ում այս աղոթքի տեքստը փոխվել է ձևավորելուց հետո։ Էջը դեռ ցույց է տալիս ձեր ձևավորածը։</span>
               <span><Chip onClick={restartFromSeed} label="Սկսել Telegram-ի նոր տեքստից"><RotateCcw size={15} aria-hidden="true" /> Սկսել Telegram-ի նոր տեքստից</Chip></span>
             </div>
@@ -221,7 +221,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
           </p>
 
           {layout.paragraphs.map((paragraph, index) => (
-            <section className={`grid gap-2 rounded-[14px] border p-2.5 ${active === index ? "border-gold/60 bg-glass" : "border-glass-border"}`} key={index} aria-label={`Պարբերություն ${index + 1}`} onClick={() => setActive(index)}>
+            <section className={`grid gap-2 rounded-button border p-2.5 ${active === index ? "border-gold/60 bg-glass" : "border-glass-border"}`} key={index} aria-label={`Պարբերություն ${index + 1}`} onClick={() => setActive(index)}>
               {active === index ? <>
               <div className="flex flex-wrap items-center gap-1.5">
                 {kindLabels.map(([kind, label]) => (
@@ -248,7 +248,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <select
-                  className="min-h-9 rounded-[10px] border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
+                  className="min-h-9 rounded-control border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
                   aria-label="Պարբերության չափը"
                   value={paragraph.size}
                   onChange={(event) => setParagraph(index, (item) => ({ ...item, size: event.target.value as LayoutSize }))}
@@ -256,7 +256,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                   {sizeLabels.map(([size, label]) => <option key={size} value={size}>{label}</option>)}
                 </select>
                 <select
-                  className="min-h-9 rounded-[10px] border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
+                  className="min-h-9 rounded-control border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
                   aria-label="Պարբերության տառատեսակը"
                   value={paragraph.font}
                   onChange={(event) => setParagraph(index, (item) => ({ ...item, font: event.target.value as LayoutFont }))}
@@ -278,7 +278,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               {editing === index && active === index ? (
                 <div className="grid gap-1.5">
                   <textarea
-                    className="min-h-32 w-full resize-y rounded-[10px] border border-glass-border bg-subtle p-2.5 font-[inherit] text-[15px] leading-relaxed text-ink"
+                    className="min-h-32 w-full resize-y rounded-control border border-glass-border bg-subtle p-2.5 font-[inherit] text-[15px] leading-relaxed text-ink"
                     value={paragraph.text}
                     // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
@@ -294,7 +294,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               {paragraph.prayer && paragraph.text.trim() ? <span className="inline-flex items-center gap-1 justify-self-start rounded-full bg-[rgb(217_181_111/18%)] px-2 py-0.5 text-[10.5px] font-bold text-gold-bright"><HandHeart size={12} aria-hidden="true" /> Աղոթք</span> : null}
               {/* Նախադիտում՝ ինչպես էջում. այստեղ ընտրվում են բառերը։ */}
               <div className="prayer-text">
-                <div className="reading-body-preview prayer-layout rounded-[10px] bg-subtle px-3 py-2.5 text-[length:var(--reading-size)] leading-[1.85] select-text">
+                <div className="reading-body-preview prayer-layout rounded-control bg-subtle px-3 py-2.5 text-[length:var(--reading-size)] leading-[1.85] select-text">
                   <LayoutParagraphView paragraph={paragraph} index={index} editing />
                 </div>
               </div>

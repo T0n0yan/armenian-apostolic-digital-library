@@ -42,7 +42,7 @@ export function PageFind({ onClose }: { onClose: () => void }) {
   }, [query]);
   return (
     <div className="mx-auto mt-2 mb-3 grid w-full max-w-[560px] gap-1" data-find-skip>
-      <div className="flex items-center gap-2 rounded-[16px] border border-[rgb(217_181_111/45%)] bg-subtle px-3 motion-safe:animate-[glass-enter_200ms_ease-out]">
+      <div className="search-field is-open gap-2 px-3 motion-safe:animate-[glass-enter_200ms_ease-out]">
         <Search aria-hidden="true" size={17} className="shrink-0 text-gold-bright" />
         <input ref={input} className="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint" type="search" enterKeyHint="search"
           value={query} onChange={(event) => setQuery(event.target.value)}

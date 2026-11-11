@@ -90,8 +90,8 @@ export function StoryColorPicker({ value, recent, onChange, disabled = false }: 
       </div>
 
       {open ? (
-        <div className="grid gap-2.5 rounded-[16px] border border-glass-border bg-subtle p-3">
-          <div ref={areaRef} className="relative h-[132px] cursor-crosshair touch-none overflow-hidden rounded-[12px]"
+        <div className="grid gap-2.5 rounded-button border border-glass-border bg-subtle p-3">
+          <div ref={areaRef} className="relative h-[132px] cursor-crosshair touch-none overflow-hidden rounded-control"
             style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h} 100% 50%))` }}
             onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); pick(event); }}
             onPointerMove={(event) => { if (event.buttons) pick(event); }}>
@@ -102,7 +102,7 @@ export function StoryColorPicker({ value, recent, onChange, disabled = false }: 
             aria-label="Երանգ" onChange={(event) => apply({ ...hsv, h: Number(event.target.value) })} />
           <div className="flex items-center gap-2">
             <span className="size-8 shrink-0 rounded-full border border-glass-border" style={{ background: draft }} />
-            <input className="min-h-9 min-w-0 flex-1 rounded-[10px] border border-glass-border bg-[var(--page-bg)] px-3 font-mono text-[13px] uppercase text-ink"
+            <input className="min-h-9 min-w-0 flex-1 rounded-control border border-[var(--field-border)] bg-[var(--page-bg)] px-3 font-mono text-[13px] uppercase text-ink"
               value={draft} maxLength={7} aria-label="Գույնի կոդը (HEX)" spellCheck={false}
               onChange={(event) => {
                 const next = event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}`;

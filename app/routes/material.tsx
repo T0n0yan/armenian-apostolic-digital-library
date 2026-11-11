@@ -1,4 +1,4 @@
-import { Bookmark, ChevronLeft, ChevronRight, ExternalLink, Paintbrush, Tag, TriangleAlert } from "lucide-react";
+import { Bookmark, ChevronLeft, ChevronRight, Paintbrush, Tag, TriangleAlert } from "lucide-react";
 import { hasRememberedFind, useFindFlash } from "../utils/find-flash";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router";
@@ -91,7 +91,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
-const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-[11.5px] font-bold no-underline transition-[transform,translate,scale,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";
+const actionTile = "action-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-1 text-[11.5px] font-bold no-underline transition-[transform,translate,scale,background,box-shadow] duration-150 active:scale-[.96] disabled:opacity-60";
 
 export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const { material } = loaderData;
@@ -187,7 +187,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {isPrayer && loaderData.canLayout ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             {loaderData.layoutStale ? <span className="inline-flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert className="text-gold" size={15} aria-hidden="true" /> Telegram-ում տեքստը փոխվել է</span> : null}
-            <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setLayoutOpen(true)}>
+            <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setLayoutOpen(true)}>
               <Paintbrush size={15} aria-hidden="true" /> Ձևավորել
             </button>
           </div>
@@ -270,8 +270,8 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
 
         {loaderData.canSave && !material.poll ? <ReadMark materialId={material.id} kind={readKindFor(material.media)} marks={loaderData.readMarks} /> : null}
 
-        {/* One row of equal tiles: an icon with a short name under it. */}
-        <div className={`grid gap-2 ${loaderData.canSave ? "grid-cols-4" : "grid-cols-2"}`}>
+        {/* Գործողությունների ապակե գոտի (Telegram-ի կոճակը հանված է՝ կայքը առաջնային է)։ */}
+        <div className="action-bar">
           {loaderData.canSave ? (
             <button className={actionTile} type="button" disabled={isSaving} onClick={toggleSaved} aria-pressed={isSaved} aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}>
               <Bookmark aria-hidden="true" size={20} strokeWidth={1.9} fill={isSaved ? "currentColor" : "none"} />
@@ -281,10 +281,6 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           {loaderData.canSave ? (
             <ReminderButton className={actionTile} materialId={material.id} title={material.title} label path={location.pathname} />
           ) : null}
-          <a className={actionTile} href={material.telegramUrl} target="_blank" rel="noreferrer" aria-label="Բացել Telegram-ում">
-            <ExternalLink aria-hidden="true" size={20} strokeWidth={1.9} />
-            <span>Telegram</span>
-          </a>
           <ShareButton
             className={actionTile}
             pageUrl={typeof window === "undefined" ? loaderData.canonicalPath : window.location.href}

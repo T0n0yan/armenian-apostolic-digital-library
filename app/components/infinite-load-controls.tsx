@@ -43,10 +43,10 @@ export function InfiniteLoadControls({
           <MaterialListSkeleton count={2} />
         </div>
       ) : hasError ? (
-        <div className="grid justify-items-center gap-2 rounded-2xl border border-glass-border bg-subtle px-4 py-3 text-center">
+        <div className="grid justify-items-center gap-2 rounded-button border border-glass-border bg-subtle px-4 py-3 text-center">
           <p className="m-0 text-[12px] text-muted">Հաջորդ նյութերը չհաջողվեց բեռնել։</p>
           <button
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[rgb(217_181_111/28%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
+            className="inline-flex min-h-11 items-center gap-2 rounded-control border border-[rgb(217_181_111/28%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
             type="button"
             onClick={onLoadMore}
           >
@@ -55,7 +55,7 @@ export function InfiniteLoadControls({
         </div>
       ) : hasMore ? (
         <button
-          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright active:scale-[.985]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-control border border-glass-border bg-subtle px-4 text-[12px] font-bold text-gold-bright active:scale-[.985]"
           type="button"
           onClick={onLoadMore}
         >

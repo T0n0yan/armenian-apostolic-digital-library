@@ -67,7 +67,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
-const stepLink = "inline-flex min-h-11 items-center gap-1 rounded-[14px] border border-glass-border bg-subtle px-3.5 text-[13px] font-bold text-ink no-underline";
+const stepLink = "inline-flex min-h-11 items-center gap-1 rounded-button border border-glass-border bg-subtle px-3.5 text-[13px] font-bold text-ink no-underline";
 
 export default function VersePage({ loaderData }: Route.ComponentProps) {
   const { label, text, psalmPath, verse, previous, next, title } = loaderData;
@@ -81,7 +81,7 @@ export default function VersePage({ loaderData }: Route.ComponentProps) {
           <p className="m-0">«{text}»</p>
         </blockquote>
         {/* The reader goes on from this verse in the whole psalm. */}
-        <Link className="flex min-h-12 items-center justify-center gap-2 rounded-[16px] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 font-sans text-[15px] font-bold text-[#2a1708] no-underline shadow-card" to={`${psalmPath}#${verse}`}>
+        <Link className="flex min-h-12 items-center justify-center gap-2 rounded-button bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 font-sans text-[15px] font-bold text-[#2a1708] no-underline shadow-card" to={`${psalmPath}#${verse}`}>
           <BookOpen aria-hidden="true" size={18} /> Կարդալ ամբողջ սաղմոսը
         </Link>
         <div className="flex items-center justify-between gap-2 font-sans">

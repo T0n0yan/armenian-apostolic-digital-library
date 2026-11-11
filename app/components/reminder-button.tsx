@@ -81,7 +81,7 @@ function Wheel({ count, value, onChange, label }: { count: number; value: number
   }, [value]);
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute inset-x-1 top-[40px] h-[40px] rounded-[12px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/12%)]" aria-hidden="true" />
+      <span className="pointer-events-none absolute inset-x-1 top-[40px] h-[40px] rounded-control border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/12%)]" aria-hidden="true" />
       <div
         ref={ref}
         className="time-wheel relative h-[120px] w-[64px] overflow-y-auto py-[40px] text-center"
@@ -230,8 +230,8 @@ export function ReminderButton({ materialId, title, className, label = false, pa
 
   const close = useCallback(() => setOpen(false), []);
   const Icon = hasReminder ? BellRing : Bell;
-  const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-[14px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
-  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-[10px] border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
+  const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-button border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
+  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-control border-0 text-[13px] font-semibold ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`;
   return (
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">
@@ -249,20 +249,20 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         </div>
 
         {reminder ? (
-          <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/9%)] px-3.5 py-2.5 text-[13px] text-ink">
+          <p className="m-0 rounded-button border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/9%)] px-3.5 py-2.5 text-[13px] text-ink">
             Դրված է՝ <strong>{formatWhen(reminder.remindAt)}</strong>{REPEAT_TEXT[reminder.repeat]}{reminder.channel === "calendar" ? " · 📱 հեռախոսի օրացույցում" : ""}
           </p>
         ) : null}
 
         <div className="grid gap-1.5">
           <span className="px-1 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Ինչպես հիշեցնել</span>
-          <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Ինչպես հիշեցնել">
+          <div className="grid grid-cols-2 gap-1.5 rounded-button bg-subtle p-1" role="radiogroup" aria-label="Ինչպես հիշեցնել">
             <button className={segment(channel === "push")} type="button" role="radio" aria-checked={channel === "push"} onClick={() => setChannel("push")}>🔔 Ծանուցում</button>
             <button className={segment(channel === "calendar")} type="button" role="radio" aria-checked={channel === "calendar"} onClick={() => setChannel("calendar")}>📅 Օրացույց</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" role="radiogroup" aria-label="Երբ">
+        <div className="grid grid-cols-2 gap-1.5 rounded-button bg-subtle p-1" role="radiogroup" aria-label="Երբ">
           <button className={segment(mode === "daily")} type="button" role="radio" aria-checked={mode === "daily"} onClick={() => setMode("daily")}>Ամեն օր</button>
           <button className={segment(mode === "date")} type="button" role="radio" aria-checked={mode === "date"} onClick={() => setMode("date")}>Որոշակի օր</button>
         </div>
@@ -270,12 +270,12 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         {mode === "date" ? (
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="listbox" aria-label="Օր">
             {days.map((item) => (
-              <button key={item.key} className={`grid min-w-[62px] shrink-0 cursor-pointer justify-items-center gap-0.5 rounded-[14px] border px-2 py-2 ${item.key === day ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-ink"}`} type="button" role="option" aria-selected={item.key === day} onClick={() => setDay(item.key)}>
+              <button key={item.key} className={`grid min-w-[62px] shrink-0 cursor-pointer justify-items-center gap-0.5 rounded-button border px-2 py-2 ${item.key === day ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-ink"}`} type="button" role="option" aria-selected={item.key === day} onClick={() => setDay(item.key)}>
                 <span className="text-[11px] font-semibold opacity-80">{item.top}</span>
                 <span className="text-[13px] font-bold whitespace-nowrap">{item.bottom}</span>
               </button>
             ))}
-            <label className={`relative grid min-w-[74px] shrink-0 cursor-pointer place-items-center rounded-[14px] border px-2 text-[12px] font-semibold ${otherDay ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-dashed border-glass-border text-muted"}`}>
+            <label className={`relative grid min-w-[74px] shrink-0 cursor-pointer place-items-center rounded-button border px-2 text-[12px] font-semibold ${otherDay ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-dashed border-glass-border text-muted"}`}>
               {otherDay ? `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}` : "Այլ օր…"}
               <input ref={otherDayRef} className="absolute inset-0 cursor-pointer opacity-0" type="date" min={dayKey(new Date())} max={dayKey(new Date(Date.now() + 365 * 86_400_000))} value={day}
                 onClick={(event) => { try { event.currentTarget.showPicker(); } catch { /* opens natively */ } }}
@@ -291,14 +291,14 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         </div>
 
         {mode === "date" ? (
-          <div className="grid grid-cols-2 gap-1 rounded-[14px] bg-subtle p-1 min-[480px]:grid-cols-4" role="radiogroup" aria-label="Կրկնել">
+          <div className="grid grid-cols-2 gap-1 rounded-button bg-subtle p-1 min-[480px]:grid-cols-4" role="radiogroup" aria-label="Կրկնել">
             {REPEATS.map((option) => (
               <button key={option.value} className={`${segment(repeat === option.value)} min-h-9 px-2 text-[12.5px]`} type="button" role="radio" aria-checked={repeat === option.value} onClick={() => setRepeat(option.value)}>{option.label}</button>
             ))}
           </div>
         ) : null}
 
-        <p className={`m-0 rounded-[12px] px-3 py-2 text-center text-[13px] ${tooSoon ? "bg-[rgb(205_70_55/10%)] text-[#b4472f]" : "bg-subtle text-ink"}`}>
+        <p className={`m-0 rounded-control px-3 py-2 text-center text-[13px] ${tooSoon ? "bg-[rgb(205_70_55/10%)] text-[#b4472f]" : "bg-subtle text-ink"}`}>
           {tooSoon
             ? "Հիշեցումը պետք է լինի առնվազն 1 րոպե հետո"
             : channel === "calendar"
@@ -312,7 +312,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
 
         {/* Whether reminders can reach the reader while the library is closed. */}
         {channel === "calendar" ? (
-          <p className="m-0 rounded-[12px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3 py-2 text-center text-[12.5px] leading-snug text-ink">
+          <p className="m-0 rounded-control border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3 py-2 text-center text-[12.5px] leading-snug text-ink">
             📱 Հիշեցումը կավելանա <strong>Ձեր հեռախոսի ներքին օրացույցում</strong> (Calendar / Օրացույց հավելված) և կհնչի նույնիսկ առանց ինտերնետի։
           </p>
         ) : push === "telegram" ? (
@@ -321,7 +321,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
           granted ? (
             <p className="m-0 flex items-center justify-center gap-1.5 text-[12.5px] font-semibold text-[rgb(52_130_74)]"><Check aria-hidden="true" size={15} /> Ծանուցումները միացված են</p>
           ) : (
-            <button className="min-h-10 cursor-pointer rounded-[12px] border border-[rgb(217_181_111/40%)] bg-transparent text-[12.5px] font-semibold text-gold-bright" type="button" onClick={turnOnNotifications}>
+            <button className="min-h-10 cursor-pointer rounded-control border border-[rgb(217_181_111/40%)] bg-transparent text-[12.5px] font-semibold text-gold-bright" type="button" onClick={turnOnNotifications}>
               Միացնել ծանուցումները, որ հիշեցումը գա նաև կայքը փակ ժամանակ
             </button>
           )
@@ -351,7 +351,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
               {reminder ? "Փոխել հիշեցումը" : "Դնել հիշեցում"}
             </button>
           )}
-          {reminder ? <button className="min-h-11 cursor-pointer rounded-[14px] border border-glass-border bg-transparent text-[13px] font-semibold text-muted" type="button" disabled={busy} onClick={remove}>Չեղարկել հիշեցումը</button> : null}
+          {reminder ? <button className="min-h-11 cursor-pointer rounded-button border border-glass-border bg-transparent text-[13px] font-semibold text-muted" type="button" disabled={busy} onClick={remove}>Չեղարկել հիշեցումը</button> : null}
         </div>
       </BottomSheet>
     </>

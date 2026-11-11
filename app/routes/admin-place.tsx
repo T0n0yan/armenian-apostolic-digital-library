@@ -174,7 +174,7 @@ function VideoUpload({ placeId, hasVideo }: { placeId: string; hasVideo: boolean
   );
 }
 
-const smallButton = "inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
+const smallButton = "inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
 const textarea = `${fieldControl} min-h-[110px] resize-y leading-relaxed`;
 
 /** Նկարների վերբեռնում. ամեն նկար բրաուզերում դառնում է WebP, հետո միայն ուղարկվում։ */
@@ -281,7 +281,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
         <section className={`${panelSection} grid gap-3`}>
           <h2 className="m-0 text-[16px] font-bold text-ink">Գծանկար քարտեզի համար</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <span className="grid size-28 place-items-center rounded-[14px] bg-[#efe3c8]">
+            <span className="grid size-28 place-items-center rounded-button bg-[#efe3c8]">
               {place.icon ? <img className="size-24 object-contain" src={placeMediaUrl(place.icon)} alt="" /> : <span className="px-2 text-center text-[12px] text-[#7a5a3a]">Դեռ չկա. քարտեզում կերևա կլոր լուսանկարը</span>}
             </span>
             <div className="grid gap-2">
@@ -289,9 +289,9 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
               {place.icon ? <Form method="post" preventScrollReset><button className={smallButton} type="submit" name="intent" value="remove-icon" disabled={busy}><Trash2 aria-hidden="true" size={14} /> Հեռացնել գծանկարը</button></Form> : null}
             </div>
           </div>
-          <div className="grid gap-2 rounded-[14px] bg-subtle p-3">
+          <div className="grid gap-2 rounded-button bg-subtle p-3">
             <p className="m-0 text-[13px] leading-relaxed text-muted">Ինչպես ստանալ գծանկարը. բացեք ChatGPT-ն, կցեք եկեղեցու լավ լուսանկարը (ամբողջ շենքը երևա), տեղադրեք այս տեքստը և ուղարկեք։ Ստացված PNG-ն վերբեռնեք վերևում։ Նույն տեքստով բոլոր եկեղեցիները կստացվեն միատեսակ։</p>
-            <p className="m-0 select-all rounded-[10px] bg-control p-2.5 font-mono text-[12px] leading-relaxed text-ink">{DRAWING_PROMPT}</p>
+            <p className="m-0 select-all rounded-control bg-control p-2.5 font-mono text-[12px] leading-relaxed text-ink">{DRAWING_PROMPT}</p>
             <button className={`${smallButton} w-fit`} type="button" onClick={() => navigator.clipboard?.writeText(DRAWING_PROMPT).then(() => setCopied(true), () => undefined)}>
               {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />} {copied ? "Պատճենվեց" : "Պատճենել տեքստը"}
             </button>
@@ -304,7 +304,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           <div className="grid grid-cols-2 gap-2 min-[560px]:grid-cols-4">
             {place.photos.map((key, index) => (
               <figure key={key} className="m-0 grid gap-1.5">
-                <img className="aspect-[4/3] w-full rounded-[10px] object-cover" src={placeMediaUrl(key)} alt="" loading="lazy" />
+                <img className="aspect-[4/3] w-full rounded-control object-cover" src={placeMediaUrl(key)} alt="" loading="lazy" />
                 <Form method="post" preventScrollReset className="flex flex-wrap gap-1.5">
                   <input type="hidden" name="key" value={key} />
                   {index > 0 ? <button className={smallButton} type="submit" name="intent" value="cover" disabled={busy}><Star aria-hidden="true" size={13} /> Գլխավոր</button> : <span className="text-[12px] text-gold-bright">★ Գլխավոր</span>}
@@ -320,7 +320,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           </div>
           {place.videoUrl.startsWith("places/") ? (
             <figure className="m-0 grid max-w-[360px] gap-1.5">
-              <video className="w-full rounded-[10px] bg-black" src={placeMediaUrl(place.videoUrl)} controls preload="metadata" playsInline />
+              <video className="w-full rounded-control bg-black" src={placeMediaUrl(place.videoUrl)} controls preload="metadata" playsInline />
               <Form method="post" preventScrollReset onSubmit={(event) => { if (!window.confirm("Ջնջե՞լ տեսանյութը։")) event.preventDefault(); }}>
                 <button className={smallButton} type="submit" name="intent" value="remove-video" disabled={busy}><Trash2 aria-hidden="true" size={13} /> Ջնջել տեսանյութը</button>
               </Form>

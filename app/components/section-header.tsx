@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  ArrowRight,
   LoaderCircle,
   Search,
   X,
@@ -82,7 +83,7 @@ export const SectionHeader = memo(function SectionHeader({
     <header className="mb-[14px] grid gap-[10px] min-[768px]:mb-[18px] min-[768px]:gap-[14px]">
       <div className="flex items-center gap-2">
         <Link
-          className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-[10px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
+          className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-control text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
           to={backTo}
         >
           <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
@@ -117,7 +118,7 @@ export const SectionHeader = memo(function SectionHeader({
           {showSearch ? (
             <Form
               ref={formRef}
-              className="relative z-30 flex min-h-[50px] w-full min-w-0 items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] text-faint shadow-card"
+              className="search-field relative z-30 pr-[6px] pl-[14px]"
               action={formAction}
               method="get"
               role="search"
@@ -146,10 +147,11 @@ export const SectionHeader = memo(function SectionHeader({
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? "section-search-error" : undefined}
                 onInput={clearError}
+                enterKeyHint="search"
               />
               {query ? (
                 <Link
-                  className={`grid size-[32px] shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright ${focusRing}`}
+                  className={`grid size-[32px] shrink-0 place-items-center rounded-control text-muted no-underline hover:text-gold-bright ${focusRing}`}
                   to={searchAction}
                   aria-label="Մաքրել որոնումը"
                   title="Մաքրել որոնումը"
@@ -157,7 +159,7 @@ export const SectionHeader = memo(function SectionHeader({
                   <X aria-hidden="true" size={17} strokeWidth={2} />
                 </Link>
               ) : null}
-              <button type="submit" aria-label="Որոնել այս բաժնում" className="grid size-11 shrink-0 place-items-center rounded-xl bg-subtle text-gold-bright"><Search size={19} /></button>
+              <button type="submit" aria-label="Որոնել այս բաժնում" className="search-go"><ArrowRight aria-hidden="true" size={18} /></button>
               {isSearching ? (
                 <LoaderCircle
                   className="animate-search-spin shrink-0 text-gold"

@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, ChevronRight, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, Bookmark, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { UNREAD_EVENT } from "./private-chat-presence";
 import { lockScroll } from "../utils/scroll-lock";
@@ -24,10 +24,11 @@ const quickItems = [
   { to: "/saved", label: "Իմ անկյունը", icon: Bookmark, end: false },
 ] as const;
 
-const linkClass = "group flex min-h-11 items-center gap-3 rounded-[13px] px-3 py-2 text-[13px] font-semibold text-muted no-underline outline-none transition-[background,color,transform,translate,scale] duration-150 hover:bg-subtle hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] active:scale-[.985]";
 
+// Փոքր սալիկ (պատկերակ վերևում, անունը տակը)՝ գլխավոր էջեր և «Այլ»։
+const smallTileClass = "glass-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-1 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Բաժնի սալիկ մենյուում (2 սյուն)։
-const tileClass = "glass-tile relative flex min-h-[54px] items-center gap-2 rounded-[16px] px-2.5 py-2 text-[12.5px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const tileClass = "glass-tile relative flex min-h-[54px] items-center gap-2 rounded-button px-2.5 py-2 text-[12.5px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
@@ -116,7 +117,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         aria-modal={isOpen || undefined}
         role={isOpen ? "dialog" : undefined}
       >
-        <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-[24px] p-2.5" data-open={isOpen || undefined} aria-hidden={!isOpen}>
+        <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-panel p-3" data-open={isOpen || undefined} aria-hidden={!isOpen}>
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
             {view === "settings" ? (
               <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-transparent px-1 text-[13px] font-bold text-gold-bright" type="button" onClick={() => setView("main")}>
@@ -134,7 +135,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
-                  <NavLink className={({ isActive }) => `glass-tile flex min-h-[64px] flex-col items-center justify-center gap-1.5 rounded-[18px] px-1 text-center text-[11px] font-semibold no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)] ${isActive ? "text-gold-bright" : "text-muted hover:text-ink"}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                  <NavLink className={({ isActive }) => `${smallTileClass} ${isActive ? "text-gold-bright" : ""}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                     <Icon aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
                     <span>{label}</span>
                   </NavLink>
@@ -168,9 +169,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               </section>
             ) : null}
 
-            <section className="grid gap-2 border-t border-glass-border px-1 pt-3" aria-labelledby="menu-settings">
+            <section className="grid gap-2" aria-labelledby="menu-settings">
               <div className="flex items-center justify-between">
-                <h2 className="m-0 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Այլ</h2>
+                <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="menu-settings">Այլ</h2>
                 {/* Անձնական չատը. փոքր, առանց անվան, միայն երկու կողմին (root-ը ուրիշներին null է տալիս)։ */}
                 {rootData?.privateChat ? (
                   <NavLink className="relative grid size-7 place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
@@ -179,35 +180,48 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   </NavLink>
                 ) : null}
               </div>
-              <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")}>
-                <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings2 aria-hidden="true" size={17} /></span>
-                <span className="grid flex-1 leading-tight">Կարգավորումներ<span className="text-[11px] font-medium text-faint">Լույս, տառաչափ, տառատեսակ</span></span>
-                <ChevronRight aria-hidden="true" size={17} className="text-faint" />
-              </button>
-              <NavLink className={linkClass} to="/ognutyun" end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
-                <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><CircleHelp aria-hidden="true" size={17} /></span>
-                <span className="flex-1">Օգնություն՝ տեսանյութեր</span>
-              </NavLink>
-              {canInstall ? (
-                <button className={`${linkClass} w-full cursor-pointer border-0 bg-transparent text-left`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => { setIsOpen(false); window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT)); }}>
-                  <span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Smartphone aria-hidden="true" size={17} /></span>
-                  Ավելացնել գլխավոր էկրանին
-                </button>
-              ) : null}
-              {/* «Կառավարում» is the owner's; another admin sees only the pages the owner allowed. */}
-              {(canManage ? [["/admin", "Կառավարում"]] : [
-                ...(permissions.includes("places") ? [["/admin/places", "Սրբավայրերի կառավարում"]] : []),
-                ...(permissions.includes("people") ? [["/admin/people", "Օգտատերեր"]] : []),
-                ...(permissions.includes("glossary") ? [["/admin/glossary", "Բառարան"]] : []),
-                ...(permissions.includes("help") ? [["/admin/help", "Օգնության տեսանյութեր"]] : []),
-              ]).map(([to, label]) => (
-                <NavLink key={to} className={linkClass} to={to} end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}><span className="grid size-8 place-items-center rounded-[10px] border border-glass-border bg-subtle text-gold"><Settings aria-hidden="true" size={17} /></span>{label}</NavLink>
-              ))}
+              {/* Փոքր սալիկներ՝ պատկերակ և կարճ անուն, նույն ձևով, ինչ վերևի գլխավոր էջերը։ */}
+              <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0">
+                <li>
+                  <button className={`${smallTileClass} w-full`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")}>
+                    <Settings2 aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
+                    <span>Կարգավորումներ</span>
+                  </button>
+                </li>
+                <li>
+                  <NavLink className={({ isActive }) => `${smallTileClass} ${isActive ? "text-gold-bright" : ""}`} to="/ognutyun" end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                    <CircleHelp aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
+                    <span>Օգնություն</span>
+                  </NavLink>
+                </li>
+                {canInstall ? (
+                  <li>
+                    <button className={`${smallTileClass} w-full`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => { setIsOpen(false); window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT)); }}>
+                      <Smartphone aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
+                      <span>Տեղադրել</span>
+                    </button>
+                  </li>
+                ) : null}
+                {/* «Կառավարում» is the owner's; another admin sees only the pages the owner allowed. */}
+                {(canManage ? [["/admin", "Կառավարում"]] : [
+                  ...(permissions.includes("places") ? [["/admin/places", "Սրբավայրեր (ադմին)"]] : []),
+                  ...(permissions.includes("people") ? [["/admin/people", "Օգտատերեր"]] : []),
+                  ...(permissions.includes("glossary") ? [["/admin/glossary", "Բառարան"]] : []),
+                  ...(permissions.includes("help") ? [["/admin/help", "Օգնության վիդեոներ"]] : []),
+                ]).map(([to, label]) => (
+                  <li key={to}>
+                    <NavLink className={({ isActive }) => `${smallTileClass} ${isActive ? "text-gold-bright" : ""}`} to={to} end tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                      <Settings aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
+                      <span>{label}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
             </section>
 
             {/* Sign-in, last in the menu where people look for it; it leads to «Իմ անկյունը». */}
             {rootData && !rootData.signedIn ? (
-              <NavLink className="flex min-h-12 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-bold text-gold-bright no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]" to="/saved" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+              <NavLink className="flex min-h-12 items-center justify-center gap-2 rounded-button border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-bold text-gold-bright no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]" to="/saved" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                 <LogIn aria-hidden="true" size={17} /> Մուտք գործել
               </NavLink>
             ) : null}

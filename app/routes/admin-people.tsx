@@ -104,8 +104,8 @@ export default function AdminPeople({ loaderData }: Route.ComponentProps) {
   const [exportError, setExportError] = useState(false);
   const total = (tab === "people" ? people?.total : devices?.total) ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const row = "grid gap-0.5 rounded-[14px] border border-glass-border bg-subtle px-3 py-2.5 text-[12.5px]";
-  const tabClass = (active: boolean) => `inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-[11px] text-[13px] font-bold no-underline ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "text-muted"}`;
+  const row = "grid gap-0.5 rounded-button border border-glass-border bg-subtle px-3 py-2.5 text-[12.5px]";
+  const tabClass = (active: boolean) => `inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-control text-[13px] font-bold no-underline ${active ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "text-muted"}`;
 
   const download = async () => {
     setExportError(false);
@@ -119,7 +119,7 @@ export default function AdminPeople({ loaderData }: Route.ComponentProps) {
       <SiteNav />
       <PageHeader backTo="/admin" backLabel="Կառավարում" eyebrow="Միայն ադմինների համար" title="Մարդիկ" description="Գրանցված ընթերցողները և առանց մուտքի այցելած սարքերը (անանուն)։" showSearch={false} />
       <section className={`${panelSection} grid gap-4`}>
-        <nav className="grid grid-cols-2 gap-1.5 rounded-[14px] bg-subtle p-1" aria-label="Ցուցակ">
+        <nav className="grid grid-cols-2 gap-1.5 rounded-button bg-subtle p-1" aria-label="Ցուցակ">
           <Link className={tabClass(tab === "people")} to="/admin/people"><Users aria-hidden="true" size={16} /> Գրանցվածներ</Link>
           <Link className={tabClass(tab === "devices")} to="/admin/people?tab=devices"><MonitorSmartphone aria-hidden="true" size={16} /> Այցելուներ</Link>
         </nav>
@@ -134,7 +134,7 @@ export default function AdminPeople({ loaderData }: Route.ComponentProps) {
               {PLATFORMS.map((value) => <option key={value} value={value}>{PLATFORM_NAMES[value]}</option>)}
             </select>
           )}
-          <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[12px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[13px] font-bold text-[#2a1708]" type="submit">
+          <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-control border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[13px] font-bold text-[#2a1708]" type="submit">
             <Search aria-hidden="true" size={16} /> {tab === "people" ? "Գտնել" : "Ցույց տալ"}
           </button>
         </Form>

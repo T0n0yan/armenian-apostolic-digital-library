@@ -44,7 +44,7 @@ export function RouteErrorState({
     return (<EmptyState title={title}>
         <p>{description}</p>
         <button
-            className="mt-3 min-h-11 cursor-pointer rounded-[12px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
+            className="mt-3 min-h-11 cursor-pointer rounded-control border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
             type="button"
             onClick={() => window.location.reload()}
         >
@@ -133,7 +133,7 @@ function HeaderBar({backLabel, backTo, children, description, eyebrow, home = fa
             items-center
             justify-center
             text-center
-            rounded-[12px]
+            rounded-control
             overflow-hidden
             px-[2px]
             py-[5px]
@@ -148,7 +148,7 @@ function HeaderBar({backLabel, backTo, children, description, eyebrow, home = fa
             ">
         {(backTo && backLabel) || (showSearch && !home) ? (<div className="flex w-full items-center gap-2">
             {backTo && backLabel ? (<Link
-                className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-[11px] px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+                className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-control px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
                 to={backTo}
             >
                 <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>

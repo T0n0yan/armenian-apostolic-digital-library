@@ -396,7 +396,7 @@ export function PrivateChat({ side, recipient, diagnostics, actionData }: { side
         </div>
       )}
       {notice && (
-        <button type="button" className="relative mx-3 mt-2 cursor-pointer rounded-[12px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_88%,transparent)] px-3 py-2 text-left text-[13px] text-muted" onClick={() => setNotice("")}>{notice}</button>
+        <button type="button" className="relative mx-3 mt-2 cursor-pointer rounded-control border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_88%,transparent)] px-3 py-2 text-left text-[13px] text-muted" onClick={() => setNotice("")}>{notice}</button>
       )}
 
       <div ref={listRef} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3" onClick={() => setSelected(null)}>
@@ -421,9 +421,9 @@ export function PrivateChat({ side, recipient, diagnostics, actionData }: { side
             const media = kind !== "text" && !deleted;
             return (
               <div key={row.kind === "pending" ? `p-${row.item.clientId}` : `m-${message!.id}`} id={id !== null ? `msg-${id}` : undefined}
-                className={`flex rounded-[20px] transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${id !== null && flash === id ? "bg-[rgb(217_181_111/22%)]" : ""}`}>
+                className={`flex rounded-card transition-colors duration-500 ${mine ? "justify-end" : "justify-start"} ${id !== null && flash === id ? "bg-[rgb(217_181_111/22%)]" : ""}`}>
                 <div
-                  className={`relative max-w-[82%] rounded-[18px] ${media ? "p-1.5" : "px-3 pb-1.5 pt-2"} leading-[1.45] shadow-[0_1px_2px_rgb(0_0_0/10%)] ${mine ? "rounded-br-[6px] border border-[rgb(217_181_111/45%)] bg-[color-mix(in_srgb,rgb(217_181_111)_24%,var(--page-bg))]" : "rounded-bl-[6px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] backdrop-blur-sm"}`}
+                  className={`relative max-w-[82%] rounded-card ${media ? "p-1.5" : "px-3 pb-1.5 pt-2"} leading-[1.45] shadow-[0_1px_2px_rgb(0_0_0/10%)] ${mine ? "rounded-br-chip border border-[rgb(217_181_111/45%)] bg-[color-mix(in_srgb,rgb(217_181_111)_24%,var(--page-bg))]" : "rounded-bl-chip border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] backdrop-blur-sm"}`}
                   onClick={(event) => { if (id !== null && !deleted) { event.stopPropagation(); setSelected(selected === id ? null : id); } }}
                 >
                   {!deleted && (row.kind === "pending" ? row.item.replyTo : message!.replyTo) ? (
@@ -433,9 +433,9 @@ export function PrivateChat({ side, recipient, diagnostics, actionData }: { side
                   {deleted ? <span className="italic text-faint">Նամակը ջնջված է</span>
                     : kind === "image" ? (
                       row.kind === "pending"
-                        ? <img className="block max-h-[320px] max-w-[260px] rounded-[13px] opacity-60" src={row.item.preview} alt="" />
+                        ? <img className="block max-h-[320px] max-w-[260px] rounded-control opacity-60" src={row.item.preview} alt="" />
                         : <button type="button" className="block cursor-zoom-in border-0 bg-transparent p-0" onClick={(event) => { event.stopPropagation(); setViewer(message!.fileId); }}>
-                          <img className="block max-h-[320px] max-w-[260px] rounded-[13px] bg-subtle object-cover" src={chatFileUrl(message!.fileId!)} alt="Նկար" loading="lazy"
+                          <img className="block max-h-[320px] max-w-[260px] rounded-control bg-subtle object-cover" src={chatFileUrl(message!.fileId!)} alt="Նկար" loading="lazy"
                             style={message!.meta?.w && message!.meta.h ? { aspectRatio: `${message!.meta.w} / ${message!.meta.h}`, width: Math.min(260, message!.meta.w) } : undefined} />
                         </button>
                     )
@@ -477,7 +477,7 @@ export function PrivateChat({ side, recipient, diagnostics, actionData }: { side
             );
           })}
           {typing && (
-            <div className="flex justify-start"><div className="rounded-[18px] rounded-bl-[6px] border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] px-3 py-2 text-[13px] text-muted">գրում է…</div></div>
+            <div className="flex justify-start"><div className="rounded-card rounded-bl-chip border border-glass-border bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] px-3 py-2 text-[13px] text-muted">գրում է…</div></div>
           )}
         </div>
       </div>
@@ -529,7 +529,7 @@ export function PrivateChat({ side, recipient, diagnostics, actionData }: { side
           )}
           <textarea
             ref={inputRef}
-            className="min-h-[44px] flex-1 resize-none overflow-y-auto rounded-[22px] border border-glass-border bg-control px-4 py-[10px] text-[16px] leading-[1.4] text-ink outline-none focus:border-[rgb(217_181_111/48%)]"
+            className="min-h-[44px] flex-1 resize-none overflow-y-auto rounded-card border border-glass-border bg-control px-4 py-[10px] text-[16px] leading-[1.4] text-ink outline-none focus:border-[rgb(217_181_111/48%)]"
             rows={1}
             value={text}
             maxLength={MESSAGE_MAX}
@@ -574,7 +574,7 @@ function replyText(reply: ChatReply) {
 /** Մեջբերումը նամակի վերևում. սեղմելիս՝ գնալ բուն նամակին։ */
 function ReplyQuote({ reply, mine, otherName, onJump }: { reply: ChatReply; mine: boolean; otherName: string; onJump: (id: number) => void }) {
   return (
-    <button type="button" className="mb-1.5 block w-full min-w-[120px] cursor-pointer rounded-[10px] border-0 border-l-[3px] border-solid border-[rgb(217_181_111/80%)] bg-[rgb(0_0_0/7%)] px-2 py-1 text-left"
+    <button type="button" className="mb-1.5 block w-full min-w-[120px] cursor-pointer rounded-control border-0 border-l-[3px] border-solid border-[rgb(217_181_111/80%)] bg-[rgb(0_0_0/7%)] px-2 py-1 text-left"
       onClick={(event) => { event.stopPropagation(); onJump(reply.id); }}>
       <strong className="block truncate text-[12px] text-gold-bright">{mine ? "Դուք" : otherName}</strong>
       <span className="line-clamp-2 block text-[12.5px] leading-snug text-muted">{replyText(reply)}</span>
@@ -597,7 +597,7 @@ function ChatPreferences({ settings, owner, placeholder, onSave, onPreview, onBa
   useEffect(() => { setNick(settings.nick); setFont(settings.font); setOpacity(settings.bgOpacity); setNotifyPresence(settings.notifyPresence); }, [settings]);
   const step = (delta: number) => setFont((value) => Math.min(FONT_MAX, Math.max(FONT_MIN, value + delta)));
   return (
-    <form className="mx-3 mt-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3" onSubmit={(event) => { event.preventDefault(); onSave({ nick: nick.trim(), font, bgOpacity: opacity, notifyPresence }); }}>
+    <form className="mx-3 mt-2 grid gap-3 rounded-button border border-glass-border bg-subtle p-3" onSubmit={(event) => { event.preventDefault(); onSave({ nick: nick.trim(), font, bgOpacity: opacity, notifyPresence }); }}>
       <label className={fieldLabel}>Ինչ անունով տեսնեմ նրան
         <input className={fieldControl} value={nick} onChange={(event) => setNick(event.target.value)} maxLength={NICK_MAX} placeholder={placeholder || "Անուն"} autoComplete="off" />
       </label>
@@ -605,14 +605,14 @@ function ChatPreferences({ settings, owner, placeholder, onSave, onPreview, onBa
         <span className="text-[13px] font-[720]">Տեքստի չափը</span>
         <div className="flex items-center gap-3">
           <button type="button" className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-[var(--page-bg)] text-[14px] font-bold text-ink" aria-label="Փոքրացնել" onClick={() => step(-1)}>A−</button>
-          <span className="flex-1 rounded-[12px] border border-glass-border bg-[var(--page-bg)] px-3 py-2 text-center" style={{ fontSize: `${font}px` }}>Բարև 🙂</span>
+          <span className="flex-1 rounded-control border border-glass-border bg-[var(--page-bg)] px-3 py-2 text-center" style={{ fontSize: `${font}px` }}>Բարև 🙂</span>
           <button type="button" className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-[var(--page-bg)] text-[17px] font-bold text-ink" aria-label="Մեծացնել" onClick={() => step(1)}>A+</button>
         </div>
       </div>
       <div className="grid gap-2">
         <span className="text-[13px] font-[720]">Ֆոնը (տեսնում եք միայն դուք)</span>
         <div className="flex items-center gap-3">
-          <span className="block h-16 w-11 shrink-0 rounded-[8px] border border-glass-border bg-cover bg-center" style={{ backgroundImage: `url(${CHAT_BACKGROUND_PATH}?v=${settings.background ?? 0})` }} aria-hidden="true" />
+          <span className="block h-16 w-11 shrink-0 rounded-chip border border-glass-border bg-cover bg-center" style={{ backgroundImage: `url(${CHAT_BACKGROUND_PATH}?v=${settings.background ?? 0})` }} aria-hidden="true" />
           <div className="grid flex-1 gap-1.5">
             <button type="button" className="min-h-10 cursor-pointer rounded-full border border-glass-border bg-[var(--page-bg)] px-3 text-[13px] font-bold text-ink" onClick={() => backgroundRef.current?.click()}>Ընտրել իմ նկարը</button>
             {settings.background !== null && (
@@ -641,7 +641,7 @@ function ChatPreferences({ settings, owner, placeholder, onSave, onPreview, onBa
 function OwnerSettings({ recipient, diagnostics, actionData, onClear }: { recipient: string | null; diagnostics: ChatDiagnostics | null; actionData?: { error?: string; saved?: string }; onClear: () => void }) {
   const busy = useNavigation().state !== "idle";
   return (
-    <div className="mx-3 my-2 grid gap-3 rounded-[16px] border border-glass-border bg-subtle p-3">
+    <div className="mx-3 my-2 grid gap-3 rounded-button border border-glass-border bg-subtle p-3">
       {diagnostics && <ChatCheck diagnostics={diagnostics} />}
       <Form method="post" className="grid gap-3">
         <label className={fieldLabel}>Զրույցի երկրորդ կողմը (Gmail կամ @Telegram username, ստորակետով՝ մի քանիսը)

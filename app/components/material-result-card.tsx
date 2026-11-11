@@ -348,7 +348,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {...longPress.handlers}
         >
         {variant === "video" ? (
-          <span ref={videoPoster.ref} className="reveal-frame relative z-1 block aspect-video w-full overflow-hidden rounded-[14px] border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
+          <span ref={videoPoster.ref} className="reveal-frame relative z-1 block aspect-video w-full overflow-hidden rounded-button border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
             {videoPoster.poster ? (
               <img className="reveal-img h-full w-full object-cover" src={videoPoster.poster} alt="" loading="lazy" decoding="async" onError={(event) => { const image = event.currentTarget; const fallback = sameOriginMedia(image.src); if (new URL(fallback, location.origin).href !== image.src) image.src = fallback; else image.style.visibility = "hidden"; }} />
             ) : null}
@@ -358,7 +358,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           </span>
         ) : variant === "portrait" ? (
           // Saints: the portrait fills the top of the card with the name on it, as in their section.
-          <span className="reveal-frame relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-[14px] border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
+          <span className="reveal-frame relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-button border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
             {thumbnail && !thumbnailFailed ? (
               <img className="reveal-img h-full w-full object-cover object-top" src={thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
             ) : null}
@@ -370,7 +370,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           </span>
         ) : variant === "text" ? null : psalm ? (
           // Psalms: the number is what readers look for.
-          <span className="relative z-1 grid aspect-square w-full place-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
+          <span className="relative z-1 grid aspect-square w-full place-items-center rounded-button border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
             <span className="grid justify-items-center leading-none">
               <span className="text-[9.5px] font-bold tracking-[0.08em] text-gold uppercase">Սաղմոս</span>
               <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span>
@@ -378,12 +378,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           </span>
         ) : day ? (
           // Daily readings: a calendar leaf with the day and month.
-          <span className="relative z-1 grid aspect-square w-full content-center justify-items-center rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+          <span className="relative z-1 grid aspect-square w-full content-center justify-items-center rounded-button border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
             <span className="font-noto text-[28px] leading-none font-semibold text-gold-bright tabular-nums">{day.day}</span>
             <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] font-semibold text-muted">{day.month}</span>
           </span>
         ) : (
-          <span ref={isVideo ? videoPoster.ref : undefined} className={`reveal-frame relative z-1 block w-full overflow-hidden rounded-[12px] border border-glass-border bg-subtle aspect-[4/3]`}>
+          <span ref={isVideo ? videoPoster.ref : undefined} className={`reveal-frame relative z-1 block w-full overflow-hidden rounded-control border border-glass-border bg-subtle aspect-[4/3]`}>
             {thumbnail && !thumbnailFailed ? (
               <img
                 className="reveal-img h-full w-full object-cover object-top"
@@ -443,7 +443,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             </span>
           ) : null}
           {material.personalNote ? (
-            <span className="flex items-start gap-[7px] rounded-[11px] border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/7%)] px-2.5 py-[9px] text-[12px] leading-[1.45] text-gold-bright [&>svg]:mt-px [&>svg]:shrink-0">
+            <span className="flex items-start gap-[7px] rounded-control border border-[rgb(217_181_111/15%)] bg-[rgb(217_181_111/7%)] px-2.5 py-[9px] text-[12px] leading-[1.45] text-gold-bright [&>svg]:mt-px [&>svg]:shrink-0">
               <StickyNote aria-hidden="true" size={14} strokeWidth={1.8} />
               <span><strong className="font-[760]">Իմ նշումից՝ </strong>{highlightText(material.personalNote, highlightPattern)}</span>
             </span>
@@ -471,7 +471,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
         >
           <div className="overflow-hidden">
         <form
-          className={`grid gap-[8px] rounded-[15px] transition-transform duration-[420ms] ease-[cubic-bezier(.2,.8,.2,1)] ${isNoteExpanded ? "translate-y-0 scale-100" : "-translate-y-2 scale-[.98]"} border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card`}
+          className={`grid gap-[8px] rounded-button transition-transform duration-[420ms] ease-[cubic-bezier(.2,.8,.2,1)] ${isNoteExpanded ? "translate-y-0 scale-100" : "-translate-y-2 scale-[.98]"} border border-[rgb(217_181_111/24%)] bg-[linear-gradient(145deg,rgb(255_255_255/9%),transparent_50%),var(--nav-surface)] p-[12px] shadow-card`}
           onSubmit={handleNoteSubmit}
           role="dialog"
           aria-label={`${material.title} — անձնական հուշում`}
@@ -485,13 +485,13 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               maxLength={160}
               placeholder="Օրինակ՝ կարդալ երեկոյան…"
               autoFocus
-              className={`${fieldControl} min-w-0 rounded-[13px]`}
+              className={`${fieldControl} min-w-0 rounded-control`}
             />
-            <button className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-[13px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/10%)] p-0 text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)] disabled:cursor-wait disabled:opacity-60" type="submit" disabled={isSaving} aria-label="Պահել նյութը">
+            <button className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-control border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/10%)] p-0 text-gold-bright focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)] disabled:cursor-wait disabled:opacity-60" type="submit" disabled={isSaving} aria-label="Պահել նյութը">
               <Check aria-hidden="true" size={17} strokeWidth={2} />
             </button>
             <button
-              className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-[13px] border border-glass-border bg-subtle p-0 text-muted focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+              className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-control border border-glass-border bg-subtle p-0 text-muted focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
               type="button"
               onClick={closeNoteComposer}
               aria-label="Փակել առանց պահելու"
