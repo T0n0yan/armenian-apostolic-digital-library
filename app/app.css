@@ -1090,3 +1090,7 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 /* Բացառություն՝ բաց մենյուն (սեփականատիրոջ որոշում). բացված ժամանակ ետևի էջը չի շարժվում, դրա համար թեթև է։ */
 .menu-panel[data-open] { -webkit-backdrop-filter: blur(22px) saturate(160%) !important; backdrop-filter: blur(22px) saturate(160%) !important; }
+
+/* Բառարանի ձևը տեքստի վրա. blur չկա, դրա համար ֆոնը լրիվ անթափանց է, որ ետևի տեքստը չերևա։ */
+.liquid-sheet.glossary-sheet { background: rgb(247 238 218) !important; }
+:root[data-theme="dark"] .liquid-sheet.glossary-sheet { background: rgb(32 18 42) !important; }
