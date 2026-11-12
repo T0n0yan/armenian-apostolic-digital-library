@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+import { foldedMatches } from "../../shared/telegram-search";
+
 /**
  * Found in a search, then opened: the words searched for light up on the opened page for a few
  * seconds and slowly fade, so the reader sees at once where they are. The search remembers the
@@ -63,19 +65,18 @@ const STEP_MS = 320;
 export function useFindFlash(path: string, selector: string) {
   useEffect(() => {
     const saved = readRemembered(path);
-    const pattern = saved ? findPattern(saved.query) : null;
     const root = document.querySelector(selector);
-    if (!pattern || !root) return;
+    if (!saved?.query.trim() || !root) return;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: (node) => (node.parentElement?.closest("button, input, textarea, [aria-hidden='true']") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
     });
     const ranges: Range[] = [];
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const text = (node as Text).data;
-      for (const match of text.matchAll(pattern)) {
+      // Հին և նոր ուղղագրությունը համեմատվում են (անիրավ = անիրաւ, Տեր = Տէր, թյուն = թիւն)։
+      for (const match of foldedMatches((node as Text).data, saved.query)) {
         const range = document.createRange();
-        range.setStart(node, match.index);
-        range.setEnd(node, match.index + match[0].length);
+        range.setStart(node, match.start);
+        range.setEnd(node, match.end);
         ranges.push(range);
       }
     }
