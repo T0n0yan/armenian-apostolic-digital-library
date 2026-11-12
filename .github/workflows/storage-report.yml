@@ -4,6 +4,14 @@ name: Storage report
 
 on:
   workflow_dispatch:
+    inputs:
+      report:
+        description: "Հաշվետվության տեսակը"
+        type: choice
+        default: storage
+        options:
+          - storage
+          - media
 
 permissions:
   contents: read
@@ -22,4 +30,13 @@ jobs:
           node-version: 22
           # v5-ը package.json-ի packageManager-ից ինքն է միացնում pnpm-ի cache-ը, իսկ այստեղ pnpm չկա
           package-manager-cache: false
-      - run: node scripts/storage-report.mjs
+      - if: inputs.report != 'media'
+        run: node scripts/storage-report.mjs
+      - if: inputs.report == 'media'
+        run: node scripts/media-reuse-report.mjs
+      - if: inputs.report == 'media'
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-reuse-report
+          path: media-reuse-report.json
+          retention-days: 7
