@@ -9,6 +9,7 @@ import { RouteErrorPage } from "../components/error-page";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { fieldControl, fieldHint, panelSection, primaryButton } from "../components/ui-styles";
+import { TermForm } from "../components/glossary-term-form";
 import { deleteGlossaryTerm, listGlossary, parseForms, saveGlossaryTerm } from "../data/glossary.server";
 import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { GLOSSARY_KINDS, isGlossaryKind, normalizeWord, type GlossaryKind, type GlossaryTerm } from "../utils/glossary";
@@ -45,35 +46,9 @@ export async function action({ request }: Route.ActionArgs) {
   }
   // Կայքի էջերը կվերցնեն թարմ բառարանը։
   await bumpCacheEpoch(env.DB);
+  // Տեքստից ավելացնելիս (glossary-term-sheet) էջը չի փոխվում։
+  if (form.get("stay") === "1") return data({ ok: true as const, error: undefined, id: 0 });
   return redirect("/admin/glossary");
-}
-
-/** Մեկ բառի ձևը՝ և՛ նորի, և՛ փոփոխության համար։ */
-function TermForm({ term, error, onDone, kind }: { term?: GlossaryTerm; error?: string; onDone?: () => void; kind?: GlossaryKind }) {
-  const busy = useNavigation().state === "submitting";
-  return (
-    <Form method="post" preventScrollReset className="grid gap-2.5" onSubmit={() => onDone?.()}>
-      {term ? <input type="hidden" name="id" value={term.id} /> : null}
-      <label className="grid gap-1 text-[13px] font-semibold text-ink">Բաժինը
-        <select className={fieldControl} name="kind" defaultValue={term?.kind ?? kind ?? "word"}>
-          {Object.entries(GLOSSARY_KINDS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
-      </label>
-      <div className="grid gap-2.5 min-[620px]:grid-cols-2">
-        <label className="grid gap-1 text-[13px] font-semibold text-ink">Բառը<input className={fieldControl} name="word" defaultValue={term?.word} required maxLength={60} placeholder="Օր.՝ ամբարիշտ" /></label>
-        <label className="grid gap-1 text-[13px] font-semibold text-ink">Այլ ձևեր (ստորակետով)<input className={fieldControl} name="forms" defaultValue={term?.forms.join(", ")} maxLength={600} placeholder="Օր.՝ ամբարշտաց, ամբարշտութիւն" /></label>
-      </div>
-      <p className={fieldHint}>Վերջավորությունները (-ը, -ի, -ների…) և դասական ուղղագրությունը («է», «իւ») ինքնաբերաբար են գտնվում։ Այլ ձևերում գրեք միայն այն, ինչ արմատից տարբեր է։</p>
-      <label className="grid gap-1 text-[13px] font-semibold text-ink">Բացատրությունը<textarea className={`${fieldControl} min-h-[70px] resize-y`} name="meaning" defaultValue={term?.meaning} required maxLength={600} /></label>
-      <label className="grid gap-1 text-[13px] font-semibold text-ink">Նշում (ոչ պարտադիր)<input className={fieldControl} name="note" defaultValue={term?.note} maxLength={600} placeholder="Ծագումը, օրինակ, աղբյուրը" /></label>
-      <label className="flex items-center gap-2 text-[13.5px] text-ink"><input type="checkbox" name="verified" defaultChecked={term?.verified} /> Ստուգված է հոգևորականի կողմից (առանց սրա՝ «⚑ Ճշտել»)</label>
-      {error ? <p className="m-0 text-[13px] font-semibold text-danger">{error}</p> : null}
-      <div className="flex gap-2">
-        <button className={primaryButton} type="submit" disabled={busy}>{term ? <Check aria-hidden="true" size={16} /> : <Plus aria-hidden="true" size={16} />} {term ? "Պահել" : "Ավելացնել"}</button>
-        {onDone ? <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-button border border-glass-border bg-transparent px-3 text-[13px] text-muted" type="button" onClick={onDone}><X aria-hidden="true" size={15} /> Չեղարկել</button> : null}
-      </div>
-    </Form>
-  );
 }
 
 /** Բառարանի կառավարում. ավելացնել, փոխել, ջնջել բառերը։ */
