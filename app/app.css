@@ -1094,3 +1094,10 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 /* Բառարանի ձևը տեքստի վրա. blur չկա, դրա համար ֆոնը լրիվ անթափանց է, որ ետևի տեքստը չերևա։ */
 .liquid-sheet.glossary-sheet { background: rgb(247 238 218) !important; }
 :root[data-theme="dark"] .liquid-sheet.glossary-sheet { background: rgb(32 18 42) !important; }
+
+/* Մենյուն բաց ժամանակ ետևի էջը չի ոլորվում՝ առանց body-ն սառեցնելու (դա կտրտում էր բացվելը)։ */
+.menu-scrim, .menu-panel { touch-action: none; overscroll-behavior: contain; }
+.menu-panel .menu-view { touch-action: pan-y; overscroll-behavior: contain; }
+
+/* Առանց ինտերնետի՝ պահված չեղած էջերի հղումները աղոտ են (offline-bar.tsx)։ */
+html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6); }

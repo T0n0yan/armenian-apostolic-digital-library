@@ -166,15 +166,17 @@ async function networkFirst(request, version = "", event = null) {
   });
   // A page (HTML) is only ever answered from the cache when offline: an old copy may point at
   // scripts a newer deploy has replaced, which would break the page. Data falls back sooner.
-  const timeout = request.mode === "navigate" ? new Promise(() => {}) : new Promise((resolve) => setTimeout(resolve, NETWORK_TIMEOUT_MS));
+  // Դանդաղ ցանցում էջը 3 վայրկյանից հետո բացվում է պահված տարբերակով (առաջ էջի համար անվերջ սպասում էր,
+  // ու հավելվածը երկար մնում էր աղավնու էկրանին)։
+  const timeout = new Promise((resolve) => setTimeout(resolve, request.mode === "navigate" ? 3_000 : NETWORK_TIMEOUT_MS));
   try {
     const first = await Promise.race([network, timeout]);
     if (first) return first;
     // Slow network: answer from the cache now if we can, otherwise keep waiting.
-    return (await cache.match(request)) ?? (await network);
+    return (await cache.match(request)) ?? (new URL(request.url).pathname === "/" ? await cache.match(request, { ignoreSearch: true }) : undefined) ?? (await network);
   } catch {
     // Գլխավոր էջը տարբեր ?source=... հասցեներով է բացվում, դրա համար հարցման մասն անտեսվում է։
-    const cached = (await cache.match(request)) ?? (request.mode === "navigate" ? await cache.match(request, { ignoreSearch: true }) : undefined);
+    const cached = (await cache.match(request)) ?? (new URL(request.url).pathname === "/" ? await cache.match(request, { ignoreSearch: true }) : undefined);
     if (cached) return cached;
     if (request.mode === "navigate") {
       return new Response(await offlinePage(cache), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
