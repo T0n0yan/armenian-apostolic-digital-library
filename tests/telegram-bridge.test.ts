@@ -1369,14 +1369,32 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
 
   const proxiedRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { headers: { range: "bytes=2048-4095" } });
   assert.equal(proxiedRange.status, 206);
+  assert.equal(proxiedRange.headers.get("cross-origin-resource-policy"), "same-site");
   assert.equal(proxiedRange.headers.get("content-length"), "2048");
   assert.equal((await proxiedRange.arrayBuffer()).byteLength, 2048);
   const proxiedHead = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { method: "HEAD" });
   assert.equal(proxiedHead.status, 200);
+  assert.equal(proxiedHead.headers.get("cross-origin-resource-policy"), "same-site");
   assert.equal(proxiedHead.headers.get("content-length"), "16384");
   const invalidRange = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0", { headers: { range: "bytes=999999-1000000" } });
   assert.equal(invalidRange.status, 416);
   assert.equal(invalidRange.headers.get("content-range"), "bytes */16384");
+  // Քեշավորվող հասցեն և քեշից կրկնված պատասխանը պահում են նույն պաշտպանությունը։
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const cachedMedia = await mf.dispatchFetch("https://app.fixture/media/-100900/106/0?v=fixture");
+    assert.equal(cachedMedia.status, 200);
+    assert.equal(cachedMedia.headers.get("cross-origin-resource-policy"), "same-site");
+    await cachedMedia.arrayBuffer();
+  }
+  for (const path of ["/place-media/missing/photo.webp", "/help-media/missing.mp4"]) {
+    const media = await mf.dispatchFetch(`https://app.fixture${path}`);
+    assert.equal(media.headers.get("cross-origin-resource-policy"), "same-site");
+  }
+  for (const path of ["/", "/og/prayers.jpg"]) {
+    const publicPage = await mf.dispatchFetch(`https://app.fixture${path}`);
+    assert.equal(publicPage.headers.get("cross-origin-resource-policy"), null);
+    await publicPage.arrayBuffer();
+  }
   assert.equal((await mf.dispatchFetch("https://app.fixture/media/-100999/106/0")).status, 404);
 
   const rangeBoundary = 2 * 1024 * 1024;

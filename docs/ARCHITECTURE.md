@@ -177,6 +177,17 @@ sequenceDiagram
 
 ## 4. Նյութերը. Telegram-ից կայք
 
+**Մեդիայի արտաքին ներդրման պաշտպանություն** (`workers/app.ts`). `/media/`, `/place-media/`,
+`/help-media/` պատասխանները, ներառյալ Range/HEAD և քեշից եկածները, ունեն
+`Cross-Origin-Resource-Policy: same-site`։ Բրաուզերը դրանք չի ներդնում օտար կայքի էջում։
+Կայքի ենթադոմենները և ուղիղ հղումները թույլատրված են, `/og/` կիսվելու նկարները բաց են։
+Առանձին `media.apostolic.am` R2 դոմենը Worker-ը շրջանցում է և պահանջում է Cloudflare-ի
+առանձին Response Header Transform Rule։ Կարգավորումը և սահմանները՝
+`docs/qa/MEDIA-REUSE-2026-11-12.md`։ Սա չի արգելում սերվերով ներբեռնումը կամ տեքստի պատճենումը։
+Արտաքին օգտագործման միայն կարդացող չափում՝ Actions → Storage report → `report: media`
+(`scripts/media-reuse-report.mjs`)․ միայն դոմեններով համախմբված վերջին 24 ժամ, առանց IP-ների։
+Վիճակագրության իրավունքի բացակայությունը ցուցադրվում է որպես անհասանելի տվյալ, ոչ թե զրո։
+
 ```mermaid
 flowchart TD
   P["Խմբում նոր կամ փոփոխված գրառում"] --> WH["Բոտը webhook-ով տեղեկացնում է Worker-ին<br/>/telegram/webhook"]

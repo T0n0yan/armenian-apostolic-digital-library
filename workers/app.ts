@@ -148,6 +148,11 @@ export default {
       console.error("request failed twice", request.method, new URL(request.url).pathname, error);
       return failurePage(request);
     }), env);
+    // Հանրային մեդիան այլ կայքի էջում անմիջապես չի ներդրվում։ Հղումով բացելը և մեր ենթադոմենները թույլատրված են։
+    // Կիսվելու /og/ նկարներն ու չատի առանձին պատասխանները այս կանոնի մեջ չեն մտնում։
+    if (/^\/(?:media|place-media|help-media)\//u.test(chatPath)) {
+      response.headers.set("Cross-Origin-Resource-Policy", "same-site");
+    }
     // Only the real address is indexed; staging and old addresses stay out of search results.
     if (new URL(request.url).hostname !== "apostolic.am") response.headers.set("X-Robots-Tag", "noindex, nofollow");
     return response;
