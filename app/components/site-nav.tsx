@@ -174,16 +174,18 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             ) : null}
 
             <section className="grid gap-2 border-t border-glass-border pt-3" aria-label="Կարգավորումներ և օգնություն">
-              {/* Անձնական չատը. փոքր, առանց անվան, միայն երկու կողմին (root-ը ուրիշներին null է տալիս)։ */}
-              {rootData?.privateChat ? (
-                <NavLink className="relative grid size-7 justify-self-end place-items-center rounded-full text-faint no-underline" to="/namak" aria-label="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
-                  <Mail aria-hidden="true" size={14} />
-                  {chatUnread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
-                </NavLink>
-              ) : null}
-              <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase">Կարգավորումներ</h2>
+              {/* Վերնագիրը և նամակների կոճակը մեկ տողում (նամակները՝ միայն երկու կողմին, root-ը ուրիշներին null է տալիս)։ */}
+              <div className="flex min-h-7 items-center justify-between">
+                <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase">Կարգավորումներ</h2>
+                {rootData?.privateChat ? (
+                  <NavLink className="relative mr-1 grid size-7 place-items-center rounded-full text-faint no-underline hover:text-gold-bright" to="/namak" aria-label="Նամակներ" title="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                    <Mail aria-hidden="true" size={15} />
+                    {chatUnread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
+                  </NavLink>
+                ) : null}
+              </div>
               {/* Միայն պատկերակներ (անունը՝ title-ում և էկրանի ընթերցողի համար), նույն ապակե ոճով։ */}
-              <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0">
+              <ul className={`m-0 grid list-none gap-1.5 p-0 ${canInstall ? "grid-cols-3" : "grid-cols-2"}`}>
                 <li>
                   <button className={`${iconTileClass} w-full`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")} aria-label="Լույս, տառատեսակ, տառաչափ" title="Լույս, տառատեսակ, տառաչափ">
                     <Settings2 aria-hidden="true" size={20} strokeWidth={1.8} />
@@ -224,7 +226,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
             {account && (account.source === "google" || !inMiniApp) ? (
               <div className="grid gap-1.5 border-t border-glass-border px-2 pt-3">
                 <Form className="flex items-center justify-between gap-3 text-[12.5px] text-muted" method="post" action="/auth/logout" onSubmit={() => { clearPersonalStorage(); setIsOpen(false); }}>
-                  <span className="min-w-0 truncate">{account.name} <span className="text-faint">· {account.source === "google" ? "Google" : "Telegram"}</span></span>
+                  <span className="min-w-0 truncate">{account.name || "Իմ հաշիվը"} <span className="text-faint">· {account.source === "google" ? "Google" : "Telegram"}</span></span>
                   <button className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-3.5 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit" tabIndex={isOpen ? 0 : -1}>
                     <LogOut aria-hidden="true" size={15} /> Ելք
                   </button>
