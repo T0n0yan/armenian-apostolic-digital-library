@@ -10,14 +10,17 @@
 // - pages (HTML): network first; the last copy only offline (an old copy may point at scripts a
 //   newer deploy has replaced);
 // - pictures from /media: cache first, so thumbnails and saints' icons stay available.
-// Personal and sign-in requests, writes, and audio/video streams are never cached.
+// - audio (not video): once a recording has been played, the whole file is kept (AUDIO) and later
+//   played from the phone, Range requests included, so it is not downloaded again.
+// Personal and sign-in requests, writes, and video streams are never cached.
 const VERSION = "v6";
 const STATIC = `static-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 const MEDIA = `media-${VERSION}`;
+const AUDIO = "audio-v1";
 const STATE = "sw-state";
 const NETWORK_TIMEOUT_MS = 4_000;
-const LIMITS = { [STATIC]: 160, [PAGES]: 250, [MEDIA]: 400 };
+const LIMITS = { [STATIC]: 200, [PAGES]: 600, [MEDIA]: 1500, [AUDIO]: 150 };
 
 // The content version and the time of the last write, kept across restarts of the worker. A write
 // is also noted at once in memory: the page reloads its data right after saving.
@@ -39,8 +42,43 @@ async function markWrite(at) {
   if (current.writeAt < at) await saveState({ ...current, writeAt: at });
 }
 
+// Աուդիոն պահվում է առանց retry պարամետրի, որ նույն ֆայլը մեկ անգամ պահվի։
+function audioKey(value) {
+  const url = new URL(value, self.location.origin);
+  url.searchParams.delete("retry");
+  return url.href;
+}
+/** Լսված աուդիոն ամբողջությամբ պահում է հեռախոսում (էջը ասում է՝ ինչ է լսվել)։ */
+async function keepAudio(url, fetchUrl) {
+  const cache = await caches.open(AUDIO);
+  if (await cache.match(audioKey(url))) return;
+  // media.apostolic.am-ը CORS չի տալիս, դրա համար ֆայլը վերցվում է կայքի /media/... հասցեից։
+  const response = await fetch(fetchUrl, { credentials: "omit" });
+  if (!response.ok || response.status !== 200) return;
+  await cache.put(audioKey(url), response);
+  void trim(AUDIO);
+}
+/** Պահված աուդիոն, Range-ով մաս-մաս (նվագարկիչը այդպես է խնդրում), կամ ցանցից։ */
+async function audioResponse(request) {
+  const cached = await caches.open(AUDIO).then((cache) => cache.match(audioKey(request.url))).catch(() => undefined);
+  if (!cached) return fetch(request);
+  const blob = await cached.blob();
+  const type = cached.headers.get("content-type") || "audio/mpeg";
+  const size = blob.size;
+  const range = /^bytes=(\d*)-(\d*)$/u.exec(request.headers.get("range") || "");
+  if (!range) return new Response(blob, { status: 200, headers: { "content-type": type, "content-length": String(size), "accept-ranges": "bytes" } });
+  let start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2] || 0));
+  let end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+  if (start > end || start >= size) return new Response(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
+  return new Response(blob.slice(start, end + 1), { status: 206, headers: { "content-type": type, "content-length": String(end - start + 1), "content-range": `bytes ${start}-${end}/${size}`, "accept-ranges": "bytes" } });
+}
+
 self.addEventListener("message", (event) => {
   const data = event.data || {};
+  if (data.type === "keep-audio" && typeof data.url === "string" && typeof data.fetchUrl === "string") {
+    event.waitUntil(keepAudio(data.url, data.fetchUrl).catch(() => undefined));
+    return;
+  }
   if (data.type !== "content-version" || typeof data.version !== "string") return;
   event.waitUntil(readState().then((current) => current.version === data.version ? undefined : saveState({ ...current, version: data.version })));
 });
@@ -77,7 +115,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     // The title index (utils/local-search.ts) and this worker's state are kept too.
-    for (const key of await caches.keys()) if (![STATIC, PAGES, MEDIA, STATE, "search-index"].includes(key)) await caches.delete(key);
+    for (const key of await caches.keys()) if (![STATIC, PAGES, MEDIA, AUDIO, STATE, "search-index"].includes(key)) await caches.delete(key);
     await self.clients.claim();
   })());
 });
@@ -183,7 +221,9 @@ self.addEventListener("fetch", (event) => {
     lastWrite = Date.now();
     event.waitUntil(Promise.all([markWrite(lastWrite), caches.delete(PAGES)]));
   }
-  if (request.method !== "GET" || request.headers.has("range")) return;
+  if (request.method !== "GET") return;
+  if (request.destination === "audio" && !PRIVATE.test(url.pathname)) { event.respondWith(audioResponse(request)); return; }
+  if (request.headers.has("range")) return;
   // Pictures from the media address (media.apostolic.am, served from R2) are kept like /media ones.
   if (/^media(-staging)?\.apostolic\.am$/u.test(url.hostname)) {
     if (request.destination === "image") event.respondWith(cacheFirst(request, MEDIA));
