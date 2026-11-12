@@ -545,10 +545,13 @@ export default function Category({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     const list = document.querySelector('[aria-labelledby="category-materials-title"]');
     list?.querySelectorAll("[data-found]").forEach((element) => element.removeAttribute("data-found"));
+    list?.removeAttribute("data-finding");
     if (!found?.ids.length) return;
     const wanted = new Set(found.ids.map((id) => materials.find((material) => material.id === id)).filter(Boolean).map((material) => hrefOf(material as CategoryMaterial)));
     const links = [...(list?.querySelectorAll<HTMLAnchorElement>("a[href]") ?? [])].filter((link) => wanted.has(new URL(link.href).pathname));
     links.forEach((link) => link.setAttribute("data-found", "true"));
+    // Գտնվածները պայծառ են, մնացածը՝ մեղմացված (CSS՝ [data-finding])։
+    if (links.length) list?.setAttribute("data-finding", "");
     const currentId = found.ids[found.index % found.ids.length];
     const currentMaterial = materials.find((material) => material.id === currentId);
     const current = links.find((link) => currentMaterial && new URL(link.href).pathname === hrefOf(currentMaterial)) ?? links[0];
@@ -594,18 +597,18 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         // A quiet bar at the bottom: it rises in, stays one tap away however far the page scrolls,
         // steps through the matches, and opens the match when tapped. It hides while the menu is open.
         return (
-          <div className="find-bar fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto flex max-w-[520px] items-center gap-1.5 rounded-card border border-[rgb(217_181_111/32%)] bg-[color-mix(in_srgb,var(--page-bg)_92%,transparent)] py-2 pr-2 pl-3 shadow-[0_14px_36px_rgb(20_10_5/32%)] backdrop-blur-md" role="status" aria-live="polite">
+          <div className="find-bar liquid-sheet fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto flex max-w-[520px] items-center gap-1.5 overflow-hidden rounded-card py-2 pr-2 pl-3" role="status" aria-live="polite">
             {finding ? (
               <span className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[13px] text-muted"><LoaderCircle className="animate-search-spin shrink-0 text-gold" aria-hidden="true" size={15} /> Փնտրում եմ այս բաժնում…</span>
             ) : target ? (
-              <Link className="group grid min-w-0 flex-1 gap-0.5 rounded-control px-1 py-1 text-inherit no-underline" to={target} aria-label={`Բացել՝ ${label}`}>
-                <span className="flex items-center gap-1.5 text-[13px]">
-                  <strong className="truncate font-semibold text-gold-bright">{label}</strong>
+              <Link className="group grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-0.5 rounded-control px-1 py-1 text-inherit no-underline" to={target} aria-label={`Բացել՝ ${label}`}>
+                <span className="flex min-w-0 items-center gap-1.5 text-[13px]">
+                  <strong className="min-w-0 truncate font-semibold text-gold-bright">{label}</strong>
                   {count > 1 ? <span className="shrink-0 text-[11.5px] text-faint tabular-nums">{position + 1} / {count}</span> : null}
                   <ChevronRight className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5" aria-hidden="true" size={15} />
                 </span>
                 {hit?.searchHit || hit?.excerpt ? (
-                  <span className="truncate text-[12px] leading-[1.45] text-muted">
+                  <span className="block min-w-0 truncate text-[12px] leading-[1.45] text-muted">
                     <SearchSnippet hit={hit.searchHit} excerpt={hit.excerpt?.replace(new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}\\s*`, "u"), "")} />
                   </span>
                 ) : null}

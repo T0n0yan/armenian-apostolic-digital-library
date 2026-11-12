@@ -48,6 +48,14 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 const YEREVAN = "Երևան";
+
+// Մարզի կարճ անունը կոճակի համար (մեկ տող, բոլորը նույն բարձրությամբ). ամբողջականը՝ title-ում։
+const SHORT_PROVINCE: Record<string, string> = {
+  "Արագածոտնի մարզ": "Արագածոտն", "Արարատի մարզ": "Արարատ", "Արմավիրի մարզ": "Արմավիր",
+  "Գեղարքունիքի մարզ": "Գեղարքունիք", "Լոռու մարզ": "Լոռի", "Կոտայքի մարզ": "Կոտայք",
+  "Շիրակի մարզ": "Շիրակ", "Սյունիքի մարզ": "Սյունիք", "Վայոց ձորի մարզ": "Վայոց ձոր", "Տավուշի մարզ": "Տավուշ",
+};
+const shortProvince = (name: string) => SHORT_PROVINCE[name] ?? name;
 const OTHER = "Այլ";
 
 /** Places by province (the region's first part): Yerevan first, the provinces alphabetically, the rest last. */
@@ -340,9 +348,9 @@ export default function Places({ loaderData }: Route.ComponentProps) {
             <details key={province} open={open === province}
               onToggle={(event) => { const isOpen = event.currentTarget.open; setOpen((current) => (isOpen ? province : current === province ? null : current)); }}
               className={row.length === 1 || row.some(([name]) => name === open) ? "col-span-2" : ""}>
-              <summary className={`frosted-card flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-left text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden ${open === province ? "ring-2 ring-[rgb(217_181_111/60%)]" : ""}`}>
-                <span className="min-w-0 leading-snug">{province}</span>
-                <span className="shrink-0 text-[12.5px] font-normal text-muted">{items.length} <span className={`inline-block transition-transform ${open === province ? "rotate-90" : ""}`}>›</span></span>
+              <summary title={province} className={`frosted-card flex h-14 cursor-pointer list-none items-center justify-between gap-2 px-4 text-left text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden ${open === province ? "ring-2 ring-[rgb(217_181_111/60%)]" : ""}`}>
+                <span className="min-w-0 truncate">{shortProvince(province)}</span>
+                <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-normal text-muted tabular-nums">{items.length} <span className={`inline-block transition-transform ${open === province ? "rotate-90" : ""}`}>›</span></span>
               </summary>
               <div className="mt-2 grid">
                 {open === province ? <ProvincePlaces items={items} /> : (
