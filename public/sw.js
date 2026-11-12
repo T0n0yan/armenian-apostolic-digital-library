@@ -138,11 +138,28 @@ async function cacheFirst(request, name) {
   return response;
 }
 
-async function networkFirst(request, version = "") {
+/**
+ * Մուտք գործած մարդու էջը (cookie-ով) անձնական է և չի պահվում։ Դրա փոխարեն նույն էջը բերվում է
+ * առանց cookie-ի (ընդհանուր տարբերակը, անձնական տվյալ չունի) և պահվում, որ առանց ինտերնետի բացվի։
+ * Օրը մեկ անգամից ավել չի բերվում։
+ */
+async function keepPublicPage(url) {
+  const cache = await caches.open(PAGES);
+  const cached = await cache.match(url);
+  if (cached && sameDay(Number(cached.headers.get("x-sw-at") ?? 0), Date.now())) return;
+  const response = await fetch(url, { credentials: "omit", redirect: "follow" });
+  if (!response.ok || response.redirected || response.headers.get("X-Offline-Public") !== "1") return;
+  await cache.put(url, await stamped(response, ""));
+  void trim(PAGES);
+}
+
+async function networkFirst(request, version = "", event = null) {
   const cache = await caches.open(PAGES);
   const writeAtStart = lastWrite;
   const network = fetch(request).then(async (response) => {
-    if (writeAtStart === lastWrite && response.ok && response.headers.get("X-Offline-Public") === "1" && !/private|no-store/i.test(response.headers.get("Cache-Control") || "")) { await cache.put(request, version ? await stamped(response, version) : response.clone()); void trim(PAGES); }
+    const isPublic = response.headers.get("X-Offline-Public") === "1";
+    if (writeAtStart === lastWrite && response.ok && isPublic && !/private|no-store/i.test(response.headers.get("Cache-Control") || "")) { await cache.put(request, version ? await stamped(response, version) : response.clone()); void trim(PAGES); }
+    else if (event && request.mode === "navigate" && response.ok && !isPublic) event.waitUntil(keepPublicPage(request.url).catch(() => undefined));
     return response;
   });
   // A page (HTML) is only ever answered from the cache when offline: an old copy may point at
@@ -154,7 +171,8 @@ async function networkFirst(request, version = "") {
     // Slow network: answer from the cache now if we can, otherwise keep waiting.
     return (await cache.match(request)) ?? (await network);
   } catch {
-    const cached = await cache.match(request);
+    // Գլխավոր էջը տարբեր ?source=... հասցեներով է բացվում, դրա համար հարցման մասն անտեսվում է։
+    const cached = (await cache.match(request)) ?? (request.mode === "navigate" ? await cache.match(request, { ignoreSearch: true }) : undefined);
     if (cached) return cached;
     if (request.mode === "navigate") {
       return new Response(await offlinePage(cache), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
@@ -238,7 +256,7 @@ self.addEventListener("fetch", (event) => {
   } else if (url.pathname.endsWith(".data")) {
     event.respondWith(pageData(request));
   } else if (request.mode === "navigate" || url.pathname.startsWith("/api/")) {
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkFirst(request, "", event));
   }
 });
 
