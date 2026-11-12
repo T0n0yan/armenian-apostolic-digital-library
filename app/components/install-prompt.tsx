@@ -169,7 +169,7 @@ export function InstallPrompt() {
     <>
       <aside
         ref={toast}
-        className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-[20px] border border-glass-border bg-[var(--page-bg)] p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
+        className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[65] mx-auto grid max-w-[440px] gap-3 rounded-card border border-glass-border liquid-sheet p-3.5 shadow-[0_18px_50px_rgb(40_20_10/28%)]"
         data-phase={phase}
         role="dialog"
         aria-label="Ավելացնել գլխավոր էկրանին"
@@ -187,7 +187,7 @@ export function InstallPrompt() {
           </p>
         ) : null}
         {hasButton ? (
-          <button className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[13px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/22%)]" type="button" onClick={install}>
+          <button className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-control border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/22%)]" type="button" onClick={install}>
             <Plus aria-hidden="true" size={16} /> {mode === "open-safari" ? "Բացել Safari-ում" : "Ավելացնել"}
           </button>
         ) : null}

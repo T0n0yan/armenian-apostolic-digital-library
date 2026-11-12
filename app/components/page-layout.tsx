@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from "react";
+import {useEffect, useRef, useState, type ReactNode} from "react";
 import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
@@ -21,6 +21,8 @@ type PageHeaderProps = {
     showSearch?: boolean;
     /** The page searches by itself (the map's places): the search button calls this. Without it, the button narrows this page (PageFind). */
     onSearch?: () => void;
+    /** Էջի սեփական որոնման դաշտը, որը բացվում է անկյունի կոճակից (սրբավայրեր)։ */
+    search?: { open: boolean; onOpen: () => void; label?: string; field: ReactNode };
     title: ReactNode;
     children?: ReactNode;
 };
@@ -44,7 +46,7 @@ export function RouteErrorState({
     return (<EmptyState title={title}>
         <p>{description}</p>
         <button
-            className="mt-3 min-h-11 cursor-pointer rounded-[12px] border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
+            className="mt-3 min-h-11 cursor-pointer rounded-control border border-[rgb(217_181_111/24%)] bg-[rgb(217_181_111/9%)] px-4 text-[12px] font-bold text-gold-bright"
             type="button"
             onClick={() => window.location.reload()}
         >
@@ -118,13 +120,38 @@ function titleSize(title: ReactNode) {
 
 export function PageHeader(props: PageHeaderProps) {
     const [finding, setFinding] = useState(false);
-    return (<>
-        <HeaderBar {...props} onSearch={props.onSearch ?? (() => setFinding(!finding))}/>
-        {finding ? <PageFind onClose={() => setFinding(false)}/> : null}
-    </>);
+    // Առանց սեփական որոնման էջը որոնում է իր մեջ (PageFind)՝ նույն բացվող դաշտով։
+    const search = props.search ?? (props.onSearch ? undefined : {
+        open: finding, onOpen: () => setFinding(true), label: "Փնտրել այս էջում",
+        field: <PageFind onClose={() => setFinding(false)} active={finding}/>,
+    });
+    return <HeaderBar {...props} search={search}/>;
 }
 
-function HeaderBar({backLabel, backTo, children, description, eyebrow, home = false, onSearch, ornate = false, showSearch = true, title}: PageHeaderProps) {
+/**
+ * Անկյունի կլոր որոնման կոճակը, որը սահուն երկարում է և դառնում դաշտ (և հետ է փակվում)։
+ * `children`-ը դաշտի պարունակությունն է (պատկերակ, input, փակելու կոճակ)։ Ծնողը պետք է լինի `relative`։
+ */
+export function ExpandingSearch({open, onOpen, label = "Որոնում", children}: { open: boolean; onOpen: () => void; label?: string; children: ReactNode }) {
+    // Բաց որոնումը էջն իջնելիս «կպչում» է էկրանի վերևին, փակելիս՝ հետ է գնում անկյուն։
+    const box = useRef<HTMLDivElement>(null);
+    const [rowVisible, setRowVisible] = useState(true);
+    useEffect(() => {
+        const row = box.current?.parentElement;
+        if (!open || !row || typeof IntersectionObserver === "undefined") { setRowVisible(true); return; }
+        const observer = new IntersectionObserver(([entry]) => setRowVisible(entry.isIntersecting), {threshold: 0});
+        observer.observe(row);
+        return () => observer.disconnect();
+    }, [open]);
+    return (<div ref={box} className={`header-search ${open ? "is-open" : ""} ${open && !rowVisible ? "is-floating" : ""}`}>
+        <button type="button" className="hs-toggle" onClick={onOpen} aria-label={label} title={label} aria-expanded={open} tabIndex={open ? -1 : 0}>
+            <Search aria-hidden="true" size={17} strokeWidth={2}/>
+        </button>
+        <div className="hs-field" inert={!open}>{children}</div>
+    </div>);
+}
+
+function HeaderBar({backLabel, backTo, children, description, eyebrow, home = false, onSearch, search, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
             flex
@@ -133,8 +160,7 @@ function HeaderBar({backLabel, backTo, children, description, eyebrow, home = fa
             items-center
             justify-center
             text-center
-            rounded-[12px]
-            overflow-hidden
+            rounded-control
             px-[2px]
             py-[5px]
             min-[560px]:gap-2
@@ -146,15 +172,17 @@ function HeaderBar({backLabel, backTo, children, description, eyebrow, home = fa
             min-[960px]:pb-[24px]
             min-[1440px]:pt-[34px]
             ">
-        {(backTo && backLabel) || (showSearch && !home) ? (<div className="flex w-full items-center gap-2">
+        {(backTo && backLabel) || (showSearch && !home) ? (<div className="relative flex min-h-11 w-full items-center gap-2">
             {backTo && backLabel ? (<Link
-                className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-[11px] px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+                className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-control px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
                 to={backTo}
             >
                 <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>
                 <span className="truncate">{backLabel}</span>
             </Link>) : null}
-            {showSearch && !home ? <HeaderSearchLink onSearch={onSearch}/> : null}
+            {showSearch && !home ? (search
+                ? <ExpandingSearch open={search.open} onOpen={search.onOpen} label={search.label}>{search.field}</ExpandingSearch>
+                : <HeaderSearchLink onSearch={onSearch}/>) : null}
         </div>) : null}
 
         <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>

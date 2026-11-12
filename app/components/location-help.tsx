@@ -39,7 +39,7 @@ const STEPS: Record<DeviceKind, Record<"denied" | "unavailable", string[]>> = {
 export function LocationHelp({ failure, lead, onRetry }: { failure: LocationFailure; lead?: string; onRetry: () => void }) {
   const kind = deviceKind();
   return (
-    <div className="grid gap-2 rounded-[14px] border border-[rgb(184_72_62/45%)] bg-[rgb(184_72_62/10%)] px-3.5 py-3 text-[13px] leading-relaxed text-ink" role="alert">
+    <div className="grid gap-2 rounded-button border border-[rgb(184_72_62/45%)] bg-[rgb(184_72_62/10%)] px-3.5 py-3 text-[13px] leading-relaxed text-ink" role="alert">
       <strong className="text-[#c4574b]">{FAILURES[failure]}{lead ? ` ${lead}` : ""}</strong>
       {failure !== "unsupported" ? (
         <ol className="m-0 grid gap-1 pl-5 text-[12.5px] text-muted">
@@ -47,8 +47,8 @@ export function LocationHelp({ failure, lead, onRetry }: { failure: LocationFail
         </ol>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        {kind === "telegram" ? <button type="button" className="min-h-9 cursor-pointer rounded-[11px] border border-glass-border bg-subtle px-3 text-[12.5px] font-semibold text-gold-bright" onClick={() => openLocationSettings()}>Բացել կարգավորումները</button> : null}
-        <button type="button" className="min-h-9 cursor-pointer rounded-[11px] border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[12.5px] font-bold text-[#2a1708]" onClick={onRetry}>Փորձել կրկին</button>
+        {kind === "telegram" ? <button type="button" className="min-h-9 cursor-pointer rounded-control border border-glass-border bg-subtle px-3 text-[12.5px] font-semibold text-gold-bright" onClick={() => openLocationSettings()}>Բացել կարգավորումները</button> : null}
+        <button type="button" className="min-h-9 cursor-pointer rounded-control border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[12.5px] font-bold text-[#2a1708]" onClick={onRetry}>Փորձել կրկին</button>
       </div>
     </div>
   );

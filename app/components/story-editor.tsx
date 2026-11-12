@@ -56,10 +56,10 @@ function Segmented<T extends string | number | boolean>({ label, value, options,
   return (
     <div className="grid gap-1.5">
       {label ? <span className="text-[11.5px] font-bold tracking-[0.02em] text-muted">{label}</span> : null}
-      <div className="flex gap-1 rounded-[12px] bg-[rgb(127_127_127/12%)] p-[3px]" role="radiogroup" aria-label={label}>
+      <div className="flex gap-1 rounded-control bg-[rgb(127_127_127/12%)] p-[3px]" role="radiogroup" aria-label={label}>
         {options.map(([option, text]) => (
           <button key={String(option)} type="button" role="radio" aria-checked={option === value}
-            className={`min-h-8 flex-1 cursor-pointer rounded-[9px] border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "bg-[var(--page-bg)] text-gold-bright shadow-[0_1px_4px_rgb(0_0_0/18%)]" : "bg-transparent text-muted"}`}
+            className={`min-h-8 flex-1 cursor-pointer rounded-chip border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`}
             onClick={() => onChange(option)}>{text}</button>
         ))}
       </div>
@@ -444,7 +444,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
   const primary = "inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-5 text-[14.5px] font-bold text-[#2a1708] shadow-[0_8px_22px_rgb(176_125_46/35%)] disabled:cursor-default disabled:opacity-50";
   const ghost = "inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-glass-border bg-subtle px-4 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
   const chip = (on: boolean) => `inline-flex min-h-8 cursor-pointer items-center rounded-full border px-3 text-[12px] font-bold ${on ? "border-[#d9b56f] bg-[rgb(217_181_111/20%)] text-ink" : "border-glass-border bg-transparent text-muted"}`;
-  const tabButton = (on: boolean) => `flex min-h-12 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[12px] border-0 text-[11px] font-bold transition-colors ${on ? "bg-[rgb(217_181_111/16%)] text-gold-bright" : "bg-transparent text-muted"}`;
+  const tabButton = (on: boolean) => `flex min-h-12 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-control border-0 text-[11px] font-bold transition-colors ${on ? "bg-[rgb(217_181_111/16%)] text-gold-bright" : "bg-transparent text-muted"}`;
   const primaryAction = canStory
     ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
     : canShareFiles
@@ -499,7 +499,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
           <div ref={stageRef} className="flex h-full max-h-[720px] min-h-0 w-full items-center justify-center">
           <div className="relative" style={fit ? { width: fit.width, height: fit.height } : { height: "100%" }}>
             <canvas ref={previewRef} width={STORY_WIDTH} height={STORY_HEIGHT}
-              className={`block h-full w-full touch-none select-none rounded-[20px] shadow-[0_18px_50px_rgb(20_8_24/40%)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+              className={`block h-full w-full touch-none select-none rounded-card shadow-[0_18px_50px_rgb(20_8_24/40%)] ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
               aria-label="Նկարի նախադիտում. քաշեք վերնագիրը կամ տեքստը, տեքստի շրջանակի կետերով փոխեք չափը"
               onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
             {/* «Ձևավորել»-ը նկարի վրա է միայն դիտելիս. ձևավորելիս նկարը ամբողջությամբ ազատ է։ */}
@@ -524,7 +524,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
         </div>
 
         {editing ? (
-          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-[22px] border-t border-glass-border bg-[var(--page-bg)] shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-[22px] min-[860px]:border">
+          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-card border-t border-glass-border liquid-sheet shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-card min-[860px]:border">
             <nav className="grid grid-cols-3 gap-1 p-2 pb-1" aria-label="Ձևավորման բաժիններ">
               <button className={tabButton(tab === "background")} type="button" aria-pressed={tab === "background"} onClick={() => setTab("background")}><ImageIcon size={18} aria-hidden="true" />Ֆոն</button>
               <button className={tabButton(tab === "title")} type="button" aria-pressed={tab === "title"} onClick={() => setTab("title")}><Heading size={18} aria-hidden="true" />Վերնագիր</button>
@@ -538,7 +538,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
                       <button key={entry.id} type="button" aria-label={entry.label} title={entry.label} aria-pressed={entry.id === design}
                         className={`grid shrink-0 cursor-pointer justify-items-center gap-1 border-0 bg-transparent p-0 text-[10.5px] font-bold ${entry.id === design ? "text-gold-bright" : "text-muted"}`}
                         onClick={() => setDesign(entry.id)}>
-                        <span className={`block h-[92px] w-[52px] rounded-[10px] bg-cover bg-center ring-2 transition ${entry.id === design ? "ring-[#d9b56f]" : "ring-transparent"}`}
+                        <span className={`block h-[92px] w-[52px] rounded-control bg-cover bg-center ring-2 transition ${entry.id === design ? "ring-[#d9b56f]" : "ring-transparent"}`}
                           style={{ backgroundImage: `url(${storyBackground(entry.id, tone).thumb})` }} />
                         {entry.label}
                       </button>
@@ -569,14 +569,14 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
                       {units.length > 1 ? <button className={chip(picking || textMode === "custom")} type="button" aria-expanded={picking} onClick={() => setPicking(!picking)}>Ընտրել…</button> : null}
                     </div>
                     {picking ? (
-                      <ul className="m-0 grid max-h-[200px] list-none gap-1 overflow-y-auto rounded-[13px] bg-[rgb(127_127_127/10%)] p-1.5">
+                      <ul className="m-0 grid max-h-[200px] list-none gap-1 overflow-y-auto rounded-control bg-[rgb(127_127_127/10%)] p-1.5">
                         {units.map((unit, index) => {
                           const on = chosenNow.has(index);
                           return (
                             <li key={index}>
                               <button type="button" aria-pressed={on} onClick={() => toggleUnit(index)}
-                                className={`flex w-full cursor-pointer items-start gap-2 rounded-[10px] border-0 p-2 text-left text-[12.5px] leading-snug ${on ? "bg-[rgb(217_181_111/16%)] text-ink" : "bg-transparent text-muted"}`}>
-                                <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-[5px] border ${on ? "border-[#b07d2e] bg-[#d9b56f] text-[#2a1708]" : "border-glass-border"}`}>{on ? <Check size={12} aria-hidden="true" /> : null}</span>
+                                className={`flex w-full cursor-pointer items-start gap-2 rounded-control border-0 p-2 text-left text-[12.5px] leading-snug ${on ? "bg-[rgb(217_181_111/16%)] text-ink" : "bg-transparent text-muted"}`}>
+                                <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-chip border ${on ? "border-[#b07d2e] bg-[#d9b56f] text-[#2a1708]" : "border-glass-border"}`}>{on ? <Check size={12} aria-hidden="true" /> : null}</span>
                                 <span className="line-clamp-2">{unit.text}</span>
                               </button>
                             </li>

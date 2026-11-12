@@ -60,11 +60,11 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
   useEffect(() => { player.current?.play().catch(() => undefined); }, [index]);
 
   if (!video?.url) return null;
-  const step = "inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[14px] border text-[14px] font-bold disabled:cursor-default disabled:opacity-35";
+  const step = "inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-button border text-[14px] font-bold disabled:cursor-default disabled:opacity-35";
   return (
     <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-[2100] grid place-items-center bg-[rgb(20_12_6/62%)] p-3 backdrop-blur-[6px] animate-glass-enter" role="dialog" aria-modal="true" aria-label={video.title}
       onClick={(event) => { if (event.target === event.currentTarget && mode === "help") onClose(); }}>
-      <div className="grid w-full max-w-[400px] gap-3 rounded-[24px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 shadow-[0_24px_60px_rgb(20_10_4/45%)]">
+      <div className="grid w-full max-w-[400px] gap-3 rounded-panel border border-[rgb(217_181_111/45%)] liquid-sheet p-3 shadow-[0_24px_60px_rgb(20_10_4/45%)]">
         <div className="flex items-start gap-2 px-1 pt-1">
           <div className="grid min-w-0 flex-1 gap-0.5">
             <span className="text-[11.5px] font-bold tracking-[1.2px] text-gold uppercase">{mode === "onboarding" ? "Ինչպես օգտվել կայքից" : "Օգնություն"}</span>
@@ -78,7 +78,7 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
         </div>
         {/* Շրջանակը ունի կայուն չափ (9:16, էկրանի բարձրության 62%-ը), որ տեսանյութը բեռնվելիս
             պատուհանը չփոքրանա ու չմեծանա. տեսանյութը լցվում է շրջանակի մեջ։ */}
-        <div className="relative mx-auto aspect-[9/16] h-[min(62svh,640px)] max-w-full overflow-hidden rounded-[16px] bg-[#e9dcc0]">
+        <div className="relative mx-auto aspect-[9/16] h-[min(62svh,640px)] max-w-full overflow-hidden rounded-button bg-[#e9dcc0]">
           <video key={video.url} ref={player} className="absolute inset-0 block size-full object-contain"
             src={video.url} controls autoPlay muted playsInline preload="metadata" />
         </div>

@@ -61,6 +61,8 @@ import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
+import { buildSearchVocabulary, correctSearchQuery, type SearchCorrection, type SearchVocabulary } from "../../shared/search-correction";
+import { searchVocabulary } from "../data/search-correction.server";
 import { PLACE_KINDS, placeThumbUrl, type PlaceKind } from "../utils/places";
 import { useRememberFind } from "../utils/find-flash";
 
@@ -132,6 +134,27 @@ function placesSectionRedirect(href: string) {
   if (url.searchParams.get("category") !== PLACES_SECTION) return;
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   throw redirect(query ? `/places?q=${encodeURIComponent(query)}` : "/places");
+}
+
+const EXACT_MATCHES = new Set(["exact-token", "exact-primary", "message-id"]);
+
+/**
+ * «Գուցե նկատի ունեիք…». լատինատառ կամ սխալ գրված որոնման համար՝ ուղղված բառը։
+ * Լատինատառը կամ ոչինչ չգտած որոնումը ինքնաբերաբար բացվում է ուղղվածով (?asked=-ում՝ ինչ գրել էր
+ * մարդը), մնացած դեպքերում ուղղումը միայն առաջարկվում է։ ?exact=1՝ որոնել ճիշտ գրածը։
+ */
+function searchCorrection(url: URL, materials: SearchMaterial[], vocabulary: SearchVocabulary | null): { redirectTo: string | null; correction: SearchCorrection | null } {
+  const query = (url.searchParams.get("q") ?? "").trim();
+  if (!vocabulary || !query || url.searchParams.has("exact") || url.searchParams.has("asked") || url.searchParams.has("cursor") || url.searchParams.get("scope") === "saved") return { redirectTo: null, correction: null };
+  if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
+  const correction = correctSearchQuery(query, vocabulary);
+  if (correction.corrected && (correction.latin || materials.length === 0)) {
+    const next = new URL(url);
+    next.searchParams.set("q", correction.corrected);
+    next.searchParams.set("asked", query);
+    return { redirectTo: `${next.pathname}${next.search}`, correction };
+  }
+  return { redirectTo: null, correction };
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -248,6 +271,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     };
   });
   const personalMaterials = [...noteById.values()].sort(stableSearchOrder);
+  const vocabulary = hasSearchQuery && scope === "library" ? await searchVocabulary(env.DB).catch(() => null) : null;
+  const { redirectTo, correction } = searchCorrection(url, telegramMaterials, vocabulary);
+  if (redirectTo) throw redirect(redirectTo);
   const materials = (scope === "saved" ? savedPageMaterials : telegramMaterials).sort(stableSearchOrder);
   const total = scope === "saved"
     ? savedMatches.length
@@ -279,6 +305,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     canSave: Boolean(user),
     highlightQuery: resolvedQuery.highlightQuery,
     correctedQuery: resolvedQuery.correctedQuery,
+    askedQuery: url.searchParams.get("asked")?.slice(0, 120) ?? "",
+    didYouMean: correction?.corrected ?? "",
+    similarWords: correction?.similar ?? [],
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: await getTelegramUserCacheScope(user),
     titlesOnly: false,
@@ -291,6 +320,15 @@ type SearchLoaderData = Awaited<ReturnType<typeof loader>>;
  * Titles are searched on the phone (utils/local-search.ts), with no request; the texts only on the
  * server, when no title answers or the reader asks for them («Փնտրել նաև տեքստերում», &text=1).
  */
+// Հեռախոսի բառարանը՝ վերնագրերի ցուցակից, մեկ անգամ ամեն տարբերակի համար։
+let phoneVocabularyCache: { version: string; vocabulary: SearchVocabulary } | null = null;
+function phoneVocabulary(index: { version: string; index: { categories: Record<string, [string, string]>; items: Array<[string, string, string, ...unknown[]]> } }) {
+  if (phoneVocabularyCache?.version !== index.version) {
+    phoneVocabularyCache = { version: index.version, vocabulary: buildSearchVocabulary([...Object.values(index.index.categories).map(([name]) => name), ...index.index.items.map((item) => item[2])]) };
+  }
+  return phoneVocabularyCache.vocabulary;
+}
+
 async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
   const url = new URL(href);
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
@@ -300,6 +338,8 @@ async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
   const index = await loadSearchIndex();
   if (!index) return null;
   const materials = searchTitles(index, query, categoryId);
+  const { redirectTo, correction } = searchCorrection(url, materials, phoneVocabulary(index));
+  if (redirectTo) throw redirect(redirectTo);
   if (materials.length === 0) return null;
   const root = rootSearchState();
   return {
@@ -314,6 +354,9 @@ async function searchOnPhone(href: string): Promise<SearchLoaderData | null> {
     canSave: root.signedIn,
     highlightQuery: normalizeTelegramSearchText(translateQuery(query)),
     correctedQuery: "",
+    askedQuery: url.searchParams.get("asked")?.slice(0, 120) ?? "",
+    didYouMean: correction?.corrected ?? "",
+    similarWords: correction?.similar ?? [],
     navigationCacheKey: `${url.pathname}${url.search}`,
     navigationCacheScope: "phone",
     titlesOnly: true,
@@ -333,6 +376,30 @@ export async function clientLoader({ request, serverLoader }: Route.ClientLoader
   return loadNavigationData("search-results", request.url, async () => await serverLoader() as SearchLoaderData);
 }
 clientLoader.hydrate = true as const;
+
+/** «Ցույց ենք տալիս…», «Գուցե նկատի ունեիք…» և նման բառեր՝ սեղմելու համար։ */
+function SearchHelp({ query, asked, didYouMean, similar, hrefFor }: {
+  query: string; asked: string; didYouMean: string; similar: string[]; hrefFor: (query: string, exact?: boolean) => string;
+}) {
+  const words = similar.filter((word) => word !== query && word !== didYouMean);
+  if (!asked && !didYouMean && !words.length) return null;
+  const chip = "inline-flex min-h-8 items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] px-3 text-[13px] font-semibold text-gold-bright no-underline hover:bg-[rgb(217_181_111/18%)]";
+  return (
+    <div className="mx-1 mt-3 grid gap-2 text-[13px] leading-snug text-muted" role="status">
+      {asked ? (
+        <p className="m-0">
+          Ցույց ենք տալիս <strong className="text-gold-bright">«{query}»</strong>-ի արդյունքները։{" "}
+          <Link className="text-faint underline underline-offset-2" to={hrefFor(asked, true)}>Փնտրել հենց «{asked}»</Link>
+        </p>
+      ) : didYouMean ? (
+        <p className="m-0 flex flex-wrap items-center gap-2">Գուցե նկատի ունեիք՝ <Link className={chip} to={hrefFor(didYouMean)}>{didYouMean}</Link></p>
+      ) : null}
+      {words.length ? (
+        <p className="m-0 flex flex-wrap items-center gap-1.5">Նման բառեր՝ {words.map((word) => <Link key={word} className={chip} to={hrefFor(word)}>{word}</Link>)}</p>
+      ) : null}
+    </div>
+  );
+}
 
 const SearchForm = memo(function SearchForm({
   categories,
@@ -383,7 +450,7 @@ const SearchForm = memo(function SearchForm({
       {filters.scope === "saved" ? (
         <input type="hidden" name="scope" value="saved" />
       ) : null}
-      <div className="relative flex min-h-[52px] w-full min-w-0 items-center gap-2.5 rounded-2xl border border-glass-border bg-control pl-[13px] text-faint">
+      <div className="search-field relative pr-[6px] pl-[14px]">
         <SearchSuggestions categoryId={filters.categoryId} inputRef={inputRef} onPick={submitImmediately} />
         <SearchIcon aria-hidden="true" size={20} strokeWidth={1.9} />
         <input
@@ -400,8 +467,8 @@ const SearchForm = memo(function SearchForm({
           aria-describedby={error ? "search-error" : undefined}
           onInput={clearError}
         />
-        {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-[10px] text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
-        <button className="m-[5px] min-h-10 self-stretch rounded-xl border border-[rgb(240_211_151/24%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 font-[750] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)] disabled:cursor-wait disabled:opacity-70" type="submit" aria-label="Որոնել" disabled={isSearching}>
+        {filters.query ? <Link className="grid size-9 shrink-0 place-items-center rounded-control text-muted no-underline hover:text-gold-bright" to={getClearQueryHref(filters)} aria-label="Մաքրել որոնումը"><X aria-hidden="true" size={17} /></Link> : null}
+        <button className="search-go disabled:cursor-wait" type="submit" aria-label="Որոնել" disabled={isSearching}>
           {isSearching ? (
             <LoaderCircle className="animate-search-spin" aria-hidden="true" size={18} />
           ) : (
@@ -412,7 +479,7 @@ const SearchForm = memo(function SearchForm({
 
       {error ? <p id="search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
       <details
-        className="group w-full min-w-0 overflow-hidden rounded-2xl border border-glass-border bg-subtle"
+        className="group w-full min-w-0 overflow-hidden rounded-button border border-glass-border bg-subtle"
         open={Boolean(
           filters.categoryId ||
             filters.dateFrom ||
@@ -473,7 +540,7 @@ function DateField({ name, label, value, onChange }: { name: string; label: stri
   const [current, setCurrent] = useState(value);
   const shown = current ? `${Number(current.slice(8))} ${DATE_MONTHS[Number(current.slice(5, 7)) - 1]} ${current.slice(0, 4)}` : "Ընտրել";
   return (
-    <label className="relative grid cursor-pointer gap-0.5 rounded-[14px] border border-glass-border bg-control px-3 py-1.5">
+    <label className="relative grid cursor-pointer gap-0.5 rounded-button border border-glass-border bg-control px-3 py-1.5">
       <span className="text-[11px] font-semibold text-muted">{label}</span>
       <span className={`text-[14px] ${current ? "text-ink" : "text-faint"}`}>{shown}</span>
       <input
@@ -656,11 +723,13 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         filters={filters}
       />
 
-      {loaderData.correctedQuery ? (
-        <p className="mx-1 mt-3 mb-0 text-[13px] text-muted [&_strong]:text-gold-bright" role="status">
-          Որոնումը ներառում է նաև տառադարձումը՝ <strong>{loaderData.correctedQuery}</strong>
-        </p>
-      ) : null}
+      <SearchHelp
+        query={filters.query}
+        asked={loaderData.askedQuery}
+        didYouMean={loaderData.didYouMean}
+        similar={loaderData.similarWords}
+        hrefFor={(q, exact) => getPageHref({ ...filters, query: q }) + (exact ? "&exact=1" : "")}
+      />
 
       {filters.query && !filters.categoryId && filters.scope === "library" && loaderData.canSave ? <NoteMatches query={filters.query} /> : null}
       {filters.query && !filters.categoryId && filters.scope === "library" ? <PlaceMatches query={filters.query} /> : null}
@@ -674,7 +743,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         ) : null}
         {/* Found on the phone among the titles: the texts are one tap (and one request) away. */}
         {loaderData.titlesOnly && !isRefreshing ? (
-          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[14px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)] px-4 text-[13px] font-bold text-gold-bright no-underline" to={`${getPageHref(filters)}&text=1`}>
+          <Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-button border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)] px-4 text-[13px] font-bold text-gold-bright no-underline" to={`${getPageHref(filters)}&text=1`}>
             <SearchIcon aria-hidden="true" size={16} /> Փնտրել նաև տեքստերում
           </Link>
         ) : null}
@@ -693,7 +762,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
             {filters.categoryId && filters.query ? (
               <Link
-                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
+                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
               >
                 Փորձել բոլոր բաժիններում <ArrowRight aria-hidden="true" size={16} />
@@ -706,7 +775,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
               <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
                 {/* Say so when nothing has the exact word, and that these are the closest matches. */}
                 {filters.query && !telegramResults.some((item) => item.scoreCategory === "exact-token" || item.scoreCategory === "exact-primary" || item.scoreCategory === "message-id") ? (
-                  <p className="m-0 rounded-[14px] border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
+                  <p className="m-0 rounded-button border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
                     «<strong>{filters.query}</strong>» բառով ճշգրիտ համընկնում չգտնվեց։ Ահա ամենամոտ արդյունքները։
                   </p>
                 ) : null}
@@ -823,7 +892,7 @@ function PlaceMatches({ query }: { query: string }) {
         {found.places.map((place) => (
           <li key={place.id}>
             <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
-              <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-[10px] bg-[#efe3c8]">
+              <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
                 {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
               </span>
               <span className="grid min-w-0 gap-0.5">

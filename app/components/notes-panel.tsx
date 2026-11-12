@@ -39,8 +39,8 @@ function NoteCard({ item, onOpen }: { item: Highlight; onOpen: () => void }) {
           {item.emoji || question ? <span className="text-[18px] leading-none" aria-hidden="true">{firstEmoji(item.emoji) || "❓"}</span> : null}
           <span className="prayer-text line-clamp-4 flex-1 text-[15px] leading-[1.65]">«{item.quote}»</span>
         </span>
-        {item.note ? <span className="line-clamp-2 rounded-[10px] bg-subtle px-2.5 py-1.5 text-[13px] leading-snug text-muted">{question ? "" : "✎ "}{item.note}</span> : null}
-        {question && item.answeredAt && item.answer ? <span className="line-clamp-2 rounded-[10px] bg-[rgb(74_160_96/10%)] px-2.5 py-1.5 text-[13px] leading-snug text-[rgb(52_130_74)]">✓ {item.answer}</span> : null}
+        {item.note ? <span className="line-clamp-2 rounded-control bg-subtle px-2.5 py-1.5 text-[13px] leading-snug text-muted">{question ? "" : "✎ "}{item.note}</span> : null}
+        {question && item.answeredAt && item.answer ? <span className="line-clamp-2 rounded-control bg-[rgb(74_160_96/10%)] px-2.5 py-1.5 text-[13px] leading-snug text-[rgb(52_130_74)]">✓ {item.answer}</span> : null}
         <span className="flex flex-wrap items-center gap-x-2 text-[11.5px] text-faint">
           <span className="line-clamp-1 font-semibold text-gold-bright">{item.title}</span>
           <span>· {formatNoteDate(item.createdAt)}</span>

@@ -79,7 +79,7 @@ function SectionTop({ image }: { image: string }) {
         <ArtImage className="block h-full w-full object-cover" src={image} width={1774} height={887} decoding="async" alt="" />
       </div>
       <div className="grid justify-items-center gap-[9px]">
-        <Bone className="my-[2px] h-[28px] w-52 rounded-[10px] min-[768px]:h-[36px] min-[768px]:w-72" />
+        <Bone className="my-[2px] h-[28px] w-52 rounded-control min-[768px]:h-[36px] min-[768px]:w-72" />
         <img src={divider2} alt="" width={1200} height={126} decoding="async" className="h-[40px] w-full object-contain" />
         <SearchBox />
       </div>
@@ -89,10 +89,10 @@ function SectionTop({ image }: { image: string }) {
 
 function SearchBox() {
   return (
-    <span className="flex min-h-[50px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[12px] shadow-card">
+    <span className="flex min-h-[50px] w-full items-center gap-[10px] rounded-button border border-glass-border bg-control px-[12px] shadow-card">
       <Bone className="size-[18px] rounded-full" />
       <Bone className="h-3.5 w-1/2 rounded-full" />
-      <Bone className="ml-auto size-9 rounded-xl" />
+      <Bone className="ml-auto size-9 rounded-control" />
     </span>
   );
 }
@@ -171,7 +171,7 @@ function SectionBody({ section }: { section: Section }) {
         <div className="grid gap-2">
           <Bone className="ml-1 h-3 w-28 rounded-full" />
           <ol className="m-0 grid list-none grid-cols-6 gap-1.5 p-0 min-[420px]:grid-cols-7 min-[640px]:grid-cols-10 min-[960px]:grid-cols-12">
-            {repeat(60, (index) => <li key={index} className="page-bone aspect-square rounded-[12px]" />)}
+            {repeat(60, (index) => <li key={index} className="page-bone aspect-square rounded-control" />)}
           </ol>
         </div>
       );
@@ -180,7 +180,7 @@ function SectionBody({ section }: { section: Section }) {
       return (
         <ol className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 min-[720px]:grid-cols-3">
           {repeat(6, (index) => (
-            <li key={index} className="relative aspect-[3/4] overflow-hidden rounded-[18px] border border-glass-border bg-[rgb(217_181_111/6%)]">
+            <li key={index} className="relative aspect-[3/4] overflow-hidden rounded-card border border-glass-border bg-[rgb(217_181_111/6%)]">
               <Bone className="absolute inset-0 opacity-60" />
               <span className="absolute inset-x-0 bottom-0 grid justify-items-center gap-2 p-3">
                 <span className="h-px w-10 bg-[rgb(217_181_111/70%)]" />
@@ -197,7 +197,7 @@ function SectionBody({ section }: { section: Section }) {
         <ol className={twoColumns}>
           {repeat(4, (index) => (
             <li key={index} className="frosted-card grid gap-[11px] p-[10px] pb-[14px]">
-              <span className="relative grid aspect-video place-items-center overflow-hidden rounded-[14px] border border-glass-border bg-[rgb(217_181_111/6%)]">
+              <span className="relative grid aspect-video place-items-center overflow-hidden rounded-button border border-glass-border bg-[rgb(217_181_111/6%)]">
                 <Bone className="absolute inset-0 opacity-50" />
                 <span className="relative size-12 rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(217_181_111/10%)]" />
               </span>
@@ -213,8 +213,8 @@ function SectionBody({ section }: { section: Section }) {
           {repeat(4, (index) => (
             <li key={index} className="frosted-card grid gap-3 p-4">
               <span className="grid grid-cols-[78px_1fr] items-center gap-3.5">
-                <span className="grid h-[68px] content-center justify-items-center gap-2 rounded-[16px] border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
-                  <Bone className="h-6 w-8 rounded-[8px]" />
+                <span className="grid h-[68px] content-center justify-items-center gap-2 rounded-button border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
+                  <Bone className="h-6 w-8 rounded-chip" />
                   <Bone className="h-2 w-12 rounded-full" />
                 </span>
                 <span className="grid gap-2"><Bone className="h-2.5 w-16 rounded-full" /><Bone className="h-4 w-4/5 rounded-full" /></span>
@@ -254,7 +254,7 @@ function SectionBody({ section }: { section: Section }) {
         <ol className={twoColumns}>
           {repeat(6, (index) => (
             <li key={index} className="frosted-card grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] p-3 min-[560px]:grid-cols-[96px_minmax(0,1fr)]">
-              <Bone className="aspect-[4/3] w-full rounded-[12px]" />
+              <Bone className="aspect-[4/3] w-full rounded-control" />
               <span className="grid gap-2 pt-1"><Bone className="h-5 w-16 rounded-full" /><Bone className="h-4 w-11/12 rounded-full" /><Bone className="h-3 w-3/4 rounded-full" /></span>
             </li>
           ))}
@@ -284,7 +284,7 @@ function TitleTop() {
   return (
     <div className="grid justify-items-center gap-2 py-[5px] min-[560px]:pt-[24px] min-[560px]:pb-[20px]">
       <BackRow />
-      <Bone className="mt-1 h-[24px] w-3/5 max-w-[360px] rounded-[10px] min-[560px]:h-[30px]" />
+      <Bone className="mt-1 h-[24px] w-3/5 max-w-[360px] rounded-control min-[560px]:h-[30px]" />
     </div>
   );
 }
@@ -295,8 +295,8 @@ const reading = "frosted-panel grid gap-3 px-4 py-5 min-[560px]:px-7 min-[560px]
 function MaterialActions() {
   return (
     <>
-      <Bone className="h-12 w-full rounded-[16px] opacity-70" />
-      <span className="grid grid-cols-4 gap-2">{repeat(4, (index) => <span key={index} className="action-tile grid min-h-[64px] place-items-center rounded-[16px]"><span className="grid justify-items-center gap-1.5"><Bone className="size-5 rounded-[6px]" /><Bone className="h-2.5 w-10 rounded-full" /></span></span>)}</span>
+      <Bone className="h-12 w-full rounded-button opacity-70" />
+      <span className="grid grid-cols-4 gap-2">{repeat(4, (index) => <span key={index} className="action-tile grid min-h-[64px] place-items-center rounded-button"><span className="grid justify-items-center gap-1.5"><Bone className="size-5 rounded-chip" /><Bone className="h-2.5 w-10 rounded-full" /></span></span>)}</span>
     </>
   );
 }
@@ -339,7 +339,7 @@ function MaterialBody({ section }: { section: Section }) {
       return (
         <>
           <div className={reading}>
-            <span className="flex justify-between"><Bone className="h-3 w-36 rounded-full" /><Bone className="h-8 w-32 rounded-[12px]" /></span>
+            <span className="flex justify-between"><Bone className="h-3 w-36 rounded-full" /><Bone className="h-8 w-32 rounded-control" /></span>
             <span className="grid justify-items-center gap-3 border-b border-[rgb(217_181_111/32%)] pt-2 pb-4"><Bone className="h-4 w-32 rounded-full" /></span>
             {repeat(4, (verse) => (
               <span key={verse} className="grid grid-cols-[18px_1fr] gap-x-2 gap-y-3 pt-2">
@@ -357,7 +357,7 @@ function MaterialBody({ section }: { section: Section }) {
         <>
           <div className={reading}>
             <span className="grid grid-cols-[56px_1fr] gap-x-3">
-              <Bone className="size-14 rounded-[14px]" />
+              <Bone className="size-14 rounded-button" />
               <Lines count={3} className="h-4" last="w-full" />
             </span>
             <Lines count={6} className="h-4" />
@@ -386,10 +386,10 @@ function Home() {
       <div className="grid justify-items-center gap-3 pt-1 pb-2 text-center">
         <Ornament />
         <p className="m-0 whitespace-nowrap font-noto text-[clamp(26px,8.4vw,36px)] leading-[1.12] font-medium tracking-[-0.6px] text-ink min-[560px]:text-[46px] min-[960px]:text-[56px]">Հոգևոր ժառանգություն</p>
-        <Bone className="h-12 w-full max-w-[330px] rounded-[18px]" />
+        <Bone className="h-12 w-full max-w-[330px] rounded-card" />
       </div>
       <div className="mt-2 grid justify-items-center gap-2.5 py-3"><Bone className="h-2.5 w-36 rounded-full" /><Lines count={3} className="h-4 max-w-[420px]" last="w-1/2" center /></div>
-      <span className="mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] rounded-[16px] border border-glass-border bg-control px-[14px] shadow-card"><Bone className="size-[18px] rounded-full" /><Bone className="h-3.5 w-1/2 rounded-full" /></span>
+      <span className="mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] rounded-button border border-glass-border bg-control px-[14px] shadow-card"><Bone className="size-[18px] rounded-full" /><Bone className="h-3.5 w-1/2 rounded-full" /></span>
       <div className="mt-4 grid gap-3">
         <Bone className="ml-1 h-3 w-20 rounded-full" />
         <ol className="m-0 grid list-none gap-2.5 p-0 min-[560px]:grid-cols-2 min-[960px]:grid-cols-3">
@@ -414,7 +414,7 @@ function SettingPanel({ options }: { options: number }) {
         <Bone className="size-[34px] rounded-full" />
         <span className="grid gap-2 pt-1"><Bone className="h-4 w-28 rounded-full" /><Bone className="h-3 w-full rounded-full" /><Bone className="h-3 w-2/3 rounded-full" /></span>
       </span>
-      {options ? <span className={`grid gap-1 rounded-[16px] border border-glass-border p-1 ${options === 4 ? "grid-cols-4" : "grid-cols-2"}`}>{repeat(options, (index) => <span key={index} className="grid h-14 place-items-center"><span className="grid justify-items-center gap-1.5"><Bone className="size-4 rounded-full" /><Bone className="h-2.5 w-12 rounded-full" /></span></span>)}</span> : <Bone className="h-2 w-full rounded-full" />}
+      {options ? <span className={`grid gap-1 rounded-button border border-glass-border p-1 ${options === 4 ? "grid-cols-4" : "grid-cols-2"}`}>{repeat(options, (index) => <span key={index} className="grid h-14 place-items-center"><span className="grid justify-items-center gap-1.5"><Bone className="size-4 rounded-full" /><Bone className="h-2.5 w-12 rounded-full" /></span></span>)}</span> : <Bone className="h-2 w-full rounded-full" />}
     </div>
   );
 }
@@ -438,7 +438,7 @@ function Content({ kind }: { kind: Kind }) {
           <TitleTop />
           <div className="mt-4 grid gap-4">
             <div className="frosted-panel grid justify-items-center gap-3 px-5 py-8 min-[560px]:px-9 min-[560px]:py-10"><Bone className="mb-2 h-3 w-24 rounded-full" /><Lines count={3} className="h-5" last="w-2/3" center /></div>
-            <Bone className="h-12 w-full rounded-[16px] opacity-70" />
+            <Bone className="h-12 w-full rounded-button opacity-70" />
             <span className="flex justify-between"><Bone className="h-9 w-16 rounded-full" /><Bone className="h-9 w-24 rounded-full" /><Bone className="h-9 w-16 rounded-full" /></span>
           </div>
         </>
@@ -448,7 +448,7 @@ function Content({ kind }: { kind: Kind }) {
         <>
           <PageHeader backTo="/" backLabel="Գրադարան" showSearch={false} title="Որոնում" eyebrow="Ամբողջ գրադարանը" />
           <div className="mx-auto mt-2 grid w-full max-w-[520px] justify-items-center gap-2"><Bone className="h-3.5 w-full rounded-full" /><Bone className="h-3.5 w-2/3 rounded-full" /></div>
-          <div className="frosted-panel mt-4 grid gap-3 p-3"><span className="flex min-h-[52px] items-center gap-3 rounded-[16px] border border-glass-border bg-control px-3"><Bone className="size-[18px] rounded-full" /><Bone className="h-3.5 w-1/2 rounded-full" /><Bone className="ml-auto size-10 rounded-[12px]" /></span><Bone className="h-11 w-full rounded-[14px] opacity-70" /></div>
+          <div className="frosted-panel mt-4 grid gap-3 p-3"><span className="flex min-h-[52px] items-center gap-3 rounded-button border border-glass-border bg-control px-3"><Bone className="size-[18px] rounded-full" /><Bone className="h-3.5 w-1/2 rounded-full" /><Bone className="ml-auto size-10 rounded-control" /></span><Bone className="h-11 w-full rounded-button opacity-70" /></div>
           <div className="frosted-panel mt-4 grid gap-3 p-5"><Bone className="size-6 rounded-full" /><Bone className="h-4 w-48 rounded-full" /><Lines count={2} className="h-3" /></div>
         </>
       );
@@ -458,8 +458,8 @@ function Content({ kind }: { kind: Kind }) {
           <SectionTop image={MY_CORNER_IMAGE} />
           <div className="frosted-panel grid gap-3 p-4">
             <span className="flex items-center justify-between"><span className="grid gap-2"><Bone className="h-4 w-40 rounded-full" /><Bone className="h-3 w-24 rounded-full" /></span><Bone className="h-8 w-14 rounded-full" /></span>
-            <Bone className="h-14 w-full rounded-[14px] opacity-70" />
-            <span className="grid grid-cols-7 gap-1.5">{repeat(28, (index) => <span key={index} className="page-bone aspect-square rounded-[12px]" />)}</span>
+            <Bone className="h-14 w-full rounded-button opacity-70" />
+            <span className="grid grid-cols-7 gap-1.5">{repeat(28, (index) => <span key={index} className="page-bone aspect-square rounded-control" />)}</span>
           </div>
         </>
       );
@@ -476,21 +476,21 @@ function Content({ kind }: { kind: Kind }) {
           <PageHeader backTo="/" backLabel="Գրադարան" title="Սրբավայրեր" />
           <div className="mx-auto grid w-full max-w-[520px] justify-items-center gap-2"><Bone className="h-3.5 w-full rounded-full" /><Bone className="h-3.5 w-3/4 rounded-full" /></div>
           <div className="mx-auto mt-4 grid w-full max-w-[1040px] gap-3">
-            <span className="flex gap-2"><span className="frosted-panel grid flex-1 grid-cols-3 gap-1 rounded-[18px] p-1.5">{repeat(3, (index) => <span key={index} className="grid h-11 place-items-center"><span className="grid justify-items-center gap-1.5"><Bone className="h-4 w-6 rounded-full" /><Bone className="h-2 w-14 rounded-full" /></span></span>)}</span><Bone className="size-[58px] rounded-[18px]" /></span>
+            <span className="flex gap-2"><span className="frosted-panel grid flex-1 grid-cols-3 gap-1 rounded-card p-1.5">{repeat(3, (index) => <span key={index} className="grid h-11 place-items-center"><span className="grid justify-items-center gap-1.5"><Bone className="h-4 w-6 rounded-full" /><Bone className="h-2 w-14 rounded-full" /></span></span>)}</span><Bone className="size-[58px] rounded-card" /></span>
             <span className="block aspect-[1/0.92] max-h-[min(78svh,720px)] min-h-[320px] w-full p-[14px] min-[860px]:aspect-auto min-[860px]:h-[min(72svh,560px)]"><ArmeniaOutline /></span>
           </div>
           <Bone className="mx-auto mt-4 h-11 w-64 rounded-full" />
-          <div className="mt-5 grid grid-cols-2 gap-2"><Bone className="col-span-2 h-12 rounded-[18px]" />{repeat(6, (index) => <Bone key={index} className="h-14 rounded-[18px]" />)}</div>
+          <div className="mt-5 grid grid-cols-2 gap-2"><Bone className="col-span-2 h-12 rounded-card" />{repeat(6, (index) => <Bone key={index} className="h-14 rounded-card" />)}</div>
         </>
       );
     case "place":
       return (
         <>
-          <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={<Bone className="mx-auto h-[26px] w-52 rounded-[10px]" />} />
+          <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={<Bone className="mx-auto h-[26px] w-52 rounded-control" />} />
           <Bone className="mx-auto mt-1 mb-4 h-3 w-48 rounded-full" />
           <div className="grid gap-4">
-            <Bone className="mx-auto aspect-[4/3] w-full max-w-[720px] rounded-[18px]" />
-            <Bone className="mx-auto h-11 w-full max-w-[420px] rounded-[14px] opacity-70" />
+            <Bone className="mx-auto aspect-[4/3] w-full max-w-[720px] rounded-card" />
+            <Bone className="mx-auto h-11 w-full max-w-[420px] rounded-button opacity-70" />
             {repeat(2, (index) => <div key={index} className="frosted-panel grid gap-3 p-5"><Bone className="h-4 w-32 rounded-full" /><Lines count={3} /></div>)}
           </div>
         </>

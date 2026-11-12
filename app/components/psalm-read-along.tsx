@@ -227,7 +227,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
   };
 
   const following = active >= 0;
-  const button = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-[12px] border px-3 text-[12.5px] font-bold disabled:opacity-50";
+  const button = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-control border px-3 text-[12.5px] font-bold disabled:opacity-50";
   return (
     <div className="grid gap-3">
       {canMark && !marking ? (
@@ -246,7 +246,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
           <p
             key={index}
             ref={(element) => { lineRefs.current[index] = element; }}
-            className={`-mx-2 m-0 cursor-pointer rounded-[10px] px-2 py-0.5 transition-[color,background-color,opacity,box-shadow] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "rounded-none opacity-100 shadow-[inset_3px_0_0_rgb(217_181_111/90%)]" : verseOf[index] === selected ? "" : "opacity-45" : ""} ${selected !== null && verseOf[index] === selected ? "underline decoration-[rgb(217_181_111/85%)] decoration-dotted decoration-2 underline-offset-[6px] opacity-100" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
+            className={`-mx-2 m-0 cursor-pointer rounded-control px-2 py-0.5 transition-[color,background-color,opacity,box-shadow] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "rounded-none opacity-100 shadow-[inset_3px_0_0_rgb(217_181_111/90%)]" : verseOf[index] === selected ? "" : "opacity-45" : ""} ${selected !== null && verseOf[index] === selected ? "underline decoration-[rgb(217_181_111/85%)] decoration-dotted decoration-2 underline-offset-[6px] opacity-100" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
             data-verse={verseOf[index] >= 0 ? verseNumbers[verseOf[index]] : undefined}
             onClick={() => onLineClick(index)}
           >
@@ -258,7 +258,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 
 
       {marking ? (
-        <div className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-[18px] border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
+        <div className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
           <p className="m-0 text-[12px] leading-snug text-muted">
             Լսեք ձայնագրությունը և սեղմեք <strong className="text-ink">«Հաջորդ համարը»</strong> հենց որ սկսվի նոր համարը (համակարգչում՝ Space)։ Սխալը ուղղելու համար սեղմեք տողի վրա՝ ճիշտ պահին։
           </p>

@@ -423,8 +423,8 @@ export function HighlightLayer() {
   const length = sources().reduce((total, source) => total + source.quote.length, 0);
   const tooLong = spans.length > 0 && sources().some((source) => source.quote.length > QUOTE_MAX);
   const single = spans.length === 1;
-  const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-[14px] border-0 bg-subtle text-ink disabled:opacity-50";
-  const main = "inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-[14px] border-0 px-1.5 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
+  const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-button border-0 bg-subtle text-ink disabled:opacity-50";
+  const main = "inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-button border-0 px-1.5 text-[13px] font-bold disabled:cursor-default disabled:opacity-50";
 
   if (typeof document === "undefined") return null;
   return (
@@ -442,13 +442,13 @@ export function HighlightLayer() {
       {spans.length && place && !open && !askSignIn && expanded ? createPortal(
         <div className="absolute z-[2040]" style={{ top: place.top, left: place.left, width: place.width, transform: place.above ? "translateY(-100%)" : undefined }} data-highlight-bar>
           <div className={`${closing ? "highlight-pop-out" : "highlight-pop"} relative`} data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
-            <span className="absolute size-3.5 rotate-45 border-[rgb(217_181_111/55%)] bg-[var(--page-bg)]" aria-hidden="true"
+            <span className="absolute size-3.5 rotate-45 border-[var(--frost-border)] glass-arrow" aria-hidden="true"
               style={{ left: place.arrow - 7, ...(place.above ? { bottom: -7, borderRightWidth: 1, borderBottomWidth: 1 } : { top: -7, borderLeftWidth: 1, borderTopWidth: 1 }) }} />
-            <div className="relative grid gap-1.5 rounded-[18px] border border-[rgb(217_181_111/55%)] bg-[var(--page-bg)] p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
+            <div className="relative grid gap-1.5 rounded-card border border-[rgb(217_181_111/55%)] liquid-sheet p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
               onMouseDown={(event) => event.preventDefault()}>
               {tooLong ? <p className="m-0 px-1 text-center text-[11.5px] text-muted">Շատ երկար է. ընտրեք ավելի կարճ (մինչև {QUOTE_MAX} նշան)։</p> : null}
               <div className="flex items-center gap-1">
-                <button className={`${main} bg-[rgb(250_214_92/34%)]`} type="button" disabled={tooLong || busy} onClick={() => void save("mark")}><Highlighter aria-hidden="true" size={17} /> Պահել</button>
+                <button className={`${main} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[inset_0_1px_0_rgb(255_255_255/45%)]`} type="button" disabled={tooLong || busy} onClick={() => void save("mark")}><Highlighter aria-hidden="true" size={17} /> Պահել</button>
                 <button className={icon} type="button" onClick={() => void copy()} aria-label="Պատճենել" title="Պատճենել"><Copy aria-hidden="true" size={17} /></button>
                 {single && psalm?.path ? <button className={icon} type="button" onClick={() => void share()} aria-label="Կիսվել համարով" title="Կիսվել"><Share2 aria-hidden="true" size={17} /></button> : null}
                 {single && psalm?.audio ? <button className={`${icon} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={listen} aria-label="Լսել այստեղից" title="Լսել այստեղից"><Play aria-hidden="true" size={17} /></button> : null}
@@ -464,7 +464,7 @@ export function HighlightLayer() {
       {toast && !spans.length && !open ? createPortal(
         // Հուշումները վերևից են գալիս, որ չծածկեն էջի ներքևի կոճակները (Կիսվել, Պահել)։
         <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2040] flex justify-center px-3" role="status" data-highlight-bar>
-          <div className="highlight-toast pointer-events-auto flex max-w-[440px] items-center gap-2 rounded-full border border-[rgb(217_181_111/45%)] bg-[var(--page-bg)] py-1.5 pr-1.5 pl-4 text-[13px] text-ink shadow-[0_14px_36px_rgb(40_20_10/24%)]">
+          <div className="highlight-toast pointer-events-auto flex max-w-[440px] items-center gap-2 rounded-full border border-[rgb(217_181_111/45%)] liquid-sheet py-1.5 pr-1.5 pl-4 text-[13px] text-ink shadow-[0_14px_36px_rgb(40_20_10/24%)]">
             <span className="py-1.5">{toast.text}</span>
             {toast.item ? (
               <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1 rounded-full border-0 bg-[rgb(217_181_111/16%)] px-3 text-[12.5px] font-bold text-gold-bright" type="button"

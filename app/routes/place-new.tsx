@@ -147,7 +147,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
           <p className="m-0 text-[15px] leading-relaxed text-ink">{target ? `Ուղարկված է։ Թիմը կստուգի տեղեկությունը, և հաստատելուց հետո այն կավելանա «${target.name}»-ի էջում։` : "Ուղարկված է։ Թիմը կստուգի տեղեկությունը, և հաստատելուց հետո սրբավայրը կհայտնվի քարտեզում։"}</p>
           <div className="flex flex-wrap justify-center gap-2">
             <Link className={primaryButton} to="/places">Քարտեզ</Link>
-            <a className="inline-flex min-h-11 items-center rounded-[14px] border border-[rgb(217_181_111/40%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" href="/places/new">Ավելացնել ևս մեկը</a>
+            <a className="inline-flex min-h-11 items-center rounded-button border border-[rgb(217_181_111/40%)] px-4 text-[14px] font-semibold text-gold-bright no-underline" href="/places/new">Ավելացնել ևս մեկը</a>
           </div>
         </section>
       </PageShell>
@@ -195,7 +195,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
           ? <>«{target.name}»-ն արդեն քարտեզում է։ Գրեք այն, ինչ գիտեք՝ Պատարագի ժամը, ծառայողները, նկարներ, պատմությունը։ Թիմը կստուգի և կավելացնի այս եկեղեցու էջում։</>
           : <>Պատմեք եկեղեցու, վանքի կամ մատուռի մասին։ Պարտադիր են միայն <span className="text-danger">*</span> նշվածները, մնացածը՝ ինչ գիտեք։ Թիմը կստուգի, հետո այն կհայտնվի քարտեզում։</>}
       </p>
-      {errors.form ? <p className="mx-auto mb-3 max-w-[600px] rounded-[14px] bg-[rgb(184_72_62/10%)] px-4 py-3 text-center text-[14px] font-semibold text-danger" role="alert">{errors.form}</p> : null}
+      {errors.form ? <p className="mx-auto mb-3 max-w-[600px] rounded-button bg-[rgb(184_72_62/10%)] px-4 py-3 text-center text-[14px] font-semibold text-danger" role="alert">{errors.form}</p> : null}
       <form method="post" encType="multipart/form-data" onSubmit={send} className="mx-auto grid w-full max-w-[680px] gap-4" noValidate>
         {target ? <input type="hidden" name="placeId" value={target.id} /> : null}
         <Step number={1} title="Անունը" required>
@@ -210,7 +210,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
 
         <Step number={3} title="Որտեղ է" required note="Եթե հիմա այնտեղ եք, սեղմեք «Ես այնտեղ եմ»։ Կամ բացեք Google Maps-ը, գտեք եկեղեցին, պատճենեք հղումը և տեղադրեք այստեղ։">
           <button type="button" onClick={() => void locate()} disabled={locating === "busy"}
-            className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[14px] border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright disabled:cursor-wait">
+            className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-button border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright disabled:cursor-wait">
             {locating === "busy" ? <LoaderCircle aria-hidden="true" size={17} className="animate-search-spin" /> : <LocateFixed aria-hidden="true" size={17} />} Ես այնտեղ եմ
           </button>
           {locating !== "idle" && locating !== "busy" ? <p className={fieldHint}>{LOCATION_FAILURES[locating]}</p> : null}
@@ -229,7 +229,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
             <div className="grid grid-cols-3 gap-2 min-[560px]:grid-cols-4">
               {photos.map((photo, index) => (
                 <figure key={photo.url} className="relative m-0">
-                  <img className="aspect-square w-full rounded-[12px] object-cover" src={photo.url} alt="" />
+                  <img className="aspect-square w-full rounded-control object-cover" src={photo.url} alt="" />
                   <button type="button" aria-label="Հանել նկարը" onClick={() => { URL.revokeObjectURL(photo.url); setPhotos(photos.filter((_, at) => at !== index)); }}
                     className="absolute top-1 right-1 grid size-7 cursor-pointer place-items-center rounded-full border-0 bg-[rgb(17_8_22/70%)] text-white"><X aria-hidden="true" size={15} /></button>
                 </figure>
@@ -237,7 +237,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
             </div>
           ) : null}
           {photos.length < WEB_PHOTO_LIMIT ? (
-            <label className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-[14px] border border-dashed border-[rgb(217_181_111/55%)] px-4 text-[14px] font-semibold text-gold-bright">
+            <label className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 rounded-button border border-dashed border-[rgb(217_181_111/55%)] px-4 text-[14px] font-semibold text-gold-bright">
               <ImagePlus aria-hidden="true" size={17} /> Ընտրել նկարներ
               <input className="sr-only" type="file" accept="image/*" multiple onChange={(event) => { addPhotos(event.currentTarget.files); event.currentTarget.value = ""; }} />
             </label>
@@ -255,20 +255,20 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
                 <div className="grid gap-2">
                   <span className="text-[13.5px] font-semibold text-ink">Ծառայողներ</span>
                   {clergy.map((person, index) => (
-                    <div key={index} className="grid gap-1.5 rounded-[14px] bg-subtle p-2.5">
+                    <div key={index} className="grid gap-1.5 rounded-button bg-subtle p-2.5">
                       <div className="grid gap-2 min-[560px]:grid-cols-[200px_1fr_auto]">
                         <select className={fieldControl} name="clergyRole" value={person.role} onChange={(event) => setClergy(clergy.map((item, at) => (at === index ? { ...item, role: event.target.value } : item)))}>
                           {CLERGY_RANKS.map((rank) => <option key={rank.role} value={rank.role}>{rank.role}</option>)}
                         </select>
                         <input className={fieldControl} name="clergyName" value={person.name} placeholder="Անուն Ազգանուն" maxLength={160}
                           onChange={(event) => setClergy(clergy.map((item, at) => (at === index ? { ...item, name: event.target.value } : item)))} />
-                        <button type="button" aria-label="Հանել" onClick={() => setClergy(clergy.filter((_, at) => at !== index))} className="grid size-11 cursor-pointer place-items-center rounded-[12px] border border-glass-border bg-transparent text-faint"><Trash2 aria-hidden="true" size={16} /></button>
+                        <button type="button" aria-label="Հանել" onClick={() => setClergy(clergy.filter((_, at) => at !== index))} className="grid size-11 cursor-pointer place-items-center rounded-control border border-glass-border bg-transparent text-faint"><Trash2 aria-hidden="true" size={16} /></button>
                       </div>
                       {person.name.trim() ? <span className="px-1 text-[12.5px] text-muted">Կայքում՝ <strong className="text-ink">{clergyName(person.role, person.name)}</strong></span> : null}
                     </div>
                   ))}
                   <button type="button" onClick={() => setClergy([...clergy, { role: CLERGY_RANKS[6].role, name: "" }])}
-                    className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink"><Plus aria-hidden="true" size={15} /> Ավելացնել ծառայող</button>
+                    className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink"><Plus aria-hidden="true" size={15} /> Ավելացնել ծառայող</button>
                 </div>
               </div>
             ) : null}

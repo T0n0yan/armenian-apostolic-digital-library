@@ -105,10 +105,10 @@ export function ChurchNudge() {
   if (!nudge || typeof document === "undefined") return null;
   const { church } = nudge;
   const picture = church.cover ? placeThumbUrl(church.cover, 320) : null;
-  const button = "inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline";
+  const button = "inline-flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline";
   return createPortal(
     <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2060] flex justify-center px-3" role="dialog" aria-label="Մոտակայքում կա եկեղեցի">
-      <div data-phase={phase} className="install-toast pointer-events-auto grid w-full max-w-[420px] gap-2.5 rounded-[20px] border border-[rgb(120_165_230/45%)] bg-[var(--page-bg)] p-3.5 text-ink shadow-[0_18px_44px_rgb(40_20_10/26%)]">
+      <div data-phase={phase} className="install-toast pointer-events-auto grid w-full max-w-[420px] gap-2.5 rounded-card border border-[rgb(120_165_230/45%)] liquid-sheet p-3.5 text-ink shadow-[0_18px_44px_rgb(40_20_10/26%)]">
         <div className="flex items-start gap-2">
           <div className="grid flex-1 gap-0.5">
             <strong className="text-[15px]">❓ Դուք ունեք {nudge.questions === 1 ? "հարց" : `${nudge.questions} հարց`}</strong>
@@ -118,9 +118,9 @@ export function ChurchNudge() {
         </div>
 
         {details ? (
-          <div className="grid gap-2 rounded-[16px] border border-glass-border bg-subtle p-2.5 animate-glass-enter">
+          <div className="grid gap-2 rounded-button border border-glass-border bg-subtle p-2.5 animate-glass-enter">
             <Link className="flex items-center gap-3 text-ink no-underline" to={`/places/${encodeURIComponent(church.id)}`} onClick={close}>
-              <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-[#efe3c8] text-[24px]">
+              <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8] text-[24px]">
                 {picture ? <img className="size-full object-cover" src={picture} alt="" loading="lazy" /> : "⛪"}
               </span>
               <span className="grid min-w-0 gap-0.5">

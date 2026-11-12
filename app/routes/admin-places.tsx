@@ -115,7 +115,7 @@ async function performAction({ request }: Route.ActionArgs) {
 
 const card = "frosted-card grid gap-3 p-4";
 const tab = (active: boolean) => `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold ${active ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`;
-const smallButton = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-[12px] border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
+const smallButton = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
 
 /** Readers' /place submissions waiting for a decision, and every place on the map. */
 const OSM_TYPES: Record<string, string> = { n: "node", w: "way", r: "relation" };
@@ -166,7 +166,7 @@ function ConvertAllPhotos({ places }: { places: { id: string; photos: string[] }
     void revalidator.revalidate();
   };
   return (
-    <button className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-[11px] border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink disabled:opacity-60" type="button" disabled={working || !total} onClick={() => void run()}>
+    <button className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink disabled:opacity-60" type="button" disabled={working || !total} onClick={() => void run()}>
       {progress ?? `Բոլոր նկարները դարձնել WebP (${total} նկար)`}
     </button>
   );
@@ -213,7 +213,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               </div>
               {submission.photos.length ? (
                 <div className="flex gap-2 overflow-x-auto">
-                  {submission.photos.map((fileId) => <img key={fileId} className="h-28 w-auto shrink-0 rounded-[10px] object-cover" src={`/admin/telegram-file/${encodeURIComponent(fileId)}`} alt="" loading="lazy" />)}
+                  {submission.photos.map((fileId) => <img key={fileId} className="h-28 w-auto shrink-0 rounded-control object-cover" src={`/admin/telegram-file/${encodeURIComponent(fileId)}`} alt="" loading="lazy" />)}
                 </div>
               ) : <p className="m-0 flex items-center gap-1.5 text-[13px] text-faint"><ImageOff aria-hidden="true" size={15} /> Նկար չկա</p>}
               {submission.videos.length ? <p className="m-0 text-[13px] text-muted">🎬 Տեսանյութ՝ {submission.videos.length}</p> : null}
@@ -269,7 +269,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               ))}
             </div>
           ) : null}
-          <div className="grid gap-2 rounded-[16px] border border-glass-border p-3">
+          <div className="grid gap-2 rounded-button border border-glass-border p-3">
             <FilterRow label="Կարգավիճակ">
               {([["all", "Բոլորը"], ["shown", "Ցուցադրված"], ["hidden", "Թաքցված"], ["blocked", "Սև ցուցակով"]] as const).map(([value, label]) => <button key={value} type="button" className={tab(status === value)} aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>)}
             </FilterRow>
@@ -296,7 +296,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               return (
               <div key={place.id} className={`frosted-card flex flex-wrap items-center gap-2 p-3 ${blocked.length ? "shadow-[inset_0_0_0_1.5px_rgb(184_72_62/70%)]" : ""}`}>
               <Link className="flex min-w-0 flex-1 basis-[220px] items-center gap-3 text-inherit no-underline" to={`/admin/places/${place.id}`}>
-                <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-[12px] bg-[#efe3c8]">
+                <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
                   {place.icon ? <img className="size-full object-contain" src={placeMediaUrl(place.icon)} alt="" /> : place.photos[0] ? <img className="size-full object-cover" src={placeMediaUrl(place.photos[0])} alt="" /> : <MapPin aria-hidden="true" size={20} className="text-faint" />}
                 </span>
                 <span className="grid min-w-0 flex-1 gap-0.5">
@@ -355,7 +355,7 @@ function ExportPanel({ places, visited }: { places: Place[]; visited: Set<string
   };
   const chunks = Array.from({ length: Math.ceil(places.length / CHUNK) }, (_, index) => index * CHUNK);
   return (
-    <div className="grid gap-2 rounded-[16px] border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/7%)] p-3">
+    <div className="grid gap-2 rounded-button border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/7%)] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <strong className="text-[14px] text-ink">Ցանկը դուրս բերել՝ {places.length} տեղ</strong>
         <button className={smallButton} type="button" disabled={!places.length} onClick={() => downloadCsv(places, visited)}><Download aria-hidden="true" size={15} /> Ներբեռնել (Excel)</button>
@@ -404,7 +404,7 @@ function BlocklistSection({ blocklist, places, busy, error, canEdit }: { blockli
       </Form> : null}
       {error ? <p className="m-0 text-[13px] text-danger">{error}</p> : null}
       {caught.length && canEdit ? (
-        <Form method="post" preventScrollReset className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[rgb(184_72_62/10%)] px-3 py-2.5"
+        <Form method="post" preventScrollReset className="flex flex-wrap items-center justify-between gap-2 rounded-button bg-[rgb(184_72_62/10%)] px-3 py-2.5"
           onSubmit={(event) => { if (!confirm(`Ջնջե՞լ ${caught.length} տեղ, որոնց անունը սև ցուցակում է։\n\n${caught.slice(0, 20).map((place) => `• ${place.name}`).join("\n")}`)) event.preventDefault(); }}>
           <span className="text-[13px] text-ink">Սև ցուցակով բռնված է {caught.length} տեղ (տե՛ս «Սև ցուցակով» ֆիլտրը ներքևում)։</span>
           <button className={`${smallButton} text-danger`} type="submit" name="intent" value="delete-blocked" disabled={busy}><Trash2 aria-hidden="true" size={15} /> Ջնջել բոլորը</button>

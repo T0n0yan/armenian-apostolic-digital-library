@@ -22,7 +22,7 @@ export function ErrorPage({ status, notFoundTitle }: { status: number; notFoundT
   const copy = errorCopy(status);
   const { text, retry } = copy;
   const title = status === 404 && notFoundTitle ? notFoundTitle : copy.title;
-  const button = "inline-flex min-h-11 items-center gap-2 rounded-[12px] px-4 text-[13px] font-bold no-underline";
+  const button = "inline-flex min-h-11 items-center gap-2 rounded-control px-4 text-[13px] font-bold no-underline";
   return (
     <section className={`${glassPanel} mx-auto mt-6 grid max-w-[560px] justify-items-center gap-3 px-6 py-10 text-center`} data-error-status={status}>
       {status === 404

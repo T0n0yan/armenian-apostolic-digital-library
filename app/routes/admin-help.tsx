@@ -115,7 +115,7 @@ export default function AdminHelp({ loaderData }: Route.ComponentProps) {
                       <Form method="post" className="flex gap-1.5" onSubmit={() => setEditing(null)}>
                         <input type="hidden" name="intent" value="rename" />
                         <input type="hidden" name="id" value={video.id} />
-                        <input className="min-h-10 w-0 min-w-0 flex-1 rounded-[12px] border border-glass-border bg-control px-2.5 text-[15px] text-ink" name="title" defaultValue={video.title} maxLength={HELP_TITLE_MAX} required autoFocus />
+                        <input className="min-h-10 w-0 min-w-0 flex-1 rounded-control border border-[var(--field-border)] bg-control px-2.5 text-[15px] text-ink" name="title" defaultValue={video.title} maxLength={HELP_TITLE_MAX} required autoFocus />
                         <button className={small} type="submit">Պահել</button>
                         <button className={small} type="button" onClick={() => setEditing(null)} aria-label="Չեղարկել"><X aria-hidden="true" size={15} /></button>
                       </Form>
@@ -176,8 +176,8 @@ export default function AdminHelp({ loaderData }: Route.ComponentProps) {
           <input type="hidden" name="intent" value="add" />
           <strong className="text-[14.5px]">Նոր վերնագիր</strong>
           <div className="flex gap-2">
-            <input className="min-h-11 w-0 min-w-0 flex-1 rounded-[12px] border border-glass-border bg-control px-3 text-[15px] text-ink" name="title" placeholder="Օր.՝ Ինչպես կիսվել նյութով" maxLength={HELP_TITLE_MAX} required />
-            <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-[12px] border border-[rgb(217_181_111/55%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[14px] font-bold text-[#2a1708]" type="submit">
+            <input className="min-h-11 w-0 min-w-0 flex-1 rounded-control border border-[var(--field-border)] bg-control px-3 text-[15px] text-ink" name="title" placeholder="Օր.՝ Ինչպես կիսվել նյութով" maxLength={HELP_TITLE_MAX} required />
+            <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-control border border-[rgb(217_181_111/55%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[14px] font-bold text-[#2a1708]" type="submit">
               <Plus aria-hidden="true" size={16} /> Ավելացնել
             </button>
           </div>

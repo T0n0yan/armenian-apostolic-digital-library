@@ -123,7 +123,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
         onDoubleClick={() => zoomTo(scale > 1 ? 1 : 2.5)}
         onWheel={(event) => { event.preventDefault(); zoomTo(scale - Math.sign(event.deltaY) * 0.3); }}>
         <img ref={image} key={photos[index]} draggable={false}
-          className="max-h-full max-w-full rounded-[10px] object-contain select-none will-change-transform motion-safe:animate-[glass-enter_250ms_ease-out]"
+          className="max-h-full max-w-full rounded-control object-contain select-none will-change-transform motion-safe:animate-[glass-enter_250ms_ease-out]"
           style={{ transform: `translate(${offset.x + swipe}px, ${offset.y}px) scale(${scale})`, opacity: swipe ? Math.max(0.4, 1 - Math.abs(swipe) / 600) : 1, cursor: scale > 1 ? "grab" : "zoom-in", transition: pointers.current.size ? "none" : "transform .18s ease, opacity .18s ease" }}
           src={photos[index]} alt={`${alt}, նկար ${index + 1}`} onClick={(event) => event.stopPropagation()} />
       </div>

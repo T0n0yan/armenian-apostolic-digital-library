@@ -36,7 +36,7 @@ function MonthView({ days, month, today, selected, onSelect }: { days: Record<st
         const future = today !== null && key > today;
         return (
           <button key={key} type="button" disabled={future} onClick={() => onSelect(key)} aria-pressed={key === selected}
-            className={`grid aspect-square cursor-pointer place-items-center rounded-[10px] border-0 p-0 text-[12.5px] font-semibold tabular-nums transition-transform active:scale-95 disabled:cursor-default min-[860px]:text-[13.5px] ${future ? "bg-transparent text-faint/50" : read ? `${level(read)} text-[#2a1708]` : "bg-[rgb(160_130_90/10%)] text-muted"} ${key === selected ? "ring-2 ring-gold ring-offset-2 ring-offset-[var(--page-bg)]" : key === today ? "ring-1 ring-gold/70" : ""}`}
+            className={`grid aspect-square cursor-pointer place-items-center rounded-control border-0 p-0 text-[12.5px] font-semibold tabular-nums transition-transform active:scale-95 disabled:cursor-default min-[860px]:text-[13.5px] ${future ? "bg-transparent text-faint/50" : read ? `${level(read)} text-[#2a1708]` : "bg-[rgb(160_130_90/10%)] text-muted"} ${key === selected ? "ring-2 ring-gold ring-offset-2 ring-offset-[var(--page-bg)]" : key === today ? "ring-1 ring-gold/70" : ""}`}
             title={read ? `${read} նյութ` : undefined}>
             {index + 1}
           </button>
@@ -94,7 +94,7 @@ function DayEntries({ day, today, count }: { day: string; today: string | null; 
     return () => { active = false; };
   }, [day, count]);
   return (
-    <div className="grid content-start gap-2 rounded-[16px] bg-subtle p-3">
+    <div className="grid content-start gap-2 rounded-button bg-subtle p-3">
       <strong className="px-1 text-[13px] text-ink">{dayTitle(day, today)}</strong>
       {entries === null ? (
         <span className="flex items-center gap-2 px-1 py-2 text-[12.5px] text-muted"><LoaderCircle className="animate-search-spin" aria-hidden="true" size={15} /> Բեռնվում է…</span>
@@ -106,7 +106,7 @@ function DayEntries({ day, today, count }: { day: string; today: string | null; 
             const { verb, icon: Icon } = ENTRY_TEXT[entry.kind];
             return (
               <li key={entry.materialId}>
-                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-1.5 py-1.5 text-inherit no-underline hover:bg-glass-strong" to={materialPath(entry.materialId, entry.categoryName, { title: entry.title })}>
+                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-1.5 py-1.5 text-inherit no-underline hover:bg-glass-strong" to={materialPath(entry.materialId, entry.categoryName, { title: entry.title })}>
                   <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/14%)] text-gold-bright"><Icon aria-hidden="true" size={15} /></span>
                   <span className="grid min-w-0">
                     <span className="text-[11px] font-semibold text-muted">{verb}{entry.categoryName ? ` · ${entry.categoryName}` : ""}</span>
@@ -181,16 +181,16 @@ export function ReadingCalendar({ days, joinedAt }: { days: Record<string, numbe
         </span>
       </div>
       {joined ? (
-        <p className="m-0 flex flex-wrap gap-x-3 gap-y-1 rounded-[12px] bg-subtle px-3 py-2 text-[12px] text-muted">
+        <p className="m-0 flex flex-wrap gap-x-3 gap-y-1 rounded-control bg-subtle px-3 py-2 text-[12px] text-muted">
           <span>Գրանցվել եք՝ <strong className="font-semibold text-ink">{joined.getDate()} {MONTHS[joined.getMonth()].toLowerCase()} {joined.getFullYear()}</strong></span>
           <span>Կարդացել եք՝ <strong className="font-semibold text-[rgb(52_130_74)]">{sinceJoined} օր</strong></span>
           <span>Չեք կարդացել՝ <strong className="font-semibold text-ink">{Math.max(0, totalDays - sinceJoined)} օր</strong></span>
         </p>
       ) : null}
       {ranges.length > 1 ? (
-      <div className="grid gap-1 rounded-[13px] bg-subtle p-1" style={{ gridTemplateColumns: `repeat(${ranges.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="Ժամանակահատված">
+      <div className="grid gap-1 rounded-control bg-subtle p-1" style={{ gridTemplateColumns: `repeat(${ranges.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="Ժամանակահատված">
         {ranges.map((option) => (
-          <button key={option.value} className={`min-h-8 cursor-pointer rounded-[9px] border-0 text-[11.5px] font-semibold ${range === option.value ? "bg-[var(--page-bg)] text-gold-bright shadow-card" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
+          <button key={option.value} className={`min-h-8 cursor-pointer rounded-chip border-0 text-[11.5px] font-semibold ${range === option.value ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
         ))}
       </div>
       ) : null}

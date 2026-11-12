@@ -21,7 +21,10 @@ try {
     await page.locator('.candle-loader').waitFor({ state: 'detached', timeout: 10000 });
   };
   await open('/psalms');
+  // Բաժնի որոնումը բացվում է վերնագրի անկյունի կոճակից (ExpandingSearch)։
+  await page.locator('.hs-toggle').click();
   const field = page.locator('input[name=q]');
+  await field.waitFor({ state: 'visible' });
   await field.fill('!!!');
   await page.getByRole('button', { name: 'Որոնել այս բաժնում', exact: true }).click();
   await page.getByRole('alert').waitFor();
@@ -106,7 +109,8 @@ try {
     assert.ok(await help.evaluate(() => Boolean(document.activeElement?.closest('[role=dialog]'))));
   }
   await help.keyboard.press('Escape');
-  assert.equal(await help.getByRole('dialog').count(), 0);
+  // Փակվելը կարող է մեկ կադր ուշանալ (դանդաղ CI)՝ սպասում ենք, ոչ թե անմիջապես հաշվում։
+  await help.getByRole('dialog').waitFor({ state: 'detached', timeout: 5000 });
   await trigger.evaluate(element => { if (document.activeElement !== element) throw new Error('Focus was not restored'); });
   assert.ok(helpDownloads > 0);
   console.log('✓ Օգնությունը բացվում է միայն ընտրությամբ, focus-ը կառավարվում է');

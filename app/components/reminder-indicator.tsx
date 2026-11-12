@@ -26,8 +26,8 @@ const cardAction = "grid size-8 cursor-pointer place-items-center rounded-full b
 /** One rung reminder: open it, mark it read (✓), set it again (bell) or remove it (trash). */
 function MissedCard({ item, opening, onOpen }: { item: { materialId: string; rangAt: string; title: string; categoryName: string | null }; opening: boolean; onOpen: () => void }) {
   return (
-    <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-[14px] border border-glass-border bg-[var(--page-bg)] px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
-      <Link className="relative z-[3] grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-[10px] px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName, { title: item.title })} onClick={onOpen} aria-busy={opening}>
+    <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-button border border-glass-border liquid-sheet px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
+      <Link className="relative z-[3] grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName, { title: item.title })} onClick={onOpen} aria-busy={opening}>
         <ItemIcon categoryName={item.categoryName} busy={opening} />
         <span className="grid min-w-0">
           <strong className="truncate text-[13px] text-ink">{item.title}</strong>
@@ -114,7 +114,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
         <span className={`absolute -top-1 -right-1 grid min-w-[17px] place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-1 text-[10px] font-bold leading-[17px] ${missed.length ? "bg-[rgb(205_70_55)] !bg-none text-white" : "text-[#2a1708]"}`}>{count}</span>
       </button>
       {open && anchor ? createPortal(
-        <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(380px,calc(100vw-24px))] gap-1 rounded-[18px] border border-glass-border bg-[var(--page-bg)] p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
+        <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(380px,calc(100vw-24px))] gap-1 rounded-card border border-glass-border liquid-sheet p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
           {missed.length ? (
             <>
               <span className="flex items-center justify-between px-2 pt-1 pb-1.5">
@@ -128,8 +128,8 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
                 ))}
                 {missed.length > 1 && !stackOpen ? (
                   <button className="absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0" type="button" onClick={() => setStackOpen(true)} aria-label={`Ցույց տալ բոլոր ${missed.length} հիշեցումները`}>
-                    <span className="pointer-events-none absolute inset-x-3 bottom-1.5 -z-10 h-4 rounded-b-[14px] border border-t-0 border-glass-border bg-subtle" />
-                    {missed.length > 2 ? <span className="pointer-events-none absolute inset-x-6 bottom-0 -z-20 h-4 rounded-b-[14px] border border-t-0 border-glass-border bg-subtle opacity-70" /> : null}
+                    <span className="pointer-events-none absolute inset-x-3 bottom-1.5 -z-10 h-4 rounded-b-button border border-t-0 border-glass-border bg-subtle" />
+                    {missed.length > 2 ? <span className="pointer-events-none absolute inset-x-6 bottom-0 -z-20 h-4 rounded-b-button border border-t-0 border-glass-border bg-subtle opacity-70" /> : null}
                     <span className="pointer-events-none absolute -top-0.5 right-1 rounded-full bg-[rgb(205_70_55)] px-1.5 text-[10px] font-bold leading-[16px] text-white">+{missed.length - 1}</span>
                   </button>
                 ) : null}
@@ -138,7 +138,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
           ) : null}
           {reminders.length ? <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span> : null}
           {reminders.slice(0, 8).map((reminder) => (
-            <Link key={reminder.materialId} className={`grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-[12px] px-2 py-2 text-inherit no-underline hover:bg-subtle active:scale-[.98] ${opening === reminder.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`} to={materialPath(reminder.materialId, reminder.categoryName, { title: reminder.title })} onClick={() => setOpening(reminder.materialId)} aria-busy={opening === reminder.materialId}>
+            <Link key={reminder.materialId} className={`grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-2 py-2 text-inherit no-underline hover:bg-subtle active:scale-[.98] ${opening === reminder.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`} to={materialPath(reminder.materialId, reminder.categoryName, { title: reminder.title })} onClick={() => setOpening(reminder.materialId)} aria-busy={opening === reminder.materialId}>
               <ItemIcon categoryName={reminder.categoryName} busy={opening === reminder.materialId} />
               <span className="grid min-w-0">
                 <strong className="truncate text-[13px] text-ink">{reminder.title}</strong>

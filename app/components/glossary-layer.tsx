@@ -247,8 +247,8 @@ function GlossaryCard({ open, onClose }: { open: Open; onClose: () => void }) {
     <div data-glossary-card role="dialog" aria-label={`«${term.word}» բառի բացատրությունը`}
       className="glossary-card fixed z-[2050]" style={{ left, width, ...(above ? { bottom: window.innerHeight - rect.top + 12 } : { top: rect.bottom + 12 }) }} data-side={above ? "above" : "below"}>
       {/* Սլաքը քարտի տակ է. քարտը ծածկում է նրա կեսը, և երևում է միայն բառին ուղղված եռանկյունին։ */}
-      <span className="glossary-arrow absolute size-3.5 rotate-45 border-[rgb(217_181_111/55%)] bg-[var(--page-bg)]" style={{ left: arrow - 7, ...(above ? { bottom: -7, borderRightWidth: 1, borderBottomWidth: 1 } : { top: -7, borderLeftWidth: 1, borderTopWidth: 1 }) }} aria-hidden="true" />
-      <div className="relative z-[1] overflow-hidden rounded-[22px] border border-[rgb(217_181_111/55%)] bg-[var(--page-bg)] shadow-[0_22px_50px_rgb(40_20_10/32%)]">
+      <span className="glossary-arrow absolute size-3.5 rotate-45 border-[var(--frost-border)] glass-arrow" style={{ left: arrow - 7, ...(above ? { bottom: -7, borderRightWidth: 1, borderBottomWidth: 1 } : { top: -7, borderLeftWidth: 1, borderTopWidth: 1 }) }} aria-hidden="true" />
+      <div className="relative z-[1] overflow-hidden rounded-card border border-[rgb(217_181_111/55%)] liquid-sheet shadow-[0_22px_50px_rgb(40_20_10/32%)]">
         {/* Ոսկեգույն լույս վերևի եզրին։ */}
         <div className="h-1 bg-[linear-gradient(90deg,transparent,#e2c27e,#b07d2e,#e2c27e,transparent)]" aria-hidden="true" />
         <div className="grid gap-2 px-4 pt-3 pb-4">
