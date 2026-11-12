@@ -1,6 +1,7 @@
 # Բագեր
 
 ## Հիմա
+- Որոնիչների տեսանելիության ուղղումներ՝ վերջին main-ի հիմքով, միայն SEO/ինդեքսավորում, `fix/search-visibility`։ Համարի կիսվելու էջերն ու չատը պահպանվում են։
 - GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 ## Հերթ

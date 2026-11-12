@@ -50,6 +50,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${loaderData.label} — ${SITE_NAME}`,
     description,
     path: loaderData.path,
+    canonicalPath: loaderData.psalmPath,
     origin: loaderData.origin,
     image: cardImage(loaderData.origin, loaderData.path, loaderData.version),
     type: "article",
