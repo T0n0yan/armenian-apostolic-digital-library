@@ -764,6 +764,7 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
  */
 .action-bar {
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 6px;
+  min-height: var(--action-bar-height);
   border-radius: var(--radius-card);
   background: radial-gradient(130% 95% at 0% 0%, var(--lg-spec), transparent 48%), var(--lg-tint);
   box-shadow: var(--lg-inner), var(--lg-shadow);
@@ -783,6 +784,9 @@ html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-mo
 }
 @media (prefers-reduced-motion: reduce) { .tab-glider { transition: none; } }
 
+/* «Կարդացել եմ» և գործողությունների գոտին՝ նույն բարձրությամբ (մեկը մյուսի տակ են)։ */
+:root { --action-bar-height: 76px; }
+.read-mark { min-height: var(--action-bar-height); }
 /* «Կարդացել եմ»՝ նույն ապակով, ինչ գործողությունների գոտին (երկու թեմայում էլ)։ */
 :root .read-mark:not(.is-done), :root[data-theme] .read-mark:not(.is-done) {
   border-color: transparent;

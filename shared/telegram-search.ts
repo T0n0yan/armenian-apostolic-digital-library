@@ -110,6 +110,40 @@ export function foldOrthographyItems(items: FoldItem[]): FoldItem[] {
   return result;
 }
 
+/**
+ * Որոնման բառերի տեղերը տեքստում (սկիզբ/վերջ՝ բնօրինակ տեքստի դիրքերով), հին և նոր ուղղագրությունը
+ * համեմատելով՝ «անիրավ»-ը գտնում է «անիրաւ», «թյուն»-ը՝ «թիւն», «Տեր»-ը՝ «Տէր»։ Ընդգծման և հատվածի համար։
+ */
+export function foldedMatches(text: string, query: string): Array<{ start: number; end: number }> {
+  const words = [...new Set(normalizeTelegramSearchText(query).split(" ").map(foldSpelling).filter((word) => Array.from(word).length >= 2))]
+    .sort((left, right) => right.length - left.length);
+  if (!words.length || !text) return [];
+  const items: FoldItem[] = [];
+  let offset = 0;
+  for (const character of text) {
+    items.push({ value: character.toLocaleLowerCase("hy-AM"), start: offset, end: offset + character.length });
+    offset += character.length;
+  }
+  // Բաժանում ենք բազմատառ արժեքները, որ ամեն տառ իր բնօրինակ դիրքն ունենա։
+  const letters: FoldItem[] = items.flatMap((item) => Array.from(item.value, (value) => ({ ...item, value })));
+  const folded = foldOrthographyItems(letters).flatMap((item) => Array.from(foldSpelling(item.value), (value) => ({ ...item, value })));
+  const haystack = folded.map((item) => item.value).join("");
+  // Ամեն դիրքի համար՝ haystack-ի ինդեքսից դեպի folded տարր (մեկ տառ = մեկ UTF-16 միավոր հայերենում)։
+  const at: FoldItem[] = [];
+  for (const item of folded) for (let unit = 0; unit < item.value.length; unit += 1) at.push(item);
+  const taken: Array<{ start: number; end: number }> = [];
+  for (const word of words) {
+    for (let index = haystack.indexOf(word); index >= 0; index = haystack.indexOf(word, index + word.length)) {
+      const start = at[index]?.start;
+      const end = at[index + word.length - 1]?.end;
+      if (start === undefined || end === undefined) continue;
+      if (taken.some((range) => start < range.end && end > range.start)) continue;
+      taken.push({ start, end });
+    }
+  }
+  return taken.sort((left, right) => left.start - right.start);
+}
+
 /** foldOrthographyItems for a plain lowercase string. */
 export function foldOrthography(value: string) {
   return foldOrthographyItems(Array.from(value, (character, index) => ({ value: character, start: index, end: index + 1 }))).map((item) => item.value).join("");
@@ -450,14 +484,16 @@ export function locateStoredSearchHit(value: string, field: StoredSearchField, q
   const ratio = field.normalized.length ? match.normalizedStart / field.normalized.length : 0;
   const around = Math.round(ratio * value.length);
   const from = Math.max(0, around - 400);
-  const window = foldSpelling(value.slice(from, Math.min(value.length, around + 400)).toLocaleLowerCase("hy-AM"));
-  // Lowercasing and the է/օ fold keep every position, so an index in the window is one in the text.
+  const window = value.slice(from, Math.min(value.length, around + 400));
+  // Հին/նոր ուղղագրությունը համեմատվում է (անիրավ = անիրաւ). առաջինը՝ ամբողջ արտահայտությունը, հետո՝ բառերը։
   for (const candidate of [parsed.normalized, ...parsed.tokens].filter(Boolean)) {
-    const pattern = new RegExp(`(?:^|[^\\p{L}\\p{N}])(${escapeRegExp(candidate)})`, "u");
-    const found = pattern.exec(window);
+    const inWindow = foldedMatches(window, candidate)[0];
+    // Պատուհանից դուրս (դիրքը մոտավոր է)՝ ամբողջ տեքստում։
+    const found = inWindow ? { start: inWindow.start + from, end: inWindow.end + from } : foldedMatches(value, candidate)[0];
     if (!found) continue;
-    const start = from + found.index + found[0].length - found[1].length;
-    return { source: sourceFor(field.kind), blockId: field.blockId, start, length: candidate.length, ...snippetFor(value, start, candidate.length) };
+    const start = found.start;
+    const length = found.end - found.start;
+    return { source: sourceFor(field.kind), blockId: field.blockId, start, length, ...snippetFor(value, start, length) };
   }
   return undefined;
 }
