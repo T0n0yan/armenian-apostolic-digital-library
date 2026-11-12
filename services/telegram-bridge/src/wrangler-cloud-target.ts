@@ -73,13 +73,15 @@ async function wranglerOnce(args: string[], stdin?: AsyncIterable<Uint8Array>) {
   errors.on("data", (chunk: string) => { if (stderr.length < 32_000) stderr += chunk; });
   if (stdin) {
     if (!input) throw new Error("Wrangler stdin is unavailable.");
+    // Առանց լսիչի stdin-ի սխալը (օր.՝ wrangler-ը փակվեց) ամբողջ պրոցեսն է գցում։
+    input.on("error", () => {});
     try {
       for await (const chunk of stdin) {
         if (!input.write(chunk)) await once(input, "drain");
       }
       input.end();
     } catch (error) {
-      input.destroy(error as Error);
+      input.destroy();
       child.kill("SIGTERM");
       throw error;
     }
