@@ -5,7 +5,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
 import bibleQuestionsImage from "../assets/bible-questions.webp";
@@ -18,7 +18,7 @@ import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { useSearchSubmit, useSyncedQueryInput } from "../hooks/use-search-submit";
 import { SearchSuggestions } from "./search-suggestions";
-import { PageTitle } from "./page-layout";
+import { ExpandingSearch, PageTitle } from "./page-layout";
 import { focusRing } from "./ui-styles";
 
 import divider2 from "../assets/divider2.webp";
@@ -76,12 +76,17 @@ export const SectionHeader = memo(function SectionHeader({
   const { validateSubmit, formRef, clearError, submitImmediately, error } =
     useSearchSubmit(resolveContentCategoryId(searchCategoryId, title) === "category_psalms");
   const inputRef = useSyncedQueryInput(query);
+  // Դաշտը բաց է, երբ արդեն կա որոնում (?q=), մնացած դեպքում՝ միայն կոճակ։
+  const [open, setOpen] = useState(Boolean(query));
+  useEffect(() => { if (query) setOpen(true); }, [query]);
+  const openSearch = () => { setOpen(true); window.requestAnimationFrame(() => inputRef.current?.focus()); };
+  const closeSearch = () => { setOpen(false); inputRef.current?.blur(); };
   const navigation = useNavigation();
   const isSearching = navigation.location?.pathname === formAction;
 
   return (
     <header className="mb-[14px] grid gap-[10px] min-[768px]:mb-[18px] min-[768px]:gap-[14px]">
-      <div className="flex items-center gap-2">
+      <div className="relative flex min-h-11 items-center gap-2">
         <Link
           className={`inline-flex min-h-[32px] w-fit items-center gap-[7px] rounded-control text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink ${focusRing}`}
           to={backTo}
@@ -89,7 +94,68 @@ export const SectionHeader = memo(function SectionHeader({
           <ArrowLeft aria-hidden="true" size={17} strokeWidth={2} />
           {backLabel}
         </Link>
-
+        {/* Որոնումը՝ անկյունի կոճակից բացվող դաշտ (վերնագրի տակ դաշտ այլևս չկա)։ */}
+        {showSearch ? (
+          <ExpandingSearch open={open} onOpen={openSearch} label={searchLabel}>
+            <Form
+              ref={formRef}
+              className="flex h-full min-w-0 flex-1 items-center gap-2"
+              action={formAction}
+              method="get"
+              role="search"
+              onSubmit={(event) => {
+                validateSubmit(event);
+                if (!onSearch) return;
+                // A refused search also clears what the previous one found.
+                if (event.defaultPrevented) { onSearch(""); return; }
+                event.preventDefault();
+                onSearch((inputRef.current?.value ?? "").trim());
+              }}
+              aria-busy={isSearching || undefined}
+            >
+              <Search aria-hidden="true" size={17} strokeWidth={2} className="shrink-0 text-gold-bright" />
+              <SearchSuggestions categoryId={searchCategoryId} inputRef={inputRef} onPick={submitImmediately} />
+              <input
+                className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
+                onKeyDown={(event) => { if (event.key === "Escape") closeSearch(); }}
+                type="search"
+                name="q"
+                ref={inputRef}
+                defaultValue={query}
+                placeholder={searchPlaceholder}
+                aria-label={searchLabel}
+                autoComplete="off"
+                maxLength={120}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? "section-search-error" : undefined}
+                onInput={clearError}
+                enterKeyHint="search"
+              />
+              {/* X՝ մաքրում է որոնումը (եթե կար) և փակում դաշտը։ */}
+              {query ? (
+                <Link
+                  className={`grid size-8 shrink-0 place-items-center rounded-full text-faint no-underline hover:text-ink ${focusRing}`}
+                  to={searchAction}
+                  onClick={() => setOpen(false)}
+                  aria-label="Մաքրել և փակել որոնումը"
+                  title="Մաքրել որոնումը"
+                >
+                  <X aria-hidden="true" size={17} strokeWidth={2} />
+                </Link>
+              ) : (
+                <button type="button" onClick={closeSearch} aria-label="Փակել որոնումը" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-ink"><X aria-hidden="true" size={17} /></button>
+              )}
+              <button type="submit" aria-label="Որոնել այս բաժնում" className="search-go"><ArrowRight aria-hidden="true" size={18} /></button>
+              {isSearching ? (
+                <LoaderCircle
+                  className="animate-search-spin shrink-0 text-gold"
+                  aria-hidden="true"
+                  size={18}
+                />
+              ) : null}
+            </Form>
+          </ExpandingSearch>
+        ) : null}
       </div>
       {/*min-[768px]:grid-cols-[minmax(0,0.92fr)_minmax(320px,1.08fr)] min-[768px]:gap-[28px]*/}
       <div className="grid items-center gap-[10px] ">
@@ -115,60 +181,6 @@ export const SectionHeader = memo(function SectionHeader({
 
           {description ? <p className="m-0 max-w-[620px] text-[13px] leading-[1.65] text-muted min-[768px]:text-[14px]">{description}</p> : null}
 
-          {showSearch ? (
-            <Form
-              ref={formRef}
-              className="search-field relative z-30 pr-[6px] pl-[14px]"
-              action={formAction}
-              method="get"
-              role="search"
-              onSubmit={(event) => {
-                validateSubmit(event);
-                if (!onSearch) return;
-                // A refused search also clears what the previous one found.
-                if (event.defaultPrevented) { onSearch(""); return; }
-                event.preventDefault();
-                onSearch((inputRef.current?.value ?? "").trim());
-              }}
-              aria-busy={isSearching || undefined}
-            >
-              <Search aria-hidden="true" size={19} strokeWidth={1.9} />
-              <SearchSuggestions categoryId={searchCategoryId} inputRef={inputRef} onPick={submitImmediately} />
-              <input
-                className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint"
-                type="search"
-                name="q"
-                ref={inputRef}
-                defaultValue={query}
-                placeholder={searchPlaceholder}
-                aria-label={searchLabel}
-                autoComplete="off"
-                maxLength={120}
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? "section-search-error" : undefined}
-                onInput={clearError}
-                enterKeyHint="search"
-              />
-              {query ? (
-                <Link
-                  className={`grid size-[32px] shrink-0 place-items-center rounded-control text-muted no-underline hover:text-gold-bright ${focusRing}`}
-                  to={searchAction}
-                  aria-label="Մաքրել որոնումը"
-                  title="Մաքրել որոնումը"
-                >
-                  <X aria-hidden="true" size={17} strokeWidth={2} />
-                </Link>
-              ) : null}
-              <button type="submit" aria-label="Որոնել այս բաժնում" className="search-go"><ArrowRight aria-hidden="true" size={18} /></button>
-              {isSearching ? (
-                <LoaderCircle
-                  className="animate-search-spin shrink-0 text-gold"
-                  aria-hidden="true"
-                  size={18}
-                />
-              ) : null}
-            </Form>
-          ) : null}
           {error ? <p id="section-search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
         </div>
       </div>

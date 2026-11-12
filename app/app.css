@@ -286,18 +286,14 @@
 @media (prefers-reduced-motion: reduce) { .top-toast[data-phase] { animation-duration: 1ms; } }
 
 /* Menu: frosted glass that springs open from the button and settles back into it. */
+/* Մթնեցում առանց blur-ի. ամբողջ էջի blur-ը (և մանավանդ նրա անիմացիան) հեռախոսում կտրտում էր։ */
 .menu-scrim {
-  background: rgb(20 10 24 / 0%);
-  -webkit-backdrop-filter: blur(0) saturate(100%);
-  backdrop-filter: blur(0) saturate(100%);
+  background: rgb(20 10 24 / 42%);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 320ms ease, background 320ms ease, backdrop-filter 320ms ease, -webkit-backdrop-filter 320ms ease;
+  transition: opacity 280ms ease;
 }
 .menu-scrim[data-open] {
-  background: rgb(20 10 24 / 34%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  backdrop-filter: blur(10px) saturate(120%);
   opacity: 1;
   pointer-events: auto;
 }
@@ -382,20 +378,20 @@
 .liquid-sheet {
   background:
     radial-gradient(110% 50% at 0% 0%, var(--lg-spec), transparent 55%),
-    var(--lg-menu-tint);
+    var(--lg-sheet-tint);
   border-color: transparent;
   box-shadow: var(--lg-inner), 0 24px 60px rgb(20 8 24 / 36%);
-  -webkit-backdrop-filter: blur(26px) saturate(190%);
-  backdrop-filter: blur(26px) saturate(190%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
 }
 /* Ստատիկ տարրի վրա լույսի օղակը (::before) պետք է իր մեջ մնա։ */
 .liquid-sheet:not(.fixed, .absolute, .sticky) { position: relative; }
 .liquid-sheet { color: var(--ink); }
 /* Փոքր պատուհանի «սլաքը» (բառարան, նշումներ)՝ նույն ապակով։ */
 .glass-arrow {
-  background: var(--lg-menu-tint);
-  -webkit-backdrop-filter: blur(26px) saturate(190%);
-  backdrop-filter: blur(26px) saturate(190%);
+  background: var(--lg-sheet-tint);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
 }
 /* Ընտրված հատված (segment)՝ ապակե «քար», ոչ թե էջի գույնով հարթ ֆոն։ */
 .glass-selected {
@@ -429,6 +425,43 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
   transition: opacity 180ms ease, scale 220ms cubic-bezier(.2, 1.3, .3, 1);
 }
 .search-field input:placeholder-shown ~ .search-go { opacity: 0; scale: .8; pointer-events: none; }
+
+/*
+ * Անկյունի որոնում (ExpandingSearch). կլոր կոճակը սահուն երկարում է մինչև տողի ամբողջ լայնությունը
+ * և դառնում pill դաշտ, փակելիս՝ հետ։ Միայն width/opacity են անիմացվում (թեթև է հեռախոսում)։
+ */
+.header-search {
+  position: absolute; right: 0; top: 50%; z-index: 30;
+  height: 40px; width: 40px; translate: 0 -50%;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--subtle-bg);
+  transition: width 460ms cubic-bezier(.2, 1, .3, 1), background 260ms ease, border-color 260ms ease, box-shadow 260ms ease;
+}
+.header-search:not(.is-open) { overflow: hidden; }
+.header-search.is-open {
+  width: 100%;
+  border-color: rgb(217 181 111 / 55%);
+  background: var(--control-bg);
+  box-shadow: 0 0 0 3px rgb(217 181 111 / 14%), 0 6px 18px rgb(40 20 40 / 10%);
+}
+.hs-toggle {
+  position: absolute; right: -1px; top: -1px; width: 40px; height: 40px; padding: 0;
+  display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent;
+  color: var(--gold-bright); cursor: pointer; transition: opacity 200ms ease;
+}
+.header-search.is-open .hs-toggle { opacity: 0; pointer-events: none; }
+.hs-field {
+  position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; padding: 0 4px 0 12px;
+  opacity: 0; pointer-events: none; transition: opacity 180ms ease;
+}
+.header-search.is-open .hs-field { opacity: 1; pointer-events: auto; transition: opacity 260ms ease 140ms; }
+.hs-field .search-go { width: 32px; height: 32px; }
+.hs-note { position: absolute; top: calc(100% + 6px); left: 12px; right: 12px; margin: 0; text-align: center; font-size: 12.5px; color: var(--muted); }
+/* Բացված որոնման տակ «Հետ» հղումը թաքնվում է։ */
+:has(> .header-search) > a { transition: opacity 200ms ease; }
+:has(> .header-search.is-open) > a { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .header-search, .hs-field, .hs-toggle { transition: none; } }
 
 /* Audio scrubber: thin gold track that fills as the psalm plays. */
 .audio-scrubber { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; }
@@ -516,15 +549,13 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
 .frosted-card:focus-visible { outline: 3px solid rgb(217 181 111 / 45%); outline-offset: 2px; }
 .frosted-card.is-opening { background: var(--lg-tint-hover); box-shadow: inset 0 0 0 1px rgb(217 181 111 / 45%), var(--lg-shadow); }
 
-/* Նույն ապակին՝ անշարժ վահանակների համար (նյութի տեքստ, որոնում, դատարկ վիճակ). իսկական blur-ով։ */
-.frosted-panel {
-  border-radius: var(--radius-panel);
-  -webkit-backdrop-filter: blur(18px) saturate(175%);
-  backdrop-filter: blur(18px) saturate(175%);
-}
-html[data-motion="reduced"] .frosted-panel { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/*
+ * Նույն ապակին՝ անշարժ վահանակների համար (նյութի տեքստ, որոնում, դատարկ վիճակ)։
+ * Blur ՉԿԱ. մեծ վահանակների blur-ը scroll-ի ամեն կադրում նորից էր հաշվվում և էջը կտրտում էր,
+ * իսկ մենյուի/պատուհանի ներսում (blur blur-ի մեջ) Android-ում դատարկ ուղղանկյուն էր տալիս։
+ */
+.frosted-panel { border-radius: var(--radius-panel); }
 @media (prefers-reduced-transparency: reduce) {
-  .frosted-panel { -webkit-backdrop-filter: none; backdrop-filter: none; }
   .frosted-card, .frosted-panel { background: var(--glass-strong); }
 }
 }
@@ -538,7 +569,8 @@ html[data-motion="reduced"] .frosted-panel { -webkit-backdrop-filter: none; back
   --lg-rim: linear-gradient(135deg, rgb(255 255 255 / 98%) 0%, rgb(255 255 255 / 45%) 20%, rgb(255 255 255 / 10%) 46%, rgb(176 125 46 / 26%) 76%, rgb(255 255 255 / 70%) 100%);
   --lg-inner: inset 0 1px 0 rgb(255 255 255 / 80%), inset 0 -1px 0 rgb(120 84 30 / 12%), inset 0 12px 18px -14px rgb(255 255 255 / 70%), inset 0 -14px 20px -18px rgb(255 255 255 / 60%);
   --lg-shadow: 0 1px 2px rgb(92 64 30 / 8%), 0 8px 22px rgb(92 64 30 / 11%), 0 26px 44px -26px rgb(92 64 30 / 22%);
-  --lg-menu-tint: rgb(255 250 240 / 68%);
+  --lg-menu-tint: rgb(255 250 240 / 86%);
+  --lg-sheet-tint: rgb(253 248 236 / 95%);
   --lg-fab-tint: rgb(255 248 232 / 58%);
   --lg-tile: rgb(255 255 255 / 34%);
   --lg-tile-hover: rgb(255 255 255 / 52%);
@@ -552,7 +584,8 @@ html[data-motion="reduced"] .frosted-panel { -webkit-backdrop-filter: none; back
   --lg-rim: linear-gradient(135deg, rgb(255 255 255 / 58%) 0%, rgb(255 255 255 / 16%) 20%, rgb(255 255 255 / 4%) 48%, rgb(217 181 111 / 20%) 78%, rgb(255 255 255 / 32%) 100%);
   --lg-inner: inset 0 1px 0 rgb(255 255 255 / 14%), inset 0 -1px 0 rgb(0 0 0 / 40%), inset 0 12px 20px -16px rgb(255 255 255 / 10%), inset 0 -16px 24px -20px rgb(217 181 111 / 16%);
   --lg-shadow: 0 1px 2px rgb(0 0 0 / 32%), 0 10px 26px rgb(2 0 7 / 38%), 0 28px 52px -28px rgb(0 0 0 / 60%);
-  --lg-menu-tint: rgb(30 16 40 / 64%);
+  --lg-menu-tint: rgb(30 16 40 / 84%);
+  --lg-sheet-tint: rgb(32 18 42 / 95%);
   --lg-fab-tint: rgb(36 19 40 / 48%);
   --lg-tile: rgb(255 255 255 / 5%);
   --lg-tile-hover: rgb(255 255 255 / 9%);
@@ -567,7 +600,8 @@ html[data-motion="reduced"] .frosted-panel { -webkit-backdrop-filter: none; back
     --lg-rim: linear-gradient(135deg, rgb(255 255 255 / 58%) 0%, rgb(255 255 255 / 16%) 20%, rgb(255 255 255 / 4%) 48%, rgb(217 181 111 / 20%) 78%, rgb(255 255 255 / 32%) 100%);
     --lg-inner: inset 0 1px 0 rgb(255 255 255 / 14%), inset 0 -1px 0 rgb(0 0 0 / 40%), inset 0 12px 20px -16px rgb(255 255 255 / 10%), inset 0 -16px 24px -20px rgb(217 181 111 / 16%);
     --lg-shadow: 0 1px 2px rgb(0 0 0 / 32%), 0 10px 26px rgb(2 0 7 / 38%), 0 28px 52px -28px rgb(0 0 0 / 60%);
-  --lg-menu-tint: rgb(30 16 40 / 64%);
+  --lg-menu-tint: rgb(30 16 40 / 84%);
+  --lg-sheet-tint: rgb(32 18 42 / 95%);
   --lg-fab-tint: rgb(36 19 40 / 48%);
   --lg-tile: rgb(255 255 255 / 5%);
   --lg-tile-hover: rgb(255 255 255 / 9%);
@@ -854,7 +888,7 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 @media (prefers-reduced-motion: reduce) { .find-bar { animation: none; } }
 
 /* The places filters open over the map: a soft fade and slide, and the same way out. */
-.places-filters { background: radial-gradient(110% 50% at 0% 0%, var(--lg-spec), transparent 55%), var(--lg-menu-tint); -webkit-backdrop-filter: blur(26px) saturate(190%); backdrop-filter: blur(26px) saturate(190%); border: 0.5px solid var(--frost-border); box-shadow: var(--lg-inner), 0 24px 60px rgb(20 8 24 / 30%); transform-origin: top center; transition: opacity .22s ease, transform .22s cubic-bezier(.2, .9, .3, 1), visibility .22s; box-shadow: 0 18px 44px rgb(20 10 5 / 30%); }
+.places-filters { background: radial-gradient(110% 50% at 0% 0%, var(--lg-spec), transparent 55%), var(--lg-sheet-tint); -webkit-backdrop-filter: blur(26px) saturate(190%); backdrop-filter: blur(26px) saturate(190%); border: 0.5px solid var(--frost-border); box-shadow: var(--lg-inner), 0 24px 60px rgb(20 8 24 / 30%); transform-origin: top center; transition: opacity .22s ease, transform .22s cubic-bezier(.2, .9, .3, 1), visibility .22s; box-shadow: 0 18px 44px rgb(20 10 5 / 30%); }
 .places-filters[data-open="false"] { opacity: 0; transform: translateY(-8px) scale(.98); visibility: hidden; pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { .places-filters { transition: none; } }
 

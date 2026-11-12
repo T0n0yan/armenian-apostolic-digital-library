@@ -214,16 +214,17 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="Սրբավայրեր" onSearch={searchOpen ? closeSearch : openSearch} />
-      {searchOpen ? (
-        <div className="search-field is-open mx-auto mt-2 max-w-[560px] gap-2 px-3 motion-safe:animate-[glass-enter_200ms_ease-out]">
+      {/* Որոնումը բացվում է անկյունի կոճակից և սահուն փակվում։ */}
+      <PageHeader backTo="/" backLabel="Գրադարան" title="Սրբավայրեր" search={{
+        open: searchOpen, onOpen: openSearch, label: "Փնտրել սրբավայրերը",
+        field: (<>
           <Search aria-hidden="true" size={17} className="shrink-0 text-gold-bright" />
-          <input ref={searchInput} className="min-h-12 min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint" type="search" enterKeyHint="search"
+          <input ref={searchInput} className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none placeholder:text-faint" type="search" enterKeyHint="search"
             value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") closeSearch(); if (event.key === "Enter") event.currentTarget.blur(); }}
-            placeholder="Եկեղեցի, վանք կամ գյուղ (կարելի է լատինատառ)" aria-label="Փնտրել սրբավայրերը" />
+            placeholder="Եկեղեցի, վանք կամ գյուղ" aria-label="Փնտրել սրբավայրերը (կարելի է լատինատառ)" />
           <button type="button" onClick={closeSearch} aria-label="Փակել որոնումը" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-ink"><X aria-hidden="true" size={17} /></button>
-        </div>
-      ) : null}
+        </>),
+      }} />
       <p className="mx-auto mt-2 mb-4 max-w-[620px] text-center text-[14px] leading-relaxed text-muted">
         Հայաստանի վանքերն ու եկեղեցիները քարտեզի վրա։ Հպեք եկեղեցուն՝ տեղեկության և ճանապարհի համար։
       </p>
