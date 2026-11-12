@@ -21,7 +21,10 @@ try {
     await page.locator('.candle-loader').waitFor({ state: 'detached', timeout: 10000 });
   };
   await open('/psalms');
+  // Բաժնի որոնումը բացվում է վերնագրի անկյունի կոճակից (ExpandingSearch)։
+  await page.locator('.hs-toggle').click();
   const field = page.locator('input[name=q]');
+  await field.waitFor({ state: 'visible' });
   await field.fill('!!!');
   await page.getByRole('button', { name: 'Որոնել այս բաժնում', exact: true }).click();
   await page.getByRole('alert').waitFor();
