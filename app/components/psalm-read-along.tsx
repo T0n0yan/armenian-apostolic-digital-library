@@ -1,6 +1,6 @@
 import { Check, PencilLine, RotateCcw, SkipForward, X } from "lucide-react";
 import { psalmLines, verseNumber } from "../utils/psalm-verses";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type Timings = Array<number | null>;
 
@@ -227,6 +227,31 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
   };
 
   const following = active >= 0;
+
+  // Ընթացիկ համարի ոսկե գիծը մեկ տարր է, որ սահուն սահում է տողից տող (ինչպես ներդիրներում),
+  // ոչ թե անջատվում մի տողում ու միանում մյուսում։
+  const barRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const place = () => {
+      const rows = lineRefs.current.filter((element, index) => element && verseOf[index] === active) as HTMLElement[];
+      if (!following || !rows.length) { bar.style.opacity = "0"; return; }
+      const top = rows[0].offsetTop;
+      const last = rows[rows.length - 1];
+      const hidden = bar.style.opacity !== "1";
+      // Առաջին անգամ հայտնվելիս գիծը տեղում է երևում, չի սահում վերևից։
+      if (hidden) bar.style.transition = "none";
+      bar.style.transform = `translate3d(0, ${top}px, 0)`;
+      bar.style.height = `${last.offsetTop + last.offsetHeight - top}px`;
+      if (hidden) { void bar.offsetHeight; bar.style.transition = ""; }
+      bar.style.opacity = "1";
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [active, following, verseOf]);
+
   const button = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-control border px-3 text-[12.5px] font-bold disabled:opacity-50";
   return (
     <div className="grid gap-3">
@@ -241,12 +266,13 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
       ) : null}
       {message ? <p className="m-0 text-center font-sans text-[12.5px] text-gold-bright" role="status">{message}</p> : null}
 
-      <div className="psalm-lines grid gap-1" data-psalm-audio={hasAudio ? "1" : undefined} data-psalm-path={numbered ? psalmPath : undefined}>
+      <div className="psalm-lines relative grid gap-1" data-psalm-audio={hasAudio ? "1" : undefined} data-psalm-path={numbered ? psalmPath : undefined}>
+        <div ref={barRef} aria-hidden="true" className="pointer-events-none absolute top-0 -left-2 w-[3px] bg-[rgb(217_181_111/90%)] opacity-0 transition-[transform,height,opacity] duration-500 ease-[cubic-bezier(.3,.8,.3,1)] motion-reduce:transition-none" />
         {lines.map((line, index) => (
           <p
             key={index}
             ref={(element) => { lineRefs.current[index] = element; }}
-            className={`-mx-2 m-0 cursor-pointer rounded-control px-2 py-0.5 transition-[color,background-color,opacity,box-shadow] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "rounded-none opacity-100 shadow-[inset_3px_0_0_rgb(217_181_111/90%)]" : verseOf[index] === selected ? "" : "opacity-45" : ""} ${selected !== null && verseOf[index] === selected ? "underline decoration-[rgb(217_181_111/85%)] decoration-dotted decoration-2 underline-offset-[6px] opacity-100" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
+            className={`-mx-2 m-0 cursor-pointer px-2 py-0.5 transition-[color,background-color,opacity] duration-500 ${parsed[index].kind === "superscription" ? `psalm-superscription text-center italic ${parsed[index + 1]?.kind !== "superscription" ? "mb-3 border-b border-[rgb(217_181_111/32%)] pb-3" : ""}` : parsed[index].kind === "heading" ? "mt-3 mb-1 text-center font-sans text-[0.78em] font-bold tracking-[0.12em] text-gold" : ""} ${following && verseOf[index] >= 0 ? verseOf[index] === active ? "opacity-100" : verseOf[index] === selected ? "" : "opacity-45" : ""} ${selected !== null && verseOf[index] === selected ? "underline decoration-[rgb(217_181_111/85%)] decoration-dotted decoration-2 underline-offset-[6px] opacity-100" : ""} ${marking && verseOf[index] >= 0 && verseOf[index] === nextIndex ? "outline-2 outline-dashed outline-[rgb(217_181_111/60%)]" : ""} ${verseOf[index] < 0 ? "cursor-default" : ""}`}
             data-verse={verseOf[index] >= 0 ? verseNumbers[verseOf[index]] : undefined}
             onClick={() => onLineClick(index)}
           >
