@@ -16,7 +16,7 @@ import { loadResolvedValue, ResolvedTtlCache, SharedOperationRegistry } from "..
 import { createBridgeApplication, readBridgeApplicationState } from "../services/telegram-bridge/src/app";
 import { MediaQueueOverloadedError, MediaScheduler } from "../services/telegram-bridge/src/media-scheduler";
 import type { TelegramAdapter } from "../services/telegram-bridge/src/adapter";
-import { probeUnknownMediaSize, teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
+import { floodWaitSeconds, probeUnknownMediaSize, teleprotoDownloadParameters } from "../services/telegram-bridge/src/gramjs-adapter";
 import { TelegramSearchIndex } from "../services/telegram-bridge/src/search-index";
 import { classifyPost } from "../services/telegram-bridge/src/category-mapping";
 import { activeContentChatIds, readBridgeConfig } from "../services/telegram-bridge/src/config";
@@ -487,6 +487,14 @@ test("Teleproto media plan aligns arbitrary browser ranges and preserves the sou
   const seek = teleprotoDownloadParameters(13_508_608, 13_574_143, 2);
   assert.equal(Number(seek.offset.toString()) % seek.requestSize, 0);
   assert.equal(Number(seek.offset.toString()) + seek.leadingBytesToSkip, 13_508_608);
+});
+
+test("Telegram FLOOD_WAIT during media download is recognised so the sync waits instead of crashing", () => {
+  assert.equal(floodWaitSeconds({ code: 420, errorMessage: "FLOOD_WAIT_4", seconds: 4 }), 4);
+  assert.equal(floodWaitSeconds({ errorMessage: "FLOOD_WAIT_17" }), 17);
+  assert.equal(floodWaitSeconds({ errorMessage: "FILE_REFERENCE_EXPIRED" }), null);
+  assert.equal(floodWaitSeconds(new Error("FLOOD_WAIT_4")), null);
+  assert.equal(floodWaitSeconds(null), null);
 });
 
 test("unknown Telegram media size probing is bounded and does not buffer the whole file", async () => {

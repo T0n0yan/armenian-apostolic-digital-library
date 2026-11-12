@@ -401,6 +401,28 @@ function inputLocation(source: MediaSource, thumbnail = false) {
 const TELEGRAM_DOWNLOAD_CHUNK_SIZE = 512 * 1024;
 const UNKNOWN_MEDIA_SIZE_PROBE_LIMIT = 64 * 1024 * 1024;
 
+const MAX_FLOOD_RETRIES = 20;
+const MAX_FLOOD_WAIT_SECONDS = 120;
+
+/** Telegram-ի FLOOD_WAIT_N սխալից վերադարձնում է N-ը, այլապես՝ null։ */
+export function floodWaitSeconds(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const value = error as { errorMessage?: unknown; seconds?: unknown; code?: unknown };
+  const message = typeof value.errorMessage === "string" ? value.errorMessage : "";
+  if (!message.startsWith("FLOOD_WAIT") && !message.startsWith("FLOOD_PREMIUM_WAIT")) return null;
+  const seconds = typeof value.seconds === "number" ? value.seconds : Number(message.match(/(\d+)$/u)?.[1]);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+}
+
+function sleep(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason);
+    const timer = setTimeout(() => { signal.removeEventListener("abort", stop); resolve(); }, ms);
+    const stop = () => { clearTimeout(timer); reject(signal.reason); };
+    signal.addEventListener("abort", stop, { once: true });
+  });
+}
+
 export function teleprotoDownloadParameters(start: number, end: number, dcId?: number) {
   const alignedOffset = Math.floor(start / TELEGRAM_DOWNLOAD_CHUNK_SIZE) * TELEGRAM_DOWNLOAD_CHUNK_SIZE;
   return {
@@ -890,31 +912,42 @@ export class GramJsTelegramAdapter implements TelegramAdapter {
     if (!source || (thumbnail && !thumbnailFor(source))) return;
     const resolved = inputLocation(source, Boolean(thumbnail));
     if (!resolved) return;
-    const plan = teleprotoDownloadParameters(start, end, resolved.dcId);
-    const { leadingBytesToSkip, ...downloadParameters } = plan;
-    const iterator = this.client.iterDownload(resolved.location, {
-      ...downloadParameters,
-      signal,
-    });
-    let remaining = end - start + 1;
-    let skip = leadingBytesToSkip;
-    try {
-      for await (const chunk of iterator) {
-        signal.throwIfAborted();
-        if (remaining <= 0) break;
-        if (skip >= chunk.length) {
-          skip -= chunk.length;
-          continue;
+    let position = start;
+    let floodRetries = 0;
+    // Telegram-ը մեծ ֆայլի ժամանակ կարող է ասել «սպասիր N վրկ» (FLOOD_WAIT)։
+    // Սպասում ենք և շարունակում նույն տեղից, ոչ թե ամբողջ sync-ը կանգնեցնում։
+    while (position <= end) {
+      const plan = teleprotoDownloadParameters(position, end, resolved.dcId);
+      const { leadingBytesToSkip, ...downloadParameters } = plan;
+      const iterator = this.client.iterDownload(resolved.location, {
+        ...downloadParameters,
+        signal,
+      });
+      let skip = leadingBytesToSkip;
+      try {
+        for await (const chunk of iterator) {
+          signal.throwIfAborted();
+          if (position > end) break;
+          if (skip >= chunk.length) {
+            skip -= chunk.length;
+            continue;
+          }
+          const available = skip > 0 ? chunk.subarray(skip) : chunk;
+          skip = 0;
+          const remaining = end - position + 1;
+          const output = available.length > remaining ? available.subarray(0, remaining) : available;
+          position += output.length;
+          yield new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
         }
-        const available = skip > 0 ? chunk.subarray(skip) : chunk;
-        skip = 0;
-        const output = available.length > remaining ? available.subarray(0, remaining) : available;
-        remaining -= output.length;
-        yield new Uint8Array(output.buffer, output.byteOffset, output.byteLength);
+        if (position <= end && !signal.aborted) throw new Error("Telegram media stream ended before the requested range was complete.");
+      } catch (error) {
+        const wait = floodWaitSeconds(error);
+        if (wait === null || signal.aborted || floodRetries >= MAX_FLOOD_RETRIES || wait > MAX_FLOOD_WAIT_SECONDS) throw error;
+        floodRetries += 1;
+        await sleep((wait + 1) * 1000, signal);
+      } finally {
+        await iterator.return(undefined);
       }
-      if (remaining > 0 && !signal.aborted) throw new Error("Telegram media stream ended before the requested range was complete.");
-    } finally {
-      await iterator.return(undefined);
     }
   }
 }
