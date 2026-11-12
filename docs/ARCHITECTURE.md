@@ -195,6 +195,11 @@ flowchart TD
   VID --> R2W
 ```
 
+**Telegram-ի «սպասիր» (FLOOD_WAIT)**. մեծ ֆայլ ներբեռնելիս Telegram-ը կարող է ասել «սպասիր N վրկ»։ `streamMedia`-ն
+(`gramjs-adapter.ts`, `floodWaitSeconds`) սպասում է և շարունակում նույն բայթից (մինչև 20 անգամ, ≤120 վրկ)։ Եթե մեկ ֆայլ
+այնուամենայնիվ չհաջողվի, գրանցվում է `library_sync_failures`-ում, իսկ sync-ը շարունակում է մյուս գրառումները
+(wrangler-ի stdin-ի սխալը այլևս պրոցեսը չի գցում)։
+
 **Տեսանյութերի ավտոմատ սեղմում** (`scripts/optimize-videos.ts`, կանոնները՝ `shared/video-optimize.ts`, աղյուսակ՝
 `video_optimizations`)։ `cloud-sync.yml`-ի վերջին քայլն է, ուստի աշխատում է ամեն sync-ից հետո (նոր գրառումից 15 րոպե հետո
 և ամեն գիշեր)։ Գտնում է դեռ չսեղմված տեսանյութերը՝ Telegram-ից (`library_media`, kind='video'), կայքում ավելացված
