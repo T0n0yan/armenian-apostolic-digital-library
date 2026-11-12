@@ -1,4 +1,4 @@
-import {useState, type ReactNode} from "react";
+import {useEffect, useRef, useState, type ReactNode} from "react";
 import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
@@ -133,7 +133,17 @@ export function PageHeader(props: PageHeaderProps) {
  * `children`-ը դաշտի պարունակությունն է (պատկերակ, input, փակելու կոճակ)։ Ծնողը պետք է լինի `relative`։
  */
 export function ExpandingSearch({open, onOpen, label = "Որոնում", children}: { open: boolean; onOpen: () => void; label?: string; children: ReactNode }) {
-    return (<div className={`header-search ${open ? "is-open" : ""}`}>
+    // Բաց որոնումը էջն իջնելիս «կպչում» է էկրանի վերևին, փակելիս՝ հետ է գնում անկյուն։
+    const box = useRef<HTMLDivElement>(null);
+    const [rowVisible, setRowVisible] = useState(true);
+    useEffect(() => {
+        const row = box.current?.parentElement;
+        if (!open || !row || typeof IntersectionObserver === "undefined") { setRowVisible(true); return; }
+        const observer = new IntersectionObserver(([entry]) => setRowVisible(entry.isIntersecting), {threshold: 0});
+        observer.observe(row);
+        return () => observer.disconnect();
+    }, [open]);
+    return (<div ref={box} className={`header-search ${open ? "is-open" : ""} ${open && !rowVisible ? "is-floating" : ""}`}>
         <button type="button" className="hs-toggle" onClick={onOpen} aria-label={label} title={label} aria-expanded={open} tabIndex={open ? -1 : 0}>
             <Search aria-hidden="true" size={17} strokeWidth={2}/>
         </button>
