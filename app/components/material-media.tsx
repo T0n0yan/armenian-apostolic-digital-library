@@ -229,7 +229,13 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
       const paused = event.currentTarget.paused;
       setState((current) => mediaPlaybackStateForEvent(current, "seeked", { paused }));
     },
-    onPlaying: () => setState((current) => mediaPlaybackStateForEvent(current, "playing")),
+    onPlaying: () => {
+      setState((current) => mediaPlaybackStateForEvent(current, "playing"));
+      // Լսված աուդիոն պահվում է հեռախոսում (service worker), որ հաջորդ անգամ ինտերնետ չծախսի։ Վիդեոն՝ ոչ։
+      if (asset.kind !== "video" && asset.kind !== "animation" && asset.url) {
+        navigator.serviceWorker?.controller?.postMessage({ type: "keep-audio", url: asset.url, fetchUrl: asset.fallbackUrl ?? asset.url });
+      }
+    },
     onPause: (event: SyntheticEvent<HTMLMediaElement>) => {
       const seeking = event.currentTarget.seeking;
       const hasCurrentData = event.currentTarget.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;

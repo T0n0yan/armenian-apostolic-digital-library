@@ -352,7 +352,11 @@ export default function App({ loaderData }: Route.ComponentProps) {
   // The service worker keeps visited pages and pictures for slow or missing connections.
   useEffect(() => {
     if (!("serviceWorker" in navigator) || window.location.protocol !== "https:") return;
-    const register = () => void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+    const register = () => {
+      void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+      // Խնդրում է, որ հեռախոսը պահված էջերն ու աուդիոն ինքնուրույն չջնջի։
+      void navigator.storage?.persist?.().catch(() => undefined);
+    };
     if (document.readyState === "complete") register();
     else window.addEventListener("load", register, { once: true });
   }, []);
