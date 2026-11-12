@@ -581,9 +581,9 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
   --lg-rim: linear-gradient(135deg, rgb(255 255 255 / 98%) 0%, rgb(255 255 255 / 45%) 20%, rgb(255 255 255 / 10%) 46%, rgb(176 125 46 / 26%) 76%, rgb(255 255 255 / 70%) 100%);
   --lg-inner: inset 0 1px 0 rgb(255 255 255 / 80%), inset 0 -1px 0 rgb(120 84 30 / 12%), inset 0 12px 18px -14px rgb(255 255 255 / 70%), inset 0 -14px 20px -18px rgb(255 255 255 / 60%);
   --lg-shadow: 0 1px 2px rgb(92 64 30 / 8%), 0 8px 22px rgb(92 64 30 / 11%), 0 26px 44px -26px rgb(92 64 30 / 22%);
-  --lg-menu-tint: rgb(255 250 240 / 86%);
+  --lg-menu-tint: rgb(255 250 240 / 96%);
   --lg-sheet-tint: rgb(253 248 236 / 95%);
-  --lg-fab-tint: rgb(255 248 232 / 58%);
+  --lg-fab-tint: rgb(255 248 232 / 94%);
   --lg-tile: rgb(255 255 255 / 34%);
   --lg-tile-hover: rgb(255 255 255 / 52%);
   --lg-tile-hi: rgb(255 255 255 / 85%);
@@ -596,9 +596,9 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
   --lg-rim: linear-gradient(135deg, rgb(255 255 255 / 58%) 0%, rgb(255 255 255 / 16%) 20%, rgb(255 255 255 / 4%) 48%, rgb(217 181 111 / 20%) 78%, rgb(255 255 255 / 32%) 100%);
   --lg-inner: inset 0 1px 0 rgb(255 255 255 / 14%), inset 0 -1px 0 rgb(0 0 0 / 40%), inset 0 12px 20px -16px rgb(255 255 255 / 10%), inset 0 -16px 24px -20px rgb(217 181 111 / 16%);
   --lg-shadow: 0 1px 2px rgb(0 0 0 / 32%), 0 10px 26px rgb(2 0 7 / 38%), 0 28px 52px -28px rgb(0 0 0 / 60%);
-  --lg-menu-tint: rgb(30 16 40 / 84%);
+  --lg-menu-tint: rgb(30 16 40 / 96%);
   --lg-sheet-tint: rgb(32 18 42 / 95%);
-  --lg-fab-tint: rgb(36 19 40 / 48%);
+  --lg-fab-tint: rgb(36 19 40 / 92%);
   --lg-tile: rgb(255 255 255 / 5%);
   --lg-tile-hover: rgb(255 255 255 / 9%);
   --lg-tile-hi: rgb(255 255 255 / 12%);
@@ -612,9 +612,9 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
     --lg-rim: linear-gradient(135deg, rgb(255 255 255 / 58%) 0%, rgb(255 255 255 / 16%) 20%, rgb(255 255 255 / 4%) 48%, rgb(217 181 111 / 20%) 78%, rgb(255 255 255 / 32%) 100%);
     --lg-inner: inset 0 1px 0 rgb(255 255 255 / 14%), inset 0 -1px 0 rgb(0 0 0 / 40%), inset 0 12px 20px -16px rgb(255 255 255 / 10%), inset 0 -16px 24px -20px rgb(217 181 111 / 16%);
     --lg-shadow: 0 1px 2px rgb(0 0 0 / 32%), 0 10px 26px rgb(2 0 7 / 38%), 0 28px 52px -28px rgb(0 0 0 / 60%);
-  --lg-menu-tint: rgb(30 16 40 / 84%);
+  --lg-menu-tint: rgb(30 16 40 / 96%);
   --lg-sheet-tint: rgb(32 18 42 / 95%);
-  --lg-fab-tint: rgb(36 19 40 / 48%);
+  --lg-fab-tint: rgb(36 19 40 / 92%);
   --lg-tile: rgb(255 255 255 / 5%);
   --lg-tile-hover: rgb(255 255 255 / 9%);
   --lg-tile-hi: rgb(255 255 255 / 12%);
@@ -1083,3 +1083,7 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 .story-panel { animation: story-panel-in 320ms cubic-bezier(.2, .8, .2, 1); }
 @keyframes story-panel-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .story-panel { animation: none; } }
+
+/* Blur-ը (backdrop-filter) հանված է ամենուր (սեփականատիրոջ որոշում, 2026-11-12). հեռախոսը
+   scroll-ի ամեն կադր նորից էր մշուշում, ու տեղադրված հավելվածը կտրտվում էր։ Ֆոները գրեթե անթափանց են։ */
+*, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
