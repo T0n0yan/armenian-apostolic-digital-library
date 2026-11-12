@@ -30,6 +30,7 @@ import { markAppHydrated, setPersonalContext } from "./utils/personal-data";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { NavigationProgress } from "./components/navigation-progress";
+import { OfflineBar } from "./components/offline-bar";
 import { ChurchNudge } from "./components/church-nudge";
 
 import { PrivateChatPresence } from "./components/private-chat-presence";
@@ -427,6 +428,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     {!quiet && <InstallPrompt />}
     <ReminderError />
     <NavigationProgress />
+    <OfflineBar />
     {!quiet && <ChurchNudge />}
     <PlaceTracker />
     <PrivateChatPresence />

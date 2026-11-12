@@ -1,7 +1,6 @@
 import { ArrowLeft, Bookmark, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { UNREAD_EVENT } from "./private-chat-presence";
-import { lockScroll } from "../utils/scroll-lock";
 import { memo, useEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -71,7 +70,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
 
   useEffect(() => {
     if (!isOpen) return;
-    const unlock = lockScroll();
+    // Էջը չի «սառեցվում» (body position: fixed). դա ամբողջ էջը նորից էր նկարում ու մենյուի բացվելը
+    // կտրտում էր։ Ետևի scroll-ը կանգնեցնում է CSS-ը (touch-action, overscroll-behavior)։
+    const unlock = () => undefined;
     const focusable = () => Array.from(
       dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled])') ?? [],
     );
