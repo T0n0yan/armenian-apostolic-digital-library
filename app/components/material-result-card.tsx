@@ -353,7 +353,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <img className="reveal-img h-full w-full object-cover" src={videoPoster.poster} alt="" loading="lazy" decoding="async" onError={(event) => { const image = event.currentTarget; const fallback = sameOriginMedia(image.src); if (new URL(fallback, location.origin).href !== image.src) image.src = fallback; else image.style.visibility = "hidden"; }} />
             ) : null}
             <span className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgb(10_5_14/70%))]" aria-hidden="true" />
-            <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397] backdrop-blur-sm"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
+            <span className="absolute inset-0 grid place-items-center"><span className="grid size-12 place-items-center rounded-full border border-[rgb(240_211_151/45%)] bg-[rgb(17_8_22/62%)] text-[#f0d397]"><Play aria-hidden="true" size={20} fill="currentColor" className="translate-x-px" /></span></span>
             {duration ? <span className="absolute right-2 bottom-2 rounded-full bg-[rgb(17_8_22/80%)] px-2 py-1 text-[11px] font-bold text-white tabular-nums">{duration}</span> : null}
           </span>
         ) : variant === "portrait" ? (

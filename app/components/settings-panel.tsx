@@ -13,14 +13,20 @@ import { formatClock } from "../utils/armenian-date";
 function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
   value: T; options: Array<{ value: T; label: string; icon?: ReactNode; sample?: ReactNode }>; onChange: (value: T) => void; columns?: number;
 }) {
+  const index = options.findIndex((option) => option.value === value);
   return (
-    <div className="grid gap-1 rounded-card border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
+    <div className="relative grid gap-1 rounded-card border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
+      {/* Ընտրվածի ապակե ֆոնը սահում է (ինչպես «Իմ անկյունը»-ի ներդիրները)։ */}
+      {index >= 0 ? (
+        <span aria-hidden="true" className="tab-glider pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 rounded-button"
+          style={{ width: `calc((100% - 12px - ${(columns - 1) * 4}px) / ${columns})`, transform: `translateX(calc(${index % columns} * (100% + 4px)))` }} />
+      ) : null}
       {options.map((option) => {
         const active = option.value === value;
         return (
           <button
             key={option.value}
-            className={`grid h-[58px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-button border-0 px-0 py-2 text-[11px] font-semibold transition-colors ${active ? "glass-selected text-gold-bright" : "bg-transparent text-muted hover:text-ink"}`}
+            className={`relative z-[1] grid h-[58px] min-w-0 cursor-pointer justify-items-center content-center gap-1 rounded-button border-0 bg-transparent px-0 py-2 text-[11px] font-semibold outline-none transition-colors duration-300 focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/42%)] ${active ? "text-gold-bright" : "text-muted hover:text-ink"}`}
             type="button" role="radio" aria-checked={active} onClick={() => onChange(option.value)}
           >
             {option.sample ?? option.icon}

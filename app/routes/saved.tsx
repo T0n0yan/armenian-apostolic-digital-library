@@ -182,9 +182,9 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
 type CornerTab = "saved" | "reading" | "notes";
 const TAB_KEY = "corner-tab";
 const CORNER_TABS: Array<{ id: CornerTab; label: string; icon: typeof Bookmark }> = [
-  { id: "saved", label: "Պահված նյութեր", icon: Bookmark },
-  { id: "reading", label: "Իմ ընթերցանությունը", icon: BookOpenCheck },
-  { id: "notes", label: "Իմ նշումները", icon: Highlighter },
+  { id: "saved", label: "Նյութեր", icon: Bookmark },
+  { id: "reading", label: "Օրացույց", icon: BookOpenCheck },
+  { id: "notes", label: "Նշումներ", icon: Highlighter },
 ];
 const TAB_HINTS: Record<CornerTab, string> = {
   saved: "🔖 Ամբողջ նյութեր, որ պահել եք՝ նորից կարդալու համար։",
