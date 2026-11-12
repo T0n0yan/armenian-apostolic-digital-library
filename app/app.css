@@ -457,6 +457,18 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
 }
 .header-search.is-open .hs-field { opacity: 1; pointer-events: auto; transition: opacity 260ms ease 140ms; }
 .hs-field .search-go { width: 32px; height: 32px; }
+/* Էջն իջնելիս բաց որոնումը կպչում է էկրանի վերևին (ապակե), մինչև փակվի։ */
+.header-search.is-floating {
+  position: fixed; top: calc(var(--tg-inset-top, 0px) + 10px); left: 12px; right: 12px;
+  width: auto; max-width: 560px; margin-inline: auto; translate: none; z-index: 35;
+  background: radial-gradient(110% 80% at 0% 0%, var(--lg-spec), transparent 55%), var(--lg-sheet-tint);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: var(--lg-inner), 0 10px 30px rgb(20 8 24 / 28%);
+  animation: hs-drop 360ms cubic-bezier(.2, 1, .3, 1);
+}
+@keyframes hs-drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .header-search.is-floating { animation: none; } }
 .hs-note { position: absolute; top: calc(100% + 6px); left: 12px; right: 12px; margin: 0; text-align: center; font-size: 12.5px; color: var(--muted); }
 /* Բացված որոնման տակ «Հետ» հղումը թաքնվում է։ */
 :has(> .header-search) > a { transition: opacity 200ms ease; }

@@ -104,6 +104,8 @@ export const SectionHeader = memo(function SectionHeader({
               method="get"
               role="search"
               onSubmit={(event) => {
+                // Enter-ից հետո ստեղնաշարը փակվում է, որ արդյունքը երևա։
+                inputRef.current?.blur();
                 validateSubmit(event);
                 if (!onSearch) return;
                 // A refused search also clears what the previous one found.
