@@ -109,7 +109,9 @@ async function pageData(request) {
 }
 
 self.addEventListener("install", (event) => {
-  // No precache of HTML: the initial request may carry a signed-in session.
+  // Գլխավոր էջը նախապես պահվում է՝ առանց cookie-ի (ընդհանուր տարբերակը, անձնական տվյալ չունի),
+  // որ հավելվածը առանց ինտերնետի էլ բացվի։
+  event.waitUntil(keepPublicPage(new URL("/", self.location.origin).href).catch(() => undefined));
   self.skipWaiting();
 });
 self.addEventListener("activate", (event) => {
@@ -237,7 +239,11 @@ self.addEventListener("fetch", (event) => {
   // The presence ping (every few minutes) changes nothing on the pages, so it doesn't count.
   if (url.origin === self.location.origin && url.pathname !== "/api/presence" && (request.method !== "GET" || /^\/(auth|telegram)\//u.test(url.pathname))) {
     lastWrite = Date.now();
-    event.waitUntil(Promise.all([markWrite(lastWrite), caches.delete(PAGES)]));
+    // Գրառումից հետո պահված էջերը չեն ջնջվում (առաջ ջնջվում էին, ու առանց ինտերնետի ոչինչ չէր բացվում).
+    // էջերը միշտ նախ ցանցից են բերվում, իսկ writeAt-ը ստիպում է տվյալները թարմ վերցնել։ Պահված էջերը
+    // միայն ընդհանուր են (անձնական տվյալ չունեն), բայց ելքի ժամանակ ամեն դեպքում ջնջվում են։
+    const logout = url.pathname.startsWith("/auth/logout");
+    event.waitUntil(Promise.all([markWrite(lastWrite), logout ? caches.delete(PAGES) : undefined]));
   }
   if (request.method !== "GET") return;
   if (request.destination === "audio" && !PRIVATE.test(url.pathname)) { event.respondWith(audioResponse(request)); return; }
