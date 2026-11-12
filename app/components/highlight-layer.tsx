@@ -1,8 +1,9 @@
-import { Copy, HelpCircle, Highlighter, PencilLine, Play, Share2, X } from "lucide-react";
+import { BookPlus, Copy, HelpCircle, Highlighter, PencilLine, Play, Share2, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { useLocation, useRouteLoaderData } from "react-router";
 
+import { GlossaryTermSheet } from "./glossary-term-sheet";
 import { HighlightSheet, highlightRequest } from "./highlight-sheet";
 import { shareLink } from "./share-button";
 import { SignInSheet } from "./sign-in-sheet";
@@ -46,6 +47,17 @@ function caretAt(x: number, y: number): { node: Node; offset: number } | null {
   return range ? { node: range.startContainer, offset: range.startOffset } : null;
 }
 
+/** Կուրսորի տակի բառը (տառեր, շեշտեր, գծիկ)։ */
+function wordAt(node: Node, offset: number) {
+  const text = node.nodeType === Node.TEXT_NODE ? node.textContent ?? "" : "";
+  const letter = /[\p{L}\p{M}\u055B-\u055F-]/u;
+  let start = offset;
+  let end = offset;
+  while (start > 0 && letter.test(text[start - 1]!)) start -= 1;
+  while (end < text.length && letter.test(text[end]!)) end += 1;
+  return text.slice(start, end).replace(/[\u055B-\u055F]/gu, "").replace(/^-+|-+$/gu, "");
+}
+
 function psalmAt(node: Node): Psalm {
   const element = node instanceof Element ? node : node.parentElement;
   const line = element?.closest<HTMLElement>("[data-verse]");
@@ -86,8 +98,13 @@ function placeAt(range: Range): Place | null {
  */
 export function HighlightLayer() {
   const location = useLocation();
-  const rootData = useRouteLoaderData("root") as { signedIn?: boolean } | undefined;
+  const rootData = useRouteLoaderData("root") as { signedIn?: boolean; adminPermissions?: string[] } | undefined;
   const signedIn = Boolean(rootData?.signedIn);
+  // «Բառարան» իրավունք ունեցողը սեղմած բառը կարող է անմիջապես ավելացնել բառարանում։
+  const canGlossary = Boolean(rootData?.adminPermissions?.includes("glossary"));
+  const tappedWord = useRef("");
+  const [glossaryWord, setGlossaryWord] = useState<string | null>(null);
+  const closeGlossary = useCallback(() => setGlossaryWord(null), []);
   const [materialId, setMaterialId] = useState<string | null>(null);
   const [items, setItems] = useState<Highlight[]>([]);
   const [spans, setSpans] = useState<Span[]>([]);
@@ -321,6 +338,7 @@ export function HighlightLayer() {
         const caret = caretAt(x, y);
         if (!caret) return;
         caretNode = caret.node;
+        tappedWord.current = wordAt(caret.node, caret.offset);
         const offset = offsetOf(map, caret.node, caret.offset);
         sentence = offset === null ? null : sentenceAt(map.text, offset);
         if (!sentence) return;
@@ -429,7 +447,7 @@ export function HighlightLayer() {
   if (typeof document === "undefined") return null;
   return (
     <>
-      {spans.length && place && !open && !askSignIn && !expanded ? createPortal(
+      {spans.length && place && !open && !askSignIn && glossaryWord === null && !expanded ? createPortal(
         <button type="button" data-highlight-bar onClick={() => { window.clearTimeout(collapseTimer.current); setClosing(false); setExpanded(true); }}
           className="highlight-dot absolute z-[2040] grid cursor-pointer place-items-center rounded-full border border-[rgb(217_181_111/70%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] p-0 text-[#2a1708] shadow-[0_8px_22px_rgb(120_80_20/35%)]"
           style={{ top: place.dotTop, left: place.dotLeft, width: DOT, height: DOT }} aria-label={`Ընտրված է ${spans.length} նախադասություն. բացել՝ պահելու համար`}>
@@ -439,7 +457,7 @@ export function HighlightLayer() {
         document.body,
       ) : null}
 
-      {spans.length && place && !open && !askSignIn && expanded ? createPortal(
+      {spans.length && place && !open && !askSignIn && glossaryWord === null && expanded ? createPortal(
         <div className="absolute z-[2040]" style={{ top: place.top, left: place.left, width: place.width, transform: place.above ? "translateY(-100%)" : undefined }} data-highlight-bar>
           <div className={`${closing ? "highlight-pop-out" : "highlight-pop"} relative`} data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
             <span className="absolute size-3.5 rotate-45 border-[var(--frost-border)] glass-arrow" aria-hidden="true"
@@ -449,6 +467,11 @@ export function HighlightLayer() {
               {tooLong ? <p className="m-0 px-1 text-center text-[11.5px] text-muted">Շատ երկար է. ընտրեք ավելի կարճ (մինչև {QUOTE_MAX} նշան)։</p> : null}
               <div className="flex items-center gap-1">
                 <button className={`${main} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[inset_0_1px_0_rgb(255_255_255/45%)]`} type="button" disabled={tooLong || busy} onClick={() => void save("mark")}><Highlighter aria-hidden="true" size={17} /> Պահել</button>
+                {canGlossary && single ? <button className={icon} type="button" onClick={() => {
+                  const quote = sources()[0]?.quote.trim() ?? "";
+                  // Երկար սեղմումով ընտրված կարճ հատվածը, թե չէ՝ սեղմած բառը։
+                  setGlossaryWord(quote.length <= 60 && quote.split(/\s+/u).length <= 2 && !/[.,։:;]/u.test(quote) ? quote : tappedWord.current);
+                }} aria-label="Ավելացնել բառարանում" title="Ավելացնել բառարանում"><BookPlus aria-hidden="true" size={17} /></button> : null}
                 <button className={icon} type="button" onClick={() => void copy()} aria-label="Պատճենել" title="Պատճենել"><Copy aria-hidden="true" size={17} /></button>
                 {single && psalm?.path ? <button className={icon} type="button" onClick={() => void share()} aria-label="Կիսվել համարով" title="Կիսվել"><Share2 aria-hidden="true" size={17} /></button> : null}
                 {single && psalm?.audio ? <button className={`${icon} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={listen} aria-label="Լսել այստեղից" title="Լսել այստեղից"><Play aria-hidden="true" size={17} /></button> : null}
@@ -479,6 +502,7 @@ export function HighlightLayer() {
         onChange={(changed) => setItems((current) => current.map((item) => item.id === changed.id ? changed : item))}
         onDelete={(id) => setItems((current) => current.filter((item) => item.id !== id))} />
       <SignInSheet open={askSignIn} onClose={() => { setAskSignIn(false); writePending(null); }} reason="պահեք Ձեր նշումները և հարցերը" hint="Կարդալ կարելի է առանց մուտքի։ Մուտքից հետո ընտրվածը կպահվի ինքնաբերաբար։" />
+      {canGlossary ? <GlossaryTermSheet word={glossaryWord} onClose={closeGlossary} /> : null}
     </>
   );
 }
