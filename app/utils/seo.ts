@@ -87,8 +87,17 @@ export function materialHeading(title: string, text: string | null | undefined, 
   return title;
 }
 
-export function seoMeta({ title, description, path, image, type = "website", jsonLd = [], origin, index = true }: {
+/** Սաղմոսի համարը որոնման վերնագրում պահվում է նաև նկարագրական անվան դեպքում։ */
+export function materialSeoTitle(title: string, text: string | null | undefined, categoryName: string, path: string) {
+  const heading = materialHeading(title, text, categoryName);
+  const number = /^\/psalms\/(\d{1,3})$/u.exec(path)?.[1];
+  return pageTitle(number ? `Սաղմոս ${number}․ ${heading.replace(/^սաղմոս\s+\d{1,3}\s*[․։.:—-]?\s*/iu, "")}`.replace(/[․\s]+$/u, "") : heading, categoryName);
+}
+
+export function seoMeta({ title, description, path, canonicalPath = path, image, type = "website", jsonLd = [], origin, index = true }: {
   title: string; description: string; path: string; image?: string | null; type?: "website" | "article"; jsonLd?: object[];
+  /** Որոնիչի հիմնական էջը. կիսվելու հասցեն և նկարը շարունակում են պատկանել path-ին։ */
+  canonicalPath?: string;
   /** false՝ էջը դեռ քիչ բան ունի, որոնման մեջ չի մտնում (հղումներով անցնում են)։ */
   index?: boolean;
   /** The address the page was opened on: previews (Telegram) follow og:url, so staging links stay on staging. */
@@ -100,7 +109,7 @@ export function seoMeta({ title, description, path, image, type = "website", jso
     { title },
     { name: "description", content: description },
     { name: "robots", content: index ? "index, follow, max-image-preview:large" : "noindex, follow" },
-    { tagName: "link", rel: "canonical", href: url },
+    { tagName: "link", rel: "canonical", href: absoluteUrl(canonicalPath) },
     { property: "og:site_name", content: SITE_NAME },
     { property: "og:locale", content: "hy_AM" },
     { property: "og:type", content: type },

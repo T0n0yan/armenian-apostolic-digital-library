@@ -1,7 +1,7 @@
 import { listPublicPlaceSummaries } from "../data/places.server";
 import { env } from "cloudflare:workers";
 
-import { listCloudLibraryCategories } from "../data/cloud-library.server";
+import { INTRO_TOPICS, listCloudLibraryCategories } from "../data/cloud-library.server";
 import { remember } from "../data/memory-cache.server";
 import { createMaterialId, resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { psalmNumber } from "../utils/psalm-number";
@@ -19,7 +19,12 @@ export async function loader() {
     const categories = (await listCloudLibraryCategories(env.DB)).filter((category) => !category.isGeneral && category.status !== "hidden");
     const { results } = await env.DB.prepare(
       `SELECT materials.chat_id, materials.message_id, topics.title AS category_name,
-         materials.title, substr(COALESCE(materials.content_text, materials.caption_text, ''), 1, 400) AS head,
+         materials.title, materials.content_type,
+         (SELECT MIN(first.message_id) FROM library_materials AS first
+           WHERE first.topic_key = topics.id AND first.sync_state = 'ready' AND first.deleted_at IS NULL) AS first_message_id,
+         (SELECT COUNT(*) FROM library_media AS media WHERE media.chat_id = materials.chat_id
+           AND media.message_id = materials.message_id AND media.status = 'ready') AS media_count,
+         substr(COALESCE(materials.content_text, materials.caption_text, ''), 1, 400) AS head,
          (SELECT media.title FROM library_media AS media WHERE media.chat_id = materials.chat_id
             AND media.message_id = materials.message_id AND media.kind IN ('audio', 'voice') LIMIT 1) AS media_title,
          COALESCE(materials.edited_at, materials.published_at) AS changed_at
@@ -28,7 +33,7 @@ export async function loader() {
        WHERE materials.sync_state = 'ready' AND materials.deleted_at IS NULL
          AND topics.is_general = 0 AND topics.status != 'hidden'
        ORDER BY materials.message_id`,
-    ).all<{ chat_id: string; message_id: number; category_name: string; title: string; head: string; media_title: string | null; changed_at: string | null }>();
+    ).all<{ chat_id: string; message_id: number; category_name: string; title: string; content_type: string; first_message_id: number; media_count: number; head: string; media_title: string | null; changed_at: string | null }>();
     const entry = (path: string, changed?: string | null, priority = "0.6") =>
       `<url><loc>${escape(`${SITE_URL}${path}`)}</loc>${changed ? `<lastmod>${changed.slice(0, 10)}</lastmod>` : ""}<priority>${priority}</priority></url>`;
     return [
@@ -36,7 +41,9 @@ export async function loader() {
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
       entry("/", null, "1.0"),
       ...categories.map((category) => entry(sectionPath(category), null, "0.8")),
-      ...results.map((row) => {
+      // Ներածությունները բաժնի մաս են, ինչպես որոնման ինդեքսում․ հին էջերը շարունակում են բացվել։
+      ...results.filter((row) => !(row.message_id === row.first_message_id && row.content_type === "text" && row.media_count === 0
+        && INTRO_TOPICS.has(resolveContentCategoryId(null, row.category_name) ?? ""))).map((row) => {
         const psalm = resolveContentCategoryId(null, row.category_name) === "category_psalms"
           ? psalmNumber({ title: row.title, excerpt: row.head, preview: { mediaTitle: row.media_title } })
           : null;

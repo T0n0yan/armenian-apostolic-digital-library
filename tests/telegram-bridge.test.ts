@@ -1275,6 +1275,10 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const sitemap = await (await mf.dispatchFetch("https://app.fixture/sitemap.xml")).text();
   assert.match(sitemap, /\/places\/qa-visible/);
   assert.doesNotMatch(sitemap, /qa-hidden/);
+  // Առաջին տեքստային գրառումը բաժնի ներածությունն է, հաջորդ նկարը՝ առանձին նյութ։
+  assert.doesNotMatch(sitemap, /<loc>[^<]*\/materials\/material_tg_n100900_67<\/loc>/u);
+  assert.match(sitemap, /<loc>[^<]*\/materials\/material_tg_n100900_101<\/loc>/u);
+  assert.match(sitemap, /<loc>[^<]*\/materials\/material_tg_n100900_102<\/loc>/u);
 
   const home = await mf.dispatchFetch("https://app.fixture/");
   assert.equal(home.status, 200);
