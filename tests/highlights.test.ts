@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
-import { anchorFor, cleanEmoji, findQuote, highlightCopyText, matchAround, mergeSpans, sentenceAt, toggleSentence } from "../app/utils/highlights";
+import { anchorFor, cleanEmoji, findQuote, highlightCopyText, matchAround, mergeSpans, sentenceAt, toggleSentence, verseSpan } from "../app/utils/highlights";
 import { createHighlight, deleteHighlight, listHighlights, listMarkedVerses, listMaterialHighlights, openQuestionCount, setVerseMarked, updateHighlight } from "../app/data/highlights.server";
 
 function database() {
@@ -149,4 +149,15 @@ test("matchAround: marks the searched word (any case) and trims a long start at 
   const found = matchAround(long, "աստված")!;
   assert.equal(found.match, "Աստված");
   assert.ok(found.before.startsWith("…") && found.before.length <= 42);
+});
+
+test("verseSpan: a verse without «։» is one unit; its number and the text above stay out", () => {
+  const text = "Համարների ժամերը նշված են 1 Երանելի է այն մարդը\nհետ համախոհ չի լինում\n2 այլ հաճոյք է ստանում Տիրոջ օրէնքներից։";
+  const start = text.indexOf("2 այլ");
+  const verse = verseSpan(text, start - 1, text.length)!;
+  assert.equal(text.slice(verse.start, verse.end), "այլ հաճոյք է ստանում Տիրոջ օրէնքներից։");
+  const first = verseSpan(text, text.indexOf("1 Երանելի"), start)!;
+  assert.equal(text.slice(first.start, first.end), "Երանելի է այն մարդը\nհետ համախոհ չի լինում");
+  // Իրար կողքի համարները պահելիս դառնում են մեկ նշում։
+  assert.deepEqual(mergeSpans([verse, first], text), [{ start: first.start, end: verse.end }]);
 });

@@ -256,7 +256,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
   return (
     <div className="grid gap-3">
       {canMark && !marking ? (
-        <div className="flex flex-wrap items-center justify-end gap-2 font-sans">
+        <div className="flex flex-wrap items-center justify-end gap-2 font-sans" data-highlight-skip>
           <span className="mr-auto text-[11.5px] text-muted">{numbered ? (timings ? "Համարների ժամերը նշված են" : "Համարների ժամերը նշված չեն") : (timings ? "Տողերի ժամերը նշված են" : "Տողերի ժամերը նշված չեն")}</span>
           {timings ? <button className={`${button} border-glass-border bg-transparent text-muted`} type="button" disabled={saving} onClick={() => save(null)}>Ջնջել</button> : null}
           <button className={`${button} border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-gold-bright`} type="button" onClick={startMarking}>
@@ -264,7 +264,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
           </button>
         </div>
       ) : null}
-      {message ? <p className="m-0 text-center font-sans text-[12.5px] text-gold-bright" role="status">{message}</p> : null}
+      {message ? <p className="m-0 text-center font-sans text-[12.5px] text-gold-bright" role="status" data-highlight-skip>{message}</p> : null}
 
       <div className="psalm-lines relative grid gap-1" data-psalm-audio={hasAudio ? "1" : undefined} data-psalm-path={numbered ? psalmPath : undefined}>
         <div ref={barRef} aria-hidden="true" className="pointer-events-none absolute top-0 -left-2 w-[3px] bg-[rgb(217_181_111/90%)] opacity-0 transition-[transform,height,opacity] duration-500 ease-[cubic-bezier(.3,.8,.3,1)] motion-reduce:transition-none" />
@@ -284,7 +284,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 
 
       {marking ? (
-        <div className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
+        <div data-highlight-skip className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
           <p className="m-0 text-[12px] leading-snug text-muted">
             Լսեք ձայնագրությունը և սեղմեք <strong className="text-ink">«Հաջորդ համարը»</strong> հենց որ սկսվի նոր համարը (համակարգչում՝ Space)։ Սխալը ուղղելու համար սեղմեք տողի վրա՝ ճիշտ պահին։
           </p>
