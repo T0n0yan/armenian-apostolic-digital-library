@@ -140,6 +140,18 @@ export function sentenceAt(text: string, offset: number) {
 
 export type Span = { start: number; end: number };
 
+/**
+ * Համարակալված տեքստի (սաղմոս, Աստվածաշունչ) մեկ համարը՝ որպես նշելու միավոր։ Դրսի բացատները
+ * և սկզբի համարը («3 », «3. ») դուրս են մնում։ Ոչ համարակալված տեքստը նշվում է նախադասությամբ։
+ */
+export function verseSpan(text: string, start: number, end: number): Span | null {
+  while (start < end && /[\s\u2029]/u.test(text[start])) start += 1;
+  const number = /^\d{1,3}[.)]?\s+/u.exec(text.slice(start, end));
+  if (number) start += number[0].length;
+  while (end > start && /[\s\u2029]/u.test(text[end - 1])) end -= 1;
+  return end - start >= 2 ? { start, end } : null;
+}
+
 /** Ընտրված նախադասությունների ցանկում. նորը ավելանում է, արդեն ընտրվածը՝ հանվում (ցանկացած տեղից, ցանկացած հերթով)։ */
 export function toggleSentence(spans: Span[], sentence: Span) {
   const inside = spans.findIndex((span) => sentence.start < span.end && sentence.end > span.start);

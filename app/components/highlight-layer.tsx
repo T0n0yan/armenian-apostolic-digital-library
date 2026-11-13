@@ -8,10 +8,10 @@ import { HighlightSheet, highlightRequest } from "./highlight-sheet";
 import { shareLink } from "./share-button";
 import { SignInSheet } from "./sign-in-sheet";
 import {
-  anchorFor, findQuote, highlightCopyText, mergeSpans, sentenceAt, toggleSentence, QUOTE_MAX, type Highlight, type HighlightKind, type Span,
+  anchorFor, findQuote, highlightCopyText, mergeSpans, sentenceAt, toggleSentence, verseSpan, QUOTE_MAX, type Highlight, type HighlightKind, type Span,
 } from "../utils/highlights";
 import {
-  buildTextMap, glossaryHit, highlightRegistry, highlightRoot, offsetOf, rangeFor, rangeHit, readingBodies,
+  buildTextMap, glossaryHit, highlightRegistry, highlightRoot, offsetOf, rangeFor, rangeHit, readingBodies, verseBoundsAt,
 } from "../utils/highlight-dom";
 
 type Source = { quote: string; prefix: string; suffix: string };
@@ -340,7 +340,10 @@ export function HighlightLayer() {
         caretNode = caret.node;
         tappedWord.current = wordAt(caret.node, caret.offset);
         const offset = offsetOf(map, caret.node, caret.offset);
-        sentence = offset === null ? null : sentenceAt(map.text, offset);
+        // Համարակալված տեքստում (սաղմոս, Աստվածաշունչ) նշվում է ամբողջ համարը, մնացածում՝ նախադասությունը.
+        // առանց դրա վերջակետ չունեցող համարը կպչում էր նախորդին և նույնիսկ վերևի գրություններին։
+        const verse = verseBoundsAt(map, caret.node);
+        sentence = verse ? verseSpan(map.text, verse.start, verse.end) : offset === null ? null : sentenceAt(map.text, offset);
         if (!sentence) return;
         next = toggleSentence(spansRef.current, sentence);
       }
