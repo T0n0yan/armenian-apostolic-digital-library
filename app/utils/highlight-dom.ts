@@ -82,6 +82,24 @@ function pointAt(map: TextMap, offset: number, end: boolean) {
   return following ? { node: following.node, offset: 0 } : { node: entry.node, offset: entry.node.data.length };
 }
 
+/**
+ * Եթե կետը համարակալված տողում է (`data-verse`), վերադարձնում է ամբողջ համարի սահմանները տեքստում.
+ * մեկ համարը կարող է լինել մի քանի տող՝ նույն `data-verse`-ով, իրար կողքի։ Այլապես՝ null։
+ */
+export function verseBoundsAt(map: TextMap, node: Node) {
+  const element = node instanceof Element ? node : node.parentElement;
+  const line = element?.closest<HTMLElement>("[data-verse]");
+  const verse = line?.dataset.verse;
+  if (!line || !verse) return null;
+  let first = line;
+  let last = line;
+  while (first.previousElementSibling instanceof HTMLElement && first.previousElementSibling.dataset.verse === verse) first = first.previousElementSibling;
+  while (last.nextElementSibling instanceof HTMLElement && last.nextElementSibling.dataset.verse === verse) last = last.nextElementSibling;
+  const start = offsetOf(map, first, 0);
+  const end = offsetOf(map, last, last.childNodes.length);
+  return start === null || end === null || end <= start ? null : { start, end };
+}
+
 export function rangeFor(map: TextMap, start: number, end: number) {
   const from = pointAt(map, start, false);
   const to = pointAt(map, end, true);
