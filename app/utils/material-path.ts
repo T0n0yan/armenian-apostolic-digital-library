@@ -88,6 +88,11 @@ export function materialIdFromShortPath(segment: string) {
 }
 
 /** Pages the edge may cache: sections, materials, verses and old addresses. */
+/** Սաղմոսի էջ (`/psalms/22`). սաղմոսից սաղմոս անցնելիս էջի ձևը նույնն է, փոխվում է միայն տեքստը։ */
+export function isPsalmPagePath(pathname: string) {
+  return /^\/psalms\/\d{1,3}\/?$/u.test(pathname);
+}
+
 export function isLibraryPath(pathname: string) {
   const [first = "", second, third, ...rest] = pathname.replace(/^\//u, "").split("/");
   if (OLD_SHORT_PATH.test(first)) return second === undefined;

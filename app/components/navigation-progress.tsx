@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 
 import { PageSkeleton } from "./page-skeleton";
+import { isPsalmPagePath } from "../utils/material-path";
 
 /**
  * A thin gold bar at the top while a page is loading, so a tap always shows that something is
@@ -16,7 +17,9 @@ export function NavigationProgress() {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
   // Only a move to another page (not a search on the same one, not sending a form) gets the outline.
-  const target = navigation.state === "loading" && !navigation.formMethod && navigation.location.pathname !== location.pathname ? navigation.location.pathname : null;
+  // Սաղմոսից սաղմոս՝ առանց կմախքի. էջը մնում է, միայն տեքստն է թարմանում (material.tsx)։
+  const moving = navigation.state === "loading" && !navigation.formMethod && navigation.location.pathname !== location.pathname;
+  const target = moving && !(isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname)) ? navigation.location.pathname : null;
   const [skeleton, setSkeleton] = useState<string | null>(null);
   useEffect(() => {
     if (!target) { setSkeleton(null); return; }
