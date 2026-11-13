@@ -183,7 +183,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       />
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath} data-section-name={material.categoryName}>
+      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath} data-section-name={material.categoryName} data-story-kind={isPrayer ? "prayer" : isPsalm ? "psalm" : undefined} data-story-title={storyTitle}>
         {isPrayer && loaderData.canLayout ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             {loaderData.layoutStale ? <span className="inline-flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert className="text-gold" size={15} aria-hidden="true" /> Telegram-ում տեքստը փոխվել է</span> : null}
