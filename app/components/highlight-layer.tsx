@@ -1,5 +1,5 @@
 import { BookPlus, Copy, HelpCircle, Highlighter, PencilLine, Play, Share2, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { useLocation, useRouteLoaderData } from "react-router";
 
@@ -7,12 +7,17 @@ import { GlossaryTermSheet } from "./glossary-term-sheet";
 import { HighlightSheet, highlightRequest } from "./highlight-sheet";
 import { shareLink } from "./share-button";
 import { SignInSheet } from "./sign-in-sheet";
+import type { StorySource } from "./story-editor";
 import {
   anchorFor, findQuote, highlightCopyText, mergeSpans, sentenceAt, toggleSentence, verseSpan, QUOTE_MAX, type Highlight, type HighlightKind, type Span,
 } from "../utils/highlights";
 import {
   buildTextMap, glossaryHit, highlightRegistry, highlightRoot, offsetOf, rangeFor, rangeHit, readingBodies, verseBoundsAt,
 } from "../utils/highlight-dom";
+import { verseLabel } from "../utils/psalm-verses";
+
+// Նկարով կիսվելու խմբագիրը բեռնվում է միայն «Կիսվել» սեղմելիս։
+const StoryEditor = lazy(() => import("./story-editor").then((module) => ({ default: module.StoryEditor })));
 
 type Source = { quote: string; prefix: string; suffix: string };
 type Painted = { item: Highlight; range: Range };
@@ -118,6 +123,7 @@ export function HighlightLayer() {
   const [askSignIn, setAskSignIn] = useState(false);
   const [toast, setToast] = useState<{ text: string; item?: Highlight } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [story, setStory] = useState<StorySource | null>(null);
   const painted = useRef<Painted[]>([]);
   const spansRef = useRef<Span[]>([]);
   const lastTap = useRef(0);
@@ -428,10 +434,28 @@ export function HighlightLayer() {
     showToast(ok ? "Պատճենված է ✓" : "Չհաջողվեց պատճենել");
   };
 
-  const share = async () => {
-    if (!psalm?.path) return;
-    const outcome = await shareLink(`${window.location.origin}${psalm.path}`);
+  // Աղոթքում և սաղմոսում «Կիսվել»-ը բացում է մեր նկարով կիսվելու պատուհանը՝ միայն ընտրված տողերով։
+  // Մեկ համար ընտրելիս հղումը տանում է հենց այդ համարին (/psalms/1/4)։
+  const share = () => {
+    const root = highlightRoot();
+    const kind = root?.dataset.storyKind;
+    if (!root || !kind) return;
+    const verse = single && psalm?.path ? psalm : null;
+    const pagePath = root.dataset.highlightPath ?? window.location.pathname;
+    const pageTitle = root.dataset.storyTitle || root.dataset.highlightTitle || "";
+    const text = sources().map((source) => source.quote.trim()).filter(Boolean).join("\n");
+    if (!text) return;
+    setStory({
+      title: verse ? verseLabel(pagePath, pageTitle, verse.verse) : pageTitle,
+      text: `«${text}»`,
+      path: verse?.path ?? pagePath,
+      ornate: kind === "prayer",
+    });
     clearSpans();
+  };
+  const shareStoryLink = async () => {
+    if (!story) return;
+    const outcome = await shareLink(`${window.location.origin}${story.path}`);
     if (outcome === "copied") showToast("Հղումը պատճենվեց");
   };
 
@@ -444,6 +468,7 @@ export function HighlightLayer() {
   const length = sources().reduce((total, source) => total + source.quote.length, 0);
   const tooLong = spans.length > 0 && sources().some((source) => source.quote.length > QUOTE_MAX);
   const single = spans.length === 1;
+  const storyKind = typeof document !== "undefined" && spans.length ? highlightRoot()?.dataset.storyKind : undefined;
   const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-button border-0 bg-subtle text-ink disabled:opacity-50";
   const main = "inline-flex min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1 rounded-button border-0 px-1.5 text-[13px] font-bold disabled:cursor-default disabled:opacity-50";
 
@@ -476,7 +501,7 @@ export function HighlightLayer() {
                   setGlossaryWord(quote.length <= 60 && quote.split(/\s+/u).length <= 2 && !/[.,։:;]/u.test(quote) ? quote : tappedWord.current);
                 }} aria-label="Ավելացնել բառարանում" title="Ավելացնել բառարանում"><BookPlus aria-hidden="true" size={17} /></button> : null}
                 <button className={icon} type="button" onClick={() => void copy()} aria-label="Պատճենել" title="Պատճենել"><Copy aria-hidden="true" size={17} /></button>
-                {single && psalm?.path ? <button className={icon} type="button" onClick={() => void share()} aria-label="Կիսվել համարով" title="Կիսվել"><Share2 aria-hidden="true" size={17} /></button> : null}
+                {storyKind ? <button className={icon} type="button" onClick={share} aria-label="Կիսվել նկարով" title="Կիսվել"><Share2 aria-hidden="true" size={17} /></button> : null}
                 {single && psalm?.audio ? <button className={`${icon} bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={listen} aria-label="Լսել այստեղից" title="Լսել այստեղից"><Play aria-hidden="true" size={17} /></button> : null}
                 <button className={`${icon} bg-transparent text-muted`} type="button" onClick={clearSpans} aria-label="Փակել" title="Փակել"><X aria-hidden="true" size={18} /></button>
               </div>
@@ -505,6 +530,11 @@ export function HighlightLayer() {
         onChange={(changed) => setItems((current) => current.map((item) => item.id === changed.id ? changed : item))}
         onDelete={(id) => setItems((current) => current.filter((item) => item.id !== id))} />
       <SignInSheet open={askSignIn} onClose={() => { setAskSignIn(false); writePending(null); }} reason="պահեք Ձեր նշումները և հարցերը" hint="Կարդալ կարելի է առանց մուտքի։ Մուտքից հետո ընտրվածը կպահվի ինքնաբերաբար։" />
+      {story ? (
+        <Suspense fallback={null}>
+          <StoryEditor source={story} onClose={() => setStory(null)} onLink={() => void shareStoryLink()} />
+        </Suspense>
+      ) : null}
       {canGlossary ? <GlossaryTermSheet word={glossaryWord} onClose={closeGlossary} /> : null}
     </>
   );
