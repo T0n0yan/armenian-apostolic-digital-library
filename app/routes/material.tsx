@@ -1,7 +1,7 @@
 import { Bookmark, ChevronLeft, ChevronRight, Paintbrush, Tag, TriangleAlert } from "lucide-react";
 import { hasRememberedFind, useFindFlash } from "../utils/find-flash";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigation } from "react-router";
 
 import type { Route } from "./+types/material";
 import { MaterialMediaGallery, PsalmNavContext } from "../components/material-media";
@@ -22,7 +22,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
-import { sectionPath } from "../utils/material-path";
+import { isPsalmPagePath, sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
 import { fetchPersonal } from "../utils/personal-data";
 import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, materialSeoTitle, materialHeading, sectionImage, seoMeta } from "../utils/seo";
@@ -99,6 +99,10 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const isSaved = savedIds.has(material.id);
   const toggleSaved = useCallback(() => setSaved(material.id, !isSaved), [isSaved, material.id, setSaved]);
   const location = useLocation();
+  const navigation = useNavigation();
+  // Հաջորդ/նախորդ սաղմոսը բեռնվելիս ամբողջ էջը չի փոխվում. միայն տեքստը թեթև մարում է, մինչև նորը գա։
+  const psalmSwitching = navigation.state === "loading" && navigation.location.pathname !== location.pathname
+    && isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname);
   // Opened from a search whose words light up (useFindFlash): the old block highlight would redraw
   // the text after a few seconds (a psalm switches back to its verse layout), so it is left out.
   const flashing = useMemo(() => hasRememberedFind(location.pathname), [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -183,7 +187,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
       />
       <PsalmNavContext.Provider value={loaderData.psalm ? { previous: loaderData.psalm.previous, next: loaderData.psalm.next } : null}>
       <TimestampSeekContext.Provider value={material.media.some((asset) => asset.url && ["video", "animation", "audio", "voice"].includes(asset.kind))}>
-      <article className={`mt-3 grid gap-4 min-[560px]:mt-4 ${readingClass}`} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath} data-section-name={material.categoryName} data-story-kind={isPrayer ? "prayer" : isPsalm ? "psalm" : undefined} data-story-title={storyTitle}>
+      <article className={`mt-3 grid gap-4 transition-opacity duration-200 min-[560px]:mt-4 ${psalmSwitching ? "opacity-50" : ""} ${readingClass}`} aria-busy={psalmSwitching || undefined} data-highlight-material={material.id} data-highlight-title={material.title} data-highlight-path={loaderData.canonicalPath} data-section-name={material.categoryName} data-story-kind={isPrayer ? "prayer" : isPsalm ? "psalm" : undefined} data-story-title={storyTitle}>
         {isPrayer && loaderData.canLayout ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             {loaderData.layoutStale ? <span className="inline-flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert className="text-gold" size={15} aria-hidden="true" /> Telegram-ում տեքստը փոխվել է</span> : null}
