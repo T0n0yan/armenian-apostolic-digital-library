@@ -232,6 +232,16 @@ ${links ? `<nav class="kept" aria-labelledby="kept"><h2 id="kept">Կարդալ �
 </main><script>addEventListener("online",function(){location.reload()})</script></body></html>`;
 }
 
+/** `/psalms/22.data?_routes=…` → `/psalms/22` (the page whose data it is). */
+function pageAddress(url) {
+  const params = new URLSearchParams(url.search);
+  params.delete("_routes");
+  params.delete("index");
+  const path = url.pathname === "/_root.data" ? "/" : url.pathname.replace(/\.data$/u, "");
+  const query = params.toString();
+  return `${url.origin}${path}${query ? `?${query}` : ""}`;
+}
+
 const PRIVATE = /^\/(api\/(reminders|push|poll-vote|reading-log|share-prepare|psalm-timings|highlights|saved-verses|my-summary|sunday)|auth\/|telegram\/|admin|saved|notes|namak)/u;
 
 self.addEventListener("fetch", (event) => {
@@ -263,6 +273,11 @@ self.addEventListener("fetch", (event) => {
     if (request.destination === "image" || url.searchParams.has("thumbnail")) event.respondWith(cacheFirst(request, MEDIA));
   } else if (url.pathname.endsWith(".data")) {
     event.respondWith(pageData(request));
+    // Հավելվածի ներսում էջերը բացվում են միայն տվյալներով (.data), իսկ առանց ինտերնետի բացվում է միայն
+    // պահված HTML-ը։ Առաջ HTML պահվում էր միայն առաջին բացված էջի համար, ու iPhone-ում (որտեղ հավելվածը
+    // հազվադեպ է ամբողջովին վերաբեռնվում) գրեթե ոչինչ չէր պահվում։ Հիմա բացված էջի ընդհանուր HTML-ն էլ
+    // է պահվում (առանց cookie-ի, օրը մեկ անգամ)։
+    event.waitUntil(keepPublicPage(pageAddress(url)).catch(() => undefined));
   } else if (request.mode === "navigate" || url.pathname.startsWith("/api/")) {
     event.respondWith(networkFirst(request, "", event));
   }
