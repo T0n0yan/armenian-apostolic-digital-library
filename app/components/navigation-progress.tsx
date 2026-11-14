@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 
-import { PageSkeleton } from "./page-skeleton";
 import { isPsalmPagePath } from "../utils/material-path";
 
 /**
@@ -10,6 +9,10 @@ import { isPsalmPagePath } from "../utils/material-path";
  * Going to another page that takes more than a moment also shows that page's outline (its
  * skeleton) in the page's own colours until it arrives.
  */
+// Կմախքները առանձին ֆայլում են (հիմնական ֆայլը չծանրանա), բեռնվում են էջը բացվելուց հետո։
+const loadSkeleton = () => import("./page-skeleton");
+const PageSkeleton = lazy(loadSkeleton);
+
 export function NavigationProgress() {
   const navigation = useNavigation();
   const location = useLocation();
@@ -19,8 +22,12 @@ export function NavigationProgress() {
   // Only a move to another page (not a search on the same one, not sending a form) gets the outline.
   // Սաղմոսից սաղմոս՝ առանց կմախքի. էջը մնում է, միայն տեքստն է թարմանում (material.tsx)։
   const moving = navigation.state === "loading" && !navigation.formMethod && navigation.location.pathname !== location.pathname;
-  const target = moving && !(isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname)) ? navigation.location.pathname : null;
+  const target = moving && !(isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname)) ? navigation.location.pathname + navigation.location.search : null;
   const [skeleton, setSkeleton] = useState<string | null>(null);
+  useEffect(() => {
+    if ("requestIdleCallback" in window) window.requestIdleCallback(() => void loadSkeleton());
+    else setTimeout(() => void loadSkeleton(), 1500);
+  }, []);
   useEffect(() => {
     if (!target) { setSkeleton(null); return; }
     const timer = window.setTimeout(() => setSkeleton(target), 250);
@@ -42,7 +49,7 @@ export function NavigationProgress() {
 
   return (
     <>
-      {skeleton ? <PageSkeleton pathname={skeleton} /> : null}
+      {skeleton ? <Suspense fallback={null}><PageSkeleton pathname={skeleton} /></Suspense> : null}
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[2010] h-[3px]" aria-hidden="true" style={{ opacity: visible ? 1 : 0, transition: "opacity 300ms" }}>
         <div className="h-full bg-[linear-gradient(90deg,#b07d2e,#f0d397,#b07d2e)] shadow-[0_0_10px_rgb(240_211_151/80%)]" style={{ width: `${progress * 100}%`, transition: "width 250ms ease-out" }} />
       </div>

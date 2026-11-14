@@ -10,6 +10,7 @@ import {PlacesIcon} from "../components/topic-icons";
 import { PageShell } from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
 import {DailyVerseCard} from "../components/daily-verse";
+import {HomeTitle} from "../components/home-title";
 import {SearchSuggestions} from "../components/search-suggestions";
 import type {CategorySummary} from "../data/categories.server";
 import {listActiveCategories} from "../data/categories.server";
@@ -22,7 +23,6 @@ import AngelLeftSmall from "../assets/angel-left-240.webp"
 // Հրեշտակը էկրանի 27%-ն է. փոքր էկրանին բավական է 240px տարբերակը։
 const ANGEL_SRCSET = `${AngelLeftSmall} 240w, ${AngelLeft} 540w`;
 const ANGEL_SIZES = "(max-width: 1180px) 27vw, 320px";
-import ArmenianEternity from "../assets/armenian-eternity.svg"
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
 import { sectionPath } from "../utils/material-path";
@@ -118,31 +118,6 @@ const CategoryGrid = memo(function CategoryGrid({categories, places}: { categori
         {categories.slice(at).map((category, index) => (<CategoryCard key={category.id} category={category} index={at + 1 + index}/>))}
     </ol>);
 });
-
-/** Small Armenian cross for the affiliation seal. */
-function ArmenianCross({size = 14}: { size?: number }) {
-    return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3v18M6 9h12"/>
-        <path d="M12 3c-1.2 0-1.8.8-1.8 1.6M12 3c1.2 0 1.8.8 1.8 1.6M6 9c0-1.2-.8-1.8-1.6-1.8M6 9c0 1.2-.8 1.8-1.6 1.8M18 9c0-1.2.8-1.8 1.6-1.8M18 9c0 1.2.8 1.8 1.6 1.8M12 21c-1.2 0-1.8-.8-1.8-1.6M12 21c1.2 0 1.8-.8 1.8-1.6"/>
-    </svg>);
-}
-
-function HomeTitle() {
-    return (<header className="relative z-5 -mt-[6px] grid justify-items-center gap-3 px-2 pt-1 pb-2 text-center min-[560px]:gap-4">
-        <div className="hero-rise flex w-full max-w-[340px] items-center gap-3 text-gold" aria-hidden="true">
-            <span className="h-px flex-1 bg-[linear-gradient(90deg,transparent,currentColor)] opacity-60"/>
-            <span className="gold-mark size-[22px]" style={{"--mark": `url(${ArmenianEternity})`} as React.CSSProperties}/>
-            <span className="h-px flex-1 bg-[linear-gradient(270deg,transparent,currentColor)] opacity-60"/>
-        </div>
-        <h1 className="hero-rise hero-rise-delay m-0 font-noto text-[33px] leading-[1.12] font-medium tracking-[-0.6px] text-balance text-ink min-[390px]:text-[36px] min-[560px]:text-[46px] min-[960px]:text-[56px]">
-            Հոգևոր ժառանգություն
-        </h1>
-        <p className="hero-rise hero-rise-delay-2 m-0 grid max-w-full justify-items-center gap-0.5 rounded-card border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3 py-1.5 min-[380px]:px-4 text-center text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)]">
-            <span className="inline-flex items-center gap-1 text-[clamp(10px,3.15vw,14px)] leading-snug font-semibold whitespace-nowrap min-[380px]:gap-1.5"><ArmenianCross size={12}/>Հայաստանյայց Առաքելական Եկեղեցուն<ArmenianCross size={12}/></span>
-            <span className="text-[10.5px] font-semibold tracking-[2px] text-gold uppercase">նվիրված</span>
-        </p>
-    </header>);
-}
 
 /** The home search box: suggestions as you type, results with the search button or Enter. */
 function HomeSearch() {

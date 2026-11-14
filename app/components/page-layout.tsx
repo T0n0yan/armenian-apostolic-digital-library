@@ -9,7 +9,7 @@ type PageShellProps = {
     children: ReactNode; width?: "admin" | "content" | "library";
 };
 type PageHeaderProps = {
-    backLabel?: string;
+    backLabel?: ReactNode;
     backTo?: string;
     description?: ReactNode;
     /** Small gold line under the title; left out when it would repeat the back button. */
