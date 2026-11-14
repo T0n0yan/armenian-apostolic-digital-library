@@ -135,3 +135,11 @@ test("offline օրվա cache-ը փոխվում է Երևանի կեսգիշեր�
   assert.equal(context.sameDay(Date.parse("2026-11-10T19:59:00Z"), Date.parse("2026-11-10T20:01:00Z")), false);
   assert.equal(context.sameDay(Date.parse("2026-11-10T20:01:00Z"), Date.parse("2026-11-11T00:01:00Z")), true);
 });
+
+test("ներսի նավարկման .data հասցեից ստացվում է էջի HTML հասցեն (առանց ինտերնետի բացելու համար)", async () => {
+  const context = vm.createContext({ self: { location: { origin: "https://library.test" }, addEventListener() {} }, URL, URLSearchParams, Date });
+  vm.runInContext(await readFile(new URL("../public/sw.js", import.meta.url), "utf8"), context);
+  assert.equal(context.pageAddress(new URL("https://library.test/psalms/22.data?_routes=root,routes/material")), "https://library.test/psalms/22");
+  assert.equal(context.pageAddress(new URL("https://library.test/_root.data?_routes=root")), "https://library.test/");
+  assert.equal(context.pageAddress(new URL("https://library.test/search.data?q=%D5%A1&_routes=x")), "https://library.test/search?q=%D5%A1");
+});
