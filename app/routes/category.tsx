@@ -26,7 +26,7 @@ import { getActiveCategoryBySlug, listActiveCategories } from "../data/categorie
 import { getPublicMaterialDetail } from "../data/material-detail.server";
 import { canonicalMaterialPath, isPageDataRequest } from "../data/material-page.server";
 import { OLD_SECTION_SLUGS, categoryForSection, materialIdFromShortPath, materialPath, sectionPath } from "../utils/material-path";
-import { DailyReadingCard, PsalmGrid, SaintGrid, SectionIntro, TopicIntro } from "../components/category-cards";
+import { DailyReadingCard, PsalmGrid, SaintGrid, SECTION_INTROS, SectionIntro, TopicIntro } from "../components/category-cards";
 import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
@@ -79,20 +79,6 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 };
 
 /** Sections whose introduction the site writes itself, in place of the Telegram topic's intro post. */
-const SECTION_INTROS: Record<string, { title: string; body: string }> = {
-  category_saints_lives: {
-    title: "Սրբերի վարքը",
-    body: "Այստեղ կծանոթանաք Հայ Առաքելական Սուրբ Եկեղեցու կողմից հիշատակվող սրբերի վարքին՝ Հին Ուխտի արդարներից ու մարգարեներից մինչև Եկեղեցու հայրեր, վարդապետներ և նահատակներ։ Նրանց կյանքը հավատքի, համբերության և սիրո օրինակ է մեզ համար։",
-  },
-  category_gospel_teachings: {
-    title: "Ավետարանի ուսուցում",
-    body: "Այստեղ կծանոթանաք Սուրբ Ավետարանի բացատրություններին, որոնք տալիս են Հայ Առաքելական Սուրբ Եկեղեցու հոգևորականները։ Դրանք օգնում են ավելի խորը հասկանալ Քրիստոսի խոսքը և ապրել նրանով առօրյա կյանքում։",
-  },
-  category_daily_readings: {
-    title: "Օրվա ընթերցումներ",
-    body: "Ամեն օր՝ Հայ Առաքելական Սուրբ Եկեղեցու տոնացույցով նշանակված Սուրբ Գրքի ընթերցումները, օրվա տոներն ու հիշատակությունները։ Սկսեք օրը Աստծո խոսքով։",
-  },
-};
 
 export function meta({ loaderData }: Route.MetaArgs) {
   // Without data the error boundary renders its own title and noindex.

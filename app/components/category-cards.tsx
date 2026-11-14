@@ -135,6 +135,22 @@ function introLines(value: string) {
  * rest line by line (intros are often a quote or a short poem), and a closing "(Author)" line as
  * the attribution. Long intros open with "Կարդալ ամբողջը".
  */
+/** Բաժնի սեփական ներածությունը (կայքի համար գրված). կմախքն էլ է նույնը ցույց տալիս։ */
+export const SECTION_INTROS: Record<string, { title: string; body: string }> = {
+  category_saints_lives: {
+    title: "Սրբերի վարքը",
+    body: "Այստեղ կծանոթանաք Հայ Առաքելական Սուրբ Եկեղեցու կողմից հիշատակվող սրբերի վարքին՝ Հին Ուխտի արդարներից ու մարգարեներից մինչև Եկեղեցու հայրեր, վարդապետներ և նահատակներ։ Նրանց կյանքը հավատքի, համբերության և սիրո օրինակ է մեզ համար։",
+  },
+  category_gospel_teachings: {
+    title: "Ավետարանի ուսուցում",
+    body: "Այստեղ կծանոթանաք Սուրբ Ավետարանի բացատրություններին, որոնք տալիս են Հայ Առաքելական Սուրբ Եկեղեցու հոգևորականները։ Դրանք օգնում են ավելի խորը հասկանալ Քրիստոսի խոսքը և ապրել նրանով առօրյա կյանքում։",
+  },
+  category_daily_readings: {
+    title: "Օրվա ընթերցումներ",
+    body: "Ամեն օր՝ Հայ Առաքելական Սուրբ Եկեղեցու տոնացույցով նշանակված Սուրբ Գրքի ընթերցումները, օրվա տոներն ու հիշատակությունները։ Սկսեք օրը Աստծո խոսքով։",
+  },
+};
+
 /** A section's own introduction, written for the site (not taken from a Telegram post). */
 export function SectionIntro({ title, body }: { title: string; body: string }) {
   return (
