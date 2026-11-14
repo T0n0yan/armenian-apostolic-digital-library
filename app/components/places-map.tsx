@@ -40,12 +40,13 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
       </div>
       <VisitButton visited={visited} onToggle={onToggleVisit} />
       {place.verified ? null : <FillPlaceButton placeId={place.id} className="mt-2" />}
-      <div className="mt-2 flex items-center gap-1.5">
-        <Link className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-control bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
+      {/* Նեղ էկրանում 4 կոճակը մեկ տողում չէին տեղավորվում (կիսվելը դուրս էր գալիս). «Մանրամասն»-ը առանձին տողում է։ */}
+      <div className="mt-2 grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
+        <Link className="col-span-3 inline-flex min-h-9 items-center justify-center gap-1 rounded-control bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[13px] font-bold text-[#2a1708] no-underline" to={`/places/${place.id}`}>
           Մանրամասն <ChevronRight aria-hidden="true" size={15} />
         </Link>
         {directionLinks(place.latitude, place.longitude).map((link) => (
-          <a key={link.href} className="inline-flex min-h-9 items-center gap-1 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
+          <a key={link.href} className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
             <Navigation aria-hidden="true" size={13} /> {link.label.replace(" Maps", "")}
           </a>
         ))}
@@ -360,22 +361,16 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       mapRef.current = map;
       const m = map;
 
-      // Armenia's border shapes the map, but with a CSS mask, not clip-path: clip-path also cuts
-      // the hit region, so dragging/pinching just outside the silhouette did nothing (a dead zone
-      // with the normal cursor). A mask keeps the same silhouette yet lets the whole rectangle
-      // receive pointer events, so panning works anywhere over the map.
+      // Armenia's border shapes the map with a clip-path on the canvas only. Before, a CSS mask with
+      // a new SVG picture was set on every move: iPhone decodes such a picture asynchronously and
+      // drew nothing meanwhile, so the whole map flickered away while dragging or zooming.
+      // The canvas is clipped, not the container, so dragging just outside the silhouette still
+      // reaches the container and moves the map (no dead zone).
+      // Քարտեզի եզրը՝ clip-path canvas-ի վրա. ամեն շարժման ժամանակ նոր նկար (mask) iPhone-ում քարտեզը թարթեցնում էր։
       const clip = () => {
-        if (focus || !container.current) return;
-        const el = container.current;
-        const w = Math.max(1, el.clientWidth);
-        const h = Math.max(1, el.clientHeight);
+        if (focus) return;
         const d = ARMENIA_BORDER.map((ring) => `M${ring.map(([lat, lng]) => { const p = m.project([lng, lat]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join("L")}Z`).join("");
-        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' viewBox='0 0 ${w} ${h}'><path d='${d}' fill='white'/></svg>`;
-        const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-        el.style.webkitMaskImage = url;
-        el.style.maskImage = url;
-        el.style.webkitMaskRepeat = el.style.maskRepeat = "no-repeat";
-        el.style.webkitMaskSize = el.style.maskSize = "100% 100%";
+        m.getCanvas().style.clipPath = `path("${d}")`;
       };
 
       m.once("idle", () => { if (!cancelled) setReady(true); });

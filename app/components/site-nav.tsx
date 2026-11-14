@@ -71,8 +71,28 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   useEffect(() => {
     if (!isOpen) return;
     // Էջը չի «սառեցվում» (body position: fixed). դա ամբողջ էջը նորից էր նկարում ու մենյուի բացվելը
-    // կտրտում էր։ Ետևի scroll-ը կանգնեցնում է CSS-ը (touch-action, overscroll-behavior)։
-    const unlock = () => undefined;
+    // կտրտում էր։ iPhone-ը անտեսում է touch-action-ը և overscroll-behavior-ը, երբ մենյուն ոլորվելու տեղ
+    // չունի, ու ոլորում է ետևի էջը։ Դրա համար մատի շարժումը կանգնեցվում է, բացի մենյուի ներսում ոլորելուց։
+    let startY = 0;
+    const onTouchStart = (event: TouchEvent) => { startY = event.touches[0]?.clientY ?? 0; };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch || event.touches.length > 1 || !event.cancelable) { if (event.cancelable) event.preventDefault(); return; }
+      // Տառաչափի սահիչը քաշվում է կողքից. դրան չխանգարել։
+      if ((event.target as Element | null)?.closest?.("input[type='range']") && dialogRef.current?.contains(event.target as Node)) return;
+      const scroller = (event.target as Element | null)?.closest?.(".menu-view") as HTMLElement | null;
+      const dy = touch.clientY - startY;
+      startY = touch.clientY;
+      const canScroll = scroller && dialogRef.current?.contains(scroller) && scroller.scrollHeight > scroller.clientHeight
+        && !(dy > 0 && scroller.scrollTop <= 0) && !(dy < 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1);
+      if (!canScroll) event.preventDefault();
+    };
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    const unlock = () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+    };
     const focusable = () => Array.from(
       dialogRef.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled])') ?? [],
     );
