@@ -7,7 +7,7 @@ import { ensureWebhookUpdates } from "../app/data/telegram-bot-replies.server";
 import { removeOldData } from "../app/data/retention.server";
 import { removeOldStories } from "../app/data/stories.server";
 import { openChatSocket, readChatBackground, readChatFile, uploadChatFile } from "../app/data/private-chat.server";
-import { CHAT_BACKGROUND_PATH, CHAT_SOCKET_PATH, CHAT_UPLOAD_PATH } from "../app/utils/private-chat";
+import { CHAT_BACKGROUND_PATH, CHAT_SOCKET_PATH, CHAT_UPLOAD_PATH, PRIVATE_CHAT_OPEN } from "../app/utils/private-chat";
 import { isLibraryPath } from "../app/utils/material-path";
 
 const requestHandler = createRequestHandler(
@@ -138,6 +138,8 @@ export default {
     // Անձնական չատի socket-ը (101 պատասխանը չպետք է վերափաթաթվի secure()-ով)։
     const chatPath = new URL(request.url).pathname;
     if (chatPath === CHAT_SOCKET_PATH) return openChatSocket(request);
+    // Չատը փակ է (PRIVATE_CHAT_OPEN). ֆայլերն ու ֆոնը՝ 404։
+    if (!PRIVATE_CHAT_OPEN && chatPath.startsWith("/namak/") && chatPath !== CHAT_SOCKET_PATH) return new Response("Not found.", { status: 404 });
     if (chatPath === CHAT_UPLOAD_PATH) return uploadChatFile(request);
     if (chatPath === CHAT_BACKGROUND_PATH) return readChatBackground(request);
     const chatFile = /^\/namak\/file\/(\d{1,12})$/u.exec(chatPath);

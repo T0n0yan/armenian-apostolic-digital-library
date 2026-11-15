@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 
 import { accountList, isOwnerIdentity, linkedAliases } from "../auth/admin.server";
 import { getOptionalTelegramUser, type TelegramUserIdentity } from "../auth/telegram-user.server";
-import { FILE_MAX, allowedMime, type ChatDiagnostics, type ChatMeta, type ChatSide } from "../utils/private-chat";
+import { FILE_MAX, PRIVATE_CHAT_OPEN, allowedMime, type ChatDiagnostics, type ChatMeta, type ChatSide } from "../utils/private-chat";
 import { DEFAULT_BACKGROUND_BASE64, DEFAULT_BACKGROUND_MIME } from "./private-chat-background.server";
 import { getPrivateLetter } from "./private-letter.server";
 
@@ -40,11 +40,14 @@ export async function openChatSocket(request: Request) {
   const notFound = new Response("Not found.", { status: 404 });
   if (request.method !== "GET" || request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return notFound;
   if (request.headers.get("Origin") !== new URL(request.url).origin) return new Response("Forbidden.", { status: 403 });
+  const atApp = new URL(request.url).searchParams.get("where") === "app";
+  // Չատը փակ է. մնում է միայն «app» socket-ը, որ տերը ստանա «Նա հիմա կայքում է» ծանուցումը։
+  if (!PRIVATE_CHAT_OPEN && !atApp) return notFound;
   const who = await chatParticipant(request);
   const room = chatRoom();
   if (!who || !room) return notFound;
   const headers = new Headers({ Upgrade: "websocket" });
-  headers.set("X-Chat-Where", new URL(request.url).searchParams.get("where") === "app" ? "app" : "chat");
+  headers.set("X-Chat-Where", atApp ? "app" : "chat");
   headers.set("X-Chat-Side", who.side);
   headers.set("X-Chat-User", who.user.id);
   headers.set("X-Chat-Name", encodeURIComponent(who.user.displayName.slice(0, 80)));
