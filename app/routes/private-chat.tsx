@@ -5,6 +5,7 @@ import { requireSameOrigin } from "../auth/admin.server";
 import { RouteErrorPage } from "../components/error-page";
 import { PrivateChat } from "../components/private-chat";
 import { chatDiagnostics, chatParticipant, chatRoom } from "../data/private-chat.server";
+import { PRIVATE_CHAT_OPEN } from "../utils/private-chat";
 import { findRecipientAccounts, getPrivateLetter, savePrivateLetter } from "../data/private-letter.server";
 
 export function meta() {
@@ -17,6 +18,7 @@ const notFound = () => new Response("Not found.", { status: 404, statusText: "No
 
 /** Միայն երկու կողմին. մնացածին՝ 404։ Հաղորդագրությունները գալիս են socket-ով, ոչ թե այստեղից։ */
 export async function loader({ request }: Route.LoaderArgs) {
+  if (!PRIVATE_CHAT_OPEN) throw notFound();
   const who = await chatParticipant(request);
   if (!who) throw notFound();
   if (who.side !== "a") return { side: who.side, recipient: null, diagnostics: null };
@@ -26,6 +28,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 /** Տերը նշում է ստացողին։ Երբ արդեն նամակներ կան, ուրիշին փոխել չի կարելի (նա կտեսներ ամբողջ զրույցը)։ */
 export async function action({ request }: Route.ActionArgs) {
+  if (!PRIVATE_CHAT_OPEN) throw notFound();
   const who = await chatParticipant(request);
   if (who?.side !== "a") throw notFound();
   requireSameOrigin(request);

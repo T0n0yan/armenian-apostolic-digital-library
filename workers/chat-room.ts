@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 
 import { pushKeysFrom, sendWebPush, type PushSubscriptionRow } from "../app/data/web-push.server";
 import {
-  BG_OPACITY_DEFAULT, FONT_DEFAULT, PAGE_SIZE, clampFont, clampOpacity, otherSide, parseClientEvent, shouldNotifyPresence, statusOf,
+  BG_OPACITY_DEFAULT, FONT_DEFAULT, PAGE_SIZE, PRIVATE_CHAT_OPEN, clampFont, clampOpacity, otherSide, parseClientEvent, shouldNotifyPresence, statusOf,
   type ChatKind, type ChatMessage, type ChatMeta, type ChatPresence, type ChatSettings, type ChatSide, type ChatStatus, type ChatWhere, type ServerEvent,
 } from "../app/utils/private-chat";
 import { parseLetter } from "../app/utils/private-letter";
@@ -519,11 +519,13 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     const marks = ids.map(() => "?").join(",");
     const site = (this.env.PUBLIC_URL ?? "https://apostolic.am").replace(/\/$/u, "");
     const text = "🟢 Նա հիմա կայքում է";
+    // Չատը փակ է. ծանուցումը բացում է գլխավոր էջը, ոչ թե /namak-ը։
+    const openPath = PRIVATE_CHAT_OPEN ? "/namak" : "/";
     const keys = pushKeysFrom(this.env);
     if (keys) {
       const { results } = await this.env.DB.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id IN (${marks})`).bind(...ids).all<PushSubscriptionRow>();
       for (const subscription of results) {
-        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Հոգևոր ժառանգություն", body: text, url: "/namak", tag: "presence" }, keys).catch(() => "failed" as const);
+        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Հոգևոր ժառանգություն", body: text, url: openPath, tag: "presence" }, keys).catch(() => "failed" as const);
         if (outcome === "gone") await this.env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(subscription.endpoint).run();
       }
     }
@@ -543,7 +545,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           chat_id: Number(chat), text, disable_notification: true, protect_content: true,
-          reply_markup: { inline_keyboard: [[{ text: "Բացել", web_app: { url: `${site}/namak` } }]] },
+          reply_markup: { inline_keyboard: [[{ text: "Բացել", web_app: { url: `${site}${openPath}` } }]] },
         }),
       }).catch(() => null);
       const body = await response?.json<{ ok?: boolean; result?: { message_id?: number } }>().catch(() => null);
