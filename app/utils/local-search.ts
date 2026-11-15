@@ -154,7 +154,7 @@ function toMaterial(index: SearchIndex, item: SearchIndexItem, scoreCategory: Se
     preview: {
       thumbnailUrl: thumbnail, imageUrl: contentType === "photo" ? thumbnail : null, width: null, height: null, mediaCount,
       duration: null, mediaTitle: null, performer: null, pollQuestion: null, pollOptionCount: null,
-      locationTitle: null, locationSummary: null, unsupportedType: null, daily: null,
+      locationTitle: null, locationSummary: null, unsupportedType: null, daily: null, clergy: null,
     },
   };
 }

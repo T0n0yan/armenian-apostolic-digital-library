@@ -142,7 +142,7 @@ async function hydrateSavedReferences(
           pollOptionCount: null,
           locationTitle: null,
           locationSummary: null,
-          daily: null,
+          daily: null, clergy: null,
           unsupportedType: "unavailable",
         },
         unavailable: true,

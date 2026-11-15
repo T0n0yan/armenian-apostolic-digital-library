@@ -16,6 +16,7 @@ import type { MaterialMedia } from "../data/material-detail.server";
 import { MaterialMediaItem } from "./material-media";
 import { isPsalmLabel, richContentStartsWithTitle } from "../utils/material-title";
 import { richInlineText } from "../utils/text";
+import { isVerseReference } from "../utils/verse-reference";
 
 function safeHref(value: string | null) {
   if (!value) return null;
@@ -51,6 +52,9 @@ function entityWrapper(entity: BridgeTextEntity, child: ReactNode, key: string) 
 /** True on pages with a playable video/audio: "01:21"-style times in the text then seek the player. */
 export const TimestampSeekContext = createContext(false);
 
+/** Ամբողջ տողի/պարբերության տեքստը, որ ժամը Աստվածաշնչի հղումից տարբերվի նաև առանձին կտորներում («Մատթ. <u>7:13</u>-14»)։ */
+const TimestampSourceContext = createContext<string | null>(null);
+
 const timestampPattern = /(?<![\d:])(?:(\d{1,2}):)?([0-5]?\d):([0-5]\d)(?![\d:])/gu;
 
 export function seekMediaTo(seconds: number) {
@@ -67,13 +71,17 @@ function ParagraphText({ text }: { text: string }) {
   return <>{parts.map((part, index) => <Fragment key={index}>{index > 0 ? <>{"\n"}<span className="block h-[0.55em]" aria-hidden="true" /></> : null}{part}</Fragment>)}</>;
 }
 
-function TimestampText({ text }: { text: string }) {
+function TimestampText({ text, start = 0 }: { text: string; start?: number }) {
   const enabled = useContext(TimestampSeekContext);
+  const source = useContext(TimestampSourceContext);
   if (!enabled || !/\d:\d\d/u.test(text)) return <ParagraphText text={text} />;
   const parts: ReactNode[] = [];
   let last = 0;
+  let verseEnd = -1;
   for (const match of text.matchAll(timestampPattern)) {
     const index = match.index ?? 0;
+    const full = source !== null && source.slice(start, start + text.length) === text;
+    if (full ? isVerseReference(source, start + index, match[0].length) : isVerseReference(text, index, match[0].length, verseEnd)) { verseEnd = index + match[0].length; continue; }
     const seconds = Number(match[1] ?? 0) * 3600 + Number(match[2]) * 60 + Number(match[3]);
     if (index > last) parts.push(<ParagraphText key={`t-${last}`} text={text.slice(last, index)} />);
     parts.push(
@@ -108,13 +116,19 @@ function OrnateInitial({ letter }: { letter: string }) {
 }
 
 function HitText({ text, start, hit }: { text: string; start: number; hit?: BridgeSearchHit }) {
-  if (!hit || hit.length <= 0 || start >= hit.start + hit.length || start + text.length <= hit.start) return <TimestampText text={text} />;
+  if (!hit || hit.length <= 0 || start >= hit.start + hit.length || start + text.length <= hit.start) return <TimestampText text={text} start={start} />;
   const localStart = Math.max(0, hit.start - start);
   const localEnd = Math.min(text.length, hit.start + hit.length - start);
   return <>{text.slice(0, localStart)}<mark className="rounded-[4px] bg-[rgb(240_196_88/42%)] px-[2px] text-inherit" data-search-hit>{text.slice(localStart, localEnd)}</mark>{text.slice(localEnd)}</>;
 }
 
-function RichInlineNodes({ nodes, hit, cursor = { value: 0 }, ornate }: { nodes: BridgeRichInline[]; hit?: BridgeSearchHit; cursor?: { value: number }; ornate?: { done: boolean } }) {
+/** Կտորների տեքստը նույն հաշվարկով, ինչ `cursor`-ը։ */
+function inlineText(nodes: BridgeRichInline[]): string {
+  return nodes.map((node) => node.type === "text" ? node.text : node.type === "line-break" ? "\n" : node.type === "custom-emoji" ? node.alt || "◻" : "children" in node ? inlineText(node.children) : "").join("");
+}
+
+function RichInlineNodes({ nodes, hit, cursor, ornate }: { nodes: BridgeRichInline[]; hit?: BridgeSearchHit; cursor?: { value: number }; ornate?: { done: boolean } }) {
+  if (!cursor) return <TimestampSourceContext.Provider value={inlineText(nodes)}><RichInlineNodes nodes={nodes} hit={hit} cursor={{ value: 0 }} ornate={ornate} /></TimestampSourceContext.Provider>;
   return nodes.map((node, index): ReactNode => {
     const key = `${node.type}-${index}`;
     if (node.type === "text") {
@@ -209,7 +223,7 @@ export function FormattedTelegramText({ value, hit, from = 0, to, ornateInitial 
     .sort((left, right) => left - right);
 
   return (
-    <span className="whitespace-pre-wrap break-words">
+    <span className="whitespace-pre-wrap break-words"><TimestampSourceContext.Provider value={value.text}>
       {boundaries.slice(0, -1).map((start, index) => {
         const end = boundaries[index + 1];
         let node: ReactNode = start === initial
@@ -221,7 +235,7 @@ export function FormattedTelegramText({ value, hit, from = 0, to, ornateInitial 
         }
         return <Fragment key={`${start}-${end}`}>{node}</Fragment>;
       })}
-    </span>
+    </TimestampSourceContext.Provider></span>
   );
 }
 
