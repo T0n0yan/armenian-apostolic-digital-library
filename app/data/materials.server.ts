@@ -34,8 +34,6 @@ export type PublicMaterial = {
   excerpt: string | null;
   contentType: BridgeContentType;
   preview: MaterialCardPreview;
-  /** Տեսանյութի տակ շեղ գրված հոգևորականի անունը (ավետարանի ուսուցման թաբերի համար), չկա՝ null։ */
-  clergy?: string | null;
 };
 
 export type MaterialCardPreview = {
@@ -55,6 +53,8 @@ export type MaterialCardPreview = {
   unsupportedType: string | null;
   /** Feast and scripture references when the post is a daily reading. */
   daily: DailyReadingSummary | null;
+  /** Տեսանյութի տակ շեղ գրված հոգևորականի անունը (ավետարանի թաբեր, որոնման արդյունք), չկա՝ null։ */
+  clergy: string | null;
 };
 
 export type PublicMaterialPage = {
@@ -82,7 +82,6 @@ export function bridgePostToPublic(post: BridgePost): PublicMaterial {
     excerpt: createMaterialExcerpt(post.contentText || post.captionText),
     contentType: post.contentType,
     preview: bridgePostToCardPreview(post),
-    clergy: post.media[0]?.kind === "video" ? clergyByline(post.formattedText, post.formattedCaption) : null,
   };
 }
 
@@ -111,6 +110,7 @@ export function bridgePostToCardPreview(post: BridgePost): MaterialCardPreview {
       : null,
     unsupportedType: post.unsupportedType,
     daily: summarizeDailyReading(post.contentText || post.captionText),
+    clergy: asset?.kind === "video" ? clergyByline(post.formattedText, post.formattedCaption) : null,
   };
 }
 

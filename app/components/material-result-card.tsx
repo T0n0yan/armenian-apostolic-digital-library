@@ -434,6 +434,10 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           ) : variant === "portrait" ? null : (
             <strong className="line-clamp-2 text-[15px] leading-[21px] [overflow-wrap:anywhere] min-[960px]:text-[16px] min-[960px]:leading-[23px]">{highlightText(previewTitle || material.title, highlightPattern)}</strong>
           )}
+          {/* Որոնելիս՝ ո՞ր հոգևորականի տեսանյութն է (թաբերում արդեն երևում է, այնտեղ չենք կրկնում) */}
+          {highlightQuery.trim() && material.preview.clergy ? (
+            <span className="text-[12px] leading-[1.4] font-semibold text-gold italic">{material.preview.clergy}</span>
+          ) : null}
           {material.searchHit && !(variant === "portrait" && material.searchHit.source === "title") ? (
             // The line where the words were found, with them highlighted.
             <span className="line-clamp-2 overflow-hidden text-[12.5px] leading-[1.55] text-muted">{highlightHit(material.searchHit)}</span>
