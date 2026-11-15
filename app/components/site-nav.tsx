@@ -1,6 +1,7 @@
 import { ArrowLeft, Bookmark, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { UNREAD_EVENT } from "./private-chat-presence";
+import { PRIVATE_CHAT_OPEN } from "../utils/private-chat";
 import { memo, useEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
@@ -198,7 +199,8 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               {/* Վերնագիրը և նամակների կոճակը մեկ տողում (նամակները՝ միայն երկու կողմին, root-ը ուրիշներին null է տալիս)։ */}
               <div className="flex min-h-7 items-center justify-between">
                 <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase">Կարգավորումներ</h2>
-                {rootData?.privateChat ? (
+                {/* Չատը փակ է (PRIVATE_CHAT_OPEN), կոճակը թաքցված է։ */}
+                {rootData?.privateChat && PRIVATE_CHAT_OPEN ? (
                   <NavLink className="relative mr-1 grid size-7 place-items-center rounded-full text-faint no-underline hover:text-gold-bright" to="/namak" aria-label="Նամակներ" title="Նամակներ" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                     <Mail aria-hidden="true" size={15} />
                     {chatUnread > 0 ? <span className="absolute right-0.5 top-0.5 size-2 rounded-full bg-gold-bright" /> : null}
