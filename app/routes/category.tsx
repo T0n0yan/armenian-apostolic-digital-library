@@ -339,7 +339,7 @@ function GroupedMaterials({ kind, ...props }: ListProps & { kind: string | null 
     // Թաբերը՝ ըստ հոգևորականի (տեսանյութի տակ շեղ գրված անունը). շատ տեսանյութ ունեցողը՝ առաջինը, անանունները՝ վերջում։
     const byName = new Map<string, CategoryMaterial[]>();
     for (const material of props.materials) {
-      const name = ("clergy" in material && material.clergy) || "";
+      const name = material.preview.clergy ?? "";
       byName.set(name, [...(byName.get(name) ?? []), material]);
     }
     const groups = [...byName].map(([name, items]) => ({ id: name || OTHER_CLERGY, label: name || "Այլ տեսանյութեր", items }))
