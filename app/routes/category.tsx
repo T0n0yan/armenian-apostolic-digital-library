@@ -301,6 +301,8 @@ function FilterChips<T extends string>({ options, value, onChange, label }: { op
 }
 
 type ListProps = Parameters<typeof MaterialsList>[0];
+/** Անուն չունեցող տեսանյութերի թաբը (անունը երբեք այսպես չի լինի)։ */
+const OTHER_CLERGY = "__other__";
 
 /**
  * Prayers in groups (morning, evening, hours, for loved ones…) with chips to pick one, and Bible
@@ -309,6 +311,7 @@ type ListProps = Parameters<typeof MaterialsList>[0];
 function GroupedMaterials({ kind, ...props }: ListProps & { kind: string | null }) {
   const [prayerGroup, setPrayerGroup] = useState<PrayerGroupId | "all">("all");
   const [quizFilter, setQuizFilter] = useState<"all" | "open" | "answered">("all");
+  const [clergy, setClergy] = useState("all");
 
   if (kind === "category_prayers") {
     const groups = [...PRAYER_GROUPS, MORE_GROUP].map((group) => ({ ...group, items: props.materials.filter((material) => prayerGroupOf(material) === group.id) })).filter((group) => group.items.length > 0);
@@ -328,6 +331,26 @@ function GroupedMaterials({ kind, ...props }: ListProps & { kind: string | null 
             <MaterialsList {...props} materials={group.items} />
           </section>
         ))}
+      </div>
+    );
+  }
+
+  if (kind === "category_gospel_teachings") {
+    // Թաբերը՝ ըստ հոգևորականի (տեսանյութի տակ շեղ գրված անունը). շատ տեսանյութ ունեցողը՝ առաջինը, անանունները՝ վերջում։
+    const byName = new Map<string, CategoryMaterial[]>();
+    for (const material of props.materials) {
+      const name = ("clergy" in material && material.clergy) || "";
+      byName.set(name, [...(byName.get(name) ?? []), material]);
+    }
+    const groups = [...byName].map(([name, items]) => ({ id: name || OTHER_CLERGY, label: name || "Այլ տեսանյութեր", items }))
+      .sort((a, b) => Number(a.id === OTHER_CLERGY) - Number(b.id === OTHER_CLERGY) || b.items.length - a.items.length || a.label.localeCompare(b.label, "hy"));
+    if (groups.length < 2) return <MaterialsList {...props} />;
+    const shown = groups.find((group) => group.id === clergy);
+    return (
+      <div className="grid gap-4">
+        <FilterChips label="Հոգևորականներ" value={shown ? clergy : "all"} onChange={setClergy}
+          options={[{ id: "all", label: "Բոլորը", count: props.materials.length }, ...groups.map((group) => ({ id: group.id, label: group.label, count: group.items.length }))]} />
+        <MaterialsList {...props} materials={shown ? shown.items : props.materials} />
       </div>
     );
   }
