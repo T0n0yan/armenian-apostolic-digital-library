@@ -151,8 +151,10 @@ function searchMaterialSelect() {
       materials.topic_key, materials.topic_id, materials.media_group_id,
       materials.constituent_message_ids_json, materials.content_type,
       materials.title, materials.telegram_url, '' AS content_text,
-      '' AS caption_text, '{"text":"","entities":[]}' AS formatted_text_json,
-      '{"text":"","entities":[]}' AS formatted_caption_json,
+      '' AS caption_text,
+      -- Տեսանյութերի ձևաչափված տեքստը՝ հոգևորականի անվան համար (քարտում, clergyByline)
+      CASE WHEN materials.content_type = 'video' THEN materials.formatted_text_json ELSE '{"text":"","entities":[]}' END AS formatted_text_json,
+      CASE WHEN materials.content_type = 'video' THEN materials.formatted_caption_json ELSE '{"text":"","entities":[]}' END AS formatted_caption_json,
       NULL AS rich_content_json, materials.poll_json, materials.location_json,
       materials.unsupported_type, materials.tags_json, materials.number_value,
       materials.date_value, materials.published_at, materials.edited_at,
