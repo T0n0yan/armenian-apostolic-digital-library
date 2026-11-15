@@ -6,6 +6,7 @@ import { gospelVideoCover, mediaCardUrl, mediaUrl } from "./media-url.server";
 import { remember } from "./memory-cache.server";
 import { createMaterialId } from "../../shared/telegram-bridge-contract";
 import { materialPath } from "../utils/material-path";
+import { clergyByline } from "../utils/material-title";
 
 /**
  * How a topic's feed loads: Psalms all at once (their grid sorts by number, at most 151), Saints
@@ -14,9 +15,9 @@ import { materialPath } from "../utils/material-path";
 export function categoryFeedOptions(category: { id: string; name: string }) {
   const kind = resolveContentCategoryId(category.id, category.name);
   return {
-    // Psalms, prayers and questions load whole: the grid, the prayer groups and the quiz filter
-    // need every post at once.
-    limit: kind === "category_psalms" || kind === "category_prayers" || kind === "category_bible_questions" ? 200 : 12,
+    // Psalms, prayers, questions and gospel teachings load whole: the grid, the prayer groups, the
+    // quiz filter and the clergy tabs need every post at once.
+    limit: kind === "category_psalms" || kind === "category_prayers" || kind === "category_bible_questions" || kind === "category_gospel_teachings" ? 200 : 12,
     // Saints and prayers read in book order (oldest post first).
     order: kind === "category_saints_lives" || kind === "category_prayers" ? "asc" as const : "desc" as const,
   };
@@ -33,6 +34,8 @@ export type PublicMaterial = {
   excerpt: string | null;
   contentType: BridgeContentType;
   preview: MaterialCardPreview;
+  /** Տեսանյութի տակ շեղ գրված հոգևորականի անունը (ավետարանի ուսուցման թաբերի համար), չկա՝ null։ */
+  clergy?: string | null;
 };
 
 export type MaterialCardPreview = {
@@ -79,6 +82,7 @@ export function bridgePostToPublic(post: BridgePost): PublicMaterial {
     excerpt: createMaterialExcerpt(post.contentText || post.captionText),
     contentType: post.contentType,
     preview: bridgePostToCardPreview(post),
+    clergy: post.media[0]?.kind === "video" ? clergyByline(post.formattedText, post.formattedCaption) : null,
   };
 }
 
