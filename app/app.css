@@ -1102,3 +1102,35 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 
 /* Առանց ինտերնետի՝ պահված չեղած էջերի հղումները աղոտ են (offline-bar.tsx)։ */
 html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6); }
+
+/* Էջից դուրս գալիս նվագող տեսանյութը՝ ձախ ներքևի անկյունում (app/utils/video-dock.ts)։ Մենյուի կոճակը աջ կողմում է։ */
+.video-dock {
+  position: fixed;
+  left: calc(var(--tg-inset-left, 0px) + 12px);
+  bottom: calc(var(--tg-inset-bottom, 0px) + 12px);
+  z-index: 45;
+  width: min(240px, calc(100vw - 96px));
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: #000;
+  box-shadow: var(--card-shadow);
+}
+.video-dock-video { display: block; width: 100%; max-height: 40svh; object-fit: contain; background: #000; }
+.video-dock-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(17 8 22 / 72%);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
