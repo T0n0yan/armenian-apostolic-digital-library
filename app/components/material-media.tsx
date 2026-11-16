@@ -1,6 +1,6 @@
-import { AlertCircle, ChevronLeft, ChevronRight, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video, X } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, FileText, Headphones, ImageIcon, LoaderCircle, Pause, PictureInPicture2, Play, RotateCcw, RotateCw, Video, X } from "lucide-react";
 import { lockScroll } from "../utils/scroll-lock";
-import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
 
@@ -29,6 +29,7 @@ function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous"
 import { useVideoPoster } from "../utils/video-frame";
 import { browserCanPlay, isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, mediaSources, type MediaPlaybackState } from "../utils/media-playback";
 import { materialPath } from "../utils/material-path";
+import { dockVideo, enableAutoPip, isInPip, pipSupported, takeDockedVideo, togglePip } from "../utils/video-dock";
 
 function durationLabel(seconds: number | null) {
   if (!seconds || seconds < 0) return null;
@@ -194,6 +195,40 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     setAttempt((current) => current + 1);
     setSourceIndex(0);
   }, []);
+  // Փոքր պատուհան (PiP). կոճակը երևում է միայն այն բրաուզերներում, որոնք դա կարող են։
+  const [canPip, setCanPip] = useState(false);
+  const [inPip, setInPip] = useState(false);
+  useEffect(() => {
+    const element = elementRef.current;
+    if (kind !== "video" || !(element instanceof HTMLVideoElement)) return;
+    setCanPip(pipSupported(element));
+    element.setAttribute("autopictureinpicture", "");
+    enableAutoPip();
+    // Նույն տեսանյութը անկյունում էր նվագում. շարունակել այստեղ նույն տեղից։
+    const docked = takeDockedVideo(sources);
+    if (docked && docked.time > 0) {
+      resume.current = docked;
+      if (element.readyState >= HTMLMediaElement.HAVE_METADATA) resumeAfterSwitch(element);
+    }
+    const update = () => setInPip(isInPip(element));
+    element.addEventListener("enterpictureinpicture", update);
+    element.addEventListener("leavepictureinpicture", update);
+    element.addEventListener("webkitpresentationmodechanged", update);
+    return () => {
+      element.removeEventListener("enterpictureinpicture", update);
+      element.removeEventListener("leavepictureinpicture", update);
+      element.removeEventListener("webkitpresentationmodechanged", update);
+    };
+    // Միայն առաջին բացվելիս. աղբյուրի փոխվելը (retry) նոր տեսանյութ չէ։
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind]);
+  // Էջից հեռանալիս նվագող տեսանյութը չի կանգնում. տեղափոխվում է էկրանի անկյուն։
+  useLayoutEffect(() => {
+    if (kind !== "video") return;
+    const element = elementRef.current;
+    const label = asset.altText || asset.title || "Տեսանյութ";
+    return () => { if (element instanceof HTMLVideoElement) dockVideo(element, label); };
+  }, [kind, asset.altText, asset.title]);
   // Coming back online retries by itself.
   useEffect(() => {
     if (!failed) return;
@@ -284,6 +319,19 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
           <AudioControls elementRef={elementRef} state={state} fallbackDuration={asset.duration} />
         </>
       )}
+      {kind === "video" && canPip ? (
+        <div className="flex justify-end border-t border-white/10 bg-[rgb(10_7_12/88%)] px-2 py-1.5">
+          <button
+            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-button border-0 bg-transparent px-3 text-[12px] font-bold text-white/85"
+            type="button"
+            aria-pressed={inPip}
+            onClick={() => { if (elementRef.current instanceof HTMLVideoElement) void togglePip(elementRef.current).catch(() => {}); }}
+          >
+            <PictureInPicture2 aria-hidden="true" size={17} />
+            {inPip ? "Վերադարձնել էջ" : "Փոքր պատուհան"}
+          </button>
+        </div>
+      ) : null}
       <PlaybackStatus state={state} onRetry={retry} />
     </div>
   );
