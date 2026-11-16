@@ -59,13 +59,13 @@ export function SundayPrompt() {
   const dateLine = `${["ԿԻՐԱԿԻ", "ԵՐԿՈՒՇԱԲԹԻ", "ԵՐԵՔՇԱԲԹԻ", "ՉՈՐԵՔՇԱԲԹԻ", "ՀԻՆԳՇԱԲԹԻ", "ՈՒՐԲԱԹ", "ՇԱԲԱԹ"][date.getUTCDay()]} · ${date.getUTCDate()} ${["ՀՈՒՆՎԱՐԻ", "ՓԵՏՐՎԱՐԻ", "ՄԱՐՏԻ", "ԱՊՐԻԼԻ", "ՄԱՅԻՍԻ", "ՀՈՒՆԻՍԻ", "ՀՈՒԼԻՍԻ", "ՕԳՈՍՏՈՍԻ", "ՍԵՊՏԵՄԲԵՐԻ", "ՀՈԿՏԵՄԲԵՐԻ", "ՆՈՅԵՄԲԵՐԻ", "ԴԵԿՏԵՄԲԵՐԻ"][date.getUTCMonth()]}`;
   return createPortal(
     // «Ուրիշ աշխարհ». ամբողջ էկրան, սկիհը արևի շողերով (app.css՝ .sunday-world)։
-    <div className="sunday-world fixed inset-0 z-[2060] grid grid-rows-[1fr_auto] overflow-hidden text-center" role="dialog" aria-modal="true" aria-label="Կիրակնօրյա հարց">
+    <div className="sunday-world fixed inset-0 z-[2060] grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden text-center" role="dialog" aria-modal="true" aria-label="Կիրակնօրյա հարց">
       <div className="sunday-sky" aria-hidden="true">
         <div className="sunday-rays" /><div className="sunday-rays sunday-rays-fine" /><div className="sunday-sun" />
         <div className="sunday-dust">{[8, 22, 36, 50, 64, 78, 92, 15, 85].map((left, index) => <i key={left} style={{ left: `${left}%`, animationDelay: `${index * 0.9}s` }} />)}</div>
         <ChaliceArt className="sunday-chalice" size={180} dark="var(--sunday-outline)" />
       </div>
-      <div className="relative mx-auto grid w-full max-w-[460px] gap-2 px-5 pb-[calc(env(safe-area-inset-bottom)+28px)]">
+      <div className="relative mx-auto grid max-h-[100dvh] w-full max-w-[460px] gap-2 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+28px)]">
         <small className="sunday-date text-[11px] font-bold tracking-[3px]">{feast ? feast.toLocaleUpperCase("hy") : dateLine}</small>
         {step === "attended" ? (
           <>
@@ -135,12 +135,12 @@ function SundayPrayer({ withThanks, onDone }: { withThanks: boolean; onDone: () 
         {wordIndex < words.length - 1 ? " " : null}
       </Fragment>
     ));
-    return <p key={part} className="sunday-prayer m-0 text-[19px] leading-[1.8] min-[560px]:text-[21px]">{content}</p>;
+    return <p key={part} className="sunday-prayer m-0">{content}</p>;
   });
   const end = letter * LETTER_MS + parts.length * PAUSE_MS + 400;
   return (
     // Ապակյա վահանակ աղոթքի հետևում, որ տեքստը շողերի վրա հեշտ կարդացվի։
-    <div className="sunday-glass grid gap-4 rounded-panel px-5 py-5">
+    <div className="sunday-glass grid gap-3 rounded-panel px-4 py-4">
       {paragraphs}
       <button className="sunday-prayer-end mx-auto min-h-11 cursor-pointer rounded-button border border-[color-mix(in_srgb,var(--sunday-ink)_35%,transparent)] bg-transparent px-6 text-[14px] font-semibold text-inherit"
         style={{ animationDelay: `${end}ms` }} type="button" onClick={onDone}>Ամէն</button>
