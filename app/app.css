@@ -995,7 +995,7 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
 .sunday-rays-fine { background: repeating-conic-gradient(transparent 0, var(--sunday-ray-fine) .6deg, transparent 1.2deg 7deg);
   -webkit-mask: radial-gradient(circle, #000 4%, transparent 30%); mask: radial-gradient(circle, #000 4%, transparent 30%); animation-direction: reverse; animation-duration: 90s; }
 .sunday-sun { width: clamp(230px, 34vh, 380px); height: clamp(230px, 34vh, 380px); border-radius: 50%; background: var(--sunday-sun); transform: translate(-50%, -50%); animation: sunday-breathe 5s ease-in-out infinite; }
-.sunday-chalice { width: clamp(150px, 24vh, 260px); height: auto; transform: translate(-50%, -52%); filter: drop-shadow(0 12px 20px rgb(80 40 0 / 35%)); animation: sunday-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
+.sunday-chalice { width: clamp(110px, 22dvh, 260px); height: auto; transform: translate(-50%, -52%); filter: drop-shadow(0 12px 20px rgb(80 40 0 / 35%)); animation: sunday-rise 1.2s cubic-bezier(.2, .8, .2, 1) both; }
 .sunday-dust { inset: 0; left: 0; top: 0; }
 .sunday-dust i { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: var(--sunday-dust); box-shadow: 0 0 6px var(--sunday-dust); animation: sunday-float 9s linear infinite; }
 @keyframes sunday-in { from { opacity: 0; } to { opacity: 1; } }
@@ -1013,7 +1013,8 @@ html[data-motion="reduced"] .sunday-world, html[data-motion="reduced"] .sunday-w
 @media (prefers-reduced-motion: reduce) { .sunday-letter, .sunday-prayer-end { opacity: 1; filter: none; } }
 html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-prayer-end { opacity: 1; filter: none; }
 /* Աղոթքը՝ աղոթքների տառատեսակով (առանց թռչնագրի), ապակյա վահանակի վրա։ */
-.sunday-prayer { font-family: var(--font-book); }
+/* Տառաչափը հարմարվում է էկրանին՝ նեղ կամ ցածր հեռախոսում փոքրանում է, որ ամբողջ աղոթքը տեղավորվի։ */
+.sunday-prayer { font-family: var(--font-book); font-size: clamp(14px, min(4.2vw, 2.3dvh), 21px); line-height: 1.6; }
 .sunday-glass {
   background: color-mix(in srgb, var(--sunday-ink) 7%, transparent);
   border: 1px solid color-mix(in srgb, var(--sunday-ink) 20%, transparent);
