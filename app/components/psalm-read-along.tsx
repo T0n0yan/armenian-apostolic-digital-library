@@ -10,7 +10,8 @@ function formatSeconds(value: number) {
 }
 
 function currentAudio() {
-  return document.querySelector<HTMLAudioElement>("audio");
+  // Ներքևի գոտու (այլ էջից եկած) ձայնագրությունը այս սաղմոսինը չէ։
+  return document.querySelector<HTMLAudioElement>("audio:not(.audio-dock-audio)");
 }
 
 /**
@@ -87,6 +88,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
     const update = (event: Event) => {
       const audio = event.target;
       if (!(audio instanceof HTMLAudioElement) || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      if (audio.classList.contains("audio-dock-audio")) return;
       if (audio.paused && event.type !== "seeked") { if (!marking && (event.type === "pause" || event.type === "ended")) setActive(-1); return; }
       const index = indexAt(audio);
       setActive((current) => {
