@@ -4,7 +4,8 @@
  * - PiP՝ ստանդարտ API (Chrome, Edge, Safari macOS) կամ Safari iPhone-ի `webkitSetPresentationMode`։
  * - Եթե տեսանյութը նվագում է, և մարդը գնում է կայքի մեկ այլ էջ, նույն `<video>`-ը (առանց կանգնելու)
  *   տեղափոխվում է էկրանի անկյան փոքր նվագարկիչ (dock), որը փակվում է ×-ով։
- * - Անկյան պատուհանը քաշվում է մատով, չափը փոխվում է անկյան նշանով, սեղմելիս բացվում է տեսանյութի էջը։
+ * - Անկյան պատուհանը քաշվում է մատով, չափը փոխվում է ցանկացած անկյունից կամ երկու մատով։
+ *   Առաջին սեղմումը ցույց է տալիս կոճակները, երկրորդը (կամ ↖↘)՝ բացում տեսանյութի էջը։
  * - Բաժնի ցանկում նվագող տեսանյութի քարտը նշվում է (`data-video-playing`), և էջը ոլորվում է դրան։
  * - Նույն տեսանյութի էջը նորից բացելիս dock-ը փակվում է, և նվագարկիչը շարունակում է նույն տեղից։
  * - Եթե տեսանյութը արդեն բրաուզերի փոքր պատուհանում է, dock-ը թաքնված է, որ երկու պատուհան չլինի։
@@ -97,53 +98,112 @@ function moveInto(parent: MovableParent, video: HTMLVideoElement) {
   parent.appendChild(video);
 }
 
+const CORNER = 30;
+
+type Gesture =
+  | { mode: "move" | "corner"; x: number; y: number; layout: Layout; ratio: number; sx: number; sy: number; moved: boolean }
+  | { mode: "pinch"; distance: number; layout: Layout; ratio: number; moved: true };
+
 /**
- * Մատով քաշել՝ տեղաշարժում է, ձախ վերևի նշանով՝ մեծացնում/փոքրացնում, կարճ սեղմել՝ բացում է տեսանյութի էջը։
+ * Մեկ մատով քաշել՝ տեղաշարժում է, ցանկացած անկյունից քաշել կամ երկու մատով՝ փոխում է չափը։
+ * Կարճ սեղմում. կոճակները թաքնված են՝ ցույց է տալիս, երևում են՝ բացում է տեսանյութի էջը։
  */
-function makeInteractive(box: HTMLElement, surface: HTMLElement, grip: HTMLElement, open: () => void) {
-  let start: { x: number; y: number; layout: Layout; ratio: number; mode: "move" | "resize"; moved: boolean } | null = null;
+function makeInteractive(box: HTMLElement, surface: HTMLElement, ui: { show: () => void; visible: () => boolean }, open: () => void) {
+  const points = new Map<number, { x: number; y: number }>();
+  let gesture: Gesture | null = null;
   const current = (): Layout => {
     const rect = box.getBoundingClientRect();
     return { left: rect.left, top: rect.top, width: rect.width };
   };
-  const down = (mode: "move" | "resize") => (event: PointerEvent) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  const ratioOf = (layout: Layout) => box.offsetHeight / Math.max(1, layout.width);
+  const pinchDistance = () => {
+    const [a, b] = Array.from(points.values());
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+  const begin = (event: PointerEvent) => {
     const layout = current();
-    start = { x: event.clientX, y: event.clientY, layout, ratio: box.offsetHeight / Math.max(1, layout.width), mode, moved: false };
+    const ratio = ratioOf(layout);
+    if (points.size >= 2) {
+      gesture = { mode: "pinch", distance: Math.max(1, pinchDistance()), layout, ratio, moved: true };
+      return;
+    }
+    const rect = box.getBoundingClientRect();
+    const nearLeft = event.clientX - rect.left < CORNER;
+    const nearRight = rect.right - event.clientX < CORNER;
+    const nearTop = event.clientY - rect.top < CORNER;
+    const nearBottom = rect.bottom - event.clientY < CORNER;
+    const corner = (nearLeft || nearRight) && (nearTop || nearBottom);
+    gesture = {
+      mode: corner ? "corner" : "move",
+      x: event.clientX,
+      y: event.clientY,
+      layout,
+      ratio,
+      sx: nearLeft ? -1 : 1,
+      sy: nearTop ? -1 : 1,
+      moved: false,
+    };
+  };
+  const down = (event: PointerEvent) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    surface.setPointerCapture(event.pointerId);
+    points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    begin(event);
     box.dataset.active = "";
   };
   const move = (event: PointerEvent) => {
-    if (!start) return;
-    const dx = event.clientX - start.x;
-    const dy = event.clientY - start.y;
-    if (!start.moved && Math.hypot(dx, dy) < 8) return;
-    start.moved = true;
-    const { layout } = start;
-    if (start.mode === "move") applyLayout(box, { ...layout, left: layout.left + dx, top: layout.top + dy });
-    else {
-      // Նշանը ձախ վերևում է. աջ ներքևի անկյունը մնում է տեղում։
-      const width = Math.min(Math.max(layout.width - dx, MIN_WIDTH), window.innerWidth - EDGE * 2);
-      const shrink = layout.width - width;
-      applyLayout(box, { left: layout.left + shrink, top: layout.top + shrink * start.ratio, width });
+    if (!points.has(event.pointerId) || !gesture) return;
+    points.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const { layout, ratio } = gesture;
+    if (gesture.mode === "pinch") {
+      if (points.size < 2) return;
+      const width = layout.width * pinchDistance() / gesture.distance;
+      const grow = width - layout.width;
+      applyLayout(box, { left: layout.left - grow / 2, top: layout.top - grow * ratio / 2, width });
+      ui.show();
+      return;
     }
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (!gesture.moved && Math.hypot(dx, dy) < 8) return;
+    gesture.moved = true;
+    ui.show();
+    if (gesture.mode === "move") {
+      applyLayout(box, { ...layout, left: layout.left + dx, top: layout.top + dy });
+      return;
+    }
+    // Անկյունից. հակառակ անկյունը մնում է տեղում։
+    const { sx, sy } = gesture;
+    const wanted = layout.width + Math.max(sx * dx, (sy * dy) / Math.max(ratio, 0.1));
+    const width = Math.min(Math.max(wanted, MIN_WIDTH), window.innerWidth - EDGE * 2);
+    const grow = width - layout.width;
+    applyLayout(box, {
+      left: sx < 0 ? layout.left - grow : layout.left,
+      top: sy < 0 ? layout.top - grow * ratio : layout.top,
+      width,
+    });
   };
-  const up = () => {
-    if (!start) return;
-    const { moved, mode } = start;
-    start = null;
+  const up = (event: PointerEvent) => {
+    if (!points.delete(event.pointerId) || !gesture) return;
+    const finished = gesture;
+    if (points.size > 0) {
+      // Մի մատը բարձրացավ. մյուսով շարունակում է տեղաշարժել։
+      const [point] = Array.from(points.values());
+      gesture = { mode: "move", x: point.x, y: point.y, layout: current(), ratio: ratioOf(current()), sx: 1, sy: 1, moved: true };
+      return;
+    }
+    gesture = null;
     delete box.dataset.active;
-    if (moved) saveLayout(current());
-    else if (mode === "move") open();
+    if (finished.moved) { saveLayout(current()); return; }
+    if (event.type === "pointercancel") return;
+    if (ui.visible()) open();
+    else ui.show();
   };
-  for (const [node, mode] of [[surface, "move"], [grip, "resize"]] as const) {
-    node.addEventListener("pointerdown", down(mode));
-    node.addEventListener("pointermove", move);
-    node.addEventListener("pointerup", up);
-    node.addEventListener("pointercancel", up);
-  }
+  surface.addEventListener("pointerdown", down);
+  surface.addEventListener("pointermove", move);
+  surface.addEventListener("pointerup", up);
+  surface.addEventListener("pointercancel", up);
   const onResize = () => { if (box.style.left) applyLayout(box, current()); };
   window.addEventListener("resize", onResize);
   return () => window.removeEventListener("resize", onResize);
@@ -154,8 +214,8 @@ const ICON_PLAY = svg('<path d="M7 4.5v15l12-7.5z" fill="currentColor"/>');
 const ICON_PAUSE = svg('<path d="M8 5v14M16 5v14"/>');
 const ICON_BACK = svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>');
 const ICON_FORWARD = svg('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>');
-// Չափը փոխելու նշան՝ երկկողմ սլաք (↖↘)։
-const ICON_RESIZE = svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>');
+// Տեսանյութի էջը բացելու նշան (↖↘)։
+const ICON_OPEN = svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>');
 
 /** Անկյան պատուհանի կոճակներ՝ 10 վրկ հետ, նվագել/կանգնեցնել, 10 վրկ առաջ։ */
 function dockControls(video: HTMLVideoElement) {
@@ -166,7 +226,6 @@ function dockControls(video: HTMLVideoElement) {
     node.type = "button";
     node.setAttribute("aria-label", label);
     node.innerHTML = icon;
-    node.addEventListener("pointerdown", (event) => event.stopPropagation());
     node.addEventListener("click", (event) => { event.stopPropagation(); action(); });
     bar.appendChild(node);
     return node;
@@ -228,12 +287,21 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
   close.className = "video-dock-close";
   close.setAttribute("aria-label", "Փակել տեսանյութը");
   close.textContent = "×";
-  const grip = document.createElement("span");
-  grip.className = "video-dock-grip";
-  grip.setAttribute("aria-hidden", "true");
-  grip.innerHTML = ICON_RESIZE;
+  const expand = document.createElement("button");
+  expand.type = "button";
+  expand.className = "video-dock-open";
+  expand.setAttribute("aria-label", "Բացել տեսանյութի էջը");
+  expand.innerHTML = ICON_OPEN;
   const controls = dockControls(video);
-  for (const node of [surface, close, controls.bar, grip]) box.appendChild(node);
+  // Անկյունների նշանները՝ որտեղից կարելի է քաշել և փոխել չափը։
+  const corners = ["tl", "tr", "bl", "br"].map((corner) => {
+    const mark = document.createElement("span");
+    mark.className = "video-dock-corner";
+    mark.dataset.corner = corner;
+    mark.setAttribute("aria-hidden", "true");
+    return mark;
+  });
+  for (const node of [surface, ...corners, close, expand, controls.bar]) box.appendChild(node);
   document.body.appendChild(box);
   moveInto(box, video);
   video.removeAttribute("style");
@@ -247,7 +315,22 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
   const open = () => {
     window.dispatchEvent(new CustomEvent("library:navigate", { detail: href }));
   };
-  const stopInteract = makeInteractive(box, surface, grip, open);
+  // Կոճակները երևում են սեղմելիս կամ քաշելիս և 3 վրկ հետո թաքնվում են։
+  let hideTimer = 0;
+  const ui = {
+    visible: () => box.hasAttribute("data-ui"),
+    show: () => {
+      box.setAttribute("data-ui", "");
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => box.removeAttribute("data-ui"), 3000);
+    },
+  };
+  ui.show();
+  for (const node of [close, expand, ...Array.from(controls.bar.querySelectorAll("button"))]) {
+    node.addEventListener("pointerdown", (event) => { event.stopPropagation(); ui.show(); });
+  }
+  expand.addEventListener("click", open);
+  const stopInteract = makeInteractive(box, surface, ui, open);
   surface.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } });
 
   // Բրաուզերի փոքր պատուհանում լինելիս անկյան պատուհանը թաքնված է (միայն մեկ պատուհան)։
@@ -261,7 +344,6 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
   // Մեկ այլ ձայնագրություն կամ տեսանյութ միացնելիս dock-ինը կանգնում է։
   const onOtherPlay = (event: Event) => { if (event.target !== video && event.target instanceof HTMLMediaElement) video.pause(); };
   close.addEventListener("click", closeDock);
-  close.addEventListener("pointerdown", (event) => event.stopPropagation());
   video.addEventListener("ended", onEnded);
   video.addEventListener("enterpictureinpicture", syncPip);
   video.addEventListener("leavepictureinpicture", syncPip);
@@ -273,6 +355,7 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
     href,
     cleanup: () => {
       stopInteract();
+      window.clearTimeout(hideTimer);
       controls.cleanup();
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("enterpictureinpicture", syncPip);
