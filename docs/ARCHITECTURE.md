@@ -451,7 +451,7 @@ flowchart TD
   SUB --> ADM["/admin/places. ընդունել / մերժել / խմբագրել"]
   ADM --> PL
   ADM --> BL[("place_blocklist, place_rejected")]
-  ADM --> WEBP["Ադմինի նկարները նույնպես WebP (app/utils/image-webp.ts).<br/>«Դարձնել WebP» կոճակը՝ հին JPEG/PNG-ները (intent=replace-photo)"]
+  ADM --> WEBP["Ադմինի նկարները նույնպես WebP (app/utils/image-webp.ts).<br/>«Դարձնել WebP» կոճակը՝ հին JPEG/PNG-ները (intent=replace-photo).<br/>Ամեն նկարի տակ «Ներբեռնել» և «Փոխարինել» (մաքրած նկարը նույն տեղում), հայտերի նկարները սեղմելով ներբեռնվում են"]
   ADM --> VID["Տեսանյութ հեռախոսից → R2 places/ (≤95 ՄԲ)"]
   PL --> MAP["/places քարտեզ (MapLibre)<br/>Հայաստանի եզրագիծը, «Իմ դիրքը»"]
   MAP --> ONE["/places/:id. նկարներ, պատմություն,<br/>ինչպես հասնել, ով է ծառայում, ✓ հոգևորականի կողմից"]

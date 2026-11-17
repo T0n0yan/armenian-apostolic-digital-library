@@ -213,7 +213,12 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               </div>
               {submission.photos.length ? (
                 <div className="flex gap-2 overflow-x-auto">
-                  {submission.photos.map((fileId) => <img key={fileId} className="h-28 w-auto shrink-0 rounded-control object-cover" src={`/admin/telegram-file/${encodeURIComponent(fileId)}`} alt="" loading="lazy" />)}
+                  {submission.photos.map((fileId, index) => (
+                    // Սեղմելով՝ ներբեռնվում է (մաքրելու և հետո տեղի էջում «Փոխարինել»-ով վերբեռնելու համար)։
+                    <a key={fileId} className="shrink-0" href={`/admin/telegram-file/${encodeURIComponent(fileId)}`} download={`photo-${index + 1}${fileId.startsWith("r2:") ? fileId.slice(fileId.lastIndexOf(".")) : ".jpg"}`} title="Ներբեռնել">
+                      <img className="h-28 w-auto rounded-control object-cover" src={`/admin/telegram-file/${encodeURIComponent(fileId)}`} alt="" loading="lazy" />
+                    </a>
+                  ))}
                 </div>
               ) : <p className="m-0 flex items-center gap-1.5 text-[13px] text-faint"><ImageOff aria-hidden="true" size={15} /> Նկար չկա</p>}
               {submission.videos.length ? <p className="m-0 text-[13px] text-muted">🎬 Տեսանյութ՝ {submission.videos.length}</p> : null}

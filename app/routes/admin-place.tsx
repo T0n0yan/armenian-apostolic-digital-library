@@ -1,6 +1,6 @@
 import { bumpCacheEpoch } from "../data/site-refresh.server";
 import { env } from "cloudflare:workers";
-import { Check, Copy, ImagePlus, Star, Trash2, Upload, Video } from "lucide-react";
+import { Check, Copy, Download, ImagePlus, RefreshCw, Star, Trash2, Upload, Video } from "lucide-react";
 import { useState } from "react";
 import { data, Form, Link, redirect, useNavigation, useRevalidator, useSearchParams, useSubmit } from "react-router";
 
@@ -207,6 +207,34 @@ function PhotoUpload({ disabled }: { disabled: boolean }) {
   );
 }
 
+/**
+ * Մեկ նկարը փոխարինել. ադմինը ներբեռնում է, մաքրում/խմբագրում իր մոտ և նորից վերբեռնում։
+ * Նոր նկարը մնում է նույն տեղում (հերթականությունը և գլխավորը չեն փոխվում), հինը ջնջվում է։
+ */
+function ReplacePhoto({ photoKey, disabled }: { photoKey: string; disabled: boolean }) {
+  const submit = useSubmit();
+  const [preparing, setPreparing] = useState(false);
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setPreparing(true);
+    const blob = await toWebp(file);
+    const form = new FormData();
+    form.set("intent", "replace-photo");
+    form.set("key", photoKey);
+    form.set("photo", blob, blob === file ? file.name : photoName(blob));
+    setPreparing(false);
+    void submit(form, { method: "post", encType: "multipart/form-data", preventScrollReset: true });
+  };
+  const off = disabled || preparing;
+  return (
+    <label className={`${smallButton} ${off ? "opacity-60" : ""}`}>
+      <RefreshCw aria-hidden="true" size={13} /> {preparing ? "Պատրաստվում է…" : "Փոխարինել"}
+      <input className="sr-only" type="file" accept="image/*" disabled={off}
+        onChange={(event) => { const input = event.currentTarget; void pick(input.files?.[0]).finally(() => { input.value = ""; }); }} />
+    </label>
+  );
+}
+
 /** Հին նկարները WebP դարձնելու կոճակ (մանրամասները՝ `convertPlacePhotos`)։ */
 function ConvertPhotos({ placeId, photos }: { placeId: string; photos: string[] }) {
   const revalidator = useRevalidator();
@@ -347,9 +375,14 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
                   {index > 0 ? <button className={smallButton} type="submit" name="intent" value="cover" disabled={busy}><Star aria-hidden="true" size={13} /> Գլխավոր</button> : <span className="text-[12px] text-gold-bright">★ Գլխավոր</span>}
                   <button className={smallButton} type="submit" name="intent" value="remove-photo" disabled={busy} aria-label="Ջնջել"><Trash2 aria-hidden="true" size={13} /></button>
                 </Form>
+                <div className="flex flex-wrap gap-1.5">
+                  <a className={smallButton} href={placeMediaUrl(key)} download={`${place.id}-${index + 1}${key.slice(key.lastIndexOf("."))}`}><Download aria-hidden="true" size={13} /> Ներբեռնել</a>
+                  <ReplacePhoto photoKey={key} disabled={busy} />
+                </div>
               </figure>
             ))}
           </div>
+          {actionData?.error ? <span className="text-[13px] text-danger">{actionData.error}</span> : null}
           <div className="flex flex-wrap gap-2">
             <PhotoUpload disabled={busy} />
             <ConvertPhotos placeId={place.id} photos={place.photos} />
