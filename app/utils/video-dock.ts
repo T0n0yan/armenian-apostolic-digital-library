@@ -5,6 +5,8 @@
  * - Եթե տեսանյութը նվագում է, և մարդը գնում է կայքի մեկ այլ էջ, նույն `<video>`-ը (առանց կանգնելու)
  *   տեղափոխվում է էկրանի անկյան փոքր նվագարկիչ (dock), որը փակվում է ×-ով։
  * - Նույն տեսանյութի էջը նորից բացելիս dock-ը փակվում է, և նվագարկիչը շարունակում է նույն տեղից։
+ * - Եթե տեսանյութը արդեն բրաուզերի փոքր պատուհանում է, dock-ը թաքնված է, որ երկու պատուհան չլինի։
+ * - Փոքր պատուհանի կոճակը նվագարկիչի ներսում է (բրաուզերի կոճակները), առանձին կոճակ չկա։
  */
 
 type WebkitVideo = HTMLVideoElement & {
@@ -15,30 +17,8 @@ type WebkitVideo = HTMLVideoElement & {
 
 type MovableParent = HTMLElement & { moveBefore?: (node: Node, child: Node | null) => void };
 
-export function pipSupported(video: HTMLVideoElement) {
-  if (typeof document !== "undefined" && document.pictureInPictureEnabled && !video.disablePictureInPicture) return true;
-  const webkit = video as WebkitVideo;
-  return typeof webkit.webkitSupportsPresentationMode === "function" && webkit.webkitSupportsPresentationMode("picture-in-picture");
-}
-
 export function isInPip(video: HTMLVideoElement) {
   return document.pictureInPictureElement === video || (video as WebkitVideo).webkitPresentationMode === "picture-in-picture";
-}
-
-/** Բացում կամ փակում է փոքր պատուհանը։ Կանչել միայն սեղմումից (բրաուզերը այլապես չի թողնի)։ */
-export async function togglePip(video: HTMLVideoElement) {
-  const webkit = video as WebkitVideo;
-  if (isInPip(video)) {
-    if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
-    else webkit.webkitSetPresentationMode?.("inline");
-    return;
-  }
-  if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function") {
-    await video.requestPictureInPicture();
-  } else {
-    webkit.webkitSetPresentationMode?.("picture-in-picture");
-  }
-  if (video.paused) await video.play().catch(() => {});
 }
 
 let docked: { video: HTMLVideoElement; box: HTMLElement; cleanup: () => void } | null = null;
@@ -86,17 +66,30 @@ export function dockVideo(video: HTMLVideoElement, label: string) {
   video.className = "video-dock-video";
   video.setAttribute("aria-label", label);
 
+  // Բրաուզերի փոքր պատուհանում լինելիս անկյան պատուհանը թաքնված է (միայն մեկ պատուհան)։
+  const syncPip = () => {
+    if (isInPip(video)) { box.dataset.pip = ""; return; }
+    delete box.dataset.pip;
+    if (video.paused || video.ended) closeDock();
+  };
+  syncPip();
   const onEnded = () => { if (!isInPip(video)) closeDock(); };
   // Մեկ այլ ձայնագրություն կամ տեսանյութ միացնելիս dock-ինը կանգնում է։
   const onOtherPlay = (event: Event) => { if (event.target !== video && event.target instanceof HTMLMediaElement) video.pause(); };
   close.addEventListener("click", closeDock);
   video.addEventListener("ended", onEnded);
+  video.addEventListener("enterpictureinpicture", syncPip);
+  video.addEventListener("leavepictureinpicture", syncPip);
+  video.addEventListener("webkitpresentationmodechanged", syncPip);
   document.addEventListener("play", onOtherPlay, true);
   docked = {
     video,
     box,
     cleanup: () => {
       video.removeEventListener("ended", onEnded);
+      video.removeEventListener("enterpictureinpicture", syncPip);
+      video.removeEventListener("leavepictureinpicture", syncPip);
+      video.removeEventListener("webkitpresentationmodechanged", syncPip);
       document.removeEventListener("play", onOtherPlay, true);
     },
   };

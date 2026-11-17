@@ -1,4 +1,4 @@
-import { AlertCircle, ChevronLeft, ChevronRight, FileText, Headphones, ImageIcon, LoaderCircle, Pause, PictureInPicture2, Play, RotateCcw, RotateCw, Video, X } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, FileText, Headphones, ImageIcon, LoaderCircle, Pause, Play, RotateCcw, RotateCw, Video, X } from "lucide-react";
 import { lockScroll } from "../utils/scroll-lock";
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { createPortal } from "react-dom";
@@ -29,7 +29,8 @@ function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous"
 import { useVideoPoster } from "../utils/video-frame";
 import { browserCanPlay, isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, mediaSources, type MediaPlaybackState } from "../utils/media-playback";
 import { materialPath } from "../utils/material-path";
-import { dockVideo, enableAutoPip, isInPip, pipSupported, takeDockedVideo, togglePip } from "../utils/video-dock";
+import { dockVideo, enableAutoPip, takeDockedVideo } from "../utils/video-dock";
+import { watchVideoPosition } from "../utils/video-position";
 
 function durationLabel(seconds: number | null) {
   if (!seconds || seconds < 0) return null;
@@ -195,13 +196,10 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     setAttempt((current) => current + 1);
     setSourceIndex(0);
   }, []);
-  // Փոքր պատուհան (PiP). կոճակը երևում է միայն այն բրաուզերներում, որոնք դա կարող են։
-  const [canPip, setCanPip] = useState(false);
-  const [inPip, setInPip] = useState(false);
+  // Փոքր պատուհանը (PiP) նվագարկիչի ներսի կոճակով է (բրաուզերինը). առանձին կոճակ չկա։
   useEffect(() => {
     const element = elementRef.current;
     if (kind !== "video" || !(element instanceof HTMLVideoElement)) return;
-    setCanPip(pipSupported(element));
     element.setAttribute("autopictureinpicture", "");
     enableAutoPip();
     // Նույն տեսանյութը անկյունում էր նվագում. շարունակել այստեղ նույն տեղից։
@@ -210,15 +208,8 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
       resume.current = docked;
       if (element.readyState >= HTMLMediaElement.HAVE_METADATA) resumeAfterSwitch(element);
     }
-    const update = () => setInPip(isInPip(element));
-    element.addEventListener("enterpictureinpicture", update);
-    element.addEventListener("leavepictureinpicture", update);
-    element.addEventListener("webkitpresentationmodechanged", update);
-    return () => {
-      element.removeEventListener("enterpictureinpicture", update);
-      element.removeEventListener("leavepictureinpicture", update);
-      element.removeEventListener("webkitpresentationmodechanged", update);
-    };
+    // Վերջին դիտած տեղը պահվում է, և էջը նորից բացելիս շարունակվում է այնտեղից։
+    if (asset.url) watchVideoPosition(element, asset.url);
     // Միայն առաջին բացվելիս. աղբյուրի փոխվելը (retry) նոր տեսանյութ չէ։
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
@@ -319,19 +310,6 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
           <AudioControls elementRef={elementRef} state={state} fallbackDuration={asset.duration} />
         </>
       )}
-      {kind === "video" && canPip ? (
-        <div className="flex justify-end border-t border-white/10 bg-[rgb(10_7_12/88%)] px-2 py-1.5">
-          <button
-            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-button border-0 bg-transparent px-3 text-[12px] font-bold text-white/85"
-            type="button"
-            aria-pressed={inPip}
-            onClick={() => { if (elementRef.current instanceof HTMLVideoElement) void togglePip(elementRef.current).catch(() => {}); }}
-          >
-            <PictureInPicture2 aria-hidden="true" size={17} />
-            {inPip ? "Վերադարձնել էջ" : "Փոքր պատուհան"}
-          </button>
-        </div>
-      ) : null}
       <PlaybackStatus state={state} onRetry={retry} />
     </div>
   );
