@@ -1250,8 +1250,9 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
   overflow: hidden;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
-  background: var(--glass-strong);
-  box-shadow: var(--card-shadow);
+  /* Թափանցիկ չէ, որ հետևի տեքստը չխանգարի (blur կայքում չի օգտագործվում)։ */
+  background: linear-gradient(180deg, rgb(217 181 111 / 12%), rgb(217 181 111 / 4%)), var(--page-bg);
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 22%), var(--card-shadow);
   animation: audio-dock-in 260ms ease-out;
 }
 @media (min-width: 960px) {
