@@ -1271,15 +1271,17 @@ li[data-audio-playing] > a:not(.aspect-square)::after {
   padding: 3px 10px 3px 24px;
   border-radius: 999px;
   border: 1px solid rgb(217 181 111 / 55%);
+  /* Երեք անշարժ ոսկեգույն գիծ՝ տեքստից ձախ։ */
   background:
-    linear-gradient(currentColor, currentColor) 9px 100% / 3px 60% no-repeat,
-    linear-gradient(currentColor, currentColor) 13px 100% / 3px 100% no-repeat,
-    linear-gradient(currentColor, currentColor) 17px 100% / 3px 45% no-repeat,
-    var(--glass-strong);
-  background-origin: content-box, content-box, content-box, padding-box;
+    linear-gradient(currentColor, currentColor) 9px calc(100% - 6px) / 3px 7px no-repeat,
+    linear-gradient(currentColor, currentColor) 13px calc(100% - 6px) / 3px 11px no-repeat,
+    linear-gradient(currentColor, currentColor) 17px calc(100% - 6px) / 3px 5px no-repeat,
+    var(--page-bg);
   color: var(--gold-bright);
   font-size: 11px;
   font-weight: 700;
   line-height: 16px;
   pointer-events: none;
 }
+/* Գլխավոր էջի բաժնի քարտում՝ սլաքից ձախ, մեջտեղում։ */
+li[data-audio-playing] > a.frosted-card.flex::after { top: 50%; right: 46px; translate: 0 -50%; }
