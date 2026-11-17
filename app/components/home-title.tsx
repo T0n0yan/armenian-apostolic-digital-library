@@ -10,7 +10,7 @@ function ArmenianCross({size = 14}: { size?: number }) {
 }
 
 export function HomeTitle() {
-    return (<header className="relative z-5 -mt-[6px] grid justify-items-center gap-3 px-2 pt-1 pb-2 text-center min-[560px]:gap-4">
+    return (<header className="relative z-5 -mt-[6px] grid justify-items-center gap-5 px-2 pt-1 pb-0 text-center">
         <div className="hero-rise flex w-full max-w-[340px] items-center gap-3 text-gold" aria-hidden="true">
             <span className="h-px flex-1 bg-[linear-gradient(90deg,transparent,currentColor)] opacity-60"/>
             <span className="gold-mark size-[22px]" style={{"--mark": `url(${ArmenianEternity})`} as CSSProperties}/>
