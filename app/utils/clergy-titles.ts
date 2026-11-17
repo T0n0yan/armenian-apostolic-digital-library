@@ -20,10 +20,20 @@ export const CLERGY_RANKS = [
 // Already written with an address or a rank's abbreviation: kept as the reader typed it.
 const TITLED = /(^|\s)(Տ\.|Տեր|Գերաշնորհ|Հոգեշնորհ|Արժանապատիվ|Բարեշնորհ|Քաղցրաշնորհ|Սրբազան)(\s|$)|(արք|եպս|վրդ|աբղ|քհն|սրկ|դպր)\./u;
 
+// Նույն աստիճանի այլ անվանումներ, որ ադմինը կարող է գրել տողի սկզբում։
+const ROLE_ALIASES: Record<string, string> = { "քահանա": "Ծիսակատար քահանա", "արքեպիսկոպոս": "Արքեպիսկոպոս", "ավագ սարկավագ": "Սարկավագ" };
+
+/** Աստիճանը ըստ անվան (մեծատառ/փոքրատառ կարևոր չէ), կամ undefined։ */
+function findRank(role: string) {
+  const key = role.trim().toLocaleLowerCase("hy");
+  const alias = ROLE_ALIASES[key];
+  return CLERGY_RANKS.find((item) => item.role.toLocaleLowerCase("hy") === key || item.role === alias);
+}
+
 /** «Հովհաննես Աբրահամյան» as a Ավագ քահանա → «Արժանապատիվ Տ. Հովհաննես ավգ. քհն. Աբրահամյան». */
 export function clergyName(role: string, typed: string) {
   const text = typed.trim().replace(/\s+/gu, " ");
-  const rank = CLERGY_RANKS.find((item) => item.role === role);
+  const rank = findRank(role);
   if (!rank || !text || TITLED.test(text)) return text;
   const [name, ...rest] = text.split(" ");
   return rank.write(name, rest.join(" ")).replace(/\s+/gu, " ").trim();
@@ -33,4 +43,18 @@ export function clergyName(role: string, typed: string) {
 export function clergyExample(role: string) {
   const rank = CLERGY_RANKS.find((item) => item.role === role);
   return rank ? `Գրեք անունը և ազգանունը, օրինակ՝ Հովհաննես Աբրահամյան։\nԿայքում կգրվի՝ ${rank.write("Հովհաննես", "Աբրահամյան").replace(/\s+/gu, " ")}` : "";
+}
+
+/**
+ * Ծառայողների ամբողջ տեքստը (մեկ դեր՝ մեկ տող)՝ «Սարկավագ՝ Կարեն Առաքելյան» →
+ * «Սարկավագ՝ Բարեշնորհ Կարեն սրկ. Առաքելյան»։ Արդեն դիմելաձևով գրված անունները և անծանոթ
+ * դերերի տողերը («Թեմի Առաջնորդ՝ …») մնում են ինչպես կան։ Ստորակետով մի քանի անուն՝ ամեն մեկը։
+ */
+export function formatClergy(text: string) {
+  return text.split("\n").map((line) => {
+    const match = /^(\s*(?:[•\-–]\s*)?)([^՝:]{2,40}?)\s*[՝:]\s*(.+)$/u.exec(line);
+    if (!match || !findRank(match[2])) return line;
+    const [, bullet, role, names] = match;
+    return `${bullet}${role}՝ ${names.split(/\s*,\s*/u).map((name) => clergyName(role, name)).join(", ")}`;
+  }).join("\n");
 }
