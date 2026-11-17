@@ -31,7 +31,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
   const object = valid ? await MEDIA.get(ogCardKey(path)).catch(() => null) : null;
   if (!object) {
-    const fallback = sectionImage(categoryForSection(params.section)) ?? "/og-image.png?v=2";
+    const fallback = sectionImage(categoryForSection(params.section)) ?? "/og-image.png?v=3";
     return new Response(null, { status: 302, headers: { location: fallback, "cache-control": "public, max-age=300" } });
   }
   return new Response(object.body, {

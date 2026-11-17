@@ -32,7 +32,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "Սրբավայր — Հոգևոր ժառանգություն" }];
+  if (!loaderData) return [{ title: "Սրբավայր — Apostolic.am" }];
   const { place, origin, photoSizes } = loaderData;
   const cover = place.photos[0];
   // Հղման նախադիտումը՝ եկեղեցու առաջին նկարը, JPEG (WhatsApp-ը WebP-ն միշտ ցույց չի տալիս)։

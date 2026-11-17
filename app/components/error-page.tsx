@@ -57,7 +57,7 @@ export function RouteErrorPage({ error, notFoundTitle }: { error: unknown; notFo
   return (
     <PageShell>
       <SiteNav />
-      <title>{status === 404 ? "Էջը չի գտնվել — Հոգևոր ժառանգություն" : "Սխալ — Հոգևոր ժառանգություն"}</title>
+      <title>{status === 404 ? "Էջը չի գտնվել — Apostolic.am" : "Սխալ — Apostolic.am"}</title>
       <meta name="robots" content="noindex" />
       <ErrorPage status={status} notFoundTitle={notFoundTitle} />
     </PageShell>

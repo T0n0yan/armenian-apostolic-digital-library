@@ -481,7 +481,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     if (keys) {
       const { results } = await this.env.DB.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id IN (${marks})`).bind(...ids).all<PushSubscriptionRow>();
       for (const subscription of results) {
-        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Հոգևոր ժառանգություն", body: "Նոր ծանուցում", url: "/namak", tag: "quiet" }, keys).catch(() => "failed" as const);
+        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Apostolic.am", body: "Նոր ծանուցում", url: "/namak", tag: "quiet" }, keys).catch(() => "failed" as const);
         if (outcome === "gone") await this.env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(subscription.endpoint).run();
       }
     }
@@ -525,7 +525,7 @@ export class ChatRoom extends DurableObject<ChatEnv> {
     if (keys) {
       const { results } = await this.env.DB.prepare(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id IN (${marks})`).bind(...ids).all<PushSubscriptionRow>();
       for (const subscription of results) {
-        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Հոգևոր ժառանգություն", body: text, url: openPath, tag: "presence" }, keys).catch(() => "failed" as const);
+        const outcome = await sendWebPush(subscription, { kind: "quiet", title: "Apostolic.am", body: text, url: openPath, tag: "presence" }, keys).catch(() => "failed" as const);
         if (outcome === "gone") await this.env.DB.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").bind(subscription.endpoint).run();
       }
     }

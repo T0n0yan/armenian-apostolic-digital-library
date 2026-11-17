@@ -31,7 +31,7 @@ import { RouteErrorPage } from "../components/error-page";
 import { formatYerevanDateTime } from "../utils/armenian-date";
 
 export function meta() {
-  return [{ title: "Կառավարում — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
+  return [{ title: "Կառավարում — Apostolic.am" }, { name: "robots", content: "noindex, nofollow" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

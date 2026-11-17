@@ -30,7 +30,7 @@ import { RouteErrorPage } from "../components/error-page";
 
 export function meta({}: Route.MetaArgs) {
     return seoMeta({
-        title: "Հոգևոր ժառանգություն — Հայ Առաքելական Եկեղեցու գրադարան | Apostolic",
+        title: "Apostolic.am — Հայաստանյայց Առաքելական Եկեղեցուն նվիրված | աղոթքներ, սաղմոսներ",
         description: "Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան. աղոթքներ, սաղմոսներ՝ ձայնագրությամբ, սրբերի վարքեր, Ավետարանի ուսուցում, օրվա ընթերցումներ և հարցեր Աստվածաշնչից։",
         path: "/",
         jsonLd: [websiteJsonLd, organizationJsonLd],

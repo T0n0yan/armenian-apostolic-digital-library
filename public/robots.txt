@@ -1,4 +1,4 @@
-# Հոգևոր ժառանգություն — Armenian Apostolic Church library
+# Apostolic.am — Armenian Apostolic Church library
 User-agent: *
 Allow: /
 Disallow: /admin

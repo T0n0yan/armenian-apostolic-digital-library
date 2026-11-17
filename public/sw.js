@@ -206,7 +206,7 @@ async function offlinePage(cache) {
     if (title) kept.push({ path: url.pathname, title });
   }
   const links = kept.map(({ path, title }) => `<a href="${escapeHtml(path)}"><span>${title}</span><b>›</b></a>`).join("");
-  return `<!doctype html><html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Ինտերնետը բացակայում է — Հոգևոր ժառանգություն</title>
+  return `<!doctype html><html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Ինտերնետը բացակայում է — Apostolic.am</title>
 <script>try{var p=localStorage.getItem("library-theme-v1"),h=new Date().getHours();document.documentElement.dataset.theme=p==="dark"||p==="light"?p:p==="sun"?(h>=7&&h<19?"light":"dark"):(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
 <style>
 :root{--bg:linear-gradient(170deg,#f3e8cf,#ead9b8 55%,#e6d3ae);--ink:#2b1a10;--muted:#6f5b47;--gold:#9a6a26;--panel:rgb(255 250 238/62%);--line:rgb(176 128 70/26%);color-scheme:light}
@@ -288,7 +288,7 @@ self.addEventListener("push", (event) => {
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
   // Անձնական չատի ծանուցումը. առանց ձայնի, առանց թրթռոցի, առանց տեքստի, և էջին չի ասում զանգել։
   if (data.kind === "quiet") {
-    event.waitUntil(self.registration.showNotification(data.title || "Հոգևոր ժառանգություն", {
+    event.waitUntil(self.registration.showNotification(data.title || "Apostolic.am", {
       body: data.body || "Նոր ծանուցում",
       icon: "/icon-192.png",
       badge: "/favicon-64.png",
@@ -305,7 +305,7 @@ self.addEventListener("push", (event) => {
     for (const client of windows) client.postMessage({ type: "reminder", materialId, title: data.body, category: data.category });
   }));
   event.waitUntil(self.registration.showNotification(data.title || "🔔 Ժամանակն է կարդալու", {
-    body: data.body || "Հոգևոր ժառանգություն",
+    body: data.body || "Apostolic.am",
     icon: "/icon-192.png",
     badge: "/favicon-64.png",
     tag: data.tag || "reminder",

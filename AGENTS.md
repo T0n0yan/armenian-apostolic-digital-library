@@ -1,4 +1,4 @@
-# Հոգևոր ժառանգություն — working rules for every Codex chat
+# Apostolic.am — working rules for every Codex chat
 
 The library site and Telegram Mini App for the group «Հայ Առաքելական Սուրբ Եկեղեցի»
 (t.me/armenian_apostolic_church). Production: https://apostolic.am, staging: https://staging.apostolic.am.

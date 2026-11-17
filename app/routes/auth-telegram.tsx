@@ -11,7 +11,7 @@ import { PageShell } from "../components/page-layout";
 import { NOINDEX } from "../utils/seo";
 
 export function meta() {
-  return [{ title: "Մուտք Telegram-ով — Հոգևոր ժառանգություն" }, ...NOINDEX];
+  return [{ title: "Մուտք Telegram-ով — Apostolic.am" }, ...NOINDEX];
 }
 
 /**

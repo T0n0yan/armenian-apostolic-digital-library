@@ -175,7 +175,7 @@ async function handleWithRetry(request: Request, env: Env, context: ExecutionCon
 function failurePage(request: Request) {
   const accept = request.headers.get("accept") ?? "";
   if (!accept.includes("text/html")) return new Response("Service unavailable", { status: 503, headers: { "Retry-After": "60" } });
-  const html = `<!doctype html><html lang="hy"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Կայքը կարճ ժամանակով անհասանելի է — Հոգևոր ժառանգություն</title>
+  const html = `<!doctype html><html lang="hy"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Կայքը կարճ ժամանակով անհասանելի է — Apostolic.am</title>
 <style>:root{color-scheme:light dark;--bg:#f4ead6;--ink:#2a1633;--muted:#6b5a52;--gold:#9a6b1f}@media (prefers-color-scheme:dark){:root{--bg:#120a17;--ink:#f4ead6;--muted:#bfb2a5;--gold:#d9b56f}}
 body{margin:0;min-height:100svh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,sans-serif;padding:16px;box-sizing:border-box}
 main{max-width:460px;text-align:center}img{display:block;margin:0 auto;border-radius:16px}h1{font-size:22px;margin:12px 0 6px}p{color:var(--muted);margin:0 0 18px}
