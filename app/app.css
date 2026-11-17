@@ -1133,23 +1133,44 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
 }
 .video-dock[data-active] .video-dock-surface { cursor: grabbing; }
 .video-dock-surface:focus-visible { outline: 2px solid var(--gold, #d9b56f); outline-offset: -3px; }
-/* Ձախ վերևի կլոր կոճակը՝ չափը փոխելու համար (քաշել դեպի ձախ-վեր՝ մեծացնել)։ */
-.video-dock-grip {
+/* Ձախ վերևի կլոր կոճակը՝ բացել տեսանյութի էջը։ Անկյունները ազատ են՝ չափը փոխելու համար։ */
+.video-dock-open {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 8px;
+  left: 32px;
   z-index: 3;
   display: grid;
   place-items: center;
   width: 32px;
   height: 32px;
+  padding: 0;
   border: 1px solid rgb(255 255 255 / 20%);
   border-radius: 999px;
   background: rgb(17 8 22 / 72%);
   color: #fff;
-  cursor: nwse-resize;
-  touch-action: none;
+  cursor: pointer;
 }
+/* Անկյունների ոսկեգույն նշանները (քաշել՝ չափը փոխել)։ */
+.video-dock-corner {
+  position: absolute;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  border: 0 solid #d9b56f;
+  pointer-events: none;
+}
+.video-dock-corner[data-corner="tl"] { top: 5px; left: 5px; border-top-width: 3px; border-left-width: 3px; border-top-left-radius: 8px; }
+.video-dock-corner[data-corner="tr"] { top: 5px; right: 5px; border-top-width: 3px; border-right-width: 3px; border-top-right-radius: 8px; }
+.video-dock-corner[data-corner="bl"] { bottom: 5px; left: 5px; border-bottom-width: 3px; border-left-width: 3px; border-bottom-left-radius: 8px; }
+.video-dock-corner[data-corner="br"] { bottom: 5px; right: 5px; border-bottom-width: 3px; border-right-width: 3px; border-bottom-right-radius: 8px; }
+/* Կոճակները երևում են միայն սեղմելուց/քաշելուց հետո (data-ui), հետո թաքնվում են։ */
+.video-dock :is(.video-dock-close, .video-dock-open, .video-dock-controls, .video-dock-corner) {
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.video-dock:not([data-ui]) :is(.video-dock-close, .video-dock-open, .video-dock-controls button) { pointer-events: none; }
+.video-dock[data-ui] :is(.video-dock-close, .video-dock-open, .video-dock-controls, .video-dock-corner) { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .video-dock :is(.video-dock-close, .video-dock-open, .video-dock-controls, .video-dock-corner) { transition: none; } }
 /* Ներքևի կոճակները՝ 10 վրկ հետ, նվագել/կանգնեցնել, 10 վրկ առաջ, և առաջընթացի գիծը։ */
 .video-dock-controls {
   position: absolute;
@@ -1160,9 +1181,11 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
   gap: 14px;
   padding: 18px 8px 8px;
   background: linear-gradient(transparent, rgb(0 0 0 / 72%));
+  pointer-events: none;
 }
 .video-dock-controls button {
   position: relative;
+  pointer-events: auto;
   display: grid;
   place-items: center;
   width: 34px;
@@ -1219,8 +1242,8 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
 .video-dock-video { display: block; width: 100%; max-height: 40svh; object-fit: contain; background: #000; }
 .video-dock-close {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 8px;
+  right: 32px;
   z-index: 3;
   display: grid;
   place-items: center;
