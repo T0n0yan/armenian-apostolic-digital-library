@@ -233,7 +233,9 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     const element = elementRef.current;
     const href = location.pathname;
     const heading = document.querySelector<HTMLElement>("article[data-highlight-title]")?.dataset.highlightTitle;
-    const title = heading || asset.title || asset.altText || "Ձայնագրություն";
+    // Սաղմոսը ճանաչում են համարով. «Սաղմոս 47»։
+    const psalm = /^\/psalms\/(\d+)/.exec(href)?.[1];
+    const title = psalm ? `Սաղմոս ${psalm}` : heading || asset.title || asset.altText || "Ձայնագրություն";
     return () => { if (element instanceof HTMLAudioElement) dockAudio(element, title, href); };
   }, [kind, asset.title, asset.altText]);
   // Էջից հեռանալիս նվագող տեսանյութը չի կանգնում. տեղափոխվում է էկրանի անկյուն։
