@@ -6,9 +6,9 @@
 import { resolveContentCategoryId, type ContentCategoryId } from "../../shared/telegram-bridge-contract";
 
 export const SITE_URL = "https://apostolic.am";
-export const SITE_NAME = "Հոգևոր ժառանգություն";
-export const SITE_IMAGE = `${SITE_URL}/og-image.png?v=2`;
-const ALTERNATE_NAMES = ["Apostolic", "apostolic.am", "Հայ Առաքելական Եկեղեցու գրադարան", "Armenian Apostolic Church Library"];
+export const SITE_NAME = "Apostolic.am";
+export const SITE_IMAGE = `${SITE_URL}/og-image.png?v=3`;
+const ALTERNATE_NAMES = ["Apostolic", "apostolic.am", "Հոգևոր ժառանգություն", "Armenian Apostolic Church Library"];
 
 const SECTION_IMAGES: Record<ContentCategoryId, string> = {
   category_psalms: "psalms",

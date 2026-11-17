@@ -14,7 +14,7 @@ import { seoMeta } from "../utils/seo";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({
-    title: "Օգնություն — Հոգևոր ժառանգություն",
+    title: "Օգնություն — Apostolic.am",
     description: "Կարճ տեսանյութեր՝ ինչպես օգտվել կայքից. որոնում, պահել, նշումներ, հիշեցումներ, սրբավայրերի քարտեզ և այլն։",
     path: "/ognutyun",
   });

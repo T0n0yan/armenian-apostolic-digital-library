@@ -13,7 +13,7 @@ import { listLiturgyMarks, personalSummary, sundayPromptOn } from "../data/litur
 import { canMarkDay, periodRange, yerevanDay } from "../utils/liturgy";
 
 export function meta() {
-  return [{ title: "Իմ տարին — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
+  return [{ title: "Իմ տարին — Apostolic.am" }, { name: "robots", content: "noindex, nofollow" }];
 }
 
 const MONTHS = ["Հունվար", "Փետրվար", "Մարտ", "Ապրիլ", "Մայիս", "Հունիս", "Հուլիս", "Օգոստոս", "Սեպտեմբեր", "Հոկտեմբեր", "Նոյեմբեր", "Դեկտեմբեր"];

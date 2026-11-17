@@ -246,7 +246,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         <meta name="color-scheme" content="light dark" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="Հոգևոր ժառանգություն" />
+        <meta name="apple-mobile-web-app-title" content="Apostolic.am" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="theme-color" content="#f4ead6" />
         <Meta />

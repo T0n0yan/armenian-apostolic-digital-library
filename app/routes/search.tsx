@@ -123,7 +123,7 @@ function getSearchPageRequestHref(filters: SearchFilters, cursor: string) {
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Որոնում — Հոգևոր ժառանգություն" },
+    { title: "Որոնում — Apostolic.am" },
     { name: "robots", content: "noindex, nofollow" },
   ];
 }

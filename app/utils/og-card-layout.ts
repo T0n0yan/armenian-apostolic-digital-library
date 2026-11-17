@@ -2,7 +2,7 @@
 export const OG_CARD_WIDTH = 1200;
 export const OG_CARD_HEIGHT = 630;
 /** Raise when the design changes, so scripts/og-cards.ts draws every card again. */
-export const OG_CARD_LAYOUT = "8";
+export const OG_CARD_LAYOUT = "9";
 
 /** At most `limit` characters, cut at a word, with "…" when shortened. */
 export function excerpt(text: string, limit: number) {
@@ -59,7 +59,7 @@ function pictureCard({ label, section, imageSrc }: { label: string; section: str
           h("div", { fontSize: title.length > 30 ? 48 : 58, color: "#a06d22", fontWeight: 600, marginTop: 12, textAlign: "center", maxWidth: 640, lineHeight: 1.2 }, title),
           h("div", DIVIDER),
         ]),
-        h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Հոգևոր ժառանգություն · apostolic.am"),
+        h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Apostolic.am"),
       ]),
     ]));
 }
@@ -111,7 +111,7 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
         h("div", DIVIDER),
       ]),
       h("div", { fontSize: 32, color: "#7a5a3a", fontWeight: 400, textAlign: "center", maxWidth: 1000 }, excerpt(byline, 70)),
-      h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Հոգևոր ժառանգություն · apostolic.am"),
+      h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Apostolic.am"),
     ]));
   }
   return h("div", {
@@ -135,6 +135,6 @@ export function ogCardElement({ label, subtitle, text, section, byline, imageSrc
         byline ? h("div", { display: "flex", fontSize: passage ? 28 : 36, lineHeight: 1.4, color: "#7a5a3a", textAlign: "center", fontWeight: 400, maxWidth: 1000, marginTop: passage ? 26 : 0 }, `— ${excerpt(byline, 70)}`) : null,
       ].filter(Boolean))
       : h("div", { display: "flex" }),
-    h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Հոգևոր ժառանգություն · apostolic.am"),
+    h("div", { fontSize: 22, color: "#7a5a3a", fontWeight: 400 }, "Apostolic.am"),
   ]));
 }

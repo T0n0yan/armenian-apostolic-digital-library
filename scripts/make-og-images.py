@@ -49,6 +49,6 @@ for slug, (art, title) in SECTIONS.items():
     draw.rectangle((36, 36, W - 37, H - 37), outline=(217, 181, 111), width=2)
     draw.text((W / 2, H / 2 - 30), title, font=title_font, fill=gold, anchor="mm")
     draw.line((W / 2 - 150, H / 2 + 40, W / 2 + 150, H / 2 + 40), fill=(217, 181, 111), width=2)
-    draw.text((W / 2, H / 2 + 100), "Հոգևոր ժառանգություն · apostolic.am", font=site_font, fill=soft, anchor="mm")
+    draw.text((W / 2, H / 2 + 100), "Apostolic.am", font=site_font, fill=soft, anchor="mm")
     image.save(f"public/og/{slug}.jpg", quality=86, optimize=True, progressive=True)
     print(slug)

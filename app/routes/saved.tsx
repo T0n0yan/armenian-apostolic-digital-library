@@ -40,7 +40,7 @@ import { RouteErrorPage } from "../components/error-page";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Իմ անկյունը — Հոգևոր ժառանգություն" },
+    { title: "Իմ անկյունը — Apostolic.am" },
     { name: "robots", content: "noindex, nofollow, noarchive" },
   ];
 }

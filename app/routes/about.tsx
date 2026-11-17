@@ -5,8 +5,8 @@ import { seoMeta } from "../utils/seo";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({
-    title: "Մեր մասին — Հոգևոր ժառանգություն",
-    description: "«Հոգևոր ժառանգություն»-ը անկախ թվային գրադարան է՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը։ Եկեղեցու պաշտոնական կայքը չէ։",
+    title: "Մեր մասին — Apostolic.am",
+    description: "Apostolic.am-ը անկախ թվային գրադարան է՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը։ Եկեղեցու պաշտոնական կայքը չէ։",
     path: "/mer-masin",
   });
 }
@@ -22,7 +22,7 @@ export default function About() {
       <PageHeader showSearch={false} backTo="/" backLabel="Գրադարան" title="Մեր մասին" />
       <article className="mt-4 grid gap-4">
         <section className={panel}>
-          <h2 className={heading}>Ինչ է «Հոգևոր ժառանգություն»-ը</h2>
+          <h2 className={heading}>Ինչ է Apostolic.am-ը</h2>
           <p className="m-0">
             Թվային գրադարան՝ նվիրված Հայաստանյայց Առաքելական Սուրբ Եկեղեցու հոգևոր ժառանգությանը։
             Մեր հոգևորականների քարոզներն ու ձայնագրությունները, աղոթքներն ու գրությունները համացանցում շատ են, բայց ցրված են տարբեր կայքերում ու ալիքներում։

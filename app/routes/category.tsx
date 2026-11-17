@@ -87,13 +87,13 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const kind = resolveContentCategoryId(category.id, category.name) ?? "";
   const path = sectionPath(category);
   // A section's search results are not pages of their own.
-  if (query) return [{ title: `${category.name} · «${query}» — Հոգևոր ժառանգություն` }, ...NOINDEX];
+  if (query) return [{ title: `${category.name} · «${query}» — Apostolic.am` }, ...NOINDEX];
   return seoMeta({
-    title: `${category.name} — Հայ Առաքելական Եկեղեցի | Հոգևոր ժառանգություն`,
+    title: `${category.name} — Հայ Առաքելական Եկեղեցի | Apostolic.am`,
     description: `${CATEGORY_DESCRIPTIONS[kind] ?? `${category.name}՝ Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարանում։`} Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարան։`,
     path,
     origin: loaderData.origin,
-    image: `${loaderData.origin}${sectionImage(category.id, category.name) ?? "/og-image.png?v=2"}`,
+    image: `${loaderData.origin}${sectionImage(category.id, category.name) ?? "/og-image.png?v=3"}`,
     jsonLd: [breadcrumbJsonLd([{ name: SITE_NAME, path: "/" }, { name: category.name, path }])],
   });
 }

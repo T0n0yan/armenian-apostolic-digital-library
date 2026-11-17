@@ -73,7 +73,7 @@ export function calendarFile(event: { title: string; url: string; start: string;
     `DTSTART:${event.start}`,
     "DURATION:PT15M",
     `SUMMARY:${summary}`,
-    `DESCRIPTION:${escapeText(`Հոգևոր ժառանգություն\n${event.url}`)}`,
+    `DESCRIPTION:${escapeText(`Apostolic.am\n${event.url}`)}`,
     `URL:${event.url}`,
     ...(rule ? [`RRULE:${rule}`] : []),
     "BEGIN:VALARM",
