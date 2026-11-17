@@ -68,7 +68,7 @@ export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico?v=2", sizes: "any" },
   { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=2" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
-  { rel: "manifest", href: "/manifest.webmanifest?v=2" },
+  { rel: "manifest", href: "/manifest.webmanifest?v=3" },
 ];
 
 export async function loader({request}: Route.LoaderArgs) {
