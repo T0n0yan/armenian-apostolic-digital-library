@@ -12,11 +12,13 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { PhotoGallery } from "../components/photo-gallery";
 import { FillPlaceButton, PlacesMap, VisitButton } from "../components/places-map";
 import { usePlaceVisits } from "../utils/place-visits";
+import { ShareButton } from "../components/share-button";
 import { SiteNav } from "../components/site-nav";
 import { getPlace, placePhotoSizes } from "../data/places.server";
 import { ACTIVE_LABELS, directionLinks, PLACE_KINDS, placeHasContent, placeLocality, placeMediaUrl, placeThumbUrl } from "../utils/places";
 import { MAP_ATTRIBUTION } from "../utils/map-style";
 import { readAccess } from "../utils/place-answers";
+import { formatClergy } from "../utils/clergy-titles";
 import { absoluteUrl, breadcrumbJsonLd, describe, pageTitle, seoMeta } from "../utils/seo";
 
 export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapCss }];
@@ -31,8 +33,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
 export function meta({ loaderData }: Route.MetaArgs) {
   if (!loaderData) return [{ title: "Սրբավայր — Հոգևոր ժառանգություն" }];
-  const { place, origin } = loaderData;
+  const { place, origin, photoSizes } = loaderData;
   const cover = place.photos[0];
+  // Հղման նախադիտումը՝ եկեղեցու առաջին նկարը, JPEG (WhatsApp-ը WebP-ն միշտ ցույց չի տալիս)։
+  const coverSize = cover ? photoSizes[cover] : undefined;
   const kind = PLACE_KINDS[place.kind];
   const locality = placeLocality(place.region);
   // Նույն անունով շատ եկեղեցիներ կան («Սուրբ Աստվածածին»). բնակավայրը վերնագրում դրանք տարբերում է։
@@ -43,14 +47,14 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const fallback = `${place.name}${place.name.toLocaleLowerCase("hy").includes(kindWord) ? "" : `՝ ${kindWord}`} (${where})։ Տեղը քարտեզի վրա և ճանապարհը։`;
   const description = describe(place.description, fallback);
   const path = `/places/${place.id}`;
-  return seoMeta({
+  const tags = seoMeta({
     title: pageTitle(name, "Սրբավայրեր"),
     // Շատ կարճ պատմության («Պահպանվել են ավերակները։») առջև դրվում է անունն ու տեղը, որ նկարագրությունները չկրկնվեն։
     description: description.length < 70 && description !== fallback ? `${place.name}, ${where}։ ${description}` : description,
     path,
     origin,
     index: placeHasContent(place),
-    ...(cover ? { image: `${origin}${placeThumbUrl(cover, 1200)}` } : {}),
+    ...(cover ? { image: `${origin}${placeThumbUrl(cover, 1200)}&f=jpg` } : {}),
     jsonLd: [
       {
         "@context": "https://schema.org",
@@ -66,6 +70,17 @@ export function meta({ loaderData }: Route.MetaArgs) {
       breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: "Սրբավայրեր", path: "/places" }, { name: place.name, path }]),
     ],
   });
+  if (!cover) return tags;
+  const width = coverSize ? Math.min(1200, coverSize.width) : 0;
+  return [
+    ...tags,
+    { property: "og:image:type", content: "image/jpeg" },
+    { property: "og:image:alt", content: place.name },
+    ...(coverSize && width ? [
+      { property: "og:image:width", content: String(width) },
+      { property: "og:image:height", content: String(Math.round((coverSize.height * width) / coverSize.width)) },
+    ] : []),
+  ];
 }
 
 /** A YouTube link as an embeddable address (privacy-enhanced), or null for anything else. */
@@ -106,7 +121,8 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={place.name} />
+      <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={place.name}
+        action={<ShareButton pageUrl={`/places/${place.id}`} className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright transition-colors hover:text-ink" />} />
       <p className="mt-1 mb-4 text-center text-[13px] text-muted">{PLACE_KINDS[place.kind]}{ACTIVE_LABELS[place.active] ? ` · ${ACTIVE_LABELS[place.active]}` : ""}{place.region ? ` · ${place.region}` : ""}</p>
       {place.verified ? (
         // Checked by the clergy: a gold seal under the title, instead of the «⚑ Ճշտել» note.
@@ -150,7 +166,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
             {place.services ? <p className="m-0 whitespace-pre-line"><strong className="font-semibold">Ժամերգություններ՝ </strong>{place.services}</p> : null}
           </section>
         ) : null}
-        {place.clergy ? <section className={panel}><h2 className={heading}>Ծառայողներ</h2><p className="m-0 whitespace-pre-line">{place.clergy}</p></section> : null}
+        {place.clergy ? <section className={panel}><h2 className={heading}>Ծառայողներ</h2><p className="m-0 whitespace-pre-line">{formatClergy(place.clergy)}</p></section> : null}
         {place.openHours || place.accessibility ? (
           <section className={panel}>
             <h2 className={heading}>Այցելություն</h2>

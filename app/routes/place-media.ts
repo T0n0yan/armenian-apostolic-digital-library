@@ -22,9 +22,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   if (!isPublic) await requirePermission(request, DB, "places");
   const key = `places/${params.placeId}/${params.file}`;
   // ?w=160 — փոքր պատկեր քարտեզի նշանի և ցանկի համար (ամբողջական լուսանկարը 300–400 ԿԲ է)։
-  const width = Number(new URL(request.url).searchParams.get("w"));
+  const query = new URL(request.url).searchParams;
+  const width = Number(query.get("w"));
+  // ?f=jpg՝ հղման նախադիտման համար (միայն 1200 լայնությամբ)։
+  const format = query.get("f") === "jpg" && width === 1200 ? "jpeg" as const : undefined;
   if (isPublic && THUMB_WIDTHS.has(width) && !/\.(mp4|mov|webm)$/iu.test(params.file)) {
-    const thumb = await storedThumb(MEDIA, (env as unknown as Bindings).IMAGES, key, width).catch((error: unknown) => {
+    const thumb = await storedThumb(MEDIA, (env as unknown as Bindings).IMAGES, key, width, { format }).catch((error: unknown) => {
       console.error("place thumb", key, width, error);
       return null;
     });

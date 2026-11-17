@@ -24,6 +24,8 @@ type PageHeaderProps = {
     /** Էջի սեփական որոնման դաշտը, որը բացվում է անկյունի կոճակից (սրբավայրեր)։ */
     search?: { open: boolean; onOpen: () => void; label?: string; field: ReactNode };
     title: ReactNode;
+    /** Վերևի աջ անկյունի լրացուցիչ կոճակ (օր.՝ «Կիսվել» սրբավայրի էջում)՝ որոնման ձախ կողմում։ */
+    action?: ReactNode;
     children?: ReactNode;
 };
 type EmptyStateProps = {
@@ -151,7 +153,7 @@ export function ExpandingSearch({open, onOpen, label = "Որոնում", childre
     </div>);
 }
 
-function HeaderBar({backLabel, backTo, children, description, eyebrow, home = false, onSearch, search, ornate = false, showSearch = true, title}: PageHeaderProps) {
+function HeaderBar({action, backLabel, backTo, children, description, eyebrow, home = false, onSearch, search, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
             flex
@@ -172,7 +174,7 @@ function HeaderBar({backLabel, backTo, children, description, eyebrow, home = fa
             min-[960px]:pb-[24px]
             min-[1440px]:pt-[34px]
             ">
-        {(backTo && backLabel) || (showSearch && !home) ? (<div className="relative flex min-h-11 w-full items-center gap-2">
+        {(backTo && backLabel) || (showSearch && !home) || action ? (<div className="relative flex min-h-11 w-full items-center gap-2">
             {backTo && backLabel ? (<Link
                 className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-control px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
                 to={backTo}
@@ -183,6 +185,7 @@ function HeaderBar({backLabel, backTo, children, description, eyebrow, home = fa
             {showSearch && !home ? (search
                 ? <ExpandingSearch open={search.open} onOpen={search.onOpen} label={search.label}>{search.field}</ExpandingSearch>
                 : <HeaderSearchLink onSearch={onSearch}/>) : null}
+            {action ? <div className={`absolute top-1/2 z-20 -translate-y-1/2 ${showSearch && !home ? "right-12" : "right-0"}`}>{action}</div> : null}
         </div>) : null}
 
         <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>

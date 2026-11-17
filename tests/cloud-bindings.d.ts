@@ -10,7 +10,7 @@ declare global {
   }
   interface ImagesTransformer {
     transform(options: { width?: number; fit?: "scale-down" }): ImagesTransformer;
-    output(options: { format: "image/webp"; quality?: number }): Promise<{ response(): Response }>;
+    output(options: { format: "image/webp" | "image/jpeg"; quality?: number }): Promise<{ response(): Response }>;
   }
   interface ImagesBinding { input(stream: ReadableStream): ImagesTransformer }
   interface D1Result<T = Record<string, unknown>> { results: T[]; success: boolean; meta: { changes: number; [key: string]: unknown } }
