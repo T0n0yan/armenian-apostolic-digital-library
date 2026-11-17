@@ -1115,6 +1115,57 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
   border-radius: var(--radius-card);
   background: #000;
   box-shadow: var(--card-shadow);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.video-dock[data-active] { box-shadow: 0 0 0 2px rgb(217 181 111 / 70%), var(--card-shadow); }
+/* Ամբողջ տեսանյութի վրայի շերտը. քաշել՝ տեղաշարժել, սեղմել՝ բացել էջը։ */
+.video-dock-surface {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+.video-dock[data-active] .video-dock-surface { cursor: grabbing; }
+.video-dock-surface:focus-visible { outline: 2px solid var(--gold, #d9b56f); outline-offset: -3px; }
+/* Աջ ներքևի անկյան նշանը՝ չափը փոխելու համար։ */
+.video-dock-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background:
+    linear-gradient(135deg, transparent 52%, rgb(255 255 255 / 75%) 52%, rgb(255 255 255 / 75%) 58%, transparent 58%, transparent 68%, rgb(255 255 255 / 75%) 68%, rgb(255 255 255 / 75%) 74%, transparent 74%);
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 70%));
+}
+/* Բաժնի ցանկում հիմա նվագող տեսանյութի քարտը (video-dock.ts, markDockedCard)։ */
+[data-video-playing] > div > a {
+  border-color: rgb(217 181 111 / 75%);
+  box-shadow: 0 0 0 2px rgb(217 181 111 / 45%), 0 0 28px rgb(217 181 111 / 22%), var(--card-shadow);
+}
+[data-video-playing] > div > a::after {
+  content: "▶ Հիմա նվագում է";
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 3;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgb(17 8 22 / 82%);
+  border: 1px solid rgb(217 181 111 / 60%);
+  color: #f3d79b;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
 }
 /* Տեսանյութը բրաուզերի փոքր պատուհանում է. անկյան պատուհանը չի երևում, բայց էլեմենտը մնում է էջում։ */
 .video-dock[data-pip] { width: 1px; height: 1px; opacity: 0; pointer-events: none; border: 0; box-shadow: none; }
@@ -1123,7 +1174,7 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
   position: absolute;
   top: 6px;
   right: 6px;
-  z-index: 1;
+  z-index: 3;
   display: grid;
   place-items: center;
   width: 32px;
