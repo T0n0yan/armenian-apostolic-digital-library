@@ -10,6 +10,7 @@ import {
   useRevalidator,
   type ShouldRevalidateFunctionArgs,
   useLocation,
+  useNavigate,
 } from "react-router";
 
 import type { Route } from "./+types/root";
@@ -37,6 +38,7 @@ import { PrivateChatPresence } from "./components/private-chat-presence";
 import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
+import { markDockedCard } from "./utils/video-dock";
 import "./app.css";
 
 // Այս շերտերը էջի առաջին պատկերին պետք չեն. բեռնվում են առանձին ֆայլով, երբ բրաուզերը ազատ է
@@ -286,6 +288,23 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
   useEffect(() => { markAppHydrated(); }, []);
+  // Անկյան տեսանյութին սեղմելիս՝ նրա էջը (video-dock.ts). նոր էջում նվագողի քարտը նշվում և երևում է։
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const onNavigate = (event: Event) => {
+      const href = (event as CustomEvent<string>).detail;
+      if (typeof href === "string") void navigate(href);
+    };
+    window.addEventListener("library:navigate", onNavigate);
+    return () => window.removeEventListener("library:navigate", onNavigate);
+  }, [navigate]);
+  useEffect(() => {
+    // Էջի պարունակությունը և ոլորման վերականգնումը նախ պետք է ավարտվեն։
+    let found = false;
+    const timers = [120, 600].map((delay) => window.setTimeout(() => { found = markDockedCard(!found) || found; }, delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [pathname]);
 
   // Tells the site once that this device has visited, for the admin's visitor list. A random id
   // stays in the browser; nothing else is sent. Once per device: each request costs the free plan.

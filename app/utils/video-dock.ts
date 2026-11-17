@@ -4,6 +4,8 @@
  * - PiP՝ ստանդարտ API (Chrome, Edge, Safari macOS) կամ Safari iPhone-ի `webkitSetPresentationMode`։
  * - Եթե տեսանյութը նվագում է, և մարդը գնում է կայքի մեկ այլ էջ, նույն `<video>`-ը (առանց կանգնելու)
  *   տեղափոխվում է էկրանի անկյան փոքր նվագարկիչ (dock), որը փակվում է ×-ով։
+ * - Անկյան պատուհանը քաշվում է մատով, չափը փոխվում է անկյան նշանով, սեղմելիս բացվում է տեսանյութի էջը։
+ * - Բաժնի ցանկում նվագող տեսանյութի քարտը նշվում է (`data-video-playing`), և էջը ոլորվում է դրան։
  * - Նույն տեսանյութի էջը նորից բացելիս dock-ը փակվում է, և նվագարկիչը շարունակում է նույն տեղից։
  * - Եթե տեսանյութը արդեն բրաուզերի փոքր պատուհանում է, dock-ը թաքնված է, որ երկու պատուհան չլինի։
  * - Փոքր պատուհանի կոճակը նվագարկիչի ներսում է (բրաուզերի կոճակները), առանձին կոճակ չկա։
@@ -21,7 +23,60 @@ export function isInPip(video: HTMLVideoElement) {
   return document.pictureInPictureElement === video || (video as WebkitVideo).webkitPresentationMode === "picture-in-picture";
 }
 
-let docked: { video: HTMLVideoElement; box: HTMLElement; cleanup: () => void } | null = null;
+let docked: { video: HTMLVideoElement; box: HTMLElement; href: string; cleanup: () => void } | null = null;
+
+const LAYOUT_KEY = "video-dock-layout";
+const MIN_WIDTH = 160;
+const EDGE = 8;
+
+type Layout = { left: number; top: number; width: number };
+
+function readLayout(): Layout | null {
+  try {
+    const value = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? "null") as Layout | null;
+    return value && [value.left, value.top, value.width].every(Number.isFinite) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLayout(layout: Layout) {
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch { /* գաղտնի ռեժիմ */ }
+}
+
+/** Պատուհանը միշտ մնում է էկրանի ներսում։ */
+function applyLayout(box: HTMLElement, layout: Layout) {
+  const maxWidth = Math.max(MIN_WIDTH, window.innerWidth - EDGE * 2);
+  const width = Math.min(Math.max(layout.width, MIN_WIDTH), maxWidth);
+  box.style.width = `${width}px`;
+  const height = box.offsetHeight || width * 9 / 16;
+  const left = Math.min(Math.max(layout.left, EDGE), window.innerWidth - width - EDGE);
+  const top = Math.min(Math.max(layout.top, EDGE), window.innerHeight - height - EDGE);
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.bottom = "auto";
+  return { left, top, width };
+}
+
+/** Էջում նվագող տեսանյութի քարտը (օր.՝ բաժնի ցանկում) նշվում է, իսկ նոր էջ գալիս՝ ոլորվում է դրան։ */
+export function markDockedCard(scroll = false) {
+  if (typeof document === "undefined") return false;
+  document.querySelectorAll("[data-video-playing]").forEach((node) => node.removeAttribute("data-video-playing"));
+  if (!docked) return false;
+  const href = docked.href;
+  const link = Array.from(document.querySelectorAll<HTMLAnchorElement>("main a[href]"))
+    .find((anchor) => (anchor.getAttribute("href") ?? "").split(/[?#]/)[0] === href);
+  const card = link?.closest("li") ?? link;
+  if (!card) return false;
+  card.setAttribute("data-video-playing", "");
+  if (!scroll) return true;
+  const rect = card.getBoundingClientRect();
+  if (rect.top < 0 || rect.bottom > window.innerHeight) {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    card.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }
+  return true;
+}
 
 function closeDock() {
   if (!docked) return;
@@ -31,6 +86,7 @@ function closeDock() {
   video.pause();
   if (document.pictureInPictureElement === video) void document.exitPictureInPicture().catch(() => {});
   box.remove();
+  markDockedCard();
 }
 
 /** Տեսանյութը մնում է նույնը. տեղափոխելիս նվագումը և PiP-ը չեն ընդհատվում (`moveBefore`, որտեղ կա)։ */
@@ -42,10 +98,57 @@ function moveInto(parent: MovableParent, video: HTMLVideoElement) {
 }
 
 /**
+ * Մատով քաշել՝ տեղաշարժում է, անկյան նշանով՝ մեծացնում/փոքրացնում, կարճ սեղմել՝ բացում է տեսանյութի էջը։
+ */
+function makeInteractive(box: HTMLElement, surface: HTMLElement, grip: HTMLElement, open: () => void) {
+  let start: { x: number; y: number; layout: Layout; mode: "move" | "resize"; moved: boolean } | null = null;
+  const current = (): Layout => {
+    const rect = box.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width };
+  };
+  const down = (mode: "move" | "resize") => (event: PointerEvent) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    start = { x: event.clientX, y: event.clientY, layout: current(), mode, moved: false };
+    box.dataset.active = "";
+  };
+  const move = (event: PointerEvent) => {
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (!start.moved && Math.hypot(dx, dy) < 8) return;
+    start.moved = true;
+    const { layout } = start;
+    if (start.mode === "move") applyLayout(box, { ...layout, left: layout.left + dx, top: layout.top + dy });
+    else applyLayout(box, { ...layout, width: layout.width + dx });
+  };
+  const up = () => {
+    if (!start) return;
+    const { moved, mode } = start;
+    start = null;
+    delete box.dataset.active;
+    if (moved) saveLayout(current());
+    else if (mode === "move") open();
+  };
+  for (const [node, mode] of [[surface, "move"], [grip, "resize"]] as const) {
+    node.addEventListener("pointerdown", down(mode));
+    node.addEventListener("pointermove", move);
+    node.addEventListener("pointerup", up);
+    node.addEventListener("pointercancel", up);
+  }
+  const onResize = () => { if (box.style.left) applyLayout(box, current()); };
+  window.addEventListener("resize", onResize);
+  return () => window.removeEventListener("resize", onResize);
+}
+
+/**
  * Կանչվում է նվագարկիչի էջից հեռանալիս։ Եթե տեսանյութը նվագում է կամ PiP-ում է,
  * այն տեղափոխվում է անկյան փոքր նվագարկիչ և շարունակում է։ Վերադարձնում է՝ տեղափոխվե՞ց թե ոչ։
+ * `href`-ը տեսանյութի էջն է. պատուհանին սեղմելիս այնտեղ է տանում։
  */
-export function dockVideo(video: HTMLVideoElement, label: string) {
+export function dockVideo(video: HTMLVideoElement, label: string, href: string) {
   if (typeof document === "undefined" || !video.isConnected) return false;
   if (video.paused && !isInPip(video)) return false;
   closeDock();
@@ -54,17 +157,34 @@ export function dockVideo(video: HTMLVideoElement, label: string) {
   box.className = "video-dock";
   box.setAttribute("role", "region");
   box.setAttribute("aria-label", "Նվագող տեսանյութ");
+  const surface = document.createElement("button");
+  surface.type = "button";
+  surface.className = "video-dock-surface";
+  surface.setAttribute("aria-label", `Բացել տեսանյութի էջը՝ ${label}`);
   const close = document.createElement("button");
   close.type = "button";
   close.className = "video-dock-close";
   close.setAttribute("aria-label", "Փակել տեսանյութը");
   close.textContent = "×";
-  box.appendChild(close);
+  const grip = document.createElement("span");
+  grip.className = "video-dock-grip";
+  grip.setAttribute("aria-hidden", "true");
+  for (const node of [surface, close, grip]) box.appendChild(node);
   document.body.appendChild(box);
   moveInto(box, video);
   video.removeAttribute("style");
   video.className = "video-dock-video";
   video.setAttribute("aria-label", label);
+  // Անկյունում բրաուզերի կոճակները չեն, որ սեղմելը և քաշելը աշխատեն։
+  video.controls = false;
+  const saved = readLayout();
+  if (saved) applyLayout(box, saved);
+
+  const open = () => {
+    window.dispatchEvent(new CustomEvent("library:navigate", { detail: href }));
+  };
+  const stopInteract = makeInteractive(box, surface, grip, open);
+  surface.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); } });
 
   // Բրաուզերի փոքր պատուհանում լինելիս անկյան պատուհանը թաքնված է (միայն մեկ պատուհան)։
   const syncPip = () => {
@@ -77,6 +197,7 @@ export function dockVideo(video: HTMLVideoElement, label: string) {
   // Մեկ այլ ձայնագրություն կամ տեսանյութ միացնելիս dock-ինը կանգնում է։
   const onOtherPlay = (event: Event) => { if (event.target !== video && event.target instanceof HTMLMediaElement) video.pause(); };
   close.addEventListener("click", closeDock);
+  close.addEventListener("pointerdown", (event) => event.stopPropagation());
   video.addEventListener("ended", onEnded);
   video.addEventListener("enterpictureinpicture", syncPip);
   video.addEventListener("leavepictureinpicture", syncPip);
@@ -85,7 +206,9 @@ export function dockVideo(video: HTMLVideoElement, label: string) {
   docked = {
     video,
     box,
+    href,
     cleanup: () => {
+      stopInteract();
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("enterpictureinpicture", syncPip);
       video.removeEventListener("leavepictureinpicture", syncPip);
