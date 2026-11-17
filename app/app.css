@@ -1133,19 +1133,66 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
 }
 .video-dock[data-active] .video-dock-surface { cursor: grabbing; }
 .video-dock-surface:focus-visible { outline: 2px solid var(--gold, #d9b56f); outline-offset: -3px; }
-/* Աջ ներքևի անկյան նշանը՝ չափը փոխելու համար։ */
+/* Ձախ վերևի կլոր կոճակը՝ չափը փոխելու համար (քաշել դեպի ձախ-վեր՝ մեծացնել)։ */
 .video-dock-grip {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  width: 34px;
-  height: 34px;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(17 8 22 / 72%);
+  color: #fff;
   cursor: nwse-resize;
   touch-action: none;
-  background:
-    linear-gradient(135deg, transparent 52%, rgb(255 255 255 / 75%) 52%, rgb(255 255 255 / 75%) 58%, transparent 58%, transparent 68%, rgb(255 255 255 / 75%) 68%, rgb(255 255 255 / 75%) 74%, transparent 74%);
-  filter: drop-shadow(0 0 2px rgb(0 0 0 / 70%));
+}
+/* Ներքևի կոճակները՝ 10 վրկ հետ, նվագել/կանգնեցնել, 10 վրկ առաջ, և առաջընթացի գիծը։ */
+.video-dock-controls {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 18px 8px 8px;
+  background: linear-gradient(transparent, rgb(0 0 0 / 72%));
+}
+.video-dock-controls button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(17 8 22 / 72%);
+  color: #fff;
+  cursor: pointer;
+}
+.video-dock-controls button small {
+  position: absolute;
+  font-size: 7.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+.video-dock-progress {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: rgb(255 255 255 / 22%);
+}
+.video-dock-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #d9b56f;
+  transform-origin: left;
+  transform: scaleX(var(--progress, 0));
 }
 /* Բաժնի ցանկում հիմա նվագող տեսանյութի քարտը (video-dock.ts, markDockedCard)։ */
 [data-video-playing] > div > a {
