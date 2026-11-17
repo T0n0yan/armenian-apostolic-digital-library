@@ -1,5 +1,3 @@
-import type { CSSProperties } from "react";
-import ArmenianEternity from "../assets/armenian-eternity.svg";
 
 /** Small Armenian cross for the affiliation seal. */
 function ArmenianCross({size = 14}: { size?: number }) {
@@ -10,12 +8,7 @@ function ArmenianCross({size = 14}: { size?: number }) {
 }
 
 export function HomeTitle() {
-    return (<header className="relative z-5 -mt-[6px] grid justify-items-center gap-5 px-2 pt-1 pb-0 text-center">
-        <div className="hero-rise flex w-full max-w-[340px] items-center gap-3 text-gold" aria-hidden="true">
-            <span className="h-px flex-1 bg-[linear-gradient(90deg,transparent,currentColor)] opacity-60"/>
-            <span className="gold-mark size-[22px]" style={{"--mark": `url(${ArmenianEternity})`} as CSSProperties}/>
-            <span className="h-px flex-1 bg-[linear-gradient(270deg,transparent,currentColor)] opacity-60"/>
-        </div>
+    return (<header className="relative z-5 -mt-[6px] grid justify-items-center px-2 pt-[32px] pb-0 text-center">
         {/* Տեսանելի վերնագիր չկա (տիրոջ որոշում). h1-ը՝ միայն էկրանի ընթերցիչների և որոնման համար */}
         <h1 className="sr-only">Apostolic.am — Հայաստանյայց Առաքելական Եկեղեցուն նվիրված</h1>
         <p className="hero-rise hero-rise-delay m-0 grid max-w-full justify-items-center gap-0.5 rounded-card border border-[rgb(217_181_111/38%)] bg-[linear-gradient(180deg,rgb(217_181_111/14%),rgb(217_181_111/5%))] px-3 py-1.5 min-[380px]:px-4 text-center text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/14%)]">
