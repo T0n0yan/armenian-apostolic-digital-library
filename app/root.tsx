@@ -39,6 +39,8 @@ import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
 import { markDockedCard } from "./utils/video-dock";
+import { markPlayingCards } from "./utils/audio-dock";
+import { AudioDockBar } from "./components/audio-dock-bar";
 import "./app.css";
 
 // Այս շերտերը էջի առաջին պատկերին պետք չեն. բեռնվում են առանձին ֆայլով, երբ բրաուզերը ազատ է
@@ -302,7 +304,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   useEffect(() => {
     // Էջի պարունակությունը և ոլորման վերականգնումը նախ պետք է ավարտվեն։
     let found = false;
-    const timers = [120, 600].map((delay) => window.setTimeout(() => { found = markDockedCard(!found) || found; }, delay));
+    const timers = [120, 600].map((delay) => window.setTimeout(() => { found = markDockedCard(!found) || found; markPlayingCards(); }, delay));
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [pathname]);
 
@@ -448,6 +450,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <ReminderError />
     <NavigationProgress />
     <OfflineBar />
+    <AudioDockBar />
     {!quiet && <ChurchNudge />}
     <PlaceTracker />
     <PrivateChatPresence />
