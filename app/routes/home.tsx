@@ -22,7 +22,7 @@ import AngelLeft from "../assets/angel-left.webp"
 import AngelLeftSmall from "../assets/angel-left-240.webp"
 // Հրեշտակը էկրանի 27%-ն է. փոքր էկրանին բավական է 240px տարբերակը։
 const ANGEL_SRCSET = `${AngelLeftSmall} 240w, ${AngelLeft} 540w`;
-const ANGEL_SIZES = "(max-width: 1180px) 23vw, 280px";
+const ANGEL_SIZES = "(max-width: 1180px) 25vw, 300px";
 import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
 import { sectionPath } from "../utils/material-path";
@@ -146,7 +146,7 @@ function HomeSearch() {
 export default function Home({loaderData}: Route.ComponentProps) {
     return (<PageShell width="library">
         <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
-            <div className="absolute top-[12px] -left-[3%] z-4 w-[23%] min-[560px]:top-[20px]">
+            <div className="absolute top-[12px] -left-[4%] z-4 w-[25%] min-[560px]:top-[20px]">
                 <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async"/>
             </div>
             <ArtImage
@@ -159,7 +159,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
                 fetchPriority="high"
                 decoding="async"
             />
-            <div className="absolute top-[12px] -right-[3%] z-4 w-[23%] scale-x-[-1] min-[560px]:top-[20px]">
+            <div className="absolute top-[12px] -right-[4%] z-4 w-[25%] scale-x-[-1] min-[560px]:top-[20px]">
                 <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async"/>
             </div>
         </div>
