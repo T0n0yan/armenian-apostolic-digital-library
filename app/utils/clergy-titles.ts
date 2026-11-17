@@ -52,9 +52,9 @@ export function clergyExample(role: string) {
  */
 export function formatClergy(text: string) {
   return text.split("\n").map((line) => {
-    const match = /^(\s*(?:[•\-–]\s*)?)([^՝:]{2,40}?)\s*[՝:]\s*(.+)$/u.exec(line);
+    const match = /^(\s*(?:[•\-–]\s*)?)([^՝:`']{2,40}?)\s*[՝:`']\s*(.+)$/u.exec(line.replace(/[\u200b-\u200d\ufeff]/gu, ""));
     if (!match || !findRank(match[2])) return line;
     const [, bullet, role, names] = match;
-    return `${bullet}${role}՝ ${names.split(/\s*,\s*/u).map((name) => clergyName(role, name)).join(", ")}`;
+    return `${bullet}${role.trim()}՝ ${names.replace(/[։:.]\s*$/u, "").split(/\s*,\s*/u).map((name) => clergyName(role, name)).join(", ")}`;
   }).join("\n");
 }

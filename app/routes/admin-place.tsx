@@ -14,6 +14,7 @@ import { fieldControl, fieldHint, fieldLabel, panelSection, primaryButton } from
 import { deletePlace, getPlace, setPlacePictures, storePlaceFile, updatePlace } from "../data/places.server";
 import { sniffImageType } from "../utils/image-magic";
 import { convertPlacePhotos, oldPhotos, photoName, toWebp } from "../utils/image-webp";
+import { AccessField, ScheduleField } from "../components/place-schedule";
 import { addServant } from "../utils/place-answers";
 import { CLERGY_RANKS, clergyName, formatClergy } from "../utils/clergy-titles";
 import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
@@ -293,11 +294,11 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
               {Object.entries(ACTIVE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <label className={fieldLabel}>Սուրբ Պատարագ<input className={fieldControl} name="liturgy" defaultValue={place.liturgy} placeholder="Կիրակի 11:00" /></label>
-          <label className={fieldLabel}>Ժամերգություններ<textarea className={textarea} name="services" defaultValue={place.services} rows={2} placeholder="Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30" /></label>
+          <ScheduleField key={`l${place.liturgy}`} name="liturgy" label="Սուրբ Պատարագ" kind="liturgy" initial={place.liturgy} />
+          <ScheduleField key={`s${place.services}`} name="services" label="Ժամերգություններ" kind="services" initial={place.services} />
           <ClergyField key={place.clergy} initial={place.clergy} />
-          <label className={fieldLabel}>Բաց է<input className={fieldControl} name="openHours" defaultValue={place.openHours} placeholder="Ամեն օր 09:00–18:00" /></label>
-          <label className={fieldLabel}>Ճանապարհը և մուտքը<textarea className={fieldControl} name="accessibility" rows={4} defaultValue={place.accessibility} placeholder={"Մեքենայով հասանելիություն՝ այո, մինչև եկեղեցի\nՃանապարհ՝ քարքարոտ և անհարթ\nԹեքահարթակ՝ առկա է\nՄուտք՝ մեկ աստիճան, հնարավոր է օգնության անհրաժեշտություն"} /></label>
+          <ScheduleField key={`h${place.openHours}`} name="openHours" label="Բաց է" kind="hours" initial={place.openHours} />
+          <AccessField key={`a${place.accessibility}`} initial={place.accessibility} />
           {/* An uploaded video (from the phone, below with the photos) keeps its key here; otherwise a YouTube link. */}
           {place.videoUrl.startsWith("places/") ? <input type="hidden" name="videoUrl" value={place.videoUrl} /> : (
             <label className={fieldLabel}>Տեսանյութի հղում (YouTube)
