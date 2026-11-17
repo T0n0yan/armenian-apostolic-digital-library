@@ -1,6 +1,8 @@
 /** Ցանկի քարտերի և նյութի էջի նկարի լայնությունը (հեռախոսի 2x էկրանին բավական է)։ */
 export const CARD_IMAGE_WIDTH = 800;
 
+type ThumbOptions = { version?: string; cacheControl?: string; format?: "webp" | "jpeg" };
+
 const THUMB_HEADERS = { "content-type": "image/webp", "x-content-type-options": "nosniff" };
 
 /**
@@ -14,11 +16,14 @@ async function createStoredThumb(
   images: ImagesBinding | undefined,
   key: string,
   width: number,
-  options: { version?: string; cacheControl?: string } = {},
+  options: ThumbOptions = {},
 ) {
   const version = options.version?.replace(/[^a-z0-9]/giu, "").slice(0, 16);
-  const thumbKey = `thumbs/${key.replace(/\.[a-z0-9]+$/iu, "")}${version ? `-${version}` : ""}-w${width}.webp`;
-  const headers = { ...THUMB_HEADERS, "cache-control": options.cacheControl ?? "public, max-age=604800" };
+  // JPEG՝ միայն հղման նախադիտման համար (WhatsApp-ը WebP-ն միշտ ցույց չի տալիս)։
+  const jpeg = options.format === "jpeg";
+  const type = jpeg ? "image/jpeg" : "image/webp";
+  const thumbKey = `thumbs/${key.replace(/\.[a-z0-9]+$/iu, "")}${version ? `-${version}` : ""}-w${width}.${jpeg ? "jpg" : "webp"}`;
+  const headers = { ...THUMB_HEADERS, "content-type": type, "cache-control": options.cacheControl ?? "public, max-age=604800" };
   const stored = await media.get(thumbKey);
   if (stored) {
     const found = new Headers({ ...headers, "content-length": String(stored.size) });
@@ -28,14 +33,15 @@ async function createStoredThumb(
   if (!images || await media.get(`${thumbKey}.skip`)) return null;
   const original = await media.get(key);
   if (!original || !(original.httpMetadata?.contentType ?? "image/").startsWith("image/")) return null;
-  const result = await images.input(original.body).transform({ width, fit: "scale-down" }).output({ format: "image/webp", quality: 80 });
+  const result = await images.input(original.body).transform({ width, fit: "scale-down" }).output({ format: type, quality: jpeg ? 78 : 80 });
   const bytes = await result.response().arrayBuffer();
   if (!bytes.byteLength) return null;
-  if (bytes.byteLength >= original.size) {
+  // JPEG-ը կարող է WebP բնօրինակից մեծ լինել. նախադիտմանը պետք է հենց JPEG, ուստի այն պահվում է։
+  if (!jpeg && bytes.byteLength >= original.size) {
     await media.put(`${thumbKey}.skip`, new ArrayBuffer(0));
     return null;
   }
-  await media.put(thumbKey, bytes, { httpMetadata: { contentType: "image/webp" } });
+  await media.put(thumbKey, bytes, { httpMetadata: { contentType: type } });
   return new Response(bytes, { headers: { ...headers, "content-length": String(bytes.byteLength) } });
 }
 
@@ -47,10 +53,10 @@ export function requestedWidth(request: Request, allowed: ReadonlySet<number>) {
 
 // Նույն worker-ի միաժամանակյա հարցումները կիսում են մեկ փոխարկումը։
 const pending = new WeakMap<R2Bucket, Map<string, Promise<Response | null>>>();
-export async function storedThumb(media: R2Bucket, images: ImagesBinding | undefined, key: string, width: number, options: { version?: string; cacheControl?: string } = {}) {
+export async function storedThumb(media: R2Bucket, images: ImagesBinding | undefined, key: string, width: number, options: ThumbOptions = {}) {
   let work = pending.get(media);
   if (!work) { work = new Map(); pending.set(media, work); }
-  const id = JSON.stringify([key, width, options.version, options.cacheControl]);
+  const id = JSON.stringify([key, width, options.version, options.cacheControl, options.format]);
   let task = work.get(id);
   if (!task) {
     task = createStoredThumb(media, images, key, width, options);

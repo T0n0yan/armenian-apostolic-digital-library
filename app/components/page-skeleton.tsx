@@ -598,7 +598,8 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
     case "place":
       return (
         <>
-          <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={<Bone className="mx-auto h-[26px] w-52 rounded-full" />} />
+          <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={<Bone className="mx-auto h-[26px] w-52 rounded-full" />}
+            action={<span className="grid size-10 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright/60"><Share2 aria-hidden="true" size={17} /></span>} />
           <Bone className="mx-auto mt-1 mb-4 h-3 w-48 rounded-full" />
           <div className="grid gap-4">
             <Bone className="mx-auto aspect-[4/3] w-full max-w-[720px] rounded-card" />

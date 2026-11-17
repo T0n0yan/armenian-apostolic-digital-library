@@ -14,6 +14,8 @@ import { fieldControl, fieldHint, fieldLabel, panelSection, primaryButton } from
 import { deletePlace, getPlace, setPlacePictures, storePlaceFile, updatePlace } from "../data/places.server";
 import { sniffImageType } from "../utils/image-magic";
 import { convertPlacePhotos, oldPhotos, photoName, toWebp } from "../utils/image-webp";
+import { addServant } from "../utils/place-answers";
+import { CLERGY_RANKS, clergyName, formatClergy } from "../utils/clergy-titles";
 import { ACTIVE_LABELS, isPlaceKind, parseCoordinates, PLACE_KINDS, placeMediaUrl } from "../utils/places";
 
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
@@ -51,7 +53,7 @@ async function performAction({ request, params }: Route.ActionArgs) {
     const kind = text("kind");
     if (!text("name") || !point || !isPlaceKind(kind)) return data({ error: "Ստուգեք անունը, տեսակը և կոորդինատները։" }, { status: 400 });
     await updatePlace(DB, place.id, {
-      name: text("name"), kind, ...point, region: text("region"), description: text("description"), clergy: text("clergy"),
+      name: text("name"), kind, ...point, region: text("region"), description: text("description"), clergy: formatClergy(text("clergy")),
       services: text("services"), accessibility: text("accessibility"),
       active: ["yes", "no", "renovation"].includes(text("active")) ? text("active") : "", liturgy: text("liturgy"), openHours: text("openHours"), videoUrl: text("videoUrl"), creditName: text("creditName"),
       verified: form.get("verified") === "on", published: form.get("published") === "on",
@@ -224,6 +226,40 @@ function ConvertPhotos({ placeId, photos }: { placeId: string; photos: string[] 
 }
 
 /** One place: its text, location, photos, map drawing, and whether it is on the public map. */
+/**
+ * Ծառայողներ. դերն ընտրելով և անուն-ազգանունը գրելով կայքը ինքն է դնում ճիշտ դիմելաձևը
+ * («Սարկավագ» + «Կարեն Առաքելյան» → «Բարեշնորհ Կարեն սրկ. Առաքելյան»)։ Տեքստը կարելի է նաև
+ * ձեռքով գրել. պահելիս ծանոթ դերերի տողերը նույնպես ձևավորվում են (formatClergy)։
+ */
+function ClergyField({ initial }: { initial: string }) {
+  const [clergy, setClergy] = useState(initial);
+  const [role, setRole] = useState<string>(CLERGY_RANKS[7].role);
+  const [name, setName] = useState("");
+  const add = () => {
+    if (!name.trim()) return;
+    setClergy(addServant(clergy.trim(), role, name));
+    setName("");
+  };
+  return (
+    <div className={fieldLabel}>
+      Ծառայողներ (մեկ դեր՝ մեկ տող)
+      <div className="grid gap-2 rounded-control border border-glass-border bg-subtle p-2.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 max-[480px]:grid-cols-1">
+          <select className={fieldControl} value={role} onChange={(event) => setRole(event.target.value)} aria-label="Աստիճան">
+            {CLERGY_RANKS.map((rank) => <option key={rank.role} value={rank.role}>{rank.role}</option>)}
+          </select>
+          <input className={fieldControl} value={name} placeholder="Անուն Ազգանուն" maxLength={160} aria-label="Անուն Ազգանուն"
+            onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); add(); } }} />
+        </div>
+        {name.trim() ? <span className="px-1 text-[12.5px] text-muted">Կայքում՝ <strong className="text-ink">{clergyName(role, name)}</strong></span> : null}
+        <button type="button" onClick={add} disabled={!name.trim()} className="min-h-10 cursor-pointer rounded-control border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-semibold text-gold-bright disabled:cursor-default disabled:opacity-50">+ Ավելացնել ծառայող</button>
+      </div>
+      <textarea className={textarea} name="clergy" value={clergy} onChange={(event) => setClergy(event.target.value)} rows={3} placeholder={"Թեմի Առաջնորդ՝ Գերաշնորհ Տ. … արք. …\nԾիսակատար քահանա՝ Արժանապատիվ Տ. … քհն. …\nՍարկավագ՝ Բարեշնորհ … սրկ. …"} />
+      <span className={fieldHint}>Ձեռքով գրելիս էլ բավական է «Սարկավագ՝ Կարեն Առաքելյան». պահելիս դիմելաձևը կավելանա։</span>
+    </div>
+  );
+}
+
 export default function AdminPlace({ loaderData, actionData }: Route.ComponentProps) {
   const { place } = loaderData;
   const busy = useNavigation().state === "submitting";
@@ -259,7 +295,7 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
           </label>
           <label className={fieldLabel}>Սուրբ Պատարագ<input className={fieldControl} name="liturgy" defaultValue={place.liturgy} placeholder="Կիրակի 11:00" /></label>
           <label className={fieldLabel}>Ժամերգություններ<textarea className={textarea} name="services" defaultValue={place.services} rows={2} placeholder="Երկուշաբթիից շաբաթ 09:30–10:00 և 17:00–17:30" /></label>
-          <label className={fieldLabel}>Ծառայողներ (մեկ դեր՝ մեկ տող)<textarea className={textarea} name="clergy" defaultValue={place.clergy} rows={3} placeholder={"Թեմի Առաջնորդ՝ Տեր … Սրբազան\nՔահանա՝ Տեր …, Տեր …\nՍարկավագ՝ …"} /></label>
+          <ClergyField key={place.clergy} initial={place.clergy} />
           <label className={fieldLabel}>Բաց է<input className={fieldControl} name="openHours" defaultValue={place.openHours} placeholder="Ամեն օր 09:00–18:00" /></label>
           <label className={fieldLabel}>Ճանապարհը և մուտքը<textarea className={fieldControl} name="accessibility" rows={4} defaultValue={place.accessibility} placeholder={"Մեքենայով հասանելիություն՝ այո, մինչև եկեղեցի\nՃանապարհ՝ քարքարոտ և անհարթ\nԹեքահարթակ՝ առկա է\nՄուտք՝ մեկ աստիճան, հնարավոր է օգնության անհրաժեշտություն"} /></label>
           {/* An uploaded video (from the phone, below with the photos) keeps its key here; otherwise a YouTube link. */}
