@@ -98,10 +98,10 @@ function moveInto(parent: MovableParent, video: HTMLVideoElement) {
 }
 
 /**
- * Մատով քաշել՝ տեղաշարժում է, անկյան նշանով՝ մեծացնում/փոքրացնում, կարճ սեղմել՝ բացում է տեսանյութի էջը։
+ * Մատով քաշել՝ տեղաշարժում է, ձախ վերևի նշանով՝ մեծացնում/փոքրացնում, կարճ սեղմել՝ բացում է տեսանյութի էջը։
  */
 function makeInteractive(box: HTMLElement, surface: HTMLElement, grip: HTMLElement, open: () => void) {
-  let start: { x: number; y: number; layout: Layout; mode: "move" | "resize"; moved: boolean } | null = null;
+  let start: { x: number; y: number; layout: Layout; ratio: number; mode: "move" | "resize"; moved: boolean } | null = null;
   const current = (): Layout => {
     const rect = box.getBoundingClientRect();
     return { left: rect.left, top: rect.top, width: rect.width };
@@ -111,7 +111,8 @@ function makeInteractive(box: HTMLElement, surface: HTMLElement, grip: HTMLEleme
     event.preventDefault();
     event.stopPropagation();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    start = { x: event.clientX, y: event.clientY, layout: current(), mode, moved: false };
+    const layout = current();
+    start = { x: event.clientX, y: event.clientY, layout, ratio: box.offsetHeight / Math.max(1, layout.width), mode, moved: false };
     box.dataset.active = "";
   };
   const move = (event: PointerEvent) => {
@@ -122,7 +123,12 @@ function makeInteractive(box: HTMLElement, surface: HTMLElement, grip: HTMLEleme
     start.moved = true;
     const { layout } = start;
     if (start.mode === "move") applyLayout(box, { ...layout, left: layout.left + dx, top: layout.top + dy });
-    else applyLayout(box, { ...layout, width: layout.width + dx });
+    else {
+      // Նշանը ձախ վերևում է. աջ ներքևի անկյունը մնում է տեղում։
+      const width = Math.min(Math.max(layout.width - dx, MIN_WIDTH), window.innerWidth - EDGE * 2);
+      const shrink = layout.width - width;
+      applyLayout(box, { left: layout.left + shrink, top: layout.top + shrink * start.ratio, width });
+    }
   };
   const up = () => {
     if (!start) return;
@@ -141,6 +147,62 @@ function makeInteractive(box: HTMLElement, surface: HTMLElement, grip: HTMLEleme
   const onResize = () => { if (box.style.left) applyLayout(box, current()); };
   window.addEventListener("resize", onResize);
   return () => window.removeEventListener("resize", onResize);
+}
+
+const svg = (body: string) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+const ICON_PLAY = svg('<path d="M7 4.5v15l12-7.5z" fill="currentColor"/>');
+const ICON_PAUSE = svg('<path d="M8 5v14M16 5v14"/>');
+const ICON_BACK = svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>');
+const ICON_FORWARD = svg('<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>');
+// Չափը փոխելու նշան՝ երկկողմ սլաք (↖↘)։
+const ICON_RESIZE = svg('<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>');
+
+/** Անկյան պատուհանի կոճակներ՝ 10 վրկ հետ, նվագել/կանգնեցնել, 10 վրկ առաջ։ */
+function dockControls(video: HTMLVideoElement) {
+  const bar = document.createElement("div");
+  bar.className = "video-dock-controls";
+  const button = (label: string, icon: string, action: () => void) => {
+    const node = document.createElement("button");
+    node.type = "button";
+    node.setAttribute("aria-label", label);
+    node.innerHTML = icon;
+    node.addEventListener("pointerdown", (event) => event.stopPropagation());
+    node.addEventListener("click", (event) => { event.stopPropagation(); action(); });
+    bar.appendChild(node);
+    return node;
+  };
+  const seek = (delta: number) => {
+    const end = Number.isFinite(video.duration) ? video.duration - 0.5 : Infinity;
+    video.currentTime = Math.max(0, Math.min(video.currentTime + delta, end));
+  };
+  button("10 վայրկյան հետ", ICON_BACK + "<small>10</small>", () => seek(-10));
+  const toggle = button("Կանգնեցնել", ICON_PAUSE, () => { if (video.paused) void video.play().catch(() => {}); else video.pause(); });
+  button("10 վայրկյան առաջ", ICON_FORWARD + "<small>10</small>", () => seek(10));
+  const progress = document.createElement("span");
+  progress.className = "video-dock-progress";
+  progress.setAttribute("aria-hidden", "true");
+  bar.appendChild(progress);
+  const sync = () => {
+    toggle.innerHTML = video.paused ? ICON_PLAY : ICON_PAUSE;
+    toggle.setAttribute("aria-label", video.paused ? "Նվագել" : "Կանգնեցնել");
+  };
+  const tick = () => {
+    const ratio = Number.isFinite(video.duration) && video.duration > 0 ? video.currentTime / video.duration : 0;
+    progress.style.setProperty("--progress", String(ratio));
+  };
+  sync();
+  tick();
+  video.addEventListener("play", sync);
+  video.addEventListener("pause", sync);
+  video.addEventListener("timeupdate", tick);
+  return {
+    bar,
+    cleanup: () => {
+      video.removeEventListener("play", sync);
+      video.removeEventListener("pause", sync);
+      video.removeEventListener("timeupdate", tick);
+    },
+  };
 }
 
 /**
@@ -169,7 +231,9 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
   const grip = document.createElement("span");
   grip.className = "video-dock-grip";
   grip.setAttribute("aria-hidden", "true");
-  for (const node of [surface, close, grip]) box.appendChild(node);
+  grip.innerHTML = ICON_RESIZE;
+  const controls = dockControls(video);
+  for (const node of [surface, close, controls.bar, grip]) box.appendChild(node);
   document.body.appendChild(box);
   moveInto(box, video);
   video.removeAttribute("style");
@@ -209,6 +273,7 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
     href,
     cleanup: () => {
       stopInteract();
+      controls.cleanup();
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("enterpictureinpicture", syncPip);
       video.removeEventListener("leavepictureinpicture", syncPip);
@@ -219,13 +284,16 @@ export function dockVideo(video: HTMLVideoElement, label: string, href: string) 
   return true;
 }
 
-/** Նույն տեսանյութի էջը նորից բացելիս՝ փակում է dock-ը և ասում, որտեղից շարունակել։ */
+/**
+ * Տեսանյութի էջ բացելիս. նույն տեսանյութն է՝ փակում է dock-ը և ասում, որտեղից շարունակել,
+ * ուրիշն է՝ dock-ը պարզապես փակվում է (միաժամանակ երկու քարոզ չի լինում)։
+ */
 export function takeDockedVideo(urls: string[]) {
   if (!docked) return null;
   const { video } = docked;
   const source = video.currentSrc || video.src;
   const same = urls.some((url) => url && (source === url || source === new URL(url, location.href).href));
-  if (!same) return null;
+  if (!same) { closeDock(); return null; }
   const position = { time: video.currentTime, play: !video.paused };
   closeDock();
   return position;
