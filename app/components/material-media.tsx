@@ -218,7 +218,9 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     if (kind !== "video") return;
     const element = elementRef.current;
     const label = asset.altText || asset.title || "Տեսանյութ";
-    return () => { if (element instanceof HTMLVideoElement) dockVideo(element, label); };
+    // Էջի հասցեն վերցվում է հիմա, քանի որ հեռանալիս այն արդեն նորն է։
+    const href = location.pathname;
+    return () => { if (element instanceof HTMLVideoElement) dockVideo(element, label, href); };
   }, [kind, asset.altText, asset.title]);
   // Coming back online retries by itself.
   useEffect(() => {
