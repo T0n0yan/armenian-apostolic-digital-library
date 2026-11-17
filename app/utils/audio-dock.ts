@@ -86,6 +86,8 @@ export function dockAudio(audio: HTMLAudioElement, title: string, href: string) 
     },
   };
   emit();
+  // Նոր էջի ցանկը կարող է ուշ բեռնվել. նշանը դրվում է մի քանի անգամ։
+  [150, 700, 1600].forEach((delay) => window.setTimeout(markPlayingCards, delay));
   return true;
 }
 
