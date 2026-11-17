@@ -1200,7 +1200,7 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
   box-shadow: 0 0 0 2px rgb(217 181 111 / 45%), 0 0 28px rgb(217 181 111 / 22%), var(--card-shadow);
 }
 [data-video-playing] > div > a::after {
-  content: "▶ Հիմա նվագում է";
+  content: "▶ Դիտում եք";
   position: absolute;
   top: 18px;
   left: 18px;
@@ -1234,3 +1234,101 @@ html[data-offline] a[data-offline-missing] { opacity: .45; filter: grayscale(.6)
   line-height: 1;
   cursor: pointer;
 }
+
+/* Ձայնագրության կառավարման գոտին՝ ներքևում, մենյուի կոճակից ձախ (components/audio-dock-bar.tsx)։ */
+.audio-dock {
+  position: fixed;
+  left: calc(var(--tg-inset-left, 0px) + 12px);
+  right: calc(var(--tg-inset-right, 0px) + 84px);
+  bottom: calc(var(--tg-inset-bottom, 0px) + 12px);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 62px;
+  padding: 8px 8px 10px 14px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  /* Թափանցիկ չէ, որ հետևի տեքստը չխանգարի (blur կայքում չի օգտագործվում)։ */
+  background: linear-gradient(180deg, rgb(217 181 111 / 12%), rgb(217 181 111 / 4%)), var(--page-bg);
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 22%), var(--card-shadow);
+  animation: audio-dock-in 260ms ease-out;
+}
+@media (min-width: 960px) {
+  .audio-dock {
+    left: auto;
+    right: calc(var(--tg-inset-right, 0px) + max(24px, calc((100vw - 1180px) / 2 + 24px)) + 74px);
+    width: 440px;
+  }
+}
+@keyframes audio-dock-in { from { opacity: 0; translate: 0 12px; } }
+body[data-audio-dock] main { padding-bottom: 84px; }
+.audio-dock-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.25;
+}
+.audio-dock-title small { font-size: 11px; font-weight: 700; letter-spacing: 0.4px; color: var(--gold); }
+.audio-dock-title strong { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.audio-dock-time { font-size: 11.5px; color: var(--color-faint, currentColor); opacity: 0.8; font-variant-numeric: tabular-nums; }
+.audio-dock-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-bright);
+  cursor: pointer;
+}
+.audio-dock-button:hover { background: rgb(217 181 111 / 14%); }
+.audio-dock-main { width: 42px; height: 42px; border: 1px solid rgb(217 181 111 / 45%); background: rgb(217 181 111 / 12%); }
+.audio-dock-progress { position: absolute; left: 14px; right: 14px; bottom: 5px; height: 2px; border-radius: 2px; background: rgb(217 181 111 / 18%); }
+.audio-dock-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width 250ms linear; }
+
+/* Երեք ոսկեգույն գիծ՝ «լսում/դիտում եք» (կանգնածի դեպքում և «Նվազեցնել շարժումները»-ի դեպքում՝ անշարժ)։ */
+.now-bars { display: inline-flex; flex: none; align-items: flex-end; gap: 2px; width: 14px; height: 14px; color: var(--gold); }
+.now-bars > i { display: block; flex: 1; height: 100%; border-radius: 1px; background: currentColor; transform-origin: bottom; animation: now-bar 900ms ease-in-out infinite; }
+.now-bars > i:nth-child(2) { animation-delay: -300ms; }
+.now-bars > i:nth-child(3) { animation-delay: -600ms; }
+.now-bars[data-paused] > i { animation-play-state: paused; }
+@keyframes now-bar { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .now-bars > i { animation: none; transform: scaleY(0.7); } }
+
+/* Ցանկում հիմա լսվող նյութը (utils/audio-dock.ts, markPlayingCards)։ */
+li[data-audio-playing] > div > a,
+li[data-audio-playing] > a {
+  border-color: rgb(217 181 111 / 75%);
+  box-shadow: 0 0 0 2px rgb(217 181 111 / 45%), 0 0 28px rgb(217 181 111 / 22%), var(--card-shadow);
+}
+li[data-audio-playing] > div > a::after,
+li[data-audio-playing] > a:not(.aspect-square)::after {
+  content: "Լսում եք";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 3;
+  padding: 3px 10px 3px 24px;
+  border-radius: 999px;
+  border: 1px solid rgb(217 181 111 / 55%);
+  /* Երեք անշարժ ոսկեգույն գիծ՝ տեքստից ձախ։ */
+  background:
+    linear-gradient(currentColor, currentColor) 9px calc(100% - 6px) / 3px 7px no-repeat,
+    linear-gradient(currentColor, currentColor) 13px calc(100% - 6px) / 3px 11px no-repeat,
+    linear-gradient(currentColor, currentColor) 17px calc(100% - 6px) / 3px 5px no-repeat,
+    var(--page-bg);
+  color: var(--gold-bright);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  pointer-events: none;
+}
+/* Գլխավոր էջի բաժնի քարտում՝ սլաքից ձախ, մեջտեղում։ */
+li[data-audio-playing] > a.frosted-card.flex::after { top: 50%; right: 46px; translate: 0 -50%; }

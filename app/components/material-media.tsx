@@ -30,6 +30,7 @@ import { useVideoPoster } from "../utils/video-frame";
 import { browserCanPlay, isRetryableMediaError, mediaPlaybackLabel, mediaPlaybackStateForEvent, mediaSources, type MediaPlaybackState } from "../utils/media-playback";
 import { materialPath } from "../utils/material-path";
 import { dockVideo, enableAutoPip, takeDockedVideo } from "../utils/video-dock";
+import { dockAudio, takeDockedAudio } from "../utils/audio-dock";
 import { watchVideoPosition } from "../utils/video-position";
 
 function durationLabel(seconds: number | null) {
@@ -213,6 +214,30 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
     // Միայն առաջին բացվելիս. աղբյուրի փոխվելը (retry) նոր տեսանյութ չէ։
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
+  // Ձայնագրություն. նույն նյութը ներքևի գոտում էր նվագում՝ շարունակել այստեղ նույն տեղից։
+  useEffect(() => {
+    const element = elementRef.current;
+    if (kind !== "audio" || !element) return;
+    const docked = takeDockedAudio(sources);
+    if (docked && docked.time > 0) {
+      resume.current = docked;
+      // preload="none" է. play()-ը բեռնում է, իսկ loadedmetadata-ում տեղը վերականգնվում է։
+      if (docked.play) void element.play().catch(() => {});
+      else element.load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind]);
+  // Էջից հեռանալիս նվագող ձայնագրությունը չի կանգնում. ներքևում երևում է կառավարման գոտին։
+  useLayoutEffect(() => {
+    if (kind !== "audio") return;
+    const element = elementRef.current;
+    const href = location.pathname;
+    const heading = document.querySelector<HTMLElement>("article[data-highlight-title]")?.dataset.highlightTitle;
+    // Սաղմոսը ճանաչում են համարով. «Սաղմոս 47»։
+    const psalm = /^\/psalms\/(\d+)/.exec(href)?.[1];
+    const title = psalm ? `Սաղմոս ${psalm}` : heading || asset.title || asset.altText || "Ձայնագրություն";
+    return () => { if (element instanceof HTMLAudioElement) dockAudio(element, title, href); };
+  }, [kind, asset.title, asset.altText]);
   // Էջից հեռանալիս նվագող տեսանյութը չի կանգնում. տեղափոխվում է էկրանի անկյուն։
   useLayoutEffect(() => {
     if (kind !== "video") return;
