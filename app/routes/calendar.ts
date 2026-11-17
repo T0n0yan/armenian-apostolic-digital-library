@@ -9,7 +9,7 @@ const REPEATS = new Set<CalendarRepeat>(["none", "daily", "weekly", "monthly", "
  */
 export function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
-  const title = (url.searchParams.get("title") ?? "").replace(/\s+/gu, " ").trim().slice(0, 120) || "Հոգևոր ժառանգություն";
+  const title = (url.searchParams.get("title") ?? "").replace(/\s+/gu, " ").trim().slice(0, 120) || "Apostolic.am";
   const path = url.searchParams.get("path") ?? "/";
   const start = url.searchParams.get("start") ?? "";
   const repeat = url.searchParams.get("repeat") as CalendarRepeat;

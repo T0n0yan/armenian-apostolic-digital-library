@@ -9,7 +9,7 @@ import { PRIVATE_CHAT_OPEN } from "../utils/private-chat";
 import { findRecipientAccounts, getPrivateLetter, savePrivateLetter } from "../data/private-letter.server";
 
 export function meta() {
-  return [{ title: "Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }];
+  return [{ title: "Apostolic.am" }, { name: "robots", content: "noindex, nofollow" }];
 }
 export function headers() { return { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "Referrer-Policy": "no-referrer" }; }
 

@@ -10,8 +10,8 @@ import { CONTACT_EMAIL, INFO_EMAIL, SUPPORT_EMAIL } from "../utils/contact";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({
-    title: "Կապ — Հոգևոր ժառանգություն",
-    description: "Հարցեր, առաջարկներ կամ նյութի սխալ. ինչպես կապվել «Հոգևոր ժառանգություն» գրադարանի հետ։",
+    title: "Կապ — Apostolic.am",
+    description: "Հարցեր, առաջարկներ կամ նյութի սխալ. ինչպես կապվել Apostolic.am-ի հետ։",
     path: "/kap",
   });
 }

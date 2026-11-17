@@ -22,7 +22,7 @@ import { ACCESS_PARTS, accessButton, type AccessKey } from "../utils/place-answe
 type Bindings = { DB: D1Database; MEDIA: R2Bucket };
 
 export function meta() {
-  return [{ title: "Ավելացնել սրբավայր — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex" }];
+  return [{ title: "Ավելացնել սրբավայր — Apostolic.am" }, { name: "robots", content: "noindex" }];
 }
 
 /** «?place=<id>»՝ քարտեզում արդեն եղած տեղի տվյալների լրացում (նոր տեղ չի ստեղծվում)։ */

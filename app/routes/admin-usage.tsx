@@ -14,7 +14,7 @@ import { readGitHubUsage, type GitHubEnv, type GitHubUsage } from "../data/githu
 import { listClientErrors, type ClientErrorRow } from "../data/client-errors.server";
 import { formatYerevanDateTime } from "../utils/armenian-date";
 
-export function meta() { return [{ title: "Կայքի վիճակը — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, nofollow" }]; }
+export function meta() { return [{ title: "Կայքի վիճակը — Apostolic.am" }, { name: "robots", content: "noindex, nofollow" }]; }
 export function headers() { return { "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow" }; }
 
 export async function loader({ request }: Route.LoaderArgs) {

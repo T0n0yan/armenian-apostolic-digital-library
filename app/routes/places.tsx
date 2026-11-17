@@ -22,7 +22,7 @@ export const links: Route.LinksFunction = () => [{ rel: "stylesheet", href: mapC
 export function meta({ loaderData }: Route.MetaArgs) {
   return seoMeta({
     origin: loaderData?.origin,
-    title: "Սրբավայրեր — Հայաստանի վանքեր և եկեղեցիներ | Հոգևոր ժառանգություն",
+    title: "Սրբավայրեր — Հայաստանի վանքեր և եկեղեցիներ | Apostolic.am",
     description: "Հայաստանի վանքերը, եկեղեցիները, մատուռներն ու սրբավայրերը քարտեզի վրա՝ նկարներով, պատմությամբ և ճանապարհով։",
     path: "/places",
     jsonLd: [breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: "Սրբավայրեր", path: "/places" }])],

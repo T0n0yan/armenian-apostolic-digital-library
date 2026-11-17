@@ -105,7 +105,7 @@ export async function listUpcomingReminders(database: D1Database, userId: string
     remindAt: row.remind_at,
     repeat: row.repeat,
     at: row.snoozed_until && row.snoozed_until < row.remind_at ? row.snoozed_until : row.remind_at,
-    title: row.title?.trim() || "Հոգևոր ժառանգություն",
+    title: row.title?.trim() || "Apostolic.am",
     categoryName: row.category_name,
   }));
 }
@@ -123,7 +123,7 @@ export async function listMissedReminders(database: D1Database, userId: string):
      LEFT JOIN library_topics AS topics ON topics.id = materials.topic_key
      WHERE inbox.user_id = ? ORDER BY inbox.rang_at DESC LIMIT 30`,
   ).bind(userId).all<{ chat_id: string; message_id: number; rang_at: string; title: string | null; category_name: string | null }>();
-  return results.map((row) => ({ materialId: createMaterialId(row.chat_id, row.message_id), rangAt: row.rang_at, title: row.title?.trim() || "Հոգևոր ժառանգություն", categoryName: row.category_name }));
+  return results.map((row) => ({ materialId: createMaterialId(row.chat_id, row.message_id), rangAt: row.rang_at, title: row.title?.trim() || "Apostolic.am", categoryName: row.category_name }));
 }
 
 export async function markReminderRead(database: D1Database, key: ReminderKey) {
@@ -193,7 +193,7 @@ export async function sendBellSoundOnce(database: D1Database, token: string, tel
     chat_id: Number(telegramId),
     audio: `${publicUrl}/sounds/church-bell.mp3`,
     title: "Եկեղեցու զանգ",
-    performer: "Հոգևոր ժառանգություն",
+    performer: "Apostolic.am",
     caption: "🔔 Որ հիշեցումները գան եկեղեցու զանգով՝\n1. Սեղմիր այս ձայնի ⋮ → «Save for notifications»։\n2. Այս չատում՝ վերևի անունը → Notifications → Sound → «Եկեղեցու զանգ»։",
   });
   if (!result.ok) await database.prepare("DELETE FROM reminder_sound_sent WHERE telegram_id = ?").bind(telegramId).run();
@@ -224,7 +224,7 @@ async function pushToBrowsers(database: D1Database, keys: PushKeys, row: DueRow,
     const question = questionOf(row);
     const outcome = await sendWebPush(subscription, {
       title: question ? "❓ Հարցրեք հոգևորականին" : "🔔 Ժամանակն է կարդալու",
-      body: question ? clip(question.note || `«${question.quote}»`, 180) : row.title?.trim() || "Հոգևոր ժառանգություն",
+      body: question ? clip(question.note || `«${question.quote}»`, 180) : row.title?.trim() || "Apostolic.am",
       url: `${publicUrl}${materialPath(materialId, row.category_name, { title: row.title })}?reminder=1`,
       tag: `reminder-${materialId}`,
       category: row.category_name,
@@ -268,7 +268,7 @@ export async function sendDueReminders(database: D1Database, options: { token: s
     // Google accounts have no Telegram chat: their reminders ring in the app or the browser only.
     if (options.token && canMessage(row.telegram_id)) {
       const materialId = createMaterialId(row.chat_id, row.message_id);
-      const title = row.title?.trim() || "Հոգևոր ժառանգություն";
+      const title = row.title?.trim() || "Apostolic.am";
       const question = questionOf(row);
       const text = question
         ? `❓ Հիշեցում. հարցրեք հոգևորականին\n\n«${clip(question.quote, 600)}»${question.note ? `\n\nՁեր հարցը՝ ${clip(question.note, 1500)}` : ""}\n\n${title}`

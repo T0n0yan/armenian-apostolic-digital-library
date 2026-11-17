@@ -152,7 +152,7 @@ export async function answerUpdate(update: Update) {
       text: [
         `Բարի գալուստ${name ? `, ${name}` : ""} ✠`,
         "",
-        "«Հոգևոր ժառանգություն»-ը Հայ Առաքելական Սուրբ Եկեղեցու հոգևոր գրադարանն է՝",
+        "Apostolic.am-ը նվիրված է Հայաստանյայց Առաքելական Սուրբ Եկեղեցուն. այստեղ կգտնեք՝",
         "• աղոթքներ՝ ըստ օրվա ժամի և առիթի",
         "• սաղմոսներ՝ ձայնագրությամբ",
         "• սրբերի վարքեր և Ավետարանի ուսուցում",
@@ -272,7 +272,7 @@ export async function postGroupWelcome(chatId: string | number, pin: boolean, te
   // With the library's picture (dove and name) on top; a caption holds at most 1024 characters, so
   // a longer text goes as a plain message.
   const sent = text.length <= 1024
-    ? await callTelegram(token, "sendPhoto", { chat_id: chatId, photo: `${site}/og-image.png?v=2`, caption: text, disable_notification: true, reply_markup: buttons })
+    ? await callTelegram(token, "sendPhoto", { chat_id: chatId, photo: `${site}/og-image.png?v=3`, caption: text, disable_notification: true, reply_markup: buttons })
     : await callTelegram(token, "sendMessage", { chat_id: chatId, text, disable_notification: true, link_preview_options: { is_disabled: true }, reply_markup: buttons });
   if (!sent.ok || !pin) return sent;
   const messageId = (sent.result as { message_id: number }).message_id;

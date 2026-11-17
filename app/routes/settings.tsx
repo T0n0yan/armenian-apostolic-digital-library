@@ -4,7 +4,7 @@ import { SettingsPanel } from "../components/settings-panel";
 import { SiteNav } from "../components/site-nav";
 
 export function meta({}: Route.MetaArgs) {
-  return [{ title: "Կարգավորումներ — Հոգևոր ժառանգություն" }, { name: "robots", content: "noindex, follow" }];
+  return [{ title: "Կարգավորումներ — Apostolic.am" }, { name: "robots", content: "noindex, follow" }];
 }
 
 /** The settings as a page (the menu shows the same panel in place). */
