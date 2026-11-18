@@ -39,6 +39,7 @@ import { chatParticipant, chatUnread } from "./data/private-chat.server";
 import { PlaceTracker } from "./components/continue-reading";
 import { clearPersonalStorage } from "./utils/personal-storage";
 import { markDockedCard } from "./utils/video-dock";
+import { installBackgroundPlayback } from "./utils/background-playback";
 import { markPlayingCards } from "./utils/audio-dock";
 import { AudioDockBar } from "./components/audio-dock-bar";
 import "./app.css";
@@ -290,6 +291,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
   useEffect(() => { markAppHydrated(); }, []);
+  // Բրաուզերից դուրս գալիս ձայնը չի կանգնում (utils/background-playback.ts)։
+  useEffect(() => { installBackgroundPlayback(); }, []);
   // Անկյան տեսանյութին սեղմելիս՝ նրա էջը (video-dock.ts). նոր էջում նվագողի քարտը նշվում և երևում է։
   const navigate = useNavigate();
   const { pathname } = useLocation();
