@@ -1,9 +1,10 @@
 /**
  * Ձայնը չի կանգնում, երբ մարդը դուրս է գալիս բրաուզերից (այլ ծրագիր, էկրանի կողպում)։
  *
- * - Android Chrome-ը ֆոնում կանգնեցնում է `<video>`-ը, բայց ոչ `<audio>`-ը. ուստի եթե թաքնվելու պահին
- *   բրաուզերը կանգնեցրեց տեսանյութը, նրա ձայնը նույն տեղից շարունակում է առանձին `<audio>`-ով, իսկ վերադառնալիս
- *   տեսանյութը շարունակում է այնտեղից, որտեղ հասել էր ձայնը։
+ * - Հեռախոսի բրաուզերները (Android Chrome, iPhone Safari) ֆոնում կանգնեցնում են `<video>`-ը, բայց ոչ
+ *   `<audio>`-ը. ուստի էջը թաքնվելիս տեսանյութի ձայնը անմիջապես շարունակում է նախօրոք պատրաստված
+ *   `<audio>`-ով (մի պահ միասին են նվագում, դադար չկա), իսկ վերադառնալիս տեսանյութը շարունակում է
+ *   ձայնի տեղից։ iPhone-ում այդ `<audio>`-ը «բացվում» է մարդու սեղմումով (Safari-ի կանոն)։
  * - Եթե բրաուզերը ինքը կանգնեցրեց ձայնագրությունը թաքնվելու պահին, այն մեկ անգամ նորից միանում է։
  * - Media Session. հեռախոսի ծանուցումում և կողպված էկրանին՝ անուն, նկար, ▶/❚❚, 10 վրկ հետ/առաջ։
  * - Telegram-ի ներսում (Mini App) Telegram-ը ինքն է կանգնեցնում ամեն ինչ. այնտեղ սա չի օգնի։
@@ -57,43 +58,102 @@ function bindActions() {
   set("seekforward", (details) => seek(details.seekOffset ?? 10));
 }
 
-/** Բրաուզերը ֆոնում կանգնեցրեց տեսանյութը. նրա ձայնը շարունակում է `<audio>`-ով։ */
-function startHandoff(video: HTMLVideoElement) {
+// Հեռախոս (Android, iPhone/iPad). համակարգչում ֆոնում տեսանյութը չի կանգնում, այնտեղ ոչինչ չենք անում։
+function isIOS() {
+  const ua = navigator.userAgent;
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+function isMobile() {
+  return /Android/i.test(navigator.userAgent) || isIOS();
+}
+
+/**
+ * Ֆոնի ձայնը պատրաստվում է նախօրոք (նույն հասցեն, Chrome-ը օգտագործում է արդեն բեռնվածը),
+ * որ անցնելիս դադար չլինի։ iPhone-ում այն պետք է «բացել» մարդու սեղմումով, այլապես
+ * Safari-ն ֆոնում չի թողնի միացնել. `play()` + անմիջապես `pause()` նույն սեղմման մեջ՝ ձայն չի լսվում։
+ */
+const spares = new WeakMap<HTMLVideoElement, { audio: HTMLAudioElement; unlocked: boolean }>();
+
+function spareFor(video: HTMLVideoElement) {
   const source = video.currentSrc || video.src;
-  if (!source || isInPip(video)) return;
-  // Էջից անջատված էլեմենտ. էջի «մեկ այլ ձայն միացավ» լսիչները այն չեն տեսնում։
-  const audio = new Audio();
-  audio.preload = "auto";
-  audio.src = source;
+  if (!source) return null;
+  let spare = spares.get(video);
+  if (spare && spare.audio.src !== new URL(source, location.href).href) spare = undefined;
+  if (!spare) {
+    // Էջից անջատված էլեմենտ. էջի «մեկ այլ ձայն միացավ» լսիչները այն չեն տեսնում։
+    const audio = new Audio();
+    // Մինչև տեսանյութը չնվագի՝ միայն տևողությունը (ավելորդ ինտերնետ չծախսել)։
+    audio.preload = video.paused ? "metadata" : "auto";
+    audio.src = source;
+    spare = { audio, unlocked: false };
+    spares.set(video, spare);
+  }
+  return spare;
+}
+
+function unlockSpares() {
+  for (const video of document.querySelectorAll("video")) {
+    const spare = spareFor(video);
+    if (!spare || spare.unlocked) continue;
+    spare.unlocked = true;
+    const attempt = spare.audio.play();
+    spare.audio.pause();
+    void attempt?.catch(() => { spare.unlocked = false; });
+  }
+}
+
+/**
+ * Տեսանյութի ձայնը շարունակում է `<audio>`-ով։ Ձայնը սկսում է նախքան տեսանյութը կանգնի
+ * (մի պահ միասին են), որ լռություն չլինի։
+ */
+function startHandoff(video: HTMLVideoElement) {
+  if (handoff || isInPip(video)) return;
+  const spare = spareFor(video);
+  if (!spare) return;
+  const { audio } = spare;
   audio.volume = video.volume;
+  audio.muted = video.muted;
   audio.setAttribute("aria-label", title(video));
-  const time = video.currentTime;
+  handoff = { video, audio };
   const begin = () => {
-    audio.currentTime = time;
-    void audio.play().then(() => setSession(audio)).catch(() => {
-      // Բրաուզերը թույլ չտվեց. թողնել տեսանյութը, ինչպես կար։
+    if (handoff?.audio !== audio) return;
+    audio.currentTime = video.currentTime;
+    audio.addEventListener("playing", () => {
+      if (handoff?.audio !== audio) return;
+      // Միասին նվագելու պահին տեղերը համընկնում են։
+      if (!video.paused) { audio.currentTime = video.currentTime; video.pause(); }
+      setSession(audio);
+    }, { once: true });
+    void audio.play().catch(() => {
+      // Բրաուզերը թույլ չտվեց. տեսանյութը մնում է, ինչպես կար։
       if (handoff?.audio === audio) handoff = null;
     });
   };
   if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) begin();
   else audio.addEventListener("loadedmetadata", begin, { once: true });
-  handoff = { video, audio };
-  video.pause();
 }
 
-/** Էջը նորից երևաց. տեսանյութը շարունակում է այնտեղից, որտեղ հասել էր ձայնը։ */
+/** Էջը նորից երևաց. տեսանյութը շարունակում է ձայնի տեղից, ձայնը կանգնում է, երբ պատկերը արդեն գնում է։ */
 function finishHandoff() {
   if (!handoff) return;
   const { video, audio } = handoff;
   handoff = null;
   const playing = !audio.paused && !audio.ended;
-  const time = audio.currentTime;
-  audio.pause();
-  audio.removeAttribute("src");
-  audio.load();
-  if (time > 0) video.currentTime = time;
-  if (playing && video.isConnected) void video.play().catch(() => {});
-  if (video.isConnected) setSession(video);
+  if (!video.isConnected) { audio.pause(); return; }
+  if (audio.currentTime > 0) video.currentTime = audio.currentTime;
+  if (!playing) { audio.pause(); setSession(video); return; }
+  const stop = () => {
+    if (handoff) return;
+    video.currentTime = audio.currentTime;
+    audio.pause();
+  };
+  video.addEventListener("playing", stop, { once: true });
+  void video.play().then(() => setSession(video)).catch(() => {
+    // Տեսանյութը չմիացավ. ձայնը շարունակում է, ինչպես կար։
+    video.removeEventListener("playing", stop);
+    handoff = { video, audio };
+  });
 }
 
 export function installBackgroundPlayback() {
@@ -106,7 +166,17 @@ export function installBackgroundPlayback() {
     active = event.target;
     userPaused = false;
     setSession(event.target);
+    if (event.target instanceof HTMLVideoElement && isMobile()) {
+      const spare = spareFor(event.target);
+      if (spare) spare.audio.preload = "auto";
+    }
   }, true);
+
+  // iPhone. ֆոնի ձայնը «բացվում» է մարդու ցանկացած սեղմումով, քանի դեռ էջում տեսանյութ կա։
+  if (isIOS()) {
+    document.addEventListener("touchend", unlockSpares, { capture: true, passive: true });
+    document.addEventListener("click", unlockSpares, true);
+  }
 
   document.addEventListener("pause", (event) => {
     const media = event.target;
@@ -120,9 +190,11 @@ export function installBackgroundPlayback() {
   }, true);
 
   document.addEventListener("visibilitychange", () => {
-    // Միայն երբ բրաուզերը ինքը կանգնեցնի (տես վերևի pause լսիչը). համակարգչում, որտեղ ֆոնում
-    // տեսանյութը չի կանգնում, ոչինչ չի փոխվում։
-    if (document.visibilityState === "hidden") hiddenAt = Date.now();
-    else finishHandoff();
+    if (document.visibilityState !== "hidden") { finishHandoff(); return; }
+    hiddenAt = Date.now();
+    // Հեռախոսում ձայնը միանում է անմիջապես, նախքան բրաուզերը կանգնեցնի տեսանյութը։
+    // Համակարգչում ֆոնում տեսանյութը չի կանգնում, այնտեղ ոչինչ չի փոխվում։
+    const media = active;
+    if (isMobile() && media instanceof HTMLVideoElement && !media.paused && !media.ended && media.isConnected) startHandoff(media);
   });
 }
