@@ -2,10 +2,10 @@ import { ChevronRight, Search, X } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Route } from "./+types/etiquette";
-import { card, groupTitle, KindBadge, TopicIcon } from "../components/etiquette-ui";
+import { card, groupTitle, TopicIcon } from "../components/etiquette-ui";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
-import { ETIQUETTE_TOPICS, POPULAR_QUESTIONS, RULE_KINDS, type RuleKind } from "../data/etiquette";
+import { ETIQUETTE_TOPICS, POPULAR_QUESTIONS } from "../data/etiquette";
 import { searchEtiquette } from "../utils/etiquette-search";
 import { seoMeta } from "../utils/seo";
 
@@ -28,7 +28,6 @@ export default function Etiquette() {
   const hits = useMemo(() => (query.trim() ? searchEtiquette(query) : []), [query]);
   const ready = ETIQUETTE_TOPICS.filter((topic) => topic.status !== "soon");
   const soon = ETIQUETTE_TOPICS.filter((topic) => topic.status === "soon");
-  const rules = ready.reduce((sum, topic) => sum + topic.rules.length, 0);
   const setQuery = (value: string) => setParams(value ? { q: value } : {}, { replace: true, preventScrollReset: true });
 
   return (
@@ -75,23 +74,8 @@ export default function Etiquette() {
         </section>
       ) : (
         <>
-          <p className="mt-3 mb-0 px-1 text-[13px] text-muted">{ready.length} բաժին · {rules} կանոն · ևս {soon.length} բաժին՝ շուտով</p>
-
-          <section className="mt-6 grid gap-2" aria-labelledby="etq-popular">
-            <h2 className={groupTitle} id="etq-popular">Հաճախ հարցնում են</h2>
-            <ul className={`${card} m-0 list-none p-0`}>
-              {POPULAR_QUESTIONS.map(([question, slug, id], index) => (
-                <li key={question} className={index ? divider : ""}>
-                  <Link className={`${row} min-h-[52px]`} to={`/etiquette/${slug}#${id}`}>
-                    <span className="flex-1 text-[15px] font-medium text-ink">{question}</span>
-                    <ChevronRight className="shrink-0 text-faint" aria-hidden="true" size={18} />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="mt-6 grid gap-2" aria-labelledby="etq-topics">
+          
+          <section className="mt-5 grid gap-2" aria-labelledby="etq-topics">
             <h2 className={groupTitle} id="etq-topics">Բաժիններ</h2>
             <ul className={`${card} m-0 list-none p-0`}>
               {ready.map((topic, index) => (
@@ -100,9 +84,22 @@ export default function Etiquette() {
                     <span className="grid size-9 shrink-0 place-items-center rounded-control bg-[rgb(176_125_46/14%)] text-gold-bright"><TopicIcon slug={topic.slug} size={19} /></span>
                     <span className="grid min-w-0 flex-1 gap-0.5">
                       <strong className="text-[15.5px] leading-snug font-semibold text-ink">{topic.title}</strong>
-                      <span className="truncate text-[12.5px] text-muted">{topic.description}</span>
+                      <span className="text-[13px] leading-snug text-muted">{topic.description} <span className="whitespace-nowrap text-faint">· {topic.rules.length} կանոն</span></span>
                     </span>
-                    <span className="shrink-0 text-[12.5px] text-faint tabular-nums">{topic.rules.length}</span>
+                                        <ChevronRight className="shrink-0 text-faint" aria-hidden="true" size={18} />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="mt-6 grid gap-2" aria-labelledby="etq-popular">
+            <h2 className={groupTitle} id="etq-popular">Հաճախ հարցնում են</h2>
+            <ul className={`${card} m-0 list-none p-0`}>
+              {POPULAR_QUESTIONS.map(([question, slug, id], index) => (
+                <li key={question} className={index ? divider : ""}>
+                  <Link className={`${row} min-h-[52px]`} to={`/etiquette/${slug}#${id}`}>
+                    <span className="flex-1 text-[15px] font-medium text-ink">{question}</span>
                     <ChevronRight className="shrink-0 text-faint" aria-hidden="true" size={18} />
                   </Link>
                 </li>
@@ -119,7 +116,7 @@ export default function Etiquette() {
                     <span className="grid size-9 shrink-0 place-items-center rounded-control bg-subtle text-faint"><TopicIcon slug={topic.slug} size={19} /></span>
                     <span className="grid min-w-0 flex-1 gap-0.5">
                       <span className="text-[15px] font-semibold text-muted">{topic.title}</span>
-                      <span className="truncate text-[12.5px] text-faint">{topic.description}</span>
+                      <span className="text-[12.5px] leading-snug text-faint">{topic.description}</span>
                     </span>
                   </li>
                 ))}
@@ -127,14 +124,6 @@ export default function Etiquette() {
             </section>
           ) : null}
 
-          <section className="mt-6 grid gap-2" aria-labelledby="etq-kinds">
-            <h2 className={groupTitle} id="etq-kinds">Ինչ են նշանակում պիտակները</h2>
-            <ul className={`${card} m-0 grid list-none gap-2.5 px-4 py-3.5`}>
-              {(Object.keys(RULE_KINDS) as RuleKind[]).map((kind) => (
-                <li key={kind} className="flex flex-wrap items-center gap-2"><KindBadge kind={kind} /><span className="text-[13px] text-muted">{RULE_KINDS[kind].hint}</span></li>
-              ))}
-            </ul>
-          </section>
         </>
       )}
 

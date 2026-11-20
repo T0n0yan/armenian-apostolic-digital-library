@@ -1,10 +1,11 @@
-import { Check, ChevronDown, ChevronRight, X } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import type { Route } from "./+types/etiquette-topic";
-import { card, groupTitle, TopicIcon } from "../components/etiquette-ui";
+import { card, groupTitle } from "../components/etiquette-ui";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
-import { ETIQUETTE_TOPICS, RULE_KINDS, etiquetteTopic } from "../data/etiquette";
+import { RULE_KINDS, etiquetteTopic, readyEtiquetteTopics, type EtiquetteRule } from "../data/etiquette";
 import { breadcrumbJsonLd, seoMeta } from "../utils/seo";
 
 export function loader({ params }: Route.LoaderArgs) {
@@ -28,13 +29,38 @@ export function meta({ loaderData }: Route.MetaArgs) {
 const divider = "border-t border-[rgb(150_110_50/14%)]";
 const kindText: Record<string, string> = { canon: "text-success", tradition: "text-gold-bright", superstition: "text-danger" };
 
+/** Մեկ կանոն՝ բացվող տող. վերնագիրը միշտ երևում է, պատասխանը՝ սեղմելով։ */
+function RuleItem({ rule, first, open, icon, children }: { rule: EtiquetteRule; first: boolean; open: boolean; icon: ReactNode; children: ReactNode }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (!open || !ref.current) return;
+    ref.current.open = true;
+    ref.current.scrollIntoView({ block: "center" });
+  }, [open]);
+  return (
+    <details ref={ref} id={rule.id} className={`group scroll-mt-24 ${first ? "" : divider}`}>
+      <summary className="flex min-h-[56px] cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-[rgb(217_181_111/8%)] [&::-webkit-details-marker]:hidden">
+        {icon}
+        <span className="flex-1 text-[15.5px] leading-snug font-semibold text-ink">{rule.title}</span>
+        <ChevronDown className="shrink-0 text-faint transition-transform group-open:rotate-180" aria-hidden="true" size={18} />
+      </summary>
+      <div className="grid gap-2.5 px-4 pb-4 pl-[50px]">{children}</div>
+    </details>
+  );
+}
+
 /** Վարքի մեկ բաժին. ինչ անել (✓), սխալ կարծիքներ (✕), հարցեր, այլ բաժիններ։ */
 export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
   const topic = etiquetteTopic(loaderData.slug)!;
   const navigate = useNavigate();
   const rules = topic.rules.filter((rule) => rule.kind !== "superstition");
   const myths = topic.rules.filter((rule) => rule.kind === "superstition");
-  const others = ETIQUETTE_TOPICS.filter((item) => item.status !== "soon" && item.slug !== topic.slug);
+  const ready = readyEtiquetteTopics();
+  const at = ready.findIndex((item) => item.slug === topic.slug);
+  const prev = ready[at - 1];
+  const next = ready[at + 1];
+  // Հղումով եկած կանոնը (#headscarf) բաց է։
+  const hash = decodeURIComponent(useLocation().hash.slice(1));
 
   return (
     <PageShell>
@@ -49,39 +75,31 @@ export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
 
       {rules.length ? (
         <section className="mt-6 grid gap-2" aria-labelledby="etq-do">
-          <h2 className={groupTitle} id="etq-do">Ինչ անել</h2>
-          <ul className={`${card} m-0 list-none p-0`}>
+          <h2 className={groupTitle} id="etq-do">Ինչ անել · սեղմեք՝ կարդալու համար</h2>
+          <div className={`${card} overflow-hidden`}>
             {rules.map((rule, index) => (
-              <li key={rule.id} id={rule.id} className={`flex scroll-mt-24 gap-3 px-4 py-4 target:bg-[rgb(217_181_111/14%)] ${index ? divider : ""}`}>
-                <span className="mt-0.5 grid size-[22px] shrink-0 place-items-center rounded-full bg-[rgb(61_118_80/15%)] text-success" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                    <h3 className="m-0 text-[15.5px] leading-snug font-semibold text-ink">{rule.title}</h3>
-                    <span className={`text-[11.5px] font-semibold ${kindText[rule.kind]}`}>{RULE_KINDS[rule.kind].label}</span>
-                  </div>
-                  <p className="reading-body m-0 text-[14.5px] leading-[1.65] text-ink">{rule.what}</p>
-                  {rule.why ? <p className="reading-body m-0 text-[13.5px] leading-[1.6] text-muted"><span className="font-semibold">Ինչու. </span>{rule.why}</p> : null}
-                </div>
-              </li>
+              <RuleItem key={rule.id} rule={rule} first={index === 0} open={hash === rule.id}
+                icon={<span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-[rgb(61_118_80/15%)] text-success" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>}>
+                <p className="reading-body m-0 text-[15px] leading-[1.7] text-ink">{rule.what}</p>
+                {rule.why ? <p className="reading-body m-0 rounded-button bg-[rgb(217_181_111/12%)] px-3.5 py-2.5 text-[14px] leading-[1.65] text-ink"><span className="font-semibold text-gold-bright">Ինչու. </span>{rule.why}</p> : null}
+                <span className={`text-[12px] font-semibold ${kindText[rule.kind]}`}>{RULE_KINDS[rule.kind].label}՝ {RULE_KINDS[rule.kind].hint}</span>
+              </RuleItem>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 
       {myths.length ? (
         <section className="mt-6 grid gap-2" aria-labelledby="etq-myths">
-          <h2 className={groupTitle} id="etq-myths">Սխալ կարծիքներ</h2>
-          <ul className={`${card} m-0 list-none p-0`}>
+          <h2 className={groupTitle} id="etq-myths">Ճիշտ չէ, թեև ասում են</h2>
+          <div className={`${card} overflow-hidden`}>
             {myths.map((rule, index) => (
-              <li key={rule.id} id={rule.id} className={`flex scroll-mt-24 gap-3 px-4 py-4 target:bg-[rgb(217_181_111/14%)] ${index ? divider : ""}`}>
-                <span className="mt-0.5 grid size-[22px] shrink-0 place-items-center rounded-full bg-[rgb(178_72_63/13%)] text-danger" aria-hidden="true"><X size={12} strokeWidth={3} /></span>
-                <div className="grid min-w-0 flex-1 gap-1">
-                  <h3 className="m-0 text-[15.5px] leading-snug font-semibold text-ink">{rule.title}</h3>
-                  <p className="reading-body m-0 text-[14px] leading-[1.6] text-muted">{rule.what}</p>
-                </div>
-              </li>
+              <RuleItem key={rule.id} rule={rule} first={index === 0} open={hash === rule.id}
+                icon={<span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-[rgb(178_72_63/13%)] text-danger" aria-hidden="true"><X size={12} strokeWidth={3} /></span>}>
+                <p className="reading-body m-0 text-[15px] leading-[1.7] text-ink"><span className="font-semibold text-success">Իրականում. </span>{rule.what}</p>
+              </RuleItem>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 
@@ -102,20 +120,20 @@ export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
         </section>
       ) : null}
 
-      <section className="mt-6 grid gap-2" aria-labelledby="etq-more">
-        <h2 className={groupTitle} id="etq-more">Այլ բաժիններ</h2>
-        <ul className={`${card} m-0 list-none p-0`}>
-          {others.map((item, index) => (
-            <li key={item.slug} className={index ? divider : ""}>
-              <Link className="flex min-h-[52px] items-center gap-3.5 px-4 py-2 text-inherit no-underline" to={`/etiquette/${item.slug}`}>
-                <span className="grid size-8 shrink-0 place-items-center rounded-control bg-[rgb(176_125_46/14%)] text-gold-bright"><TopicIcon slug={item.slug} size={17} /></span>
-                <span className="flex-1 text-[15px] font-medium text-ink">{item.title}</span>
-                <ChevronRight className="shrink-0 text-faint" aria-hidden="true" size={18} />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <nav className="mt-6 grid grid-cols-2 gap-2.5" aria-label="Այլ բաժիններ">
+        {prev ? (
+          <Link className={`${card} flex min-h-[64px] items-center gap-2 px-3.5 py-2 text-inherit no-underline`} to={`/etiquette/${prev.slug}`}>
+            <ChevronLeft className="shrink-0 text-gold" aria-hidden="true" size={20} />
+            <span className="grid min-w-0"><span className="text-[11.5px] text-muted">Նախորդը</span><strong className="text-[14px] leading-snug font-semibold text-ink">{prev.title}</strong></span>
+          </Link>
+        ) : <Link className={`${card} flex min-h-[64px] items-center gap-2 px-3.5 py-2 text-[14px] font-semibold text-gold-bright no-underline`} to="/etiquette"><ChevronLeft aria-hidden="true" size={20} />Բոլոր բաժինները</Link>}
+        {next ? (
+          <Link className={`${card} flex min-h-[64px] items-center justify-end gap-2 px-3.5 py-2 text-right text-inherit no-underline`} to={`/etiquette/${next.slug}`}>
+            <span className="grid min-w-0"><span className="text-[11.5px] text-muted">Հաջորդը</span><strong className="text-[14px] leading-snug font-semibold text-ink">{next.title}</strong></span>
+            <ChevronRight className="shrink-0 text-gold" aria-hidden="true" size={20} />
+          </Link>
+        ) : <Link className={`${card} flex min-h-[64px] items-center justify-end gap-2 px-3.5 py-2 text-[14px] font-semibold text-gold-bright no-underline`} to="/etiquette">Բոլոր բաժինները<ChevronRight aria-hidden="true" size={20} /></Link>}
+      </nav>
 
       <p className="mx-auto mt-6 mb-0 max-w-[520px] text-center text-[12.5px] leading-relaxed text-muted">
         {topic.status === "review" ? "⚑ Ստուգվում է հոգևորականի կողմից։ " : ""}Ձեր հարցը չկա՞՝ <Link className="text-gold-bright" to="/kap">գրեք մեզ</Link>։
