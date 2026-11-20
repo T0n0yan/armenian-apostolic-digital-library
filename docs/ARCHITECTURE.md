@@ -318,6 +318,8 @@ flowchart LR
   HOME --> SAVED["/saved պահվածներ"]
   SAVED --> NOTES["/saved?tab=notes Իմ նշումները<br/>(ներդիրներ՝ Պահված նյութեր · Իմ ընթերցանությունը · Իմ նշումները)"]
   HOME --> PLACES["/places քարտեզ"]
+  HOME --> ETQ["/etiquette Վարվելակարգ"]
+  ETQ --> ETQT["/etiquette/:topic մեկ բաժին"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
   HOME --> MY["/my-year Իմ տարին"]
@@ -332,6 +334,8 @@ flowchart LR
   ADM --> A6["/admin/help Օգնության տեսանյութեր"]
   A3 --> A5["/admin/media-inventory"]
 ```
+
+**Վարվելակարգ** (`/etiquette`, `/etiquette/:topic`). տեքստերը կոդում են՝ `app/data/etiquette.ts` (բաժիններ Ա–Թ, ամեն կանոն՝ պիտակով «Կանոն / Ավանդույթ / Սնահավատություն», «Ինչ անել» և «Ինչու»), ոչ թե բազայում։ `status: "soon"` բաժինը ցուցակում «Շուտով» է և էջ չունի (404), `review`-ը ցույց է տալիս «⚑ Ստուգման մեջ»։ Բաժինը կա մենյուում, գլխավոր էջում (`SiteSectionCard`) և sitemap-ում։ Հետո տեքստերը կտեղափոխվեն բազա՝ ադմինի խմբագրով (`docs/work/features.md`, «Հոգևոր ուղեցույց»)։
 
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,

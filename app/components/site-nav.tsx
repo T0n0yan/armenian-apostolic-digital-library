@@ -10,7 +10,7 @@ import CrownWreath from "../assets/crown-olive-wreath.webp";
 import CrownWreathSmall from "../assets/crown-olive-wreath-112.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
-import { PlacesIcon } from "./topic-icons";
+import { EtiquetteIcon, PlacesIcon } from "./topic-icons";
 import { ReminderIndicator } from "./reminder-indicator";
 import { INSTALL_REQUEST_EVENT, isInstalledApp, isTelegramMiniApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
@@ -189,6 +189,12 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                     <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to="/places" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                       <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><PlacesIcon aria-hidden="true" size={17} /></span>
                       <span className="line-clamp-2 min-w-0 flex-1 leading-tight">Սրբավայրեր</span>
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to="/etiquette" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                      <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><EtiquetteIcon aria-hidden="true" size={17} /></span>
+                      <span className="line-clamp-2 min-w-0 flex-1 leading-tight">Վարվելակարգ</span>
                     </NavLink>
                   </li>
                 </ul>

@@ -13,7 +13,7 @@ import { DailyVerseCard } from "./daily-verse";
 import { HomeTitle } from "./home-title";
 import { PageHeader } from "./page-layout";
 import { MY_CORNER_IMAGE, getCategoryImage } from "./section-header";
-import { PlacesIcon } from "./topic-icons";
+import { EtiquetteIcon, PlacesIcon } from "./topic-icons";
 import angelLeft from "../assets/angel-left.webp";
 import lastSupper from "../assets/last-supper.webp";
 
@@ -40,7 +40,7 @@ const SECTION_NAMES: Record<string, string> = {
   category_bible_questions: "Հարցեր Աստվածաշնչից",
 };
 /** Գլխավոր էջի բաժինների կարգը (Սրբավայրերը՝ Սաղմոսներից հետո)։ */
-const HOME_ORDER = ["category_gospel_teachings", "category_prayers", "category_psalms", "places", "category_saints_lives", "category_daily_readings", "category_bible_questions"];
+const HOME_ORDER = ["category_gospel_teachings", "category_prayers", "category_psalms", "places", "category_saints_lives", "category_daily_readings", "category_bible_questions", "etiquette"];
 
 function sectionOf(slug: string): Section {
   const current = currentSection(slug);
@@ -61,7 +61,7 @@ function kindOf(pathname: string): Kind {
   if (first === "my-year") return { page: "year" };
   if (first === "ognutyun") return { page: "help" };
   if (first === "places") return { page: parts.length > 1 && second !== "new" ? "place" : parts.length > 1 ? "plain" : "places" };
-  if (["admin", "namak", "auth", "settings", "mer-masin", "kap", "privacy"].includes(first)) return { page: "plain" };
+  if (["admin", "namak", "auth", "settings", "mer-masin", "kap", "privacy", "etiquette"].includes(first)) return { page: "plain" };
   if (first === "materials") return { page: "material", section: "other", psalm: null };
   if (first === "categories") return { page: "section", section: "other" };
   const section = sectionOf(first);
@@ -417,7 +417,7 @@ function MaterialBody({ section, psalm }: { section: Section; psalm: number | nu
 }
 
 function Home() {
-  const order = HOME_ORDER.map((id) => id === "places" ? { id, name: "Սրբավայրեր" } : CONTENT_CATEGORIES.find((category) => category.id === id)!);
+  const order = HOME_ORDER.map((id) => id === "places" ? { id, name: "Սրբավայրեր" } : id === "etiquette" ? { id, name: "Վարվելակարգ" } : CONTENT_CATEGORIES.find((category) => category.id === id)!);
   return (
     <>
       <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
@@ -438,7 +438,7 @@ function Home() {
           {order.map((category) => (
             <li key={category.id} className="frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 min-[560px]:min-h-[88px] min-[560px]:p-[16px]">
               <span className="grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright">
-                {category.id === "places" ? <PlacesIcon size={24} /> : <CategoryIcon categoryId={category.id} categoryName={category.name} size={24} />}
+                {category.id === "places" ? <PlacesIcon size={24} /> : category.id === "etiquette" ? <EtiquetteIcon size={24} /> : <CategoryIcon categoryId={category.id} categoryName={category.name} size={24} />}
               </span>
               <span className="grid min-w-0 flex-1 gap-1.5">
                 <strong className="font-noto text-[16px] leading-[22px] font-semibold min-[960px]:text-[17px] min-[960px]:leading-[23px]">{SECTION_NAMES[category.id] ?? category.name}</strong>
