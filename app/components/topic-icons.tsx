@@ -16,7 +16,7 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   );
 }
 
-/** Վարվելակարգ՝ վառվող մոմ ավազի մեջ։ */
+/** Վարք եկեղեցում՝ վառվող մոմ ավազի մեջ։ */
 export function EtiquetteIcon(props: IconProps) {
   return <Icon {...props} motion="ti-candle" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 2.5c1.6 1.9 2.3 3.1 2.3 4.2a2.3 2.3 0 0 1-4.6 0c0-1.1.7-2.3 2.3-4.2z\"/><path d=\"M12 9v1.2\"/><path d=\"M10 10.2h4v8.3h-4z\"/><path d=\"M5.5 18.5h13l-1.5 3h-10z\"/></g>"} />;
 }

@@ -304,3 +304,13 @@ export function etiquetteTopic(slug: string) {
 export function readyEtiquetteTopics() {
   return ETIQUETTE_TOPICS.filter((topic) => topic.status !== "soon");
 }
+
+/** Ամենահաճախ տրվող հարցերը՝ բաժնի գլխավոր էջում (հարց, բաժին, կանոն)։ */
+export const POPULAR_QUESTIONS: Array<[string, string, string]> = [
+  ["Ինչպե՞ս ճիշտ խաչակնքել", "entrance", "cross"],
+  ["Պարտադի՞ր է գլխաշորը", "entrance", "headscarf"],
+  ["Որտե՞ղ վառել մոմը", "candles", "where"],
+  ["Կարելի՞ է նստել Պատարագին", "liturgy", "stand"],
+  ["Ինչպե՞ս դիմել քահանային", "clergy", "titles"],
+  ["Ի՞նչ է մասը", "liturgy", "mas"],
+];
