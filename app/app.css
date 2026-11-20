@@ -1355,3 +1355,13 @@ li[data-audio-playing] > a:not(.aspect-square)::after {
 }
 /* Գլխավոր էջի բաժնի քարտում՝ սլաքից ձախ, մեջտեղում։ */
 li[data-audio-playing] > a.frosted-card.flex::after { top: 50%; right: 46px; translate: 0 -50%; }
+
+/* Վարվելակարգ. մոմի բոցի թրթռոց և «Ինչու՞» բացվող տուփ */
+@keyframes etq-flicker { 0%, 100% { transform: scale(1, 1) rotate(0deg); opacity: 1; } 30% { transform: scale(.92, 1.08) rotate(-2deg); opacity: .92; } 60% { transform: scale(1.05, .95) rotate(2deg); opacity: 1; } 80% { transform: scale(.97, 1.04) rotate(-1deg); opacity: .95; } }
+.etq-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: etq-flicker 2.4s ease-in-out infinite; }
+@keyframes etq-glow { 0%, 100% { opacity: .55; } 50% { opacity: .8; } }
+.etq-glow { animation: etq-glow 3.2s ease-in-out infinite; }
+@keyframes etq-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.etq-reveal { animation: etq-open 280ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .etq-flame, .etq-glow, .etq-reveal { animation: none; } }
+html[data-motion="reduced"] :is(.etq-flame, .etq-glow, .etq-reveal) { animation: none; }
