@@ -1,11 +1,11 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, X } from "lucide-react";
 import { Link } from "react-router";
 import type { Route } from "./+types/etiquette-topic";
-import { PageHeader, PageShell } from "../components/page-layout";
+import { BirdLetter, KindBadge, OrnamentDivider } from "../components/etiquette-ui";
+import { PageHeader, PageShell, PageTitle } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { etiquetteTopic, readyEtiquetteTopics } from "../data/etiquette";
 import { breadcrumbJsonLd, seoMeta } from "../utils/seo";
-import { KindBadge } from "../components/etiquette-badge";
 
 export function loader({ params }: Route.LoaderArgs) {
   const topic = etiquetteTopic(params.topic);
@@ -25,88 +25,118 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
-const chip = "inline-flex min-h-9 items-center rounded-full border border-glass-border bg-subtle px-3.5 text-[13px] text-ink no-underline hover:text-gold-bright";
-const label = "text-[11px] font-bold tracking-[1.2px] text-gold uppercase";
+const sectionTitle = "m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase";
+const line = <span className="h-px flex-1 bg-[linear-gradient(90deg,rgb(217_181_111/45%),transparent)]" aria-hidden="true" />;
 
-/** Վարվելակարգի մեկ բաժին՝ ամփոփում, կանոնների քարտեր, հարցեր։ */
+/** Վարվելակարգի մեկ բաժին. նախ ինչպես վարվել, հետո սխալ կարծիքներ, հետո հարցեր։ */
 export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
   const topic = etiquetteTopic(loaderData.slug)!;
   const ready = readyEtiquetteTopics();
   const at = ready.findIndex((item) => item.slug === topic.slug);
   const prev = ready[at - 1];
   const next = ready[at + 1];
-  const related = (topic.related ?? []).map(etiquetteTopic).filter((item) => item && item.status !== "soon");
+  const rules = topic.rules.filter((rule) => rule.kind !== "superstition");
+  const myths = topic.rules.filter((rule) => rule.kind === "superstition");
 
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/etiquette" backLabel="Վարվելակարգ" title={topic.title} />
-      <article className="mt-4 grid gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={label}>Վարվելակարգ · {topic.letter}</span>
-          {topic.status === "review" ? <span className="rounded-chip bg-[rgb(125_60_86/14%)] px-2.5 py-0.5 text-[12px] font-bold text-muted">⚑ Ստուգման մեջ</span> : null}
-        </div>
+      <PageHeader backTo="/etiquette" backLabel="Վարվելակարգ" title="" />
 
-        {topic.summary ? (
-          <section className="rounded-card border border-[rgb(217_181_111/35%)] bg-[linear-gradient(135deg,rgb(226_194_126/26%),rgb(176_125_46/12%))] px-5 py-4">
-            <h2 className={`${label} m-0 mb-1.5`}>Կարճ</h2>
-            <p className="reading-body m-0 text-[15.5px] leading-[1.75] text-ink">{topic.summary}</p>
-          </section>
-        ) : null}
+      <header className="grid justify-items-center gap-1 text-center">
+        <BirdLetter letter={topic.letter} className="text-[88px]" />
+        <h1 className="m-0 font-noto text-[28px] leading-[34px] font-medium tracking-[-0.4px] text-balance text-ink min-[768px]:text-[38px] min-[768px]:leading-[44px]">
+          <PageTitle title={topic.title} />
+        </h1>
+        <OrnamentDivider className="mt-1" />
+        {topic.summary ? <p className="reading-body m-0 max-w-[600px] font-noto text-[16.5px] leading-[1.8] text-ink">{topic.summary}</p> : null}
+        {topic.status === "review" ? <p className="m-0 mt-1 text-[12px] text-muted">⚑ Ստուգվում է հոգևորականի կողմից</p> : null}
+      </header>
 
-        <nav className="flex flex-wrap gap-1.5" aria-label="Այս էջում">
-          {topic.rules.map((rule) => <a key={rule.id} className={chip} href={`#${rule.id}`}>{rule.title}</a>)}
-          {topic.faq?.length ? <a className={chip} href="#faq">Հաճախ հարցնում են</a> : null}
-        </nav>
+      {rules.length ? (
+        <section className="mt-8 grid gap-3" aria-labelledby="rules">
+          <h2 className={sectionTitle} id="rules">Ինչպես վարվել{line}</h2>
+          <ol className="m-0 grid list-none gap-3 p-0">
+            {rules.map((rule, index) => (
+              <li key={rule.id} id={rule.id} className="frosted-panel hero-rise grid scroll-mt-20 grid-cols-[auto_1fr] gap-x-3.5 gap-y-2 px-4 py-4 min-[560px]:px-5" style={{ animationDelay: `${120 + index * 60}ms` }}>
+                <span className="grid size-9 place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] font-noto text-[15px] font-bold text-[#2a1708]" aria-hidden="true">{index + 1}</span>
+                <div className="grid min-w-0 gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <h3 className="m-0 font-noto text-[18px] leading-snug font-semibold text-ink">{rule.title}</h3>
+                    <KindBadge kind={rule.kind} />
+                  </div>
+                  <p className="reading-body m-0 text-[15px] leading-[1.75] text-ink">{rule.what}</p>
+                  {rule.why ? (
+                    <div className="flex gap-2.5 rounded-button bg-[rgb(217_181_111/13%)] px-3.5 py-3">
+                      <BookOpen className="mt-0.5 shrink-0 text-gold" aria-hidden="true" size={17} strokeWidth={1.8} />
+                      <p className="reading-body m-0 text-[14px] leading-[1.7] text-muted"><strong className="text-gold-bright">Ինչու. </strong>{rule.why}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
-        {topic.rules.map((rule) => (
-          <section key={rule.id} id={rule.id} className="frosted-panel grid scroll-mt-20 gap-2.5 px-5 py-4">
-            <KindBadge kind={rule.kind} />
-            <h2 className="m-0 font-noto text-[18px] leading-snug font-semibold text-ink">{rule.title}</h2>
-            <div className="grid gap-1">
-              {rule.kind === "superstition" ? <h3 className={`${label} m-0`}>Իրականում</h3> : <h3 className={`${label} m-0`}>Ինչ անել</h3>}
-              <p className="reading-body m-0 text-[15px] leading-[1.75] text-ink">{rule.what}</p>
-            </div>
-            {rule.why ? (
-              <div className="grid gap-1">
-                <h3 className={`${label} m-0`}>Ինչու</h3>
-                <p className="reading-body m-0 text-[15px] leading-[1.75] text-ink">{rule.why}</p>
-              </div>
-            ) : null}
-          </section>
-        ))}
+      {myths.length ? (
+        <section className="mt-8 grid gap-3" aria-labelledby="myths">
+          <h2 className={sectionTitle} id="myths">Սխալ կարծիքներ{line}</h2>
+          <div className="grid gap-3 min-[700px]:grid-cols-2">
+            {myths.map((rule) => (
+              <article key={rule.id} id={rule.id} className="frosted-card grid scroll-mt-20 content-start gap-0 overflow-hidden">
+                <div className="flex items-start gap-2.5 bg-[rgb(178_72_63/9%)] px-4 py-3">
+                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[rgb(178_72_63/16%)] text-danger" aria-hidden="true"><X size={14} strokeWidth={2.4} /></span>
+                  <p className="m-0 font-noto text-[15.5px] leading-snug text-ink line-through decoration-[rgb(178_72_63/45%)] decoration-1">{rule.title}</p>
+                </div>
+                <div className="flex items-start gap-2.5 px-4 py-3">
+                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-[rgb(61_118_80/16%)] text-success" aria-hidden="true"><Check size={14} strokeWidth={2.4} /></span>
+                  <p className="reading-body m-0 text-[14.5px] leading-[1.7] text-ink"><strong>Իրականում. </strong>{rule.what}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-        {topic.faq?.length ? (
-          <section id="faq" className="frosted-panel grid scroll-mt-20 gap-1 px-5 py-4">
-            <h2 className="m-0 mb-1 font-noto text-[17px] font-semibold text-gold-bright">Հաճախ հարցնում են</h2>
+      {topic.faq?.length ? (
+        <section className="mt-8 grid gap-3" aria-labelledby="faq">
+          <h2 className={sectionTitle} id="faq">Հաճախ հարցնում են{line}</h2>
+          <div className="frosted-panel grid px-2 py-1">
             {topic.faq.map((item) => (
-              <details key={item.q} className="border-b border-glass-border py-2 last:border-b-0">
-                <summary className="min-h-9 cursor-pointer py-1.5 text-[15px] font-semibold text-ink">{item.q}</summary>
-                <p className="reading-body m-0 pb-2 text-[15px] leading-[1.75] text-ink">{item.a}</p>
+              <details key={item.q} className="group border-b border-glass-border last:border-b-0">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <ChevronDown className="shrink-0 text-gold transition-transform group-open:rotate-180" aria-hidden="true" size={18} />
+                </summary>
+                <p className="reading-body m-0 px-3 pb-3 text-[15px] leading-[1.75] text-ink">{item.a}</p>
               </details>
             ))}
-          </section>
-        ) : null}
-
-        {related.length ? (
-          <section className="grid gap-2">
-            <h2 className={`${label} m-0`}>Կապված թեմաներ</h2>
-            <div className="flex flex-wrap gap-1.5">
-              {related.map((item) => <Link key={item!.slug} className={chip} to={`/etiquette/${item!.slug}`}>{item!.title}</Link>)}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="flex flex-wrap items-center gap-3 rounded-card border border-dashed border-[rgb(217_181_111/45%)] px-5 py-4">
-          <p className="m-0 flex-[1_1_260px] text-[14.5px] leading-relaxed text-ink">Ձեր հարցը այստեղ չկա՞։ Գրեք մեզ, պատասխանը կավելացնենք այս էջում։</p>
-          <Link className="inline-flex min-h-11 items-center rounded-button bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-5 text-[14px] font-semibold text-[#2a1708] no-underline" to="/kap">Հարցնել</Link>
+          </div>
         </section>
+      ) : null}
 
-        <nav className="flex flex-wrap justify-between gap-2" aria-label="Այլ բաժիններ">
-          {prev ? <Link className={`${chip} min-h-11 gap-1.5`} to={`/etiquette/${prev.slug}`}><ArrowLeft aria-hidden="true" size={16} />{prev.title}</Link> : <span />}
-          {next ? <Link className={`${chip} min-h-11 gap-1.5`} to={`/etiquette/${next.slug}`}>{next.title}<ArrowRight aria-hidden="true" size={16} /></Link> : null}
-        </nav>
-      </article>
+      <section className="mt-8 grid justify-items-center gap-3 rounded-panel border border-[rgb(217_181_111/35%)] bg-[linear-gradient(135deg,rgb(226_194_126/20%),rgb(125_60_86/8%))] px-5 py-6 text-center">
+        <p className="m-0 max-w-[420px] font-noto text-[16px] leading-relaxed text-ink">Ձեր հարցի պատասխանը այստեղ չգտա՞ք</p>
+        <Link className="inline-flex min-h-11 items-center rounded-button bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-6 text-[14px] font-semibold text-[#2a1708] no-underline" to="/kap">Հարցնել</Link>
+      </section>
+
+      <nav className="mt-6 grid gap-2.5 min-[560px]:grid-cols-2" aria-label="Այլ բաժիններ">
+        {prev ? (
+          <Link className="frosted-card flex min-h-[68px] items-center gap-3 px-4 py-2 text-inherit no-underline" to={`/etiquette/${prev.slug}`}>
+            <ArrowLeft className="shrink-0 text-gold" aria-hidden="true" size={18} />
+            <BirdLetter letter={prev.letter} className="text-[34px]" />
+            <span className="grid"><span className="text-[11px] text-muted">Նախորդը</span><strong className="font-noto text-[15px] font-semibold">{prev.title}</strong></span>
+          </Link>
+        ) : <span className="hidden min-[560px]:block" />}
+        {next ? (
+          <Link className="frosted-card flex min-h-[68px] items-center justify-end gap-3 px-4 py-2 text-right text-inherit no-underline" to={`/etiquette/${next.slug}`}>
+            <span className="grid"><span className="text-[11px] text-muted">Հաջորդը</span><strong className="font-noto text-[15px] font-semibold">{next.title}</strong></span>
+            <BirdLetter letter={next.letter} className="text-[34px]" />
+            <ArrowRight className="shrink-0 text-gold" aria-hidden="true" size={18} />
+          </Link>
+        ) : null}
+      </nav>
     </PageShell>
   );
 }
