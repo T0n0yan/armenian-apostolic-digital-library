@@ -188,9 +188,10 @@ function HeaderBar({action, backLabel, backTo, children, description, eyebrow, h
             {action ? <div className={`absolute top-1/2 z-20 -translate-y-1/2 ${showSearch && !home ? "right-12" : "right-0"}`}>{action}</div> : null}
         </div>) : null}
 
-        <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>
+        {/* Դատարկ վերնագիր՝ էջը իր h1-ն ինքն է նկարում (օր.՝ նկարով գլխանկար)։ */}
+        {title === "" ? null : <h1 className={`w-full font-regular text-balance max-w-[860px] ${titleSize(title)}`}>
             <PageTitle title={title} ornate={ornate}/>
-        </h1>
+        </h1>}
         {eyebrow ? <p className="m-0 text-[8px] font-noto tracking-[1.6px] text-gold min-[960px]:text-[13px]">
             {eyebrow}
         </p> : null}
