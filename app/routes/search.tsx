@@ -18,6 +18,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -61,6 +62,7 @@ import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
+import { searchEtiquette } from "../utils/etiquette-search";
 import { buildSearchVocabulary, correctSearchQuery, type SearchCorrection, type SearchVocabulary } from "../../shared/search-correction";
 import { searchVocabulary } from "../data/search-correction.server";
 import { PLACE_KINDS, placeThumbUrl, type PlaceKind } from "../utils/places";
@@ -732,6 +734,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
       />
 
       {filters.query && !filters.categoryId && filters.scope === "library" && loaderData.canSave ? <NoteMatches query={filters.query} /> : null}
+      {filters.query && !filters.categoryId && filters.scope === "library" ? <EtiquetteMatches query={filters.query} /> : null}
       {filters.query && !filters.categoryId && filters.scope === "library" ? <PlaceMatches query={filters.query} /> : null}
 
       <section className="mt-4 grid gap-3" aria-live="polite" aria-busy={isRefreshing || undefined}>
@@ -871,6 +874,32 @@ function NoteMatches({ query }: { query: string }) {
 type FoundPlace = { id: string; name: string; kind: PlaceKind; region: string; icon: string | null; cover: string | null };
 
 /** Sacred places whose name matches the search, above the library's results (nothing when none). */
+/** «Վարք եկեղեցում»-ի կանոններ (կայքի սեփական տվյալներ, առանց հարցման)։ */
+function EtiquetteMatches({ query }: { query: string }) {
+  const hits = useMemo(() => searchEtiquette(query, 6), [query]);
+  if (!hits.length) return null;
+  return (
+    <section className="mt-4 grid gap-2" aria-labelledby="etiquette-search-results">
+      <div className={sectionHeader}>
+        <h2 className={sectionTitle} id="etiquette-search-results">Վարք եկեղեցում</h2>
+        <span className={countBadge}>{hits.length}</span>
+      </div>
+      <ul className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2">
+        {hits.map((hit) => (
+          <li key={hit.href}>
+            <Link className="frosted-card grid gap-0.5 px-3.5 py-2.5 text-inherit no-underline" to={hit.href}>
+              <span className="text-[11.5px] font-semibold text-gold-bright">{hit.topic}</span>
+              <strong className="font-noto text-[14px] leading-snug text-ink">{hit.title}</strong>
+              <span className="line-clamp-1 text-[12.5px] text-muted">{hit.text}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link className="w-fit text-[13px] font-semibold text-gold-bright" to={`/etiquette?q=${encodeURIComponent(query)}`}>Բոլորը «Վարք եկեղեցում» բաժնում →</Link>
+    </section>
+  );
+}
+
 function PlaceMatches({ query }: { query: string }) {
   const [found, setFound] = useState<{ query: string; total: number; places: FoundPlace[] } | null>(null);
   useEffect(() => {

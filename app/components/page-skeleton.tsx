@@ -417,7 +417,7 @@ function MaterialBody({ section, psalm }: { section: Section; psalm: number | nu
 }
 
 function Home() {
-  const order = HOME_ORDER.map((id) => id === "places" ? { id, name: "Սրբավայրեր" } : id === "etiquette" ? { id, name: "Վարվելակարգ" } : CONTENT_CATEGORIES.find((category) => category.id === id)!);
+  const order = HOME_ORDER.map((id) => id === "places" ? { id, name: "Սրբավայրեր" } : id === "etiquette" ? { id, name: "Վարք եկեղեցում" } : CONTENT_CATEGORIES.find((category) => category.id === id)!);
   return (
     <>
       <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
