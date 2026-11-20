@@ -318,7 +318,7 @@ flowchart LR
   HOME --> SAVED["/saved պահվածներ"]
   SAVED --> NOTES["/saved?tab=notes Իմ նշումները<br/>(ներդիրներ՝ Պահված նյութեր · Իմ ընթերցանությունը · Իմ նշումները)"]
   HOME --> PLACES["/places քարտեզ"]
-  HOME --> ETQ["/etiquette Վարվելակարգ"]
+  HOME --> ETQ["/etiquette Վարք եկեղեցում"]
   ETQ --> ETQT["/etiquette/:topic մեկ բաժին"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
