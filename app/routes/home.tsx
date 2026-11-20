@@ -6,7 +6,7 @@ import {Form, Link, useNavigate, useNavigation} from "react-router";
 
 import type {Route} from "./+types/home";
 import {CategoryIcon} from "../components/category-icon";
-import {PlacesIcon} from "../components/topic-icons";
+import {EtiquetteIcon, PlacesIcon} from "../components/topic-icons";
 import { PageShell } from "../components/page-layout";
 import {SiteNav} from "../components/site-nav";
 import {DailyVerseCard} from "../components/daily-verse";
@@ -85,20 +85,20 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
     </li>);
 });
 
-/** «Սրբավայրեր»: the map of churches, shaped like the sections around it. */
-function PlacesCard({count, index}: { count: number | null; index: number }) {
+/** Կայքի սեփական բաժիններ (Սրբավայրեր, Վարվելակարգ)՝ նույն ձևով, ինչ Telegram-ից եկածները։ */
+function SiteSectionCard({to, title, note, icon, index}: { to: string; title: string; note: string; icon: React.ReactNode; index: number }) {
     const navigation = useNavigation();
-    const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, "/places");
+    const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, to);
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
         <Link className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
-            to="/places" aria-busy={isOpening || undefined} onClick={(event) => { if (isOpening) event.preventDefault(); }}>
+            to={to} aria-busy={isOpening || undefined} onClick={(event) => { if (isOpening) event.preventDefault(); }}>
             <span className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"
                 style={{"--ti-delay": `${index * 0.45}s`} as React.CSSProperties} aria-hidden="true">
-                <PlacesIcon size={24}/>
+                {icon}
             </span>
             <span className="relative z-1 grid min-w-0 flex-1 gap-0.5">
-                <strong className="font-noto text-[16px] leading-[22px] font-semibold min-[960px]:text-[17px] min-[960px]:leading-[23px]">Սրբավայրեր</strong>
-                <span className="text-[12.5px] text-faint">{count ? `${count} սրբավայր քարտեզում` : "Եկեղեցիներ և վանքեր քարտեզում"}</span>
+                <strong className="font-noto text-[16px] leading-[22px] font-semibold min-[960px]:text-[17px] min-[960px]:leading-[23px]">{title}</strong>
+                <span className="text-[12.5px] text-faint">{note}</span>
             </span>
             <span className="relative z-1 mr-2 text-gold" aria-hidden="true">
                 {isOpening ? <LoaderCircle className="animate-search-spin" size={19} strokeWidth={1.8}/> : <ArrowRight size={18} strokeWidth={1.8}/>}
@@ -114,8 +114,9 @@ const CategoryGrid = memo(function CategoryGrid({categories, places}: { categori
     const at = after < 0 ? categories.length : after + 1;
     return (<ol className="m-0 grid list-none gap-2.5 p-0 min-[560px]:grid-cols-2 min-[960px]:grid-cols-3">
         {categories.slice(0, at).map((category, index) => (<CategoryCard key={category.id} category={category} index={index}/>))}
-        <PlacesCard count={places} index={at}/>
+        <SiteSectionCard to="/places" title="Սրբավայրեր" note={places ? `${places} սրբավայր քարտեզում` : "Եկեղեցիներ և վանքեր քարտեզում"} icon={<PlacesIcon size={24}/>} index={at}/>
         {categories.slice(at).map((category, index) => (<CategoryCard key={category.id} category={category} index={at + 1 + index}/>))}
+        <SiteSectionCard to="/etiquette" title="Վարվելակարգ" note="Ինչպես վարվել եկեղեցում և ինչու" icon={<EtiquetteIcon size={24}/>} index={categories.length + 1}/>
     </ol>);
 });
 

@@ -16,6 +16,11 @@ function Icon({ size = 24, motion, body, strokeWidth: _strokeWidth, className = 
   );
 }
 
+/** Վարվելակարգ՝ վառվող մոմ ավազի մեջ։ */
+export function EtiquetteIcon(props: IconProps) {
+  return <Icon {...props} motion="ti-candle" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 2.5c1.6 1.9 2.3 3.1 2.3 4.2a2.3 2.3 0 0 1-4.6 0c0-1.1.7-2.3 2.3-4.2z\"/><path d=\"M12 9v1.2\"/><path d=\"M10 10.2h4v8.3h-4z\"/><path d=\"M5.5 18.5h13l-1.5 3h-10z\"/></g>"} />;
+}
+
 /** Sacred places: an Armenian church, its conical dome and cross over the drum, an arched door. */
 export function PlacesIcon(props: IconProps) {
   return <Icon {...props} motion="ti-church" body={"<g fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"1.5\"><path d=\"M12 1.75v2.9M10.85 2.85h2.3\"/><path d=\"M8.6 9 12 4.9 15.4 9z\"/><path d=\"M9.35 9v3.6h5.3V9\"/><path d=\"M12 10.1v1.3\"/><path d=\"M5 21.25V15.4l2.6-2.8h8.8l2.6 2.8v5.85\"/><path d=\"M3.5 21.25h17\"/><path d=\"M10.5 21.25v-2.6a1.5 1.5 0 0 1 3 0v2.6\"/><path d=\"M7.6 16.6v1.6M16.4 16.6v1.6\"/></g>"} />;

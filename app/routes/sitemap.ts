@@ -1,3 +1,4 @@
+import { readyEtiquetteTopics } from "../data/etiquette";
 import { listPublicPlaceSummaries } from "../data/places.server";
 import { env } from "cloudflare:workers";
 
@@ -52,6 +53,8 @@ export async function loader() {
       entry("/places", null, "0.7"),
       // Միայն բովանդակություն ունեցող սրբավայրերը. դատարկները noindex են (place.tsx)։
       ...(await listPublicPlaceSummaries(env.DB)).filter(placeHasContent).map((place) => entry(`/places/${place.id}`, place.updatedAt)),
+      entry("/etiquette", null, "0.7"),
+      ...readyEtiquetteTopics().map((topic) => entry(`/etiquette/${topic.slug}`, null, "0.6")),
       entry("/mer-masin", null, "0.3"),
       entry("/kap", null, "0.3"),
       entry("/ognutyun", null, "0.4"),
