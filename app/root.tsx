@@ -1,4 +1,5 @@
 import { BOOT_SCRIPT } from "./utils/boot-script";
+import { installLiquidGlass } from "./utils/liquid-glass";
 import {env} from "cloudflare:workers";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
@@ -293,6 +294,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
   useEffect(() => { markAppHydrated(); }, []);
   // Բրաուզերից դուրս գալիս ձայնը չի կանգնում (utils/background-playback.ts)։
   useEffect(() => { installBackgroundPlayback(); }, []);
+  // Ապակու բեկումը (միայն Chromium-ում, մնացածում՝ սովորական blur)։
+  useEffect(() => installLiquidGlass(), []);
   // Անկյան տեսանյութին սեղմելիս՝ նրա էջը (video-dock.ts). նոր էջում նվագողի քարտը նշվում և երևում է։
   const navigate = useNavigate();
   const { pathname } = useLocation();

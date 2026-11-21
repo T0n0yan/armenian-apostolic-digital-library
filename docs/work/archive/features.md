@@ -1,4 +1,5 @@
 # Արխիվ — features
+- 2026-11-15 — Ավետարանի ուսուցում. թաբեր ըստ հոգևորականի (անունը՝ տեսանյութի տակի վերջին շեղ տողից), բաժինը բեռնվում է ամբողջությամբ ([PR #189](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/189))։
 - 2026-11-15 — Անձնական չատը փակված է (`PRIVATE_CHAT_OPEN = false`), մնացել է միայն «Նա հիմա կայքում է» ծանուցումը տիրոջը ([PR #188](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/188))։
 - 2026-11-14 — Բոլոր էջերի կմախքները՝ իրենց էջի նման (բաժիններ, նյութի էջեր, որոնում, «Իմ անկյունը», սրբավայրեր, օգնություն, գլխավոր). [#186](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/186)
 
