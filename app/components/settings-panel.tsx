@@ -117,7 +117,7 @@ export function SettingsPanel() {
   const chooseTheme = (next: ThemePreference) => {
     setTheme(next);
     writeStorage(THEME_STORAGE_KEY, next);
-    requestAnimationFrame(() => setTimeout(() => applyThemePreference(next), 0));
+    requestAnimationFrame(() => setTimeout(() => applyThemePreference(next, { animate: true }), 0));
   };
   const locate = () => {
     if (!("geolocation" in navigator)) return;
