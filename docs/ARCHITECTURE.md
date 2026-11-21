@@ -814,6 +814,11 @@ Smoke ստուգումը՝ `scripts/smoke.mjs <հասցե>`. գլխավոր, `/p
   կլոր կոճակ, պատուհաններ, toast-եր)։ Մեծ վահանակներին (`frosted-panel`) և մենյուի մթնեցմանը blur ՉԴՆԵԼ.
   scroll-ի ամեն կադրում վերահաշվարկվում էր և հեռախոսում էջը կտրտում էր, իսկ blur-ը blur-ի մեջ
   Android-ում դատարկ ուղղանկյուն էր տալիս (2026-11-12)։
+- Ապակու բեկում (refraction, 2026-11-21)՝ `app/utils/liquid-glass.ts`։ Միայն Chromium-ում (Chrome, Android Telegram)
+  և միայն երբ ետևի էջը կանգնած է՝ բաց մենյու (`.menu-panel[data-open]`) և scroll-lock-ով պատուհան
+  (`html[data-scroll-locked] .liquid-sheet`, նշանը դնում է `scroll-lock.ts`-ը)։ Ամեն չափի համար canvas-ով
+  նկարվում է տեղաշարժի քարտեզ → SVG ֆիլտր (`feDisplacementMap`, R/G/B առանձին) → `--lg-refract`։
+  Safari/iOS/Firefox, «Քիչ շարժում», «Քիչ թափանցիկություն», թույլ հեռախոս (<3 ԳԲ)՝ առանց բեկման։
 
 ## 23. Թղթապանակների քարտեզը
 
