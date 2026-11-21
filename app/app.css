@@ -519,6 +519,10 @@ html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-she
 .ti-church { animation-name: ti-church; transform-origin: 50% 100%; }
 @keyframes ti-church { 0%, 70%, 100% { transform: none; } 78% { transform: translateY(-5%); } 86% { transform: translateY(0) scaleY(.97); } 92% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ti, .ti .ti-stroke { animation: none; } }
+/* Մենյուում պատկերակները չեն շարժվում. ապակու (blur) տակ ամեն շարժում ամբողջ վահանակն էր նորից նկարում,
+   և սալիկները «թռթռում» էին (տիրոջ դիտողություն, 2026-11-21)։ Բաց մենյուի ժամանակ կոճակի ծաղկեպսակն էլ է կանգնում։ */
+.menu-panel .ti, .menu-panel .ti .ti-stroke { animation: none; }
+.liquid-fab[aria-expanded="true"] img { animation-play-state: paused; }
 
 /* Loader candle. */
 @keyframes candle-flicker { 0%, 100% { transform: scale(1, 1) rotate(-1deg); opacity: 1; } 25% { transform: scale(.96, 1.06) rotate(1.5deg); } 50% { transform: scale(1.03, .95) rotate(-1.5deg); opacity: .92; } 75% { transform: scale(.98, 1.04) rotate(1deg); } }

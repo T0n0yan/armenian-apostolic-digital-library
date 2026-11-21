@@ -92,6 +92,7 @@ export function SettingsPanel() {
   };
   const [sunText, setSunText] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [hasSunPlace, setHasSunPlace] = useState(false);
 
   useEffect(() => {
     setTheme(readStoredThemePreference());
@@ -105,13 +106,14 @@ export function SettingsPanel() {
   }, []);
 
   // Today's sunrise and sunset for the "sun" theme.
+  // Հաշվում ենք միշտ (ոչ միայն «Ըստ ժամի»-ի ժամանակ), որ թաքնված բացատրությունը նույն երկարությունն ունենա, և բաժինը չցատկի։
   useEffect(() => {
-    if (theme !== "sun") { setSunText(null); return; }
+    setHasSunPlace(Boolean(readSunPlace()));
     const place = readSunPlace() ?? { latitude: 40.18, longitude: 44.51 };
     const times = sunTimes(new Date(), place.latitude, place.longitude);
     const time = formatClock;
     setSunText(times ? `Բաց՝ ${time(times.sunrise)}-ից, մուգ՝ ${time(times.sunset)}-ից${readSunPlace() ? "" : " (Երևանի ժամով)"}` : null);
-  }, [theme, locating]);
+  }, [locating]);
 
   // Նախ ընտրված կոճակը (անմիջապես երևում է), հետո՝ ծանր վերաներկումը հաջորդ կադրում։
   const chooseTheme = (next: ThemePreference) => {
@@ -131,18 +133,31 @@ export function SettingsPanel() {
 
   return (
       <div className="grid gap-3">
-        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Կայքի լուսավորություն" hint={theme === "sun" ? sunText ?? "Ցերեկը բաց, երեկոյից մուգ" : theme === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}>
+        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Կայքի լուսավորություն" hint={
+          // Բոլոր բացատրությունները նույն տեղում են (երևում է միայն ընտրվածը), որ բաժնի բարձրությունը
+          // չփոխվի և թեման փոխելիս վահանակը չցատկի։
+          <span className="grid">
+            {(["system", "sun", "light", "dark"] as const).map((option) => (
+              <span key={option} className={`[grid-area:1/1] ${option === theme ? "" : "invisible"}`}>
+                {option === "sun" ? (
+                  <>
+                    {sunText ?? "Ցերեկը բաց, երեկոյից մուգ"}
+                    <br />
+                    <button className="mt-1 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-transparent px-2.5 text-[12px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
+                      <LocateFixed aria-hidden="true" size={14} /> {hasSunPlace ? "Թարմացնել իմ վայրը" : "Օգտագործել իմ վայրը"}
+                    </button>
+                  </>
+                ) : option === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}
+              </span>
+            ))}
+          </span>
+        }>
           <Choice columns={4} value={theme} onChange={chooseTheme} options={[
             { value: "system", label: "Սարքի պես", icon: <Monitor aria-hidden="true" size={17} /> },
             { value: "sun", label: "Ըստ ժամի", icon: <SunMoon aria-hidden="true" size={17} /> },
             { value: "light", label: "Բաց", icon: <Sun aria-hidden="true" size={17} /> },
             { value: "dark", label: "Մուգ", icon: <Moon aria-hidden="true" size={17} /> },
           ]} />
-          {theme === "sun" ? (
-            <button className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-2 rounded-control border border-glass-border bg-transparent px-3 text-[12.5px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
-              <LocateFixed aria-hidden="true" size={15} /> {readSunPlace() ? "Թարմացնել իմ վայրը" : "Օգտագործել իմ վայրը"}
-            </button>
-          ) : null}
         </Setting>
 
         <Setting icon={<BookOpen aria-hidden="true" size={18} />} title="Ընթերցանության տառատեսակ" hint="«Ըստ բաժնի»՝ աղոթքներն ու սաղմոսները Արիան գրքով, մնացածը՝ իրենց տառատեսակով։">
