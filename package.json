@@ -38,6 +38,7 @@
 	},
 	"dependencies": {
 		"big-integer": "^1.6.52",
+		"glisse": "0.6.0",
 		"isbot": "^5.1.36",
 		"jose": "^6.2.12",
 		"lucide-react": "^1.55.0",
