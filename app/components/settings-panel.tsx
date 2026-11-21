@@ -113,7 +113,12 @@ export function SettingsPanel() {
     setSunText(times ? `Բաց՝ ${time(times.sunrise)}-ից, մուգ՝ ${time(times.sunset)}-ից${readSunPlace() ? "" : " (Երևանի ժամով)"}` : null);
   }, [theme, locating]);
 
-  const chooseTheme = (next: ThemePreference) => { setTheme(next); writeStorage(THEME_STORAGE_KEY, next); applyThemePreference(next); };
+  // Նախ ընտրված կոճակը (անմիջապես երևում է), հետո՝ ծանր վերաներկումը հաջորդ կադրում։
+  const chooseTheme = (next: ThemePreference) => {
+    setTheme(next);
+    writeStorage(THEME_STORAGE_KEY, next);
+    requestAnimationFrame(() => setTimeout(() => applyThemePreference(next), 0));
+  };
   const locate = () => {
     if (!("geolocation" in navigator)) return;
     setLocating(true);
