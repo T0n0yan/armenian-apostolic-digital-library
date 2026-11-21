@@ -88,7 +88,8 @@ try {
   console.log('✓ Էջերը չեն լայնանում 320, 390 և 1440 px-ում');
   await open('/settings');
   await page.getByText('Մուգ', { exact: true }).click();
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  // Թեման փոխվում է հաջորդ կադրում (settings-panel.tsx), դրա համար սպասում ենք։
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark', null, { timeout: 3000 });
   assert.ok((await page.locator('meta[name=robots]').getAttribute('content')).includes('noindex'));
 
   const fresh = await browser.newContext({ viewport: { width: 390, height: 844 } });

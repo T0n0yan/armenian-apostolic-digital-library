@@ -1102,6 +1102,10 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 /* Բացառություն՝ բաց մենյուն (սեփականատիրոջ որոշում). բացված ժամանակ ետևի էջը չի շարժվում, դրա համար թեթև է։ */
 .menu-panel[data-open] { -webkit-backdrop-filter: blur(22px) saturate(160%) !important; backdrop-filter: blur(22px) saturate(160%) !important; }
+/* Թեման փոխվելու կադրում (theme.ts). առանց անիմացիաների և blur-ի, որ ամբողջ էջը նկարվի մեկ անգամ, ոչ թե 300 մվ ամեն կադր։
+   Ընտրված կոճակի սահելը (`tab-glider`) մնում է։ */
+html[data-theme-switching] *:not(.tab-glider), html[data-theme-switching] *::before, html[data-theme-switching] *::after { transition: none !important; }
+html[data-theme-switching] .menu-panel[data-open] { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
 /* Բառարանի ձևը տեքստի վրա. blur չկա, դրա համար ֆոնը լրիվ անթափանց է, որ ետևի տեքստը չերևա։ */
 .liquid-sheet.glossary-sheet { background: rgb(247 238 218) !important; }
