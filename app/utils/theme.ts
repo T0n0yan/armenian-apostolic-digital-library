@@ -50,7 +50,7 @@ export function readStoredTextSize(): TextSizePreference {
   return normalizeTextSizePreference(readStorage(TEXT_SIZE_STORAGE_KEY));
 }
 
-export function applyThemePreference(preference: ThemePreference) {
+export function applyThemePreference(preference: ThemePreference, options: { animate?: boolean } = {}) {
   const root = window.document.documentElement;
   const telegramTheme = root.dataset.telegramContext === "true" &&
       (root.dataset.telegramTheme === "light" || root.dataset.telegramTheme === "dark")
@@ -64,11 +64,22 @@ export function applyThemePreference(preference: ThemePreference) {
   );
   root.dataset.themePreference = preference;
   if (root.dataset.theme !== resolved) {
-    // Փոխվելու կադրում անիմացիաներն ու մենյուի blur-ը անջատված են (app.css, `data-theme-switching`).
-    // Առանց դրա ամեն գույնի անիմացիա 300 մվ ամբողջ էջն էր նորից նկարում, և հեռախոսը կախվում էր։
-    root.dataset.themeSwitching = "";
-    root.dataset.theme = resolved;
-    requestAnimationFrame(() => requestAnimationFrame(() => { delete root.dataset.themeSwitching; }));
+    // Տարրերի գույնի անիմացիաները անջատված են (app.css, `data-theme-switching`). առանց դրա ամեն մեկը
+    // 300 մվ ամբողջ էջն էր նորից նկարում, և հեռախոսը կախվում էր։
+    const switchTheme = () => {
+      root.dataset.themeSwitching = "";
+      root.dataset.theme = resolved;
+    };
+    const done = () => { delete root.dataset.themeSwitching; };
+    const startViewTransition = (document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } }).startViewTransition;
+    const calm = root.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (options.animate && startViewTransition && !calm) {
+      // Սահուն անցում. զննարկիչը հին և նոր էկրանի նկարները միացնում է վիդեոքարտով (app.css, ::view-transition)։
+      startViewTransition.call(document, switchTheme).finished.finally(done);
+    } else {
+      switchTheme();
+      requestAnimationFrame(() => requestAnimationFrame(done));
+    }
   }
   const color = THEME_COLORS[resolved];
   window.document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
