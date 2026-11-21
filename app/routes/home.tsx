@@ -133,7 +133,7 @@ function HomeSearch() {
         setError(message);
         if (!message) navigate(`/search?q=${encodeURIComponent(trimmed)}`);
     };
-    return (<div><Form className="hero-rise hero-rise-delay-2 relative z-30 mt-3 mb-1 flex min-h-[52px] w-full items-center gap-[10px] search-field pr-[6px] pl-[14px]" action="/search" method="get" role="search" onSubmit={(event) => { event.preventDefault(); go(value); }}>
+    return (<div><Form className="hero-rise hero-rise-delay-2 relative z-30 mt-5 mb-1 flex min-h-[52px] w-full items-center gap-[10px] search-field pr-[6px] pl-[14px]" action="/search" method="get" role="search" onSubmit={(event) => { event.preventDefault(); go(value); }}>
         <Search aria-hidden="true" size={19} strokeWidth={1.9}/>
         <SearchSuggestions inputRef={inputRef} onPick={go}/>
         <input ref={inputRef} className="min-w-0 flex-1 border-0 bg-transparent text-[16px] text-ink outline-none placeholder:text-faint" type="search" name="q" placeholder="Փնտրել աղոթք, սաղմոս, սուրբ…" aria-label="Որոնել գրադարանում" autoComplete="off" maxLength={120} enterKeyHint="search"
@@ -165,10 +165,10 @@ export default function Home({loaderData}: Route.ComponentProps) {
             </div>
         </div>
         <HomeTitle/>
-        <div className="hero-rise hero-rise-delay-2 mt-1"><DailyVerseCard/></div>
+        <div className="hero-rise hero-rise-delay-2 mt-2"><DailyVerseCard/></div>
         <HomeSearch/>
-        <section className="mt-4 grid gap-3" aria-labelledby="categories-title">
-            <h2 className="m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase" id="categories-title">
+        <section className="mt-7 grid gap-3.5" aria-labelledby="categories-title">
+            <h2 className="m-0 flex items-center gap-3 px-1 text-[11px] font-bold tracking-[1.2px] text-gold uppercase" id="categories-title">
                 Բաժիններ
                 <span className="h-px flex-1 bg-[linear-gradient(90deg,rgb(217_181_111/45%),transparent)]" aria-hidden="true"/>
             </h2>
