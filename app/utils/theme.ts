@@ -63,7 +63,13 @@ export function applyThemePreference(preference: ThemePreference) {
     readSunPlaceSafely(),
   );
   root.dataset.themePreference = preference;
-  root.dataset.theme = resolved;
+  if (root.dataset.theme !== resolved) {
+    // Փոխվելու կադրում անիմացիաներն ու մենյուի blur-ը անջատված են (app.css, `data-theme-switching`).
+    // Առանց դրա ամեն գույնի անիմացիա 300 մվ ամբողջ էջն էր նորից նկարում, և հեռախոսը կախվում էր։
+    root.dataset.themeSwitching = "";
+    root.dataset.theme = resolved;
+    requestAnimationFrame(() => requestAnimationFrame(() => { delete root.dataset.themeSwitching; }));
+  }
   const color = THEME_COLORS[resolved];
   window.document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
   // Match Telegram's own header and background to the page so the Mini App has no mismatched band.

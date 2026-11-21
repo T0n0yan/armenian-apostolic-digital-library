@@ -1,4 +1,5 @@
 # Արխիվ — features
+- 2026-11-16 — Տեսանյութեր. «Փոքր պատուհան» (PiP) կոճակ, իսկ այլ էջ գնալիս նվագող տեսանյութը շարունակում է էկրանի անկյունում ([#193](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/193))։
 - 2026-11-15 — Ավետարան. Աստվածաշնչի հղումները («Մատթ. 7:13») այլևս ժամ չեն դառնում, որոնման արդյունքում՝ հոգևորականի անունը ([PR #190](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/190))։
 - 2026-11-15 — Ավետարանի ուսուցում. թաբեր ըստ հոգևորականի (անունը՝ տեսանյութի տակի վերջին շեղ տողից), բաժինը բեռնվում է ամբողջությամբ ([PR #189](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/189))։
 - 2026-11-15 — Անձնական չատը փակված է (`PRIVATE_CHAT_OPEN = false`), մնացել է միայն «Նա հիմա կայքում է» ծանուցումը տիրոջը ([PR #188](https://github.com/T0n0yan/armenian-apostolic-digital-library/pull/188))։
