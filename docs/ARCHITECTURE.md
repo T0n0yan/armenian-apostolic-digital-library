@@ -814,11 +814,6 @@ Smoke ստուգումը՝ `scripts/smoke.mjs <հասցե>`. գլխավոր, `/p
   կլոր կոճակ, պատուհաններ, toast-եր)։ Մեծ վահանակներին (`frosted-panel`) և մենյուի մթնեցմանը blur ՉԴՆԵԼ.
   scroll-ի ամեն կադրում վերահաշվարկվում էր և հեռախոսում էջը կտրտում էր, իսկ blur-ը blur-ի մեջ
   Android-ում դատարկ ուղղանկյուն էր տալիս (2026-11-12)։
-- **Glisse liquid glass (միայն staging-ում, 2026-11-21, `feat/glisse-staging`)**՝ `glisse` npm փաթեթ (MIT)։
-  `app/components/glisse-glass.tsx`-ը բոլոր ապակե տարրերի (`GLASS_HOSTS`) տակ ավտոմատ դնում է `Glass` (առանձին React root),
-  կարգավորումներում՝ Glisse-ի `SegmentedControl`/`Switch`/`Slider`, «Liquid glass (փորձ)» անջատիչով (localStorage)։
-  Էջը ոլորելիս բեկումը դադարում է (`html[data-scrolling]`), այլապես scroll-ը կտրտվում էր։ Մեր `--lg-*` փոփոխականները
-  վերանվանված են `--ap-*` (Glisse-ի հետ բախվում էին)։ Production-ում դեռ չկա։
 - Կենդանի ապակու բեկումը (SVG ֆիլտր `backdrop-filter`-ում) փորձվեց և հանվեց 2026-11-21. Chrome-ը այն հաշվում է
   պրոցեսորով ամեն կադր, հեռախոսում կտրտում էր։ Ապակու եզրը՝ միայն box-shadow (`--lg-thick`, `app/app.css`)։
 

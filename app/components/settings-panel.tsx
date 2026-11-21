@@ -9,42 +9,11 @@ import {
 import { readPreference, readSunPlace, saveSunPlace, setPreference, type Motion, type ReadingFont, type TitleSize, type Toggle } from "../utils/preferences";
 import { sunTimes } from "../../shared/theme";
 import { formatClock } from "../utils/armenian-date";
-import { SegmentedControl as GlassSegmented, Slider as GlassSlider, Switch as GlassSwitch } from "glisse";
-import { GLASS_EVENT, readGlassPreference, writeGlassPreference } from "./glisse-glass";
-
-/** Glisse-ի կոմպոնենտները միացվա՞ծ են (staging-ի փորձ, «Liquid glass» անջատիչ)։ Սերվերում՝ այո։ */
-function useGlass() {
-  const [on, setOn] = useState(true);
-  useEffect(() => {
-    const read = () => setOn(readGlassPreference());
-    read();
-    window.addEventListener(GLASS_EVENT, read);
-    return () => window.removeEventListener(GLASS_EVENT, read);
-  }, []);
-  return on;
-}
 
 function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
   value: T; options: Array<{ value: T; label: string; icon?: ReactNode; sample?: ReactNode }>; onChange: (value: T) => void; columns?: number;
 }) {
   const index = options.findIndex((option) => option.value === value);
-  const glass = useGlass();
-  if (glass) {
-    // Glisse-ի SegmentedControl. լայնությունը բաժանվում է հավասար (container query), բարձրությունը՝ պատկերակով։
-    return (
-      <div className="ap-segmented-wrap w-full" style={{ ["--ap-columns" as string]: columns }}>
-        <GlassSegmented aria-label="Ընտրություն" value={value} onValueChange={(next) => onChange(next as T)} items={options.map((option) => ({
-          value: option.value,
-          label: (
-            <span className="grid justify-items-center gap-0.5 text-[11px] font-semibold leading-tight">
-              {option.sample ?? option.icon}
-              <span className="max-w-full whitespace-nowrap">{option.label}</span>
-            </span>
-          ),
-        }))} />
-      </div>
-    );
-  }
   return (
     <div className="relative grid gap-1 rounded-card border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
       {/* Ընտրվածի ապակե ֆոնը սահում է (ինչպես «Իմ անկյունը»-ի ներդիրները)։ */}
@@ -86,15 +55,6 @@ function Setting({ icon, title, hint, children }: { icon: ReactNode; title: stri
 }
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
-  const glass = useGlass();
-  if (glass) {
-    return (
-      <label className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-control border border-glass-border bg-subtle px-3.5 text-[13.5px] font-semibold text-ink">
-        {label}
-        <GlassSwitch aria-label={label} checked={checked} onCheckedChange={onChange} />
-      </label>
-    );
-  }
   return (
     <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-control border border-glass-border bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
       {label}
@@ -109,7 +69,6 @@ const sample = "Տերն է իմ հովիվը, ոչ մի բանի կարոտ չ�
 
 /** How the library looks and behaves on this device (the menu's settings view and /settings). */
 export function SettingsPanel() {
-  const glass = useGlass();
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [textSize, setTextSize] = useState(16);
   const [font, setFont] = useState<ReadingFont>("auto");
@@ -212,13 +171,8 @@ export function SettingsPanel() {
         </Setting>
 
         <Setting icon={<Type aria-hidden="true" size={18} />} title="Տառաչափ" hint={`${textSize} px`}>
-          {glass ? (
-            <GlassSlider aria-label="Տառաչափ" min={TEXT_SIZE_MIN} max={TEXT_SIZE_MAX} step={1} value={textSize}
-              onValueChange={(next) => { setTextSize(next); writeStorage(TEXT_SIZE_STORAGE_KEY, String(next)); applyTextSize(next); }} />
-          ) : (
-            <input className="w-full accent-[#b07d2e]" type="range" min={TEXT_SIZE_MIN} max={TEXT_SIZE_MAX} step={1} value={textSize} aria-label="Տառաչափ"
-              onChange={(event) => { const next = Number(event.target.value); setTextSize(next); writeStorage(TEXT_SIZE_STORAGE_KEY, String(next)); applyTextSize(next); }} />
-          )}
+          <input className="w-full accent-[#b07d2e]" type="range" min={TEXT_SIZE_MIN} max={TEXT_SIZE_MAX} step={1} value={textSize} aria-label="Տառաչափ"
+            onChange={(event) => { const next = Number(event.target.value); setTextSize(next); writeStorage(TEXT_SIZE_STORAGE_KEY, String(next)); applyTextSize(next); }} />
           <div className="flex justify-between text-faint"><span className="text-[12px]">Աա</span><span className="text-[20px]">Աա</span></div>
         </Setting>
 
@@ -235,7 +189,6 @@ export function SettingsPanel() {
         <Setting icon={<Sparkles aria-hidden="true" size={18} />} title="Այլ">
           <Switch label="Օրվա համարը գլխավոր էջում" checked={dailyVerse === "on"} onChange={(on) => { const next = on ? "on" : "off"; setDailyVerse(next); setPreference("dailyVerse", next); }} />
           <Switch label="Հիշեցման զանգի ձայնը" checked={alarmSound === "on"} onChange={(on) => { const next = on ? "on" : "off"; setAlarmSound(next); setPreference("alarmSound", next); }} />
-          <Switch label="Liquid glass (փորձ)" checked={glass} onChange={writeGlassPreference} />
           <Switch label="Անիմացիաներ" checked={motion === "full"} onChange={(on) => { const next = on ? "full" : "reduced"; setMotion(next); setPreference("motion", next); }} />
         </Setting>
 

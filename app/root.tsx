@@ -20,7 +20,6 @@ import {getOptionalTelegramUser, getTelegramUserCacheScope} from "./auth/telegra
 import { ReminderError } from "./components/reminder-error";
 import { CandleLoader } from "./components/candle-loader";
 import { ClientErrorReporter } from "./components/client-error-reporter";
-import { GlisseGlass } from "./components/glisse-glass";
 import { PageShell } from "./components/page-layout";
 import { RouteErrorPage } from "./components/error-page";
 import {listActiveCategories} from "./data/categories.server";
@@ -450,7 +449,6 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <Outlet />
     {introHere && <CandleLoader />}
     <ClientErrorReporter />
-    <GlisseGlass />
     {!quiet && <InstallPrompt />}
     <ReminderError />
     <NavigationProgress />

@@ -87,7 +87,7 @@ try {
   }
   console.log('✓ Էջերը չեն լայնանում 320, 390 և 1440 px-ում');
   await open('/settings');
-  await page.getByRole('radio', { name: 'Մուգ', exact: true }).first().click();
+  await page.getByText('Մուգ', { exact: true }).click();
   // Թեման փոխվում է հաջորդ կադրում (settings-panel.tsx), դրա համար սպասում ենք։
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark', null, { timeout: 3000 });
   assert.ok((await page.locator('meta[name=robots]').getAttribute('content')).includes('noindex'));
