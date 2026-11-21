@@ -400,28 +400,16 @@
 }
 html[data-motion="reduced"] .menu-panel, html[data-motion="reduced"] .liquid-sheet { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 /*
- * Իսկական բեկում (app/utils/liquid-glass.ts). `html[data-refract]`-ը դրվում է միայն Chromium-ում։
- * Եզրին ետևի պատկերը ծռվում է, գույները՝ մի փոքր բաժանվում։ Միայն բաց մենյուին և scroll-lock-ով
- * պատուհաններին (ետևի էջը կանգնած է). մնացած տեղերում blur-ը հանված է (ներքևում, 2026-11-12)։
- * Ապակին ավելի թափանցիկ է, որ բեկումը երևա. ներսում blur-ը մնում է (ֆիլտրի մեջ), որ տեքստը կարդացվի։
+ * Հաստ ապակու եզր (միայն box-shadow, վիդեոքարտով, scroll-ին չի խանգարում)։
+ * Կենդանի բեկումը (SVG ֆիլտր backdrop-filter-ում) հանված է 2026-11-21. Chrome-ը այն հաշվում է
+ * պրոցեսորով ամեն կադր, և հեռախոսում մենյուն ու պատուհանները կտրտվում էին։
  */
-html[data-refract] .menu-panel[data-open],
-html[data-refract][data-scroll-locked] .liquid-sheet {
-  -webkit-backdrop-filter: var(--lg-refract, blur(14px)) saturate(175%) brightness(1.04) !important;
-  backdrop-filter: var(--lg-refract, blur(14px)) saturate(175%) brightness(1.04) !important;
+.menu-panel, .liquid-sheet, .liquid-fab {
   --lg-thick: inset 1.5px 1.5px 0 -0.5px rgb(255 255 255 / 60%), inset -1.5px -1.5px 0 -0.5px rgb(255 255 255 / 30%), inset 0 0 0 1px rgb(255 255 255 / 10%), inset 0 0 18px rgb(255 255 255 / 8%);
 }
-html[data-refract][data-scroll-locked] .liquid-sheet {
-  background: radial-gradient(110% 50% at 0% 0%, var(--lg-spec), transparent 55%), color-mix(in srgb, var(--lg-sheet-tint) 64%, transparent);
-  box-shadow: var(--lg-inner), var(--lg-thick), 0 24px 60px rgb(20 8 24 / 36%);
-}
-html[data-refract] .menu-panel[data-open] {
-  background:
-    radial-gradient(120% 60% at 0% 0%, var(--lg-spec), transparent 52%),
-    radial-gradient(90% 50% at 100% 100%, var(--lg-bounce), transparent 62%),
-    color-mix(in srgb, var(--lg-menu-tint) 62%, transparent);
-  box-shadow: var(--lg-inner), var(--lg-thick), 0 30px 80px rgb(20 8 24 / 34%);
-}
+.liquid-sheet { box-shadow: var(--lg-inner), var(--lg-thick), 0 24px 60px rgb(20 8 24 / 36%); }
+.menu-panel { box-shadow: var(--lg-inner), var(--lg-thick), 0 30px 80px rgb(20 8 24 / 34%); }
+.liquid-fab { box-shadow: var(--lg-inner), var(--lg-thick), var(--fab-shadow); }
 @media (prefers-reduced-transparency: reduce) {
   .menu-panel, .liquid-sheet, .liquid-fab { background: var(--nav-surface) !important; }
 }
