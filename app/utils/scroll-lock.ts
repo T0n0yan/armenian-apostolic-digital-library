@@ -31,6 +31,8 @@ export function lockScroll() {
     const gap = window.innerWidth - html.clientWidth;
     html.style.overflow = "hidden";
     html.style.overscrollBehavior = "none";
+    // Ապակու բեկումը (liquid-glass.ts) միանում է միայն այս ժամանակ. ետևի էջը չի շարժվում, դրա համար թեթև է։
+    html.dataset.scrollLocked = "";
     Object.assign(body.style, { position: "fixed", top: `-${y}px`, left: "0", right: "0", width: "100%", overflow: "hidden", paddingRight: gap > 0 ? `${gap}px` : body.style.paddingRight });
   }
   let released = false;
@@ -40,6 +42,7 @@ export function lockScroll() {
     locks = Math.max(0, locks - 1);
     if (locks === 0 && saved) {
       restore(document.documentElement.style, saved.html);
+      delete document.documentElement.dataset.scrollLocked;
       restore(document.body.style, saved.body);
       window.scrollTo({ top: saved.y, behavior: "instant" as ScrollBehavior });
       saved = null;
