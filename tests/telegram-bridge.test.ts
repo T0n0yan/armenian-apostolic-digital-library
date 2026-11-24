@@ -1341,7 +1341,9 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const imageHtml = await imagePage.text();
   assert.equal(imagePage.status, 200);
   assert.match(imageHtml, /<img/u);
-  assert.match(imageHtml, /<img[^>]+thumbnail=1/u);
+  // Էջի առաջին նկարը (LCP) բեռնվում է անմիջապես, առանց թափանցիկ նախնական պատկերի, որ JS-ին չսպասի։
+  assert.match(imageHtml, /<img[^>]+loading="eager"[^>]+fetchPriority="high"/u);
+  assert.doesNotMatch(imageHtml, /<img[^>]+thumbnail=1/u);
   const richPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_112");
   const richHtml = await richPage.text();
   // The leading rich heading repeats the page title, so it renders once in the header, not again in the body.

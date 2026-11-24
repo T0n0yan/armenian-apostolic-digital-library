@@ -244,6 +244,14 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   const [closing, setClosing] = useState(false);
   // Until the first tiles are drawn (slow connections), Armenia's outline shimmers in the map's place.
   const [ready, setReady] = useState(false);
+  // Բեռնման նկարը (անվերջ փայլով) հանվում է, երբ քարտեզը երևաց. թաքնված էլ էր պրոցեսոր ծախսում։
+  const [loaderGone, setLoaderGone] = useState(false);
+  // Մարումը (.45 վ) ավարտվելուց հետո։
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setTimeout(() => setLoaderGone(true), 600);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
   const frame = useRef<HTMLDivElement>(null);
   const [loadMap, setLoadMap] = useState(!focus);
   // Detail maps are often below long text/photos: download MapLibre and tiles near the viewport.
@@ -364,9 +372,17 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       // Armenia's border shapes the map with a clip-path on the canvas only. Before, a CSS mask with
       // a new SVG picture was set on every move: iPhone decodes such a picture asynchronously and
       // drew nothing meanwhile, so the whole map flickered away while dragging or zooming.
-      // The canvas is clipped, not the container, so dragging just outside the silhouette still
-      // reaches the container and moves the map (no dead zone).
       // Քարտեզի եզրը՝ clip-path canvas-ի վրա. ամեն շարժման ժամանակ նոր նկար (mask) iPhone-ում քարտեզը թարթեցնում էր։
+      // clip-path-ը կտրում է նաև սեղմումները, իսկ MapLibre-ն լսում է միայն canvas-container-ի ներսի
+      // հպումները. ուրվագծից դուրս քաշելը քարտեզը չէր շարժում։ Canvas-ի տակ թափանցիկ շերտը նույն
+      // container-ի մեջ է, ուստի ուրվագծից դուրս հպումը հասնում է նրան, և քարտեզը շարժվում է։
+      if (!focus) {
+        const catcher = document.createElement("div");
+        catcher.className = "places-map-catcher";
+        catcher.setAttribute("aria-hidden", "true");
+        const holder = m.getCanvasContainer();
+        holder.insertBefore(catcher, holder.firstChild);
+      }
       const clip = () => {
         if (focus) return;
         const d = ARMENIA_BORDER.map((ring) => `M${ring.map(([lat, lng]) => { const p = m.project([lng, lat]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join("L")}Z`).join("");
@@ -473,9 +489,11 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   return (
     <div ref={frame} className={focus ? "places-map-small" : "places-map-free"}>
       <div ref={container} className={`places-map ${ready ? "" : "is-loading"}`} role="region" aria-label="Սրբավայրերի քարտեզ" />
-      <div className={`places-map-loading ${ready ? "is-ready" : ""}`} role="status" aria-label={ready ? undefined : "Քարտեզը բեռնվում է…"}>
-        {focus ? <span className="page-bone block h-full w-full" /> : <ArmeniaOutline />}
-      </div>
+      {loaderGone ? null : (
+        <div className={`places-map-loading ${ready ? "is-ready" : ""}`} role="status" aria-label={ready ? undefined : "Քարտեզը բեռնվում է…"}>
+          {focus ? <span className="page-bone block h-full w-full" /> : <ArmeniaOutline />}
+        </div>
+      )}
       <div className="places-map-zoom">
         <button type="button" onClick={() => zoom(1)} aria-label="Մոտեցնել"><Plus aria-hidden="true" size={17} /></button>
         <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>

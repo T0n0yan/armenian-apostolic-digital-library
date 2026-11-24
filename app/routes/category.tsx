@@ -31,7 +31,7 @@ import { psalmNumber } from "../utils/psalm-number";
 import { MORE_GROUP, PRAYER_GROUPS, prayerGroupOf, type PrayerGroupId } from "../utils/prayer-groups";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import type { PublicMaterial } from "../data/materials.server";
-import { getTopicIntro, listPublicMaterialPageByCategory, listSectionLinks } from "../data/materials.server";
+import { categoryFeedOptions, getTopicIntro, listPublicMaterialPageByCategory, listSectionLinks } from "../data/materials.server";
 import { loadCategoryPersonal } from "../data/category-personal.server";
 import type { SearchFilters, SearchMaterial } from "../data/search-materials";
 import { SearchSnippet } from "../components/material-result-card";
@@ -152,24 +152,23 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     dateFrom: "",
     dateTo: "",
   };
-  const [materialResult, personal] = await Promise.all([
+  const layout = categoryLayout(category);
+  // Ներածությունը և բաժնի հղումները՝ ցանկի հետ զուգահեռ (առաջ հաջորդաբար էին, cache-ից դուրս էջը ~1.5 վ)։
+  // Հղումները թեթև են և 10 րոպե պահվում են։
+  const [materialResult, personal, intro, sectionLinks] = await Promise.all([
     query && resolvedQuery
       ? searchMaterials(env.DB, filters, cursor, 20, resolvedQuery, request.signal)
       : listPublicMaterialPageByCategory(env.DB, category.id, category.defaultSort, cursor, request.signal),
     loadCategoryPersonal(category, user),
+    !query && (layout === "psalm-grid" || layout === "portrait" || layout === "text")
+      ? getTopicIntro(env.DB, category.id).catch(() => null)
+      : null,
+    // Ամբողջությամբ բեռնվող բաժիններին (200) հղումներ պետք չեն։
+    !query && !cursor && categoryFeedOptions(category).limit < 200 ? listSectionLinks(env.DB, category).catch(() => []) : [],
   ]);
-  // Grid and question topics show their introduction post as a header (it is their oldest post,
-  // so on paged feeds it would otherwise only appear at the very end).
-  const layout = categoryLayout(category);
-  const intro = !query && (layout === "psalm-grid" || layout === "portrait" || layout === "text")
-    ? await getTopicIntro(env.DB, category.id).catch(() => null)
-    : null;
   const materials = intro ? materialResult.materials.filter((material) => material.id !== intro.id) : materialResult.materials;
 
-  // Առաջին էջում, երբ բաժինը շարունակություն ունի՝ մնացած նյութերի բացվող ցանկը։
-  const moreLinks = !query && !cursor && materialResult.nextCursor
-    ? await listSectionLinks(env.DB, category).catch(() => [])
-    : [];
+  const moreLinks = materialResult.nextCursor ? sectionLinks : [];
 
   return {
     origin: url.origin,

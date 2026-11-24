@@ -279,7 +279,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
         >
-          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_24s_linear_infinite]" src={CrownWreathSmall} srcSet={`${CrownWreathSmall} 112w, ${CrownWreath} 168w`} sizes="56px" width={168} height={168} alt="" aria-hidden="true" />
+          <img className="pointer-events-none absolute size-[56px] object-contain opacity-90 motion-safe:animate-[floating-wheat_24s_linear_infinite]" src={CrownWreathSmall} srcSet={`${CrownWreathSmall} 112w, ${CrownWreath} 168w`} sizes="56px" fetchPriority="low" width={168} height={168} alt="" aria-hidden="true" />
           <span className="gold-mark pointer-events-none relative size-[25px]" style={{ "--mark": `url(${ArmenianEternity})` } as React.CSSProperties} aria-hidden="true" />
           {/* Փոքր կետ՝ անձնական չատում չկարդացված կա (միայն երկու կողմին)։ */}
           {chatUnread > 0 && !isOpen ? <span className="pointer-events-none absolute right-2.5 top-2.5 size-2.5 rounded-full bg-gold-bright" aria-hidden="true" /> : null}

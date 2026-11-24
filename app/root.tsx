@@ -43,6 +43,7 @@ import { installBackgroundPlayback } from "./utils/background-playback";
 import { markPlayingCards } from "./utils/audio-dock";
 import { AudioDockBar } from "./components/audio-dock-bar";
 import "./app.css";
+import "./trchnatar-faces.css";
 
 // Այս շերտերը էջի առաջին պատկերին պետք չեն. բեռնվում են առանձին ֆայլով, երբ բրաուզերը ազատ է
 // (հին հեռախոսներում էջը ավելի շուտ է բացվում)։

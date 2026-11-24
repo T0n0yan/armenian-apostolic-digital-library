@@ -402,7 +402,8 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   const sources = asset.displayUrl && attempt === 0 ? [asset.displayUrl, ...originals] : originals;
   const source = sources[Math.min(sourceIndex, sources.length - 1)];
   const original = originals[Math.min(Math.max(sourceIndex - (sources.length - originals.length), 0), originals.length - 1)];
-  const preview = asset.url && asset.thumbnailUrl && !loaded ? asset.thumbnailUrl : null;
+  // Առաջին նկարը (priority) ցույց է տրվում բեռնվելուն պես. թափանցիկ սկիզբը JS-ին էր սպասում և ուշացնում LCP-ն։
+  const preview = !priority && asset.url && asset.thumbnailUrl && !loaded ? asset.thumbnailUrl : null;
   const ratio = asset.width && asset.height ? `${asset.width} / ${asset.height}` : "16 / 10";
 
   if (!source) return <PendingMedia asset={asset} />;
