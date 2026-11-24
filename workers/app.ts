@@ -257,7 +257,10 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     // the library's content version (a new or changed post, or an admin's «Թարմացնել հիմա»), so a
     // change makes every page fresh at once, while unchanged pages can be kept long.
     const keyUrl = new URL(url);
-    keyUrl.searchParams.set("__cache", await edgeContentVersion(cache, context, (env as unknown as { DB: D1Database }).DB));
+    // Բովանդակության տարբերակը բանալու մեջ չէ (header է). առաջ ամեն նոր գրառում բոլոր էջերը դարձնում էր
+    // «miss», և ամեն քաղաքում առաջին ընթերցողը 1–2 վ սպասում էր։ Հիմա նա ստանում է պատրաստի էջը,
+    // իսկ նորը պատրաստվում է հետևում։ Ադմինի «Թարմացնել հիմա»-ն (epoch) դեռ միանգամից թարմացնում է։
+    const version = await edgeContentVersion(cache, context, (env as unknown as { DB: D1Database }).DB);
     // Pages that show "today" (the day's verse, saint, readings) change at midnight in Yerevan.
     keyUrl.searchParams.set("__day", yerevanDay());
     // Ամեն deploy-ի JS/CSS ֆայլերը նոր անուններ ունեն, իսկ հինները այլևս չկան. նախորդ build-ի
@@ -270,13 +273,17 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
     const cached = await cache.match(cacheKey);
     if (cached) {
       const age = Date.now() - Number(cached.headers.get(STORED_AT) ?? 0);
-      if (age <= FRESH_MS) return timed(forClient(cached), "hit", started);
-      if (keepStale && age <= KEEP_MS) {
+      const storedVersion = cached.headers.get(STORED_VERSION) ?? "";
+      const sameVersion = storedVersion === version;
+      // epoch-ը (տարբերակի առաջին մասը) փոխվում է միայն ադմինի «Թարմացնել հիմա»-ով. այդ դեպքում հինը չի տրվում։
+      const sameEpoch = storedVersion.split(".")[0] === version.split(".")[0];
+      if (sameVersion && age <= FRESH_MS) return timed(forClient(cached), "hit", started);
+      if (keepStale && sameEpoch && age <= KEEP_MS) {
         // Stale-while-revalidate: the reader gets the page at once, a fresh copy is made behind it.
         if (!refreshing.has(cacheKey.url)) {
           refreshing.add(cacheKey.url);
           context.waitUntil(requestHandler(new Request(request.url, { headers: request.headers }))
-            .then((fresh) => store(cache, cacheKey, url, request, fresh, context))
+            .then((fresh) => store(cache, cacheKey, url, request, fresh, context, version))
             .catch((error: unknown) => console.error("cache refresh failed", url.pathname, error))
             .finally(() => refreshing.delete(cacheKey.url)));
         }
@@ -284,7 +291,7 @@ async function handle(request: Request, env: Env, context: ExecutionContext): Pr
       }
     }
     const response = await requestHandler(request);
-    return timed(store(cache, cacheKey, url, request, response, context), "miss", started);
+    return timed(store(cache, cacheKey, url, request, response, context, version), "miss", started);
   }
 }
 
@@ -318,11 +325,13 @@ const FRESH_MS = 5 * 60_000;
 /** A library page is kept this long and shown at once while a fresh copy is made. */
 const KEEP_MS = 24 * 60 * 60_000;
 const STORED_AT = "X-Stored-At";
+/** Պահված էջի բովանդակության տարբերակը (cache-ի բանալու փոխարեն)։ */
+const STORED_VERSION = "X-Stored-Version";
 /** Pages whose fresh copy is already being made by this instance (one refresh at a time). */
 const refreshing = new Set<string>();
 
 /** Puts a page into the edge cache (when it may be shared) and returns what the reader gets. */
-function store(cache: Cache, cacheKey: Request, url: URL, request: Request, response: Response, context: ExecutionContext) {
+function store(cache: Cache, cacheKey: Request, url: URL, request: Request, response: Response, context: ExecutionContext, version: string) {
   if (response.status !== 200 || response.headers.has("set-cookie") || /private|no-store/iu.test(response.headers.get("cache-control") ?? "")) return response;
   // The title index's address carries its version, so it is kept for good, everywhere; without
   // a version it is not cached.
@@ -333,6 +342,7 @@ function store(cache: Cache, cacheKey: Request, url: URL, request: Request, resp
   if (!import.meta.env.DEV && (sharedJson || isPublicRouteData(url) || !hasCredentials(request))) copy.headers.set("X-Offline-Public", "1");
   copy.headers.set("Cache-Control", versioned ? "public, max-age=31536000, immutable" : `public, max-age=30, s-maxage=${KEEP_MS / 1000}`);
   copy.headers.set(STORED_AT, String(Date.now()));
+  copy.headers.set(STORED_VERSION, version);
   context.waitUntil(cache.put(cacheKey, copy.clone()));
   return forClient(copy);
 }
@@ -341,6 +351,7 @@ function store(cache: Cache, cacheKey: Request, url: URL, request: Request, resp
 function forClient(response: Response) {
   const copy = new Response(response.body, response);
   copy.headers.delete(STORED_AT);
+  copy.headers.delete(STORED_VERSION);
   if (!copy.headers.get("Cache-Control")?.includes("immutable")) copy.headers.set("Cache-Control", "public, max-age=30");
   return copy;
 }

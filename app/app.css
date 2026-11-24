@@ -41,13 +41,7 @@
   font-display: swap;
 }
 
-@font-face {
-  font-family: "Trchnatar Birds Color";
-  src: url("./assets/fonts/Trchnatar.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
+/* Թռչնատառը՝ ըստ տառի առանձին ֆայլերով (app/trchnatar-faces.css, root.tsx). */
 
 /*
  * Կլորացման կանոն (docs/DESIGN.md). միայն այս 5 չափը + rounded-full.
@@ -652,7 +646,8 @@ body::before {
   will-change: transform;
   transform: translateZ(0);
   background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1600' viewBox='0 0 900 1600'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .34 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"),
+    /* Հատիկը՝ պատրաստի նկար. առաջ SVG feTurbulence ֆիլտր էր, որը բրաուզերը նկարում էր ամեն բացման ժամանակ։ */
+    url("./assets/paper-grain.webp"),
     url("./assets/parchment-creases.webp");
   background-size: 300px 300px, cover;
   background-position: 0 0, center;
