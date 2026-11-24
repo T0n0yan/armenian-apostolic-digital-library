@@ -163,6 +163,8 @@ function RichInlineNodes({ nodes, hit, cursor, ornate }: { nodes: BridgeRichInli
 }
 
 function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, ornate }: { blocks: BridgeRichBlock[]; media: MaterialMedia[]; hit?: BridgeSearchHit; prefix?: string; skipFirst?: boolean; ornate?: { done: boolean } }) {
+  // Էջի առաջին նկարը հաճախ LCP-ն է. այն բեռնվում է անմիջապես, ոչ թե lazy (միայն վերին մակարդակում)։
+  const firstMedia = prefix === "block" ? blocks.findIndex((block) => block.type === "media") : -1;
   return blocks.map((block, index) => {
     // Skip by rendering nothing so block IDs, which search hits point at, keep their indexes.
     if (skipFirst && index === 0) return null;
@@ -186,7 +188,7 @@ function RichBlocks({ blocks, media, hit, prefix = "block", skipFirst = false, o
       const asset = media[block.mediaIndex];
       const captionId = `${blockId}-caption`;
       const captionHit = hit?.blockId === captionId ? hit : undefined;
-      return asset ? <figure className="m-0 grid gap-2" key={key}><MaterialMediaItem asset={asset} />{block.caption.length ? <figcaption className="text-[13px] leading-relaxed text-muted" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></figcaption> : null}</figure> : <p className="m-0 rounded-control border border-dashed border-glass-border p-3 text-[12px] text-muted" key={key}>Մեդիան առայժմ հասանելի չէ։</p>;
+      return asset ? <figure className="m-0 grid gap-2" key={key}><MaterialMediaItem asset={asset} priority={index === firstMedia} />{block.caption.length ? <figcaption className="text-[13px] leading-relaxed text-muted" id={`telegram-${captionId}`} tabIndex={captionHit ? -1 : undefined}><RichInlineNodes nodes={block.caption} hit={captionHit} /></figcaption> : null}</figure> : <p className="m-0 rounded-control border border-dashed border-glass-border p-3 text-[12px] text-muted" key={key}>Մեդիան առայժմ հասանելի չէ։</p>;
     }
     if (block.type === "list") {
       const List = block.ordered ? "ol" : "ul";

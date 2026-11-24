@@ -863,6 +863,8 @@ html[data-daily-verse="off"] .daily-verse { display: none; }
   width: 100%; aspect-ratio: 16 / 10; touch-action: none; min-height: 220px; max-height: 360px;
   overflow: hidden; border: 1px solid rgb(217 181 111 / 40%); border-radius: var(--radius-card);
 }
+/* Canvas-ի տակի թափանցիկ շերտ. ուրվագծից դուրս քաշելը նույնպես շարժում է քարտեզը (places-map.tsx)։ */
+.places-map-catcher { position: absolute; inset: 0; }
 /* Shown in the map's place until its first tiles are drawn: Armenia's outline, shimmering. */
 .places-map-loading { position: absolute; inset: 0; z-index: 0; display: grid; padding: 14px; pointer-events: none; transition: opacity .45s ease, visibility 0s .45s; }
 .places-map-small .places-map-loading { padding: 0; overflow: hidden; border-radius: var(--radius-card); }

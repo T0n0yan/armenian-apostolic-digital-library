@@ -364,9 +364,17 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
       // Armenia's border shapes the map with a clip-path on the canvas only. Before, a CSS mask with
       // a new SVG picture was set on every move: iPhone decodes such a picture asynchronously and
       // drew nothing meanwhile, so the whole map flickered away while dragging or zooming.
-      // The canvas is clipped, not the container, so dragging just outside the silhouette still
-      // reaches the container and moves the map (no dead zone).
       // Քարտեզի եզրը՝ clip-path canvas-ի վրա. ամեն շարժման ժամանակ նոր նկար (mask) iPhone-ում քարտեզը թարթեցնում էր։
+      // clip-path-ը կտրում է նաև սեղմումները, իսկ MapLibre-ն լսում է միայն canvas-container-ի ներսի
+      // հպումները. ուրվագծից դուրս քաշելը քարտեզը չէր շարժում։ Canvas-ի տակ թափանցիկ շերտը նույն
+      // container-ի մեջ է, ուստի ուրվագծից դուրս հպումը հասնում է նրան, և քարտեզը շարժվում է։
+      if (!focus) {
+        const catcher = document.createElement("div");
+        catcher.className = "places-map-catcher";
+        catcher.setAttribute("aria-hidden", "true");
+        const holder = m.getCanvasContainer();
+        holder.insertBefore(catcher, holder.firstChild);
+      }
       const clip = () => {
         if (focus) return;
         const d = ARMENIA_BORDER.map((ring) => `M${ring.map(([lat, lng]) => { const p = m.project([lng, lat]); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join("L")}Z`).join("");
