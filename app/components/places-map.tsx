@@ -244,6 +244,14 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   const [closing, setClosing] = useState(false);
   // Until the first tiles are drawn (slow connections), Armenia's outline shimmers in the map's place.
   const [ready, setReady] = useState(false);
+  // Բեռնման նկարը (անվերջ փայլով) հանվում է, երբ քարտեզը երևաց. թաքնված էլ էր պրոցեսոր ծախսում։
+  const [loaderGone, setLoaderGone] = useState(false);
+  // Մարումը (.45 վ) ավարտվելուց հետո։
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setTimeout(() => setLoaderGone(true), 600);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
   const frame = useRef<HTMLDivElement>(null);
   const [loadMap, setLoadMap] = useState(!focus);
   // Detail maps are often below long text/photos: download MapLibre and tiles near the viewport.
@@ -481,9 +489,11 @@ export function PlacesMap({ places, focus, visited = new Set<string>(), onToggle
   return (
     <div ref={frame} className={focus ? "places-map-small" : "places-map-free"}>
       <div ref={container} className={`places-map ${ready ? "" : "is-loading"}`} role="region" aria-label="Սրբավայրերի քարտեզ" />
-      <div className={`places-map-loading ${ready ? "is-ready" : ""}`} role="status" aria-label={ready ? undefined : "Քարտեզը բեռնվում է…"}>
-        {focus ? <span className="page-bone block h-full w-full" /> : <ArmeniaOutline />}
-      </div>
+      {loaderGone ? null : (
+        <div className={`places-map-loading ${ready ? "is-ready" : ""}`} role="status" aria-label={ready ? undefined : "Քարտեզը բեռնվում է…"}>
+          {focus ? <span className="page-bone block h-full w-full" /> : <ArmeniaOutline />}
+        </div>
+      )}
       <div className="places-map-zoom">
         <button type="button" onClick={() => zoom(1)} aria-label="Մոտեցնել"><Plus aria-hidden="true" size={17} /></button>
         <button type="button" onClick={() => zoom(-1)} aria-label="Հեռացնել"><Minus aria-hidden="true" size={17} /></button>
