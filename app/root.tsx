@@ -263,7 +263,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <ScrollRestoration getKey={({ pathname, search }) => `${pathname}${search}`} />
+        {/* Դիրքը հիշվում է պատմության ամեն քայլի համար (հետ գալիս՝ նույն տեղը), իսկ մենյուից բացված
+            էջը միշտ սկսվում է վերևից։ Առաջ հասցեով էր, ու նախկինում բացված բաժինը բացվում էր կեսից։ */}
+        <ScrollRestoration />
         <Scripts />
       </body>
     </html>

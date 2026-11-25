@@ -112,7 +112,7 @@ function SectionTop({ image, title, backLabel = "Բաժիններ" }: { image: s
           <ArtImage className="block h-full w-full object-cover" src={image} width={1774} height={887} decoding="async" alt="" />
         </div>
         <div className="grid justify-items-center gap-[9px] text-center">
-          <p className="m-0 w-full font-noto text-[26px] leading-[32px] font-medium tracking-[-0.4px] text-balance text-ink min-[390px]:text-[28px] min-[390px]:leading-[34px] min-[768px]:text-[34px] min-[768px]:leading-[40px] min-[960px]:text-[40px] min-[960px]:leading-[46px]">{title}</p>
+          <p className="page-skeleton-title m-0 w-full font-noto text-[26px] leading-[32px] font-medium tracking-[-0.4px] text-balance text-ink min-[390px]:text-[28px] min-[390px]:leading-[34px] min-[768px]:text-[34px] min-[768px]:leading-[40px] min-[960px]:text-[40px] min-[960px]:leading-[46px]">{title}</p>
           <img src={divider2} alt="" width={1200} height={126} decoding="async" className="h-[40px] w-full object-contain" />
         </div>
       </div>

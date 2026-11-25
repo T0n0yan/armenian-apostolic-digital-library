@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigationType } from "react-router";
 
 /**
  * Բաժնից նյութ բացելիս հիշում է՝ որ հղումն էր սեղմված և էկրանի որ բարձրության վրա։ Վերադառնալիս
@@ -14,6 +14,10 @@ type Anchor = { page: string; href: string; top: number; at: number };
 
 export function useReturnAnchor() {
   const location = useLocation();
+  const navigationType = useNavigationType();
+  // Միայն «հետ» գալիս (բրաուզերի / Telegram-ի «հետ» կամ նյութի «← բաժին» հղումով). մենյուից կամ
+  // գլխավոր էջից բացելիս բաժինը սկսվում է վերևից, ոչ թե նախորդ անգամ սեղմված նյութից։
+  const returning = navigationType === "POP" || Boolean((location.state as { back?: boolean } | null)?.back);
 
   useEffect(() => {
     const page = location.pathname;
@@ -30,7 +34,7 @@ export function useReturnAnchor() {
   useEffect(() => {
     let anchor: Anchor | null = null;
     try { anchor = JSON.parse(sessionStorage.getItem(KEY) ?? "null") as Anchor | null; } catch { anchor = null; }
-    if (!anchor || anchor.page !== location.pathname || Date.now() - anchor.at > MAX_AGE_MS) return;
+    if (!returning || !anchor || anchor.page !== location.pathname || Date.now() - anchor.at > MAX_AGE_MS) return;
     const saved = anchor;
     let stopped = false;
     const stop = () => { stopped = true; };
@@ -54,5 +58,5 @@ export function useReturnAnchor() {
       window.removeEventListener("touchstart", stop);
       window.removeEventListener("keydown", stop);
     };
-  }, [location.key, location.pathname]);
+  }, [location.key, location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 }

@@ -1,6 +1,7 @@
 # Բագեր
 
 ## Հիմա
+- Կայքի կտրտումը էջից էջ անցնելիս և «մեծից փոքր» վերնագիրը (տիրոջ տեսանյութը, 2026-11-25)՝ `ccr-d51480ee-q7uwnr`։
 - GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 

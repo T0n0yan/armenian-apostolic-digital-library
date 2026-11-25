@@ -728,8 +728,9 @@ html[data-tg-fullscreen="true"] body::before {
 html[data-reading-font="book"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-book) !important; font-weight: 400; font-synthesis: weight style; }
 html[data-reading-font="serif"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-noto) !important; font-style: normal; }
 html[data-reading-font="sans"] :is(.reading-body, .reading-body :is(p, li, blockquote, figcaption, span:not(.ornate-initial, .ornate-initial *))) { font-family: var(--font-sans) !important; font-style: normal; }
-html[data-title-size="small"] main h1 { zoom: .85; }
-html[data-title-size="large"] main h1 { zoom: 1.18; }
+/* Կմախքի վերնագիրն էլ նույն չափն ունի, այլապես էջը բացվելիս վերնագիրը նախ մեծ էր, հետո փոքրանում էր։ */
+html[data-title-size="small"] :is(main h1, .page-skeleton h1, .page-skeleton-title) { zoom: .85; }
+html[data-title-size="large"] :is(main h1, .page-skeleton h1, .page-skeleton-title) { zoom: 1.18; }
 /* With animations off everything is still, except the candle intro. */
 html[data-motion="reduced"] :not(.candle-loader, .candle-loader *), html[data-motion="reduced"] :not(.candle-loader, .candle-loader *)::before, html[data-motion="reduced"] :not(.candle-loader, .candle-loader *)::after {
   animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important;
@@ -936,20 +937,27 @@ body:has(nav[aria-modal="true"]) .find-bar { opacity: 0; translate: 0 12px; poin
   .reveal-img { opacity: 0; transition: opacity .5s ease; }
   .reveal-img[data-loaded] { opacity: 1; }
 }
-.reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed])) {
-  background: linear-gradient(100deg, rgb(217 181 111 / 10%) 30%, rgb(240 211 151 / 22%) 50%, rgb(217 181 111 / 10%) 70%) 0 0 / 300% 100%;
-  animation: page-bone-shine 1.5s ease-in-out infinite;
+/* Փայլը՝ միայն opacity-ով (վիդեոքարտը է անում, էջը չի վերանկարվում)։ Առաջ background-position էր շարժվում.
+   «Ավետարանի ուսուցում»-ում 23 չբեռնված նկարը վայրկյանում ~1400 անգամ վերանկարում էին էջը, ոլորելը կտրտվում էր։ */
+.reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed])) { background: rgb(217 181 111 / 10%); }
+:root:not([data-theme="dark"]) .reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed])) { background: rgb(176 128 70 / 10%); }
+.reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed]))::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, transparent 15%, rgb(240 211 151 / 16%) 50%, transparent 85%);
+  animation: placeholder-glow 1.5s ease-in-out infinite alternate;
 }
-:root:not([data-theme="dark"]) .reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed])) { background-image: linear-gradient(100deg, rgb(176 128 70 / 10%) 30%, rgb(176 128 70 / 22%) 50%, rgb(176 128 70 / 10%) 70%); }
+:root:not([data-theme="dark"]) .reveal-frame:has(.reveal-img:not([data-loaded]):not([data-failed]))::before { background: linear-gradient(100deg, transparent 15%, rgb(176 128 70 / 14%) 50%, transparent 85%); }
+@keyframes placeholder-glow { from { opacity: .2; } to { opacity: 1; } }
 .reveal-art:has(.reveal-img:not([data-loaded]):not([data-failed])) { -webkit-mask: radial-gradient(closest-side, #000 55%, transparent); mask: radial-gradient(closest-side, #000 55%, transparent); }
-@media (prefers-reduced-motion: reduce) { .reveal-img { transition: none; } .reveal-frame:has(.reveal-img) { animation: none; } }
-.page-skeleton { background: var(--body-background); animation: page-skeleton-in .25s ease both; }
+@media (prefers-reduced-motion: reduce) { .reveal-img { transition: none; } .reveal-frame:has(.reveal-img)::before { animation: none; } }
+/* Կարճ երևալը. երկար թափանցիկ անցումը հին և նոր էջերը իրար վրա էր ցույց տալիս («կրկնակի» պատկեր)։ */
+.page-skeleton { background: var(--body-background); animation: page-skeleton-in .09s linear both; }
 @keyframes page-skeleton-in { from { opacity: 0; } }
 .page-bone {
-  background: linear-gradient(100deg, rgb(217 181 111 / 13%) 30%, rgb(240 211 151 / 28%) 50%, rgb(217 181 111 / 13%) 70%) 0 0 / 300% 100%;
-  animation: page-bone-shine 1.5s ease-in-out infinite;
+  background: rgb(217 181 111 / 20%);
+  animation: page-bone-pulse 1.1s ease-in-out infinite alternate;
 }
-@keyframes page-bone-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes page-bone-pulse { from { opacity: .55; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .page-bone, .page-skeleton { animation: none; } }
 :root:not([data-theme="dark"]) .page-bone { background-image: linear-gradient(100deg, rgb(176 128 70 / 15%) 30%, rgb(176 128 70 / 27%) 50%, rgb(176 128 70 / 15%) 70%); }
 
