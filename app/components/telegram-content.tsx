@@ -17,6 +17,7 @@ import { MaterialMediaItem } from "./material-media";
 import { isPsalmLabel, richContentStartsWithTitle } from "../utils/material-title";
 import { richInlineText } from "../utils/text";
 import { isVerseReference } from "../utils/verse-reference";
+import { preloadTrchnatar } from "../utils/trchnatar";
 
 function safeHref(value: string | null) {
   if (!value) return null;
@@ -112,6 +113,7 @@ function firstLetterIndex(text: string, from = 0) {
 
 /** Manuscript-style bird-letter initial (Թռչնագիր) dropped into the first lines of a prayer. */
 function OrnateInitial({ letter }: { letter: string }) {
+  preloadTrchnatar(letter);
   return <span className="ornate-initial">{letter}</span>;
 }
 
