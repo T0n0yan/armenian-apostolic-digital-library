@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { ChevronDown, ChevronRight, ChevronUp, LoaderCircle, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Link, redirect, useNavigation } from "react-router";
+import { useReturnAnchor } from "../hooks/use-return-anchor";
 
 import type { Route } from "./+types/category";
 import { getOptionalTelegramUser, getTelegramUserCacheScope } from "../auth/telegram-user.server";
@@ -393,6 +394,7 @@ function QuizProgress({ total, answers }: { total: number; answers: QuizResult[]
 }
 
 export default function Category({ loaderData }: Route.ComponentProps) {
+  useReturnAnchor();
   const { category } = loaderData;
   const stateKey = `${category.slug}|${loaderData.query}`;
   const [materials, setMaterials] = useState<CategoryMaterial[]>(loaderData.materials);

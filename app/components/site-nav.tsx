@@ -2,7 +2,7 @@ import { ArrowLeft, Bookmark, Church, CircleHelp, LogIn, LogOut, Mail, Search, S
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { UNREAD_EVENT } from "./private-chat-presence";
 import { PRIVATE_CHAT_OPEN } from "../utils/private-chat";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Form, NavLink, useLocation, useRouteLoaderData } from "react-router";
 
 import ArmenianEternity from "../assets/armenian-eternity.svg";
@@ -15,6 +15,9 @@ import { ReminderIndicator } from "./reminder-indicator";
 import { INSTALL_REQUEST_EVENT, isInstalledApp, isTelegramMiniApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
 import { sectionPath } from "../utils/material-path";
+
+// Սերվերում useLayoutEffect չկա (glossary-layer.tsx-ի նման)։
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type SiteNavProps = { showAdminLink?: boolean };
 
@@ -47,6 +50,18 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   const permissions: string[] = rootData?.adminPermissions ?? [];
   const topicItems = rootData?.categories ?? [];
   const [isOpen, setIsOpen] = useState(false);
+  // Փակվելու անիմացիայի ընթացքում (300 մվ) մշուշը պահելու համար (app.css, .menu-panel[data-closing])։
+  const [closing, setClosing] = useState(false);
+  const wasOpen = useRef(false);
+  // Layout effect՝ նկարելուց առաջ, որ առաջին կադրն էլ առանց մշուշի չմնա։
+  useIsomorphicLayoutEffect(() => {
+    if (isOpen) { wasOpen.current = true; setClosing(false); return; }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    setClosing(true);
+    const timer = window.setTimeout(() => setClosing(false), 320);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
   // The menu shows either its links or, in place, the settings (with a way back).
   const [view, setView] = useState<"main" | "settings">("main");
   useEffect(() => { if (!isOpen) { const timer = window.setTimeout(() => setView("main"), 300); return () => window.clearTimeout(timer); } }, [isOpen]);
@@ -143,7 +158,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         aria-modal={isOpen || undefined}
         role={isOpen ? "dialog" : undefined}
       >
-        <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-panel p-3" data-open={isOpen || undefined} aria-hidden={!isOpen}>
+        <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-panel p-3" data-open={isOpen || undefined} data-closing={closing || undefined} aria-hidden={!isOpen}>
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
             {view === "settings" ? (
               <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-transparent px-1 text-[13px] font-bold text-gold-bright" type="button" onClick={() => setView("main")}>
