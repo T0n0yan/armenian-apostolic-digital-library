@@ -1,4 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Link2, Minus, Plus, RotateCcw, Send, Share2, SlidersHorizontal, Type, Heading, X } from "lucide-react";
+import { useBackToClose } from "../hooks/use-back-to-close";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -143,6 +144,8 @@ function snap(center: number, target: number) {
  * մեջտեղին, և դրանից է կախված, թե որքան տեքստ է տեղավորվում։ apostolic.am-ը միշտ բաց է մնում։
  */
 export function StoryEditor({ source, onClose, onLink }: { source: StorySource; onClose: () => void; onLink: () => void }) {
+  // Հեռախոսի «հետ»-ը փակում է պատուհանը (առաջ ետևի էջն էր փոխվում, իսկ պատուհանը մնում էր վրան)։
+  useBackToClose(onClose);
   useScrollLock(true);
   const saved = useMemo(() => readJson<Saved>(SETTINGS_KEY, {}), []);
   const [design, setDesign] = useState(() => saved.design ?? STORY_DESIGNS[0].id);
