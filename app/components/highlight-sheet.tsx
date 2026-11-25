@@ -31,8 +31,8 @@ function rememberEmoji(emoji: string) {
   return next;
 }
 
-const chip = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
-const field = "min-h-[96px] w-full resize-y rounded-button border border-glass-border bg-control px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-[rgb(217_181_111/60%)]";
+const chip = "inline-flex min-h-10 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-edge bg-subtle px-3 text-[13px] font-semibold text-ink";
+const field = "min-h-[96px] w-full resize-y rounded-button border border-edge bg-control px-3 py-2.5 text-[15px] leading-relaxed text-ink outline-none focus:border-[rgb(217_181_111/60%)]";
 
 /**
  * Նշման քարտը. տողը, սմայլիկը, նոթը (կամ հարցը և պատասխանը), հիշեցումը, պատճենել, ջնջել։
@@ -132,13 +132,13 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
         <div className="flex flex-wrap items-center gap-1.5">
           {[...myEmojis, ...QUICK_EMOJIS.filter((emoji) => !myEmojis.includes(emoji))].map((emoji) => (
             <button key={emoji} type="button" onClick={() => pickEmoji(emoji)} aria-pressed={current.emoji === emoji}
-              className={`grid size-10 cursor-pointer place-items-center rounded-full border text-[19px] ${current.emoji === emoji ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)]" : "border-glass-border bg-subtle"}`}>{emoji}</button>
+              className={`grid size-10 cursor-pointer place-items-center rounded-full border text-[19px] ${current.emoji === emoji ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)]" : "border-edge bg-subtle"}`}>{emoji}</button>
           ))}
           <input className="h-10 w-[74px] rounded-full border border-[var(--field-border)] bg-control px-3 text-center text-[17px] text-ink outline-none" value={customEmoji} inputMode="text" maxLength={16}
             placeholder="այլ" aria-label="Ձեր սմայլիկը" onChange={(event) => setCustomEmoji(event.target.value)}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addEmoji(); } }} />
           {customEmoji ? (
-            <span className="flex items-center gap-1 animate-glass-enter">
+            <span className="flex items-center gap-1 animate-rise-in">
               <button className="grid size-10 cursor-pointer place-items-center rounded-full border-0 bg-[rgb(74_160_96/16%)] text-[rgb(52_130_74)] disabled:opacity-40" type="button" disabled={!cleanEmoji(customEmoji)} onClick={addEmoji} aria-label="Ավելացնել սմայլիկը"><Check aria-hidden="true" size={18} /></button>
               <button className="grid size-10 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted" type="button" onClick={() => setCustomEmoji("")} aria-label="Չեղարկել"><X aria-hidden="true" size={17} /></button>
             </span>
@@ -154,13 +154,13 @@ export function HighlightSheet({ item, onClose, onChange, onDelete, showOpen = f
           onChange={(event) => { setNote(event.target.value); later({ note: event.target.value }); }} />
       </label>
       {dirty ? (
-        <button className={`${chip} w-full animate-glass-enter border-[rgb(217_181_111/55%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={saveText}>
+        <button className={`${chip} w-full animate-rise-in border-[rgb(217_181_111/55%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708]`} type="button" onClick={saveText}>
           <Check aria-hidden="true" size={16} /> Պահել
         </button>
       ) : null}
 
       {question ? (
-        <div className="grid gap-2 rounded-button border border-glass-border bg-subtle p-3">
+        <div className="grid gap-2 rounded-button border border-edge bg-subtle p-3">
           {!answered ? (
             <ReminderButton materialId={current.materialId} title={current.title} path={current.path} label
               heading="Հիշեցնել հարցնել հոգևորականին" buttonText="Հիշեցնել հարցնել հոգևորականին" className={`${chip} w-full`} />

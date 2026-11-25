@@ -21,7 +21,7 @@ function PsalmStep({ link, direction }: { link: PsalmLink; direction: "previous"
   if (!link) return <span className="size-11" aria-hidden="true" />;
   const Icon = direction === "previous" ? ChevronLeft : ChevronRight;
   return (
-    <Link prefetch="intent" className="grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms", { psalm: link.number })} aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
+    <Link prefetch="intent" className="grid size-11 place-items-center rounded-full border border-edge bg-subtle text-gold-bright no-underline" to={materialPath(link.id, "category_psalms", { psalm: link.number })} aria-label={`Սաղմոս ${link.number}`} title={`Սաղմոս ${link.number}`}>
       <Icon aria-hidden="true" size={20} />
     </Link>
   );
@@ -312,7 +312,7 @@ function StreamingMedia({ asset, kind, ratio }: { asset: MaterialMedia; kind: "a
   };
 
   return (
-    <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-card border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
+    <div ref={kind === "video" ? (posterRef as React.RefObject<HTMLDivElement>) : undefined} className={kind === "video" ? "overflow-hidden rounded-card border border-edge bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/18%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)] shadow-card" : "grid min-w-0 gap-2.5"}>
       {kind === "video" ? (
         <video controlsList="nodownload"
           {...common}
@@ -354,7 +354,7 @@ function PendingMedia({ asset }: { asset: MaterialMedia }) {
       ? "Մեդիան առայժմ հասանելի չէ։"
       : "Մեդիան բեռնվում է Telegram-ից…";
   return (
-    <div className="grid min-h-[180px] place-items-center rounded-card border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
+    <div className="grid min-h-[180px] place-items-center rounded-card border border-dashed border-edge bg-subtle p-6 text-center text-muted">
       <span className="grid justify-items-center gap-3">
         <Icon aria-hidden="true" className="text-gold" size={30} strokeWidth={1.5} />
         <span className="max-w-[280px] text-[12px] leading-[1.6]">{message}</span>
@@ -374,7 +374,7 @@ function PhotoViewer({ source, fallback, alt, onClose }: { source: string; fallb
   return createPortal(
     <div className="fixed inset-0 z-[90] grid place-items-center bg-[rgb(8_4_10/94%)] p-[max(12px,env(safe-area-inset-top))_12px_max(12px,env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-label="Նկարը ամբողջ էկրանով" onClick={onClose}>
       <img className="max-h-full max-w-full object-contain" src={source} alt={alt} onError={(event) => { if (fallback && event.currentTarget.getAttribute("src") !== fallback) event.currentTarget.src = fallback; }} />
-      <button className="absolute top-[max(12px,env(safe-area-inset-top))] right-3 grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white backdrop-blur-md" type="button" onClick={onClose} aria-label="Փակել" autoFocus>
+      <button className="absolute top-[max(12px,env(safe-area-inset-top))] right-3 grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white" type="button" onClick={onClose} aria-label="Փակել" autoFocus>
         <X aria-hidden="true" size={20} />
       </button>
     </div>,
@@ -409,11 +409,11 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   if (!source) return <PendingMedia asset={asset} />;
   if (failed) {
     return (
-      <div className="grid min-h-[180px] place-items-center rounded-card border border-dashed border-glass-border bg-subtle p-6 text-center text-muted">
+      <div className="grid min-h-[180px] place-items-center rounded-card border border-dashed border-edge bg-subtle p-6 text-center text-muted">
         <span className="grid justify-items-center gap-3">
           <AlertCircle aria-hidden="true" className="text-gold" size={28} strokeWidth={1.6} />
           <span className="text-[12px]">Նկարը չբեռնվեց, սակայն մյուս մեդիան շարունակում է աշխատել։</span>
-          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-glass-border bg-glass px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => { setFailed(false); setAttempt((current) => current + 1); setSourceIndex(0); }}>
+          <button className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-edge bg-surface px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => { setFailed(false); setAttempt((current) => current + 1); setSourceIndex(0); }}>
             <RotateCw aria-hidden="true" size={15} /> Կրկին փորձել
           </button>
         </span>
@@ -422,7 +422,7 @@ function PhotoMedia({ asset, priority }: { asset: MaterialMedia; priority: boole
   }
 
   return (
-    <figure className="reveal-frame relative m-0 overflow-hidden rounded-card border border-glass-border bg-[rgb(18_8_22/8%)] shadow-card">
+    <figure className="reveal-frame relative m-0 overflow-hidden rounded-card border border-edge bg-[rgb(18_8_22/8%)] shadow-card">
       <button className="relative block w-full cursor-zoom-in border-0 bg-transparent p-0 text-inherit" type="button" onClick={() => setViewing(true)} aria-label="Բացել նկարը ամբողջ էկրանով">
         {preview ? <img className="reveal-img absolute inset-0 size-full object-contain" src={preview} alt="" aria-hidden="true" decoding="async" /> : null}
         <img
@@ -465,7 +465,7 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
     const performerText = asset.performer?.trim() ?? "";
     const performer = /[\p{L}\p{N}]/u.test(performerText.replace(/[\u3164\u115F\u1160\uFFA0]/gu, "")) ? performerText : null;
     return (
-      <div className="grid justify-items-center gap-4 frosted-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
+      <div className="grid justify-items-center gap-4 paper-panel px-4 pt-6 pb-4 text-center shadow-card min-[560px]:px-8">
         {/* A psalm's title already names it ("Սաղմոս 3"); other audio gets a headphones mark. */}
         {psalm ? null : (
           <span className="grid size-14 place-items-center rounded-full border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] text-gold-bright" aria-hidden="true"><Headphones size={24} strokeWidth={1.6} /></span>
@@ -487,7 +487,7 @@ export function MaterialMediaItem({ asset, priority = false }: { asset: Material
   }
 
   return (
-    <a className="flex min-h-14 items-center gap-3 rounded-button border border-glass-border bg-subtle px-4 text-[13px] font-bold text-gold-bright no-underline" href={asset.url} download={asset.fileName ?? undefined}>
+    <a className="flex min-h-14 items-center gap-3 rounded-button border border-edge bg-subtle px-4 text-[13px] font-bold text-gold-bright no-underline" href={asset.url} download={asset.fileName ?? undefined}>
       <FileText aria-hidden="true" size={20} />
       <span>{asset.fileName || "Բեռնել ֆայլը"}</span>
     </a>

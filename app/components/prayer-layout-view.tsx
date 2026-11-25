@@ -35,7 +35,7 @@ export function LayoutParagraphView({ paragraph, index, editing = false }: { par
 /** Ադմինի ձևավորած աղոթքը կարդալու էջում (Telegram-ի տեքստի փոխարեն)։ */
 export function PrayerLayoutView({ layout }: { layout: PrayerLayout }) {
   return (
-    <section className="reading-body prayer-layout grid gap-3 frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-4 min-[560px]:px-7 min-[560px]:py-7" aria-label="Աղոթքի տեքստ">
+    <section className="reading-body prayer-layout grid gap-3 paper-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.85] text-ink shadow-card min-[560px]:gap-4 min-[560px]:px-7 min-[560px]:py-7" aria-label="Աղոթքի տեքստ">
       {layout.paragraphs.map((paragraph, index) => <LayoutParagraphView paragraph={paragraph} index={index} key={index} />)}
     </section>
   );

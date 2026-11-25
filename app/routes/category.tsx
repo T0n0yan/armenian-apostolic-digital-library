@@ -292,7 +292,7 @@ function FilterChips<T extends string>({ options, value, onChange, label }: { op
     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label={label}>
       {options.map((option) => (
         <button key={option.id} type="button" role="radio" aria-checked={value === option.id} onClick={() => onChange(option.id)}
-          className={`${chip} ${value === option.id ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted hover:text-ink"}`}>
+          className={`${chip} ${value === option.id ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-muted hover:text-ink"}`}>
           {option.label}<span className="text-[11px] opacity-70 tabular-nums">{option.count}</span>
         </button>
       ))}
@@ -381,7 +381,7 @@ function QuizProgress({ total, answers }: { total: number; answers: QuizResult[]
   const right = answers.filter((answer) => answer === "right").length;
   const share = Math.round((answers.length / total) * 100);
   return (
-    <div className="frosted-panel grid gap-2.5 px-4 py-3.5">
+    <div className="paper-panel grid gap-2.5 px-4 py-3.5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <strong className="text-[13.5px] text-ink">{answers.length === 0 ? "Փորձեք ձեր գիտելիքները" : answers.length === total ? "Բոլոր հարցերին պատասխանել եք" : `Պատասխանել եք ${answers.length} հարցի՝ ${total}-ից`}</strong>
         {answers.length > 0 ? <span className="text-[12px] font-bold text-[rgb(52_130_74)]">✓ ճիշտ՝ {right}</span> : <span className="text-[12px] text-muted">{total} հարց</span>}
@@ -591,7 +591,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
       {/* Վերջին կարդացածը/լսածը այս բաժնում («Օրվա ընթերցումները» չեն հիշվում)։ */}
       <ContinueCard className="mb-3" section={sectionOfPath(sectionPath(category))} />
 
-      {findError ? <div role="alert" className="mb-3 rounded-control border border-glass-border p-3 text-sm">
+      {findError ? <div role="alert" className="mb-3 rounded-control border border-edge p-3 text-sm">
         <p>{findError}</p>
         <button type="button" className="min-h-11 text-gold-bright" onClick={() => void findInSection(lastFind.current)}>Կրկին փորձել</button>
       </div> : null}
@@ -607,7 +607,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         // A quiet bar at the bottom: it rises in, stays one tap away however far the page scrolls,
         // steps through the matches, and opens the match when tapped. It hides while the menu is open.
         return (
-          <div className="find-bar liquid-sheet fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto flex max-w-[520px] items-center gap-1.5 overflow-hidden rounded-card py-2 pr-2 pl-3" role="status" aria-live="polite">
+          <div className="find-bar paper-sheet fixed inset-x-3 bottom-[calc(var(--tg-inset-bottom,0px)+86px)] z-40 mx-auto flex max-w-[520px] items-center gap-1.5 overflow-hidden rounded-card py-2 pr-2 pl-3" role="status" aria-live="polite">
             {finding ? (
               <span className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[13px] text-muted"><LoaderCircle className="animate-search-spin shrink-0 text-gold" aria-hidden="true" size={15} /> Փնտրում եմ այս բաժնում…</span>
             ) : target ? (
@@ -669,7 +669,7 @@ export default function Category({ loaderData }: Route.ComponentProps) {
                   Որոնել ամբողջ կայքում
                 </Link>
                 <Link
-                  className="inline-flex min-h-10 items-center rounded-control border border-glass-border px-4 text-[12.5px] font-bold text-gold-bright no-underline"
+                  className="inline-flex min-h-10 items-center rounded-control border border-edge px-4 text-[12.5px] font-bold text-gold-bright no-underline"
                   to={sectionPath(category)}
                 >
                   Ցույց տալ բաժնի բոլոր նյութերը
@@ -701,11 +701,11 @@ export default function Category({ loaderData }: Route.ComponentProps) {
         ) : null}
         {loaderData.moreLinks.length ? (
           <details className="group mt-4">
-            <summary className="frosted-card flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
+            <summary className="paper-card flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
               <span>Բաժնի բոլոր նյութերը</span>
               <span className="shrink-0 text-[12.5px] font-normal text-muted">{loaderData.moreLinks.length} <span className="inline-block transition-transform group-open:rotate-90">›</span></span>
             </summary>
-            <ul className="frosted-card m-0 mt-2 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
+            <ul className="paper-card m-0 mt-2 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
               {loaderData.moreLinks.map((link) => <li key={link.path}><a className="block rounded-control px-2 py-1.5 text-ink no-underline hover:bg-subtle" href={link.path}>{link.title}</a></li>)}
             </ul>
           </details>

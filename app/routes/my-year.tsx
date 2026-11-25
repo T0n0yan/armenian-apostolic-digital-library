@@ -39,7 +39,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <div className="frosted-card grid justify-items-center gap-0.5 px-3 py-3 text-center">
+    <div className="paper-card grid justify-items-center gap-0.5 px-3 py-3 text-center">
       <strong className="font-noto text-[28px] leading-tight text-gold-bright tabular-nums">{value}</strong>
       <span className="text-[12.5px] text-muted">{label}</span>
     </div>
@@ -169,7 +169,7 @@ function AddLiturgy({ today }: { today: string }) {
   if (!open) {
     return <button className="inline-flex min-h-11 w-fit cursor-pointer items-center gap-2 justify-self-center rounded-button border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-4 text-[14px] font-semibold text-gold-bright" type="button" onClick={() => setOpen(true)}><Plus aria-hidden="true" size={16} /> Նշել Պատարագ</button>;
   }
-  const field = "min-h-11 rounded-control border border-glass-border bg-control px-3 text-[14px] text-ink";
+  const field = "min-h-11 rounded-control border border-edge bg-control px-3 text-[14px] text-ink";
   return (
     <section className={`${panelSection} grid gap-3`}>
       <h2 className="m-0 text-[16px] font-bold text-ink">Նշել Պատարագ</h2>
@@ -179,7 +179,7 @@ function AddLiturgy({ today }: { today: string }) {
       <label className="flex items-center gap-2 text-[14px] text-ink"><input type="checkbox" checked={communion} onChange={(event) => setCommunion(event.target.checked)} /> Ստացել եմ Սուրբ Հաղորդություն</label>
       <div className="flex gap-2">
         <button className="min-h-11 cursor-pointer rounded-button border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-5 text-[14px] font-bold text-[#2a1708] disabled:opacity-60" type="button" disabled={busy || !canMarkDay(day)} onClick={() => void save()}>Պահել</button>
-        <button className="min-h-11 cursor-pointer rounded-button border border-glass-border bg-transparent px-4 text-[13.5px] text-muted" type="button" onClick={() => setOpen(false)}>Չեղարկել</button>
+        <button className="min-h-11 cursor-pointer rounded-button border border-edge bg-transparent px-4 text-[13.5px] text-muted" type="button" onClick={() => setOpen(false)}>Չեղարկել</button>
       </div>
     </section>
   );

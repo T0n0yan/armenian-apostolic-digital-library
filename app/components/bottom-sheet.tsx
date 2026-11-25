@@ -87,7 +87,7 @@ export function BottomSheet({ open, onClose, label, children, className = "", sw
   return createPortal(
     <div className="fixed inset-0 z-[90] grid items-end justify-items-center p-3 pb-[calc(var(--tg-inset-bottom,0px)+12px)]" role="dialog" aria-modal="true" aria-label={label}>
       <button className={`sheet-scrim absolute inset-0 cursor-default border-0 bg-[rgb(20_10_24/40%)] p-0`} data-phase={phase} type="button" aria-label="Փակել" onClick={onClose} />
-      <div ref={panel} tabIndex={-1} className={`install-toast relative grid outline-none max-h-[calc(100svh-24px)] w-full max-w-[440px] overflow-y-auto liquid-sheet rounded-panel border ${className}`} data-phase={phase}
+      <div ref={panel} tabIndex={-1} className={`install-toast relative grid outline-none max-h-[calc(100svh-24px)] w-full max-w-[440px] overflow-y-auto paper-sheet rounded-panel border ${className}`} data-phase={phase}
         style={swipeToClose ? { translate: `0 ${dragY}px`, transition: drag.current ? "none" : "translate 220ms ease-out" } : undefined} {...dragHandlers}>
         {swipeToClose ? <span className="-mt-1 mb-0.5 flex cursor-grab touch-none justify-center py-1.5" data-sheet-drag aria-hidden="true"><span className="h-1 w-10 rounded-full bg-[rgb(217_181_111/45%)]" /></span> : null}
         {children}

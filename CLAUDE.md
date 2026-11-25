@@ -7,7 +7,7 @@ Read them only when the task needs it, and only the needed section (see "Saving 
 **Whenever you add or change a feature, page, table, workflow or service, update `docs/ARCHITECTURE.md`
 in the same branch**, then rebuild the interactive page with `node scripts/build-architecture-page.mjs`
 (it writes `docs/architecture.html`; never read or edit the HTML by hand). The owner reads it to understand the site.
-**Design rules** (radius scale, glass, fields, button groups): `docs/DESIGN.md` — follow them for any UI change.
+**Design rules** (radius scale, surfaces, fields, button groups): `docs/DESIGN.md` — follow them for any UI change.
 
 ## Talking to the owner
 

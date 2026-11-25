@@ -25,5 +25,5 @@ export function TopicIcon({ slug, size = 22 }: { slug: string; size?: number }) 
 }
 
 /** Խմբավորված ցուցակի քարտը և խմբի վերնագիրը (բաց, կոկիկ ոճ)։ */
-export const card = "rounded-card bg-[var(--card-glass)] border border-glass-border shadow-[0_1px_2px_rgb(92_64_30/8%)]";
+export const card = "rounded-card bg-surface border border-edge shadow-[0_1px_2px_rgb(92_64_30/8%)]";
 export const groupTitle = "m-0 px-1 text-[12px] font-bold tracking-[1.2px] text-gold uppercase";

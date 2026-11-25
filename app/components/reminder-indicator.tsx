@@ -26,7 +26,7 @@ const cardAction = "grid size-8 cursor-pointer place-items-center rounded-full b
 /** One rung reminder: open it, mark it read (✓), set it again (bell) or remove it (trash). */
 function MissedCard({ item, opening, onOpen }: { item: { materialId: string; rangAt: string; title: string; categoryName: string | null }; opening: boolean; onOpen: () => void }) {
   return (
-    <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-button border border-glass-border liquid-sheet px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
+    <div className={`relative z-[2] grid grid-cols-[1fr_auto] items-center gap-2 rounded-button border border-edge paper-sheet px-1.5 py-1.5 shadow-[0_6px_18px_rgb(0_0_0/18%)] transition-colors ${opening ? "bg-[rgb(217_181_111/14%)]" : ""}`}>
       <Link className="relative z-[3] grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-1 py-0.5 text-inherit no-underline hover:bg-subtle active:scale-[.98]" to={materialPath(item.materialId, item.categoryName, { title: item.title })} onClick={onOpen} aria-busy={opening}>
         <ItemIcon categoryName={item.categoryName} busy={opening} />
         <span className="grid min-w-0">
@@ -67,7 +67,7 @@ export function ReminderList({ limit, tabIndex, onOpen }: { limit?: number; tabI
       {(limit ? reminders.slice(0, limit) : reminders).map((reminder) => {
         const busy = opening === reminder.materialId;
         return (
-          <li key={reminder.materialId} className={`grid gap-2 rounded-button border border-glass-border px-2 py-2 ${busy ? "bg-[rgb(217_181_111/14%)]" : "bg-subtle"}`}>
+          <li key={reminder.materialId} className={`grid gap-2 rounded-button border border-edge px-2 py-2 ${busy ? "bg-[rgb(217_181_111/14%)]" : "bg-subtle"}`}>
             <span className="grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5">
               <ItemIcon categoryName={reminder.categoryName} busy={busy} />
               <span className="grid min-w-0">
@@ -128,8 +128,8 @@ export function ReminderSheet({ open, onClose }: { open: boolean; onClose: () =>
             ))}
             {missed.length > 1 && !stackOpen ? (
               <button className="absolute inset-0 z-[1] cursor-pointer border-0 bg-transparent p-0" type="button" onClick={() => setStackOpen(true)} aria-label={`Ցույց տալ բոլոր ${missed.length} հիշեցումները`}>
-                <span className="pointer-events-none absolute inset-x-3 bottom-1.5 -z-10 h-4 rounded-b-button border border-t-0 border-glass-border bg-subtle" />
-                {missed.length > 2 ? <span className="pointer-events-none absolute inset-x-6 bottom-0 -z-20 h-4 rounded-b-button border border-t-0 border-glass-border bg-subtle opacity-70" /> : null}
+                <span className="pointer-events-none absolute inset-x-3 bottom-1.5 -z-10 h-4 rounded-b-button border border-t-0 border-edge bg-subtle" />
+                {missed.length > 2 ? <span className="pointer-events-none absolute inset-x-6 bottom-0 -z-20 h-4 rounded-b-button border border-t-0 border-edge bg-subtle opacity-70" /> : null}
                 <span className="pointer-events-none absolute -top-0.5 right-1 rounded-full bg-[rgb(205_70_55)] px-1.5 text-[10px] font-bold leading-[16px] text-white">+{missed.length - 1}</span>
               </button>
             ) : null}
@@ -172,7 +172,7 @@ export function ReminderIndicator({ hidden = false, onOpen }: { hidden?: boolean
   return (
         <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "hidden" : "opacity-100"}`}>
           <button
-            className={`relative grid size-[46px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] text-gold-bright shadow-[var(--fab-shadow)] backdrop-blur-xl ${swinging ? "bell-swing" : ""}`}
+            className={`relative grid size-[46px] cursor-pointer place-items-center rounded-full border border-[var(--fab-border)] bg-[var(--fab-bg)] text-gold-bright shadow-[var(--fab-shadow)] ${swinging ? "bell-swing" : ""}`}
             type="button"
             onClick={onOpen}
             aria-haspopup="dialog"

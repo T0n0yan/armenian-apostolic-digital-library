@@ -37,7 +37,7 @@ export function MaterialActionSheet({ open, onClose, material, canSave, isSaved,
         <ShareButton className={tile} pageUrl={pageUrl} label />
       </div>
       {allowNoteEditing && isSaved ? (
-        <button className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-button border border-glass-border bg-subtle text-[13px] font-semibold text-ink" type="button" onClick={onEditNote}>
+        <button className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-button border border-edge bg-subtle text-[13px] font-semibold text-ink" type="button" onClick={onEditNote}>
           <Pencil aria-hidden="true" size={16} /> Խմբագրել նշումը
         </button>
       ) : null}

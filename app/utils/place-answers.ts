@@ -31,7 +31,6 @@ export const ACCESS_PARTS = [
   },
 ] as const;
 export type AccessKey = (typeof ACCESS_PARTS)[number]["key"];
-export const ACCESS_KEYS = ACCESS_PARTS.map((part) => part.key) as AccessKey[];
 export const ACCESS_HINT = "Ընտրեք տարբերակներից կամ նկարագրեք ինքներդ։";
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase("hy") + text.slice(1);

@@ -46,13 +46,13 @@ const quickItems = [
 
 
 // Փոքր սալիկ (պատկերակ վերևում, անունը տակը)՝ գլխավոր էջեր և «Այլ»։
-const smallTileClass = "glass-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-0.5 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const smallTileClass = "menu-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-0.5 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Միայն պատկերակով սալիկ (կարգավորումներ, օգնություն, տեղադրել)։
-const iconTileClass = "glass-tile grid min-h-12 cursor-pointer place-items-center rounded-button text-gold no-underline outline-none hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const iconTileClass = "menu-tile grid min-h-12 cursor-pointer place-items-center rounded-button text-gold no-underline outline-none hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Ամբողջ լայնությամբ սալիկ՝ պատկերակ և անուն մեկ տողում (կառավարում, մուտք)։
-const rowTileClass = "glass-tile flex min-h-12 items-center justify-center gap-2 rounded-button px-3 text-[13px] font-semibold no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const rowTileClass = "menu-tile flex min-h-12 items-center justify-center gap-2 rounded-button px-3 text-[13px] font-semibold no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Բաժնի սալիկ մենյուում (2 սյուն)։
-const tileClass = "glass-tile relative flex min-h-[54px] items-center gap-2 rounded-button px-2 py-2 text-[12px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const tileClass = "menu-tile relative flex min-h-[54px] items-center gap-2 rounded-button px-2 py-2 text-[12px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
@@ -256,7 +256,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               </section>
             ) : null}
 
-            <section className="grid gap-2 border-t border-glass-border pt-3" aria-label="Կարգավորումներ և օգնություն">
+            <section className="grid gap-2 border-t border-edge pt-3" aria-label="Կարգավորումներ և օգնություն">
               {/* Վերնագիրը և նամակների կոճակը մեկ տողում (նամակները՝ միայն երկու կողմին, root-ը ուրիշներին null է տալիս)։ */}
               <div className="flex min-h-7 items-center justify-between">
                 <h2 className="m-0 px-2 text-[11px] font-bold tracking-[1.2px] text-gold uppercase">Կարգավորումներ</h2>
@@ -268,7 +268,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   </NavLink>
                 ) : null}
               </div>
-              {/* Միայն պատկերակներ (անունը՝ title-ում և էկրանի ընթերցողի համար), նույն ապակե ոճով։ */}
+              {/* Միայն պատկերակներ (անունը՝ title-ում և էկրանի ընթերցողի համար), նույն ոճով։ */}
               <ul className={`m-0 grid list-none gap-1.5 p-0 ${canInstall ? "grid-cols-3" : "grid-cols-2"}`}>
                 <li>
                   <button className={`${iconTileClass} w-full`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("settings")} aria-label="Լույս, տառատեսակ, տառաչափ" title="Լույս, տառատեսակ, տառաչափ">
@@ -308,7 +308,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
               </NavLink>
             ) : null}
             {account && (account.source === "google" || !inMiniApp) ? (
-              <div className="grid gap-1.5 border-t border-glass-border px-2 pt-3">
+              <div className="grid gap-1.5 border-t border-edge px-2 pt-3">
                 <Form className="flex items-center justify-between gap-3 text-[12.5px] text-muted" method="post" action="/auth/logout" onSubmit={() => { clearPersonalStorage(); setIsOpen(false); }}>
                   <span className="min-w-0 truncate">{account.name || "Իմ հաշիվը"} <span className="text-faint">· {account.source === "google" ? "Google" : "Telegram"}</span></span>
                   <button className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[rgb(205_70_55/45%)] bg-[rgb(205_70_55/10%)] px-3.5 py-1.5 text-[12.5px] font-bold text-[rgb(190_60_45)]" type="submit" tabIndex={isOpen ? 0 : -1}>
@@ -329,7 +329,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
         <ReminderIndicator hidden={isOpen || closing} onOpen={() => setRemindersOpen(true)} />
         <button
           ref={triggerRef}
-          className={`relative grid size-[62px] cursor-pointer place-items-center liquid-fab rounded-full p-0 outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
+          className={`relative grid size-[62px] cursor-pointer place-items-center paper-fab rounded-full p-0 outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
           type="button"
           aria-label={isOpen ? "Փակել մենյուն" : "Բացել մենյուն"}
           aria-expanded={isOpen}

@@ -443,7 +443,7 @@ const SearchForm = memo(function SearchForm({
   return (
     <Form
       ref={formRef}
-      className="relative z-30 grid min-w-0 gap-3 frosted-panel p-3 shadow-glass"
+      className="relative z-30 grid min-w-0 gap-3 paper-panel p-3 shadow-float"
       method="get"
       role="search"
       onSubmit={handleSubmit}
@@ -481,7 +481,7 @@ const SearchForm = memo(function SearchForm({
 
       {error ? <p id="search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
       <details
-        className="group w-full min-w-0 overflow-hidden rounded-button border border-glass-border bg-subtle"
+        className="group w-full min-w-0 overflow-hidden rounded-button border border-edge bg-subtle"
         open={Boolean(
           filters.categoryId ||
             filters.dateFrom ||
@@ -542,7 +542,7 @@ function DateField({ name, label, value, onChange }: { name: string; label: stri
   const [current, setCurrent] = useState(value);
   const shown = current ? `${Number(current.slice(8))} ${DATE_MONTHS[Number(current.slice(5, 7)) - 1]} ${current.slice(0, 4)}` : "Ընտրել";
   return (
-    <label className="relative grid cursor-pointer gap-0.5 rounded-button border border-glass-border bg-control px-3 py-1.5">
+    <label className="relative grid cursor-pointer gap-0.5 rounded-button border border-edge bg-control px-3 py-1.5">
       <span className="text-[11px] font-semibold text-muted">{label}</span>
       <span className={`text-[14px] ${current ? "text-ink" : "text-faint"}`}>{shown}</span>
       <input
@@ -765,7 +765,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
             {filters.categoryId && filters.query ? (
               <Link
-                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
+                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-float active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
               >
                 Փորձել բոլոր բաժիններում <ArrowRight aria-hidden="true" size={16} />
@@ -857,7 +857,7 @@ function NoteMatches({ query }: { query: string }) {
       <ul className="m-0 grid list-none gap-2 p-0">
         {found.highlights.map((item) => (
           <li key={item.id}>
-            <Link className={`frosted-card grid gap-1 border-l-4 px-3.5 py-2.5 text-inherit no-underline ${item.kind === "question" ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} to={`${item.path}?hl=${encodeURIComponent(item.id)}`}>
+            <Link className={`paper-card grid gap-1 border-l-4 px-3.5 py-2.5 text-inherit no-underline ${item.kind === "question" ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} to={`${item.path}?hl=${encodeURIComponent(item.id)}`}>
               <span className="line-clamp-2 text-[14px] leading-snug text-ink">{firstEmoji(item.emoji) || (item.kind === "question" ? "❓" : "")} «<Found text={item.quote} query={query} />»</span>
               {item.note ? <span className="line-clamp-1 text-[12.5px] text-muted">✎ <Found text={item.note} query={query} /></span> : null}
               {item.answer && matchAround(item.answer, query) ? <span className="line-clamp-1 text-[12.5px] text-[rgb(52_130_74)]">✓ <Found text={item.answer} query={query} /></span> : null}
@@ -887,7 +887,7 @@ function EtiquetteMatches({ query }: { query: string }) {
       <ul className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2">
         {hits.map((hit) => (
           <li key={hit.href}>
-            <Link className="frosted-card grid gap-0.5 px-3.5 py-2.5 text-inherit no-underline" to={hit.href}>
+            <Link className="paper-card grid gap-0.5 px-3.5 py-2.5 text-inherit no-underline" to={hit.href}>
               <span className="text-[11.5px] font-semibold text-gold-bright">{hit.topic}</span>
               <strong className="font-noto text-[14px] leading-snug text-ink">{hit.title}</strong>
               <span className="line-clamp-1 text-[12.5px] text-muted">{hit.text}</span>
@@ -920,7 +920,7 @@ function PlaceMatches({ query }: { query: string }) {
       <ul className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2">
         {found.places.map((place) => (
           <li key={place.id}>
-            <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
+            <Link className="paper-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
               <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
                 {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
               </span>

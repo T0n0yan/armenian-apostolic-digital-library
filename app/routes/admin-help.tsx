@@ -47,7 +47,7 @@ export async function action({ request }: Route.ActionArgs) {
   return { ok: true };
 }
 
-const small = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border border-glass-border bg-subtle px-3.5 text-[13px] font-bold text-ink";
+const small = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border border-edge bg-subtle px-3.5 text-[13px] font-bold text-ink";
 const MB = (bytes: number) => `${(bytes / 1_000_000).toFixed(1)} ՄԲ`;
 
 /** Ֆայլը ուղարկվում է որպես հարցման մարմին (XHR՝ որ երևա տոկոսը)։ */
@@ -130,7 +130,7 @@ export default function AdminHelp({ loaderData }: Route.ComponentProps) {
                       <Form key={dir} method="post">
                         <input type="hidden" name="intent" value={dir} />
                         <input type="hidden" name="id" value={video.id} />
-                        <button className="grid size-8 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle text-muted disabled:opacity-30" type="submit"
+                        <button className="grid size-8 cursor-pointer place-items-center rounded-full border border-edge bg-subtle text-muted disabled:opacity-30" type="submit"
                           disabled={dir === "up" ? video.number === 1 : video.number === total} aria-label={dir === "up" ? "Վեր" : "Վար"}>
                           {dir === "up" ? <ArrowUp aria-hidden="true" size={15} /> : <ArrowDown aria-hidden="true" size={15} />}
                         </button>
@@ -145,7 +145,7 @@ export default function AdminHelp({ loaderData }: Route.ComponentProps) {
                     <input className="sr-only" type="file" accept="video/mp4,video/quicktime,video/webm" onChange={(event) => { void choose(video.id, event.target.files?.[0]); event.target.value = ""; }} />
                   </label>
                   {video.url ? (
-                    <button className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border border-glass-border bg-subtle px-3.5 text-[13px] font-bold text-ink" type="button" onClick={() => setPreview(ready.findIndex((item) => item.id === video.id))}>
+                    <button className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border border-edge bg-subtle px-3.5 text-[13px] font-bold text-ink" type="button" onClick={() => setPreview(ready.findIndex((item) => item.id === video.id))}>
                       <CirclePlay aria-hidden="true" size={15} /> Դիտել
                     </button>
                   ) : null}

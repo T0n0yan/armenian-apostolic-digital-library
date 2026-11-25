@@ -46,15 +46,6 @@ function forget() {
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 
-/** The words (2+ letters, longest first) as one pattern; «և»/«եւ», «ե»/«է» and «ո»/«օ» count as the same. */
-export function findPattern(query: string) {
-  const words = [...new Set(query.normalize("NFC").trim().split(/\s+/u).filter((word) => [...word].length >= 2))]
-    .sort((a, b) => b.length - a.length)
-    // Old and new spelling read the same: «Տէր» is found by «Տեր», «օրհնել» by «որհնել».
-    .map((word) => escape(word).replace(/և|եւ/gu, "\u0000").replace(/[եէ]/gu, "[եէ]").replace(/[ոօ]/gu, "[ոօ]").replace(/\u0000/gu, "(?:և|[եէ]ւ)"));
-  return words.length ? new RegExp(words.join("|"), "giu") : null;
-}
-
 // Painted by the browser over the text (CSS Custom Highlight API), never by changing the page:
 // changing React's text nodes made the page redraw itself. Held, then faded in steps (app.css).
 const HOLD_MS = 1_100;

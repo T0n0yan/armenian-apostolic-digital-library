@@ -58,7 +58,7 @@ export function RichTextField({ name, defaultValue, className }: { name: string;
     setValue(next);
     requestAnimationFrame(() => { area.focus(); area.setSelectionRange(caret, caret); });
   };
-  const tool = "inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-chip border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
+  const tool = "inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-chip border border-edge bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
   return (
     <div className="grid gap-1.5">
       <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label="Ձևավորում">
@@ -70,7 +70,7 @@ export function RichTextField({ name, defaultValue, className }: { name: string;
       </div>
       {/* The field stays in the form (hidden while previewing) so «Պահել» always sends the text. */}
       <textarea ref={field} className={`${className} ${preview ? "hidden" : ""}`} name={name} value={value} onChange={(event) => setValue(event.target.value)} rows={8} />
-      {preview ? <div className="rounded-button border border-glass-border bg-subtle p-3.5 text-[15px] leading-relaxed text-ink">{value.trim() ? <RichText text={value} /> : <span className="text-faint">Դատարկ է</span>}</div> : null}
+      {preview ? <div className="rounded-button border border-edge bg-subtle p-3.5 text-[15px] leading-relaxed text-ink">{value.trim() ? <RichText text={value} /> : <span className="text-faint">Դատարկ է</span>}</div> : null}
     </div>
   );
 }

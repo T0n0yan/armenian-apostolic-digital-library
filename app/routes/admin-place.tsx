@@ -177,7 +177,7 @@ function VideoUpload({ placeId, hasVideo }: { placeId: string; hasVideo: boolean
   );
 }
 
-const smallButton = "inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
+const smallButton = "inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-subtle px-2.5 text-[12.5px] font-semibold text-ink";
 const textarea = `${fieldControl} min-h-[110px] resize-y leading-relaxed`;
 
 /** Նկարների վերբեռնում. ամեն նկար բրաուզերում դառնում է WebP, հետո միայն ուղարկվում։ */
@@ -272,7 +272,7 @@ function ClergyField({ initial }: { initial: string }) {
   return (
     <div className={fieldLabel}>
       Ծառայողներ (մեկ դեր՝ մեկ տող)
-      <div className="grid gap-2 rounded-control border border-glass-border bg-subtle p-2.5">
+      <div className="grid gap-2 rounded-control border border-edge bg-subtle p-2.5">
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-2 max-[480px]:grid-cols-1">
           <select className={fieldControl} value={role} onChange={(event) => setRole(event.target.value)} aria-label="Աստիճան">
             {CLERGY_RANKS.map((rank) => <option key={rank.role} value={rank.role}>{rank.role}</option>)}

@@ -231,7 +231,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
   const close = useCallback(() => setOpen(false), []);
   const Icon = hasReminder ? BellRing : Bell;
   const primary = "inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-button border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] font-bold text-[#2a1708] no-underline shadow-[0_8px_20px_rgb(150_100_30/25%)] disabled:opacity-60";
-  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-control border-0 text-[13px] font-semibold ${active ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`;
+  const segment = (active: boolean) => `min-h-10 cursor-pointer whitespace-nowrap rounded-control border-0 text-[13px] font-semibold ${active ? "chip-on text-gold-bright" : "bg-transparent text-muted"}`;
   return (
     <>
       <button className={className} type="button" onClick={openSheet} aria-label={reminder ? `Հիշեցում՝ ${formatWhen(reminder.remindAt)}` : "Հիշեցնել կարդալու մասին"} title="Հիշեցում">
@@ -270,12 +270,12 @@ export function ReminderButton({ materialId, title, className, label = false, pa
         {mode === "date" ? (
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="listbox" aria-label="Օր">
             {days.map((item) => (
-              <button key={item.key} className={`grid min-w-[62px] shrink-0 cursor-pointer justify-items-center gap-0.5 rounded-button border px-2 py-2 ${item.key === day ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-ink"}`} type="button" role="option" aria-selected={item.key === day} onClick={() => setDay(item.key)}>
+              <button key={item.key} className={`grid min-w-[62px] shrink-0 cursor-pointer justify-items-center gap-0.5 rounded-button border px-2 py-2 ${item.key === day ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-ink"}`} type="button" role="option" aria-selected={item.key === day} onClick={() => setDay(item.key)}>
                 <span className="text-[11px] font-semibold opacity-80">{item.top}</span>
                 <span className="text-[13px] font-bold whitespace-nowrap">{item.bottom}</span>
               </button>
             ))}
-            <label className={`relative grid min-w-[74px] shrink-0 cursor-pointer place-items-center rounded-button border px-2 text-[12px] font-semibold ${otherDay ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-dashed border-glass-border text-muted"}`}>
+            <label className={`relative grid min-w-[74px] shrink-0 cursor-pointer place-items-center rounded-button border px-2 text-[12px] font-semibold ${otherDay ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-dashed border-edge text-muted"}`}>
               {otherDay ? `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]}` : "Այլ օր…"}
               <input ref={otherDayRef} className="absolute inset-0 cursor-pointer opacity-0" type="date" min={dayKey(new Date())} max={dayKey(new Date(Date.now() + 365 * 86_400_000))} value={day}
                 onClick={(event) => { try { event.currentTarget.showPicker(); } catch { /* opens natively */ } }}
@@ -351,7 +351,7 @@ export function ReminderButton({ materialId, title, className, label = false, pa
               {reminder ? "Փոխել հիշեցումը" : "Դնել հիշեցում"}
             </button>
           )}
-          {reminder ? <button className="min-h-11 cursor-pointer rounded-button border border-glass-border bg-transparent text-[13px] font-semibold text-muted" type="button" disabled={busy} onClick={remove}>Չեղարկել հիշեցումը</button> : null}
+          {reminder ? <button className="min-h-11 cursor-pointer rounded-button border border-edge bg-transparent text-[13px] font-semibold text-muted" type="button" disabled={busy} onClick={remove}>Չեղարկել հիշեցումը</button> : null}
         </div>
       </BottomSheet>
     </>
