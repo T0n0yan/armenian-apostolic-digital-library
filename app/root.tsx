@@ -27,7 +27,8 @@ import {contentVersion} from "./data/content-version.server";
 import { setRemindersEnabled } from "./utils/reminder-store";
 import { setContentVersion, setRootSearchState } from "./utils/search-state";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
-import { markAppHydrated, setPersonalContext } from "./utils/personal-data";
+import { markAppHydrated, prefetchPersonal, setPersonalContext } from "./utils/personal-data";
+import { isLibraryPath } from "./utils/material-path";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { NavigationProgress } from "./components/navigation-progress";
@@ -292,6 +293,28 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
   useEffect(() => { markAppHydrated(); }, []);
+  // Նյութի հղմանը մատը դիպչելիս (pointerdown) ընթերցողի անձնական մասը սկսում է բեռնվել, մինչև մատը
+  // բարձրանա. էջի տվյալը նույն պահին բերում է React Router-ը (prefetch="intent")։
+  useEffect(() => {
+    // Ոլորելիս բրաուզերը ուղարկում է pointercancel. այդ դեպքում հարցում չի արվում (ավելորդ ծախս չկա)։
+    let timer = 0;
+    const cancel = () => window.clearTimeout(timer);
+    const warm = (event: PointerEvent) => {
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.origin !== location.origin) return;
+      const parts = link.pathname.split("/").filter(Boolean);
+      if (parts.length !== 2 || !isLibraryPath(link.pathname)) return;
+      cancel();
+      timer = window.setTimeout(() => prefetchPersonal("material", link.pathname), 70);
+    };
+    document.addEventListener("pointerdown", warm, { capture: true, passive: true });
+    document.addEventListener("pointercancel", cancel, { capture: true, passive: true });
+    return () => {
+      cancel();
+      document.removeEventListener("pointerdown", warm, { capture: true });
+      document.removeEventListener("pointercancel", cancel, { capture: true });
+    };
+  }, []);
   // Բրաուզերից դուրս գալիս ձայնը չի կանգնում (utils/background-playback.ts)։
   useEffect(() => { installBackgroundPlayback(); }, []);
   // Անկյան տեսանյութին սեղմելիս՝ նրա էջը (video-dock.ts). նոր էջում նվագողի քարտը նշվում և երևում է։
