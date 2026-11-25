@@ -1,4 +1,4 @@
-import { ArrowLeft, Bookmark, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
+import { ArrowLeft, BellRing, Bookmark, Church, CircleHelp, LogIn, LogOut, Mail, Search, Settings, Settings2, Smartphone, X } from "lucide-react";
 import { clearPersonalStorage } from "../utils/personal-storage";
 import { UNREAD_EVENT } from "./private-chat-presence";
 import { PRIVATE_CHAT_OPEN } from "../utils/private-chat";
@@ -11,7 +11,8 @@ import CrownWreathSmall from "../assets/crown-olive-wreath-112.webp";
 import type { loader as rootLoader } from "../root";
 import { CategoryIcon } from "./category-icon";
 import { PlacesIcon } from "./topic-icons";
-import { ReminderIndicator } from "./reminder-indicator";
+import { ReminderIndicator, ReminderList } from "./reminder-indicator";
+import { useActiveReminders } from "../utils/reminder-store";
 import { INSTALL_REQUEST_EVENT, isInstalledApp, isTelegramMiniApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
 import { sectionPath } from "../utils/material-path";
@@ -63,7 +64,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
     return () => window.clearTimeout(timer);
   }, [isOpen]);
   // The menu shows either its links or, in place, the settings (with a way back).
-  const [view, setView] = useState<"main" | "settings">("main");
+  const [view, setView] = useState<"main" | "settings" | "reminders">("main");
+  // Դրված հիշեցումները՝ մենյուում «Իմ անկյունը»-ի կողքին (միայն երբ կան)։
+  const reminderCount = useActiveReminders().length;
   useEffect(() => { if (!isOpen) { const timer = window.setTimeout(() => setView("main"), 300); return () => window.clearTimeout(timer); } }, [isOpen]);
   // Hidden once the library already runs as an installed app.
   const [canInstall, setCanInstall] = useState(false);
@@ -160,9 +163,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
       >
         <div className="menu-panel mb-3 w-[min(360px,calc(100vw-24px))] overflow-hidden rounded-panel p-3" data-open={isOpen || undefined} data-closing={closing || undefined} aria-hidden={!isOpen}>
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
-            {view === "settings" ? (
+            {view !== "main" ? (
               <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-transparent px-1 text-[13px] font-bold text-gold-bright" type="button" onClick={() => setView("main")}>
-                <ArrowLeft aria-hidden="true" size={17} /> Կարգավորումներ
+                <ArrowLeft aria-hidden="true" size={17} /> {view === "settings" ? "Կարգավորումներ" : "Հիշեցումներ"}
               </button>
             ) : <span className="text-[13px] font-bold text-ink">Մենյու</span>}
             <button className="grid size-9 cursor-pointer place-items-center rounded-full border-0 bg-subtle text-muted hover:text-ink" type="button" onClick={() => setIsOpen(false)} aria-label="Փակել մենյուն">
@@ -171,9 +174,11 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           </div>
           {view === "settings" ? (
             <div className="menu-view no-scrollbar rounded-card max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="settings"><SettingsPanel /></div>
+          ) : view === "reminders" ? (
+            <div className="menu-view no-scrollbar rounded-card max-h-[min(72svh,660px)] overflow-y-auto overscroll-contain pr-0.5" key="reminders"><ReminderList tabIndex={isOpen ? 0 : -1} onOpen={() => setIsOpen(false)} /></div>
           ) : (
           <div className="menu-view no-scrollbar rounded-card grid max-h-[min(72svh,660px)] gap-3 overflow-y-auto overscroll-contain pr-0.5" key="main">
-            <ul className="m-0 grid list-none grid-cols-3 gap-1.5 p-0" aria-label="Հիմնական էջեր">
+            <ul className={`m-0 grid list-none gap-1.5 p-0 ${reminderCount ? "grid-cols-4" : "grid-cols-3"}`} aria-label="Հիմնական էջեր">
               {quickItems.map(({ to, label, icon: Icon, end }) => (
                 <li key={to}>
                   <NavLink className={({ isActive }) => `${smallTileClass} ${isActive ? "text-gold-bright" : ""}`} to={to} end={end} tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
@@ -182,6 +187,15 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                   </NavLink>
                 </li>
               ))}
+              {reminderCount ? (
+                <li>
+                  <button className={`${smallTileClass} relative w-full`} type="button" tabIndex={isOpen ? 0 : -1} onClick={() => setView("reminders")}>
+                    <BellRing aria-hidden="true" size={19} strokeWidth={1.8} className="text-gold" />
+                    <span>Հիշեցումներ</span>
+                    <span className="absolute top-1.5 right-2 grid min-w-[16px] place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-1 text-[10px] font-bold leading-[16px] text-[#2a1708]">{reminderCount}</span>
+                  </button>
+                </li>
+              ) : null}
             </ul>
 
             {topicItems.length > 0 ? (

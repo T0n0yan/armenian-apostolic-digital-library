@@ -448,7 +448,8 @@ flowchart TD
   CLK --> TGM["Բոտի հաղորդագրություն<br/>(Telegram-ով մուտք գործածին)"]
   CLK --> WP["Բրաուզերի ծանուցում<br/>(push_subscriptions, VAPID)"]
   CLK --> INB[("reminder_inbox")]
-  INB --> IND["Վերնագրի զանգակ (reminder-indicator)<br/>✓ կարդացել, կրկին, ջնջել"]
+  INB --> IND["Զանգակ մենյուի կոճակի վրա (reminder-indicator)<br/>միայն զանգած ու չկարդացածի համար<br/>✓ կարդացել, կրկին, ջնջել"]
+  SRV --> MNU["Մենյու → «Հիշեցումներ» սալիկ («Իմ անկյունը»-ի կողքին)<br/>դրված հիշեցումներ (ReminderList)<br/>Կարդալ հիմա · Չեղարկել"]
   INB --> ALM["Բաց կայքում՝ ազդանշան (reminder-alarm)"]
 ```
 

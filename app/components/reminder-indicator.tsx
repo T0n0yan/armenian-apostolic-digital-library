@@ -1,10 +1,10 @@
-import { BellRing, Check, LoaderCircle, Trash2 } from "lucide-react";
+import { BellOff, BellRing, BookOpen, Check, LoaderCircle, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router";
 
 import { CategoryIcon } from "./category-icon";
-import { REMINDER_RINGING_EVENT, dismissReminder, markReminderDone, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
+import { REMINDER_RINGING_EVENT, cancelReminder, dismissReminder, markReminderDone, useActiveReminders, useMissedReminders } from "../utils/reminder-store";
 import { ReminderButton } from "./reminder-button";
 import { materialPath } from "../utils/material-path";
 import { formatClock, formatDayMonth } from "../utils/armenian-date";
@@ -52,6 +52,47 @@ function ItemIcon({ categoryName, busy }: { categoryName: string | null; busy: b
 }
 
 /**
+ * Դրված հիշեցումների ցանկը՝ ամեն մեկի կողքին «Կարդալ հիմա» և «Չեղարկել»։
+ * Օգտագործվում է զանգակի պատուհանում և մենյուի «Հիշեցումներ» էջում։
+ */
+export function ReminderList({ limit, tabIndex, onOpen }: { limit?: number; tabIndex?: number; onOpen?: () => void }) {
+  const reminders = useActiveReminders();
+  const [opening, setOpening] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const location = useLocation();
+  useEffect(() => { setOpening(null); }, [location.pathname]);
+  if (reminders.length === 0) return <p className="m-0 px-2 py-3 text-center text-[12.5px] text-muted">Հիշեցումներ չկան։ Նյութի էջում սեղմեք զանգակը, որ դնեք։</p>;
+  return (
+    <ul className="m-0 grid list-none gap-1.5 p-0">
+      {(limit ? reminders.slice(0, limit) : reminders).map((reminder) => {
+        const busy = opening === reminder.materialId;
+        return (
+          <li key={reminder.materialId} className={`grid gap-2 rounded-button border border-glass-border px-2 py-2 ${busy ? "bg-[rgb(217_181_111/14%)]" : "bg-subtle"}`}>
+            <span className="grid min-w-0 grid-cols-[30px_1fr] items-center gap-2.5">
+              <ItemIcon categoryName={reminder.categoryName} busy={busy} />
+              <span className="grid min-w-0">
+                <strong className="truncate text-[13px] text-ink">{reminder.title}</strong>
+                <span className="text-[11.5px] text-muted">{busy ? "Բացվում է…" : formatWhen(reminder.at)}{REPEAT_TEXT[reminder.repeat] ? ` · ${REPEAT_TEXT[reminder.repeat]}` : ""}</span>
+              </span>
+            </span>
+            <span className="grid grid-cols-2 gap-1.5">
+              <Link className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-[12.5px] font-bold text-gold-bright no-underline active:scale-[.97]" to={materialPath(reminder.materialId, reminder.categoryName, { title: reminder.title })} tabIndex={tabIndex} onClick={() => { setOpening(reminder.materialId); onOpen?.(); }} aria-busy={busy}>
+                <BookOpen aria-hidden="true" size={15} /> Կարդալ հիմա
+              </Link>
+              <button className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-control border border-[rgb(205_70_55/35%)] bg-[rgb(205_70_55/10%)] text-[12.5px] font-bold text-[rgb(190_70_55)] active:scale-[.97] disabled:opacity-60" type="button" tabIndex={tabIndex} disabled={cancelling === reminder.materialId} onClick={() => { setCancelling(reminder.materialId); void cancelReminder(reminder.materialId).finally(() => setCancelling(null)); }}>
+                {cancelling === reminder.materialId ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={15} /> : <BellOff aria-hidden="true" size={15} />} Չեղարկել
+              </button>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * Զանգակը մենյուի կոճակի վրա՝ միայն երբ հիշեցումը զանգել է և դեռ չի կարդացվել.
+ * դրված (դեռ չզանգած) հիշեցումները մենյուի «Հիշեցումներ» սալիկում են։
  * A bell sitting right above the menu button (inside the menu's corner) while the reader has reminders; tapping it lists them.
  * When a reminder rings it swings left and right and settles.
  */
@@ -93,8 +134,8 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
 
-  if (reminders.length === 0 && missed.length === 0) return null;
-  const count = missed.length || reminders.length;
+  if (missed.length === 0) return null;
+  const count = missed.length;
   return (
     <div className={`pointer-events-auto mr-2 mb-2.5 transition-opacity duration-200 ${hidden ? "hidden" : "opacity-100"}`} ref={rootRef}>
       <button
@@ -111,7 +152,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
         title="Հիշեցումներ"
       >
         <BellRing aria-hidden="true" size={20} strokeWidth={1.9} />
-        <span className={`absolute -top-1 -right-1 grid min-w-[17px] place-items-center rounded-full bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-1 text-[10px] font-bold leading-[17px] ${missed.length ? "bg-[rgb(205_70_55)] !bg-none text-white" : "text-[#2a1708]"}`}>{count}</span>
+        <span className="absolute -top-1 -right-1 grid min-w-[17px] place-items-center rounded-full bg-[rgb(205_70_55)] px-1 text-[10px] font-bold leading-[17px] text-white">{count}</span>
       </button>
       {open && anchor ? createPortal(
         <div ref={listRef} style={{ bottom: anchor.bottom, right: anchor.right }} className="fixed z-[75] grid w-[min(380px,calc(100vw-24px))] gap-1 rounded-card border border-glass-border liquid-sheet p-2 text-left shadow-[0_18px_44px_rgb(40_20_10/25%)]" role="dialog" aria-label="Հիշեցումներ">
@@ -137,15 +178,7 @@ export function ReminderIndicator({ hidden = false }: { hidden?: boolean }) {
             </>
           ) : null}
           {reminders.length ? <span className="px-2 pt-1 pb-1.5 text-[11px] font-bold tracking-[0.4px] text-gold uppercase">Իմ հիշեցումները</span> : null}
-          {reminders.slice(0, 8).map((reminder) => (
-            <Link key={reminder.materialId} className={`grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-2 py-2 text-inherit no-underline hover:bg-subtle active:scale-[.98] ${opening === reminder.materialId ? "bg-[rgb(217_181_111/14%)]" : ""}`} to={materialPath(reminder.materialId, reminder.categoryName, { title: reminder.title })} onClick={() => setOpening(reminder.materialId)} aria-busy={opening === reminder.materialId}>
-              <ItemIcon categoryName={reminder.categoryName} busy={opening === reminder.materialId} />
-              <span className="grid min-w-0">
-                <strong className="truncate text-[13px] text-ink">{reminder.title}</strong>
-                <span className="text-[11.5px] text-muted">{opening === reminder.materialId ? "Բացվում է…" : formatWhen(reminder.at)}{REPEAT_TEXT[reminder.repeat] ? ` · ${REPEAT_TEXT[reminder.repeat]}` : ""}</span>
-              </span>
-            </Link>
-          ))}
+          {reminders.length ? <ReminderList limit={8} onOpen={() => setOpen(false)} /> : null}
         </div>,
         document.body,
       ) : null}
