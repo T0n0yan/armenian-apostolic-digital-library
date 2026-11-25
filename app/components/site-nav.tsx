@@ -76,7 +76,7 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
     if (!wasOpen.current) return;
     wasOpen.current = false;
     setClosing(true);
-    const timer = window.setTimeout(() => setClosing(false), 320);
+    const timer = window.setTimeout(() => setClosing(false), 280);
     return () => window.clearTimeout(timer);
   }, [isOpen]);
   // The menu shows either its links or, in place, the settings (with a way back).

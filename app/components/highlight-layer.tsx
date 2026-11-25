@@ -1,5 +1,5 @@
 import { BookPlus, Copy, HelpCircle, Highlighter, PencilLine, Play, Share2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { useLocation, useRouteLoaderData } from "react-router";
 
@@ -27,7 +27,7 @@ type Psalm = { verse: number; audio: boolean; path: string | null } | null;
 type Place = { top: number; left: number; width: number; arrow: number; above: boolean; dotTop: number; dotLeft: number };
 /** Բացված պատուհանը 1 վայրկյան հետո փոքրանում է կլոր կոճակի՝ նախադասության վերջում։ */
 const COLLAPSE_MS = 1000;
-const CLOSE_MS = 320;
+const CLOSE_MS = 180;
 const DOT = 38;
 const PENDING_KEY = "pending-highlight";
 const HINT_KEY = "highlight-hint";
@@ -386,15 +386,17 @@ export function HighlightLayer() {
     };
   }, [materialId, clearSpans, openBriefly, psalm]);
 
-  /** Ընտրվածների տեքստը. իրար կպածները՝ մեկ կտոր։ */
-  const sources = (): Source[] => {
+  /** Ընտրվածների տեքստը. իրար կպածները՝ մեկ կտոր։ Հաշվվում է միայն ընտրվածը փոխվելիս.
+   * նախկինում ամեն նկարելիս ամբողջ տեքստը երեք անգամ էր անցնում, և պատուհանը կտրտվում էր։ */
+  const selected = useMemo((): Source[] => {
     if (!spans.length || typeof document === "undefined") return [];
     const root = highlightRoot();
     if (!root) return [];
     const map = buildTextMap(readingBodies(root));
     return mergeSpans(spans, map.text).map((span) => anchorFor(map.text, span.start, span.end))
       .filter((anchor) => anchor.quote).map(({ quote, prefix, suffix }) => ({ quote, prefix, suffix }));
-  };
+  }, [spans]);
+  const sources = () => selected;
 
   const save = async (kind: HighlightKind) => {
     const list = sources();
@@ -465,8 +467,8 @@ export function HighlightLayer() {
     clearSpans();
   };
 
-  const length = sources().reduce((total, source) => total + source.quote.length, 0);
-  const tooLong = spans.length > 0 && sources().some((source) => source.quote.length > QUOTE_MAX);
+  const length = selected.reduce((total, source) => total + source.quote.length, 0);
+  const tooLong = selected.some((source) => source.quote.length > QUOTE_MAX);
   const single = spans.length === 1;
   const storyKind = typeof document !== "undefined" && spans.length ? highlightRoot()?.dataset.storyKind : undefined;
   const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-button border-0 bg-subtle text-ink disabled:opacity-50";
