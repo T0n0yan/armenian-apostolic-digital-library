@@ -46,13 +46,13 @@ const quickItems = [
 
 
 // Փոքր սալիկ (պատկերակ վերևում, անունը տակը)՝ գլխավոր էջեր և «Այլ»։
-const smallTileClass = "menu-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-button px-0.5 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const smallTileClass = "menu-tile flex min-h-[64px] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-control px-0.5 text-center text-[11px] leading-tight font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Միայն պատկերակով սալիկ (կարգավորումներ, օգնություն, տեղադրել)։
-const iconTileClass = "menu-tile grid min-h-12 cursor-pointer place-items-center rounded-button text-gold no-underline outline-none hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const iconTileClass = "menu-tile grid min-h-12 cursor-pointer place-items-center rounded-control text-gold no-underline outline-none hover:text-gold-bright focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Ամբողջ լայնությամբ սալիկ՝ պատկերակ և անուն մեկ տողում (կառավարում, մուտք)։
-const rowTileClass = "menu-tile flex min-h-12 items-center justify-center gap-2 rounded-button px-3 text-[13px] font-semibold no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const rowTileClass = "menu-tile flex min-h-12 items-center justify-center gap-2 rounded-control px-3 text-[13px] font-semibold no-underline outline-none focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 // Բաժնի սալիկ մենյուում (2 սյուն)։
-const tileClass = "menu-tile relative flex min-h-[54px] items-center gap-2 rounded-button px-2 py-2 text-[12px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
+const tileClass = "menu-tile relative flex min-h-[54px] items-center gap-2 rounded-control px-2 py-2 text-[12px] font-semibold text-muted no-underline outline-none hover:text-ink focus-visible:ring-3 focus-visible:ring-[rgb(217_181_111/34%)]";
 
 export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavProps) {
   const rootData = useRouteLoaderData<typeof rootLoader>("root");
