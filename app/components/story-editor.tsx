@@ -441,15 +441,16 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
 
   const chosenNow = textMode === "custom" ? custom : textMode === "all" ? range(units.length) : range(shownCount);
   const disabled = !ready || tooLong || busy;
-  const primary = "inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-5 text-[14.5px] font-bold text-[#2a1708] shadow-[0_8px_22px_rgb(176_125_46/35%)] disabled:cursor-default disabled:opacity-50";
+  // Երկու կոճակը կիսում են լայնությունը (min-w-0), նեղ էկրանին տառը փոքրանում է և տողը կարող է բաժանվել. էկրանից դուրս չեն գալիս։
+  const primary = "inline-flex min-h-12 min-w-0 flex-1 basis-0 cursor-pointer items-center justify-center gap-2 rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-3 py-1.5 text-center text-[clamp(12.5px,3.6vw,14.5px)] leading-tight font-bold text-[#2a1708] shadow-[0_8px_22px_rgb(176_125_46/35%)] disabled:cursor-default disabled:opacity-50";
   const ghost = "inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-edge bg-subtle px-4 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
   const chip = (on: boolean) => `inline-flex min-h-8 cursor-pointer items-center rounded-full border px-3 text-[12px] font-bold ${on ? "border-[#d9b56f] bg-[rgb(217_181_111/20%)] text-ink" : "border-edge bg-transparent text-muted"}`;
   const tabButton = (on: boolean) => `flex min-h-12 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-control border-0 text-[11px] font-bold transition-colors ${on ? "bg-[rgb(217_181_111/16%)] text-gold-bright" : "bg-transparent text-muted"}`;
   const primaryAction = canStory
-    ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
+    ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send className="shrink-0" size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
     : canShareFiles
-      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={18} aria-hidden="true" /> Կիսվել նկարով{pageCount > 1 ? ` · ${pageCount}` : ""}</button>
-      : <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>;
+      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 className="shrink-0" size={18} aria-hidden="true" /> Կիսվել նկարով{pageCount > 1 ? ` · ${pageCount}` : ""}</button>
+      : <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download className="shrink-0" size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>;
   // Ներբեռնելը (վերևի պատկերակը). Mini App-ում՝ Telegram-ի միջոցով։
   const saveAction = canDownloadInTelegram ? telegramSave : saveFiles;
 
@@ -599,7 +600,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
         {notice ? <p className="m-0 text-center text-[12.5px] font-semibold text-gold-bright" role="status">{notice}</p> : null}
         <div className="mx-auto flex w-full max-w-[520px] gap-2">
           {primaryAction}
-          <button className={`${ghost} flex-1`} type="button" onClick={() => { onClose(); onLink(); }}><Link2 size={17} aria-hidden="true" /> Կիսվել հղումով</button>
+          <button className="inline-flex min-h-12 min-w-0 flex-1 basis-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-edge bg-subtle px-3 py-1.5 text-center text-[clamp(12.5px,3.6vw,14px)] leading-tight font-bold text-ink" type="button" onClick={() => { onClose(); onLink(); }}><Link2 className="shrink-0" size={17} aria-hidden="true" /> Կիսվել հղումով</button>
         </div>
       </footer>
     </div>,

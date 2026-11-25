@@ -268,7 +268,8 @@
   background: rgb(20 10 24 / 42%);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 280ms ease;
+  will-change: opacity;
+  transition: opacity 240ms ease;
 }
 .menu-scrim[data-open] {
   opacity: 1;
@@ -284,7 +285,10 @@
   transform: scale(.2);
   opacity: 0;
   visibility: hidden;
-  transition: transform 300ms cubic-bezier(.5, 0, .7, .4), opacity 200ms ease 100ms, visibility 0s linear 300ms;
+  /* Միշտ իր շերտում է (compositor). փակվելը սկսվում է հենց սեղմելիս և չի սպասում նոր էջի նկարվելուն։
+     Նախկին «ease-in» կորը առաջին ~100 մվ-ում գրեթե չէր շարժվում, և թվում էր, թե մենյուն կանգնել է։ */
+  will-change: transform, opacity;
+  transition: transform 260ms cubic-bezier(.4, 0, .2, 1), opacity 170ms ease-in 70ms, visibility 0s linear 260ms;
 }
 .menu-panel[data-open] {
   transform: none;
@@ -439,6 +443,10 @@
 .paper-card:active { transform: scale(.982); }
 .paper-card:focus-visible { outline: 3px solid rgb(217 181 111 / 45%); outline-offset: 2px; }
 .paper-card.is-opening { background: var(--card-bg-hover); border-color: rgb(217 181 111 / 45%); }
+/* Սաղմոսի սալիկ. վերևից թեթև ոսկեգույն լույս, ներսում բարակ շրջանակ, համարի տակ փոքր զարդ (ստատիկ, առանց անիմացիայի)։ */
+.psalm-tile { background-image: radial-gradient(120% 80% at 50% 0%, rgb(226 194 126 / 13%), transparent 62%); }
+.psalm-tile::before { content: ""; position: absolute; inset: 4px; z-index: -1; border: 0.5px solid rgb(217 181 111 / 26%); border-radius: calc(var(--radius-control) - 4px); pointer-events: none; }
+.psalm-tile-mark { display: block; width: 14px; height: 6px; background: radial-gradient(circle, rgb(226 194 126 / 85%) 0 1.5px, transparent 2px) center / 6px 6px no-repeat, linear-gradient(90deg, transparent, rgb(217 181 111 / 60%), transparent) center / 100% 1px no-repeat; }
 .paper-panel { border-radius: var(--radius-panel); }
 }
 
@@ -867,12 +875,15 @@ html[data-motion="reduced"] .sunday-letter, html[data-motion="reduced"] .sunday-
 .highlight-toast { animation: highlight-toast-in 320ms cubic-bezier(.2, .8, .2, 1); }
 @keyframes highlight-toast-in { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
 /* Պատուհանը «դուրս է գալիս» նախադասության վերջից (transform-origin՝ սլաքի կետը) և հետ է «մտնում» այնտեղ։ */
-.highlight-pop { animation: highlight-pop 380ms cubic-bezier(.18, .9, .28, 1.18) both; }
-@keyframes highlight-pop { 0% { opacity: 0; transform: scale(.12); filter: blur(3px); } 55% { opacity: 1; filter: none; } 100% { opacity: 1; transform: none; } }
-.highlight-pop-out { animation: highlight-pop-out 320ms cubic-bezier(.5, 0, .75, .3) both; }
-@keyframes highlight-pop-out { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(.1); filter: blur(2px); } }
-/* Պատուհանը փոքրանում է կլոր կոճակի՝ նախադասության վերջում։ */
-.highlight-dot { animation: highlight-dot-in 360ms cubic-bezier(.2, .9, .3, 1.3) backwards; }
+/* Նշելու պատուհանը բացվում է բառարանի քարտի պես. միայն opacity/transform (առանց blur-ի, որը ամեն
+   կադրում վերանկարում էր ստվերով պատուհանը և թույլ հեռախոսներում կտրտում էր)։ */
+.highlight-pop { animation: highlight-pop 220ms cubic-bezier(.2, .8, .2, 1) backwards; will-change: transform, opacity; }
+@keyframes highlight-pop { from { opacity: 0; transform: translateY(-6px) scale(.96); } to { opacity: 1; transform: none; } }
+.highlight-pop[data-side="above"] { animation-name: highlight-pop-up; }
+@keyframes highlight-pop-up { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
+.highlight-pop-out { animation: highlight-pop-out 180ms cubic-bezier(.4, 0, 1, 1) forwards; will-change: transform, opacity; }
+@keyframes highlight-pop-out { to { opacity: 0; transform: scale(.9); } }
+.highlight-dot { animation: highlight-dot-in 260ms cubic-bezier(.2, .9, .3, 1.2) backwards; }
 @keyframes highlight-dot-in { from { opacity: 0; transform: scale(.3); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .highlight-toast, .highlight-pop, .highlight-pop-out, .highlight-dot { animation: none; } }
 
