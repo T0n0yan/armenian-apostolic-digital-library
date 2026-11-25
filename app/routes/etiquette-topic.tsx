@@ -2,11 +2,12 @@ import { Check, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { Route } from "./+types/etiquette-topic";
-import { card, groupTitle } from "../components/etiquette-ui";
+import { card, groupTitle, SourceNote } from "../components/etiquette-ui";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { RULE_KINDS, etiquetteTopic, readyEtiquetteTopics, type EtiquetteRule } from "../data/etiquette";
 import { breadcrumbJsonLd, seoMeta } from "../utils/seo";
+import { CHURCH_TITLE } from "../data/church";
 
 export function loader({ params }: Route.LoaderArgs) {
   const topic = etiquetteTopic(params.topic);
@@ -17,12 +18,12 @@ export function loader({ params }: Route.LoaderArgs) {
 export function meta({ loaderData }: Route.MetaArgs) {
   const topic = loaderData ? etiquetteTopic(loaderData.slug) : null;
   if (!topic) return [{ title: "Վարք եկեղեցում — Apostolic.am" }];
-  const path = `/etiquette/${topic.slug}`;
+  const path = `/church/etiquette/${topic.slug}`;
   return seoMeta({
     title: `${topic.title}. վարք եկեղեցում — Apostolic.am`,
     description: topic.summary ?? topic.description,
     path,
-    jsonLd: [breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: "Վարք եկեղեցում", path: "/etiquette" }, { name: topic.title, path }])],
+    jsonLd: [breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: CHURCH_TITLE, path: "/church" }, { name: "Վարք եկեղեցում", path: "/church/etiquette" }, { name: topic.title, path }])],
   });
 }
 
@@ -66,7 +67,7 @@ export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       {/* Որոնումը փնտրում է բոլոր բաժիններում (/etiquette?q=), ոչ միայն այս էջում։ */}
-      <PageHeader backTo="/etiquette" backLabel="Վարք եկեղեցում" title="" onSearch={() => navigate("/etiquette?q=")} />
+      <PageHeader backTo="/church/etiquette" backLabel="Վարք եկեղեցում" title="" onSearch={() => navigate("/church/etiquette?q=")} />
 
       <header className="mt-2 grid gap-2 px-1">
         <h1 className="m-0 font-noto text-[28px] leading-[36px] font-semibold tracking-[-0.3px] text-ink min-[560px]:text-[34px] min-[560px]:leading-[42px]">{topic.title}</h1>
@@ -122,22 +123,20 @@ export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
 
       <nav className="mt-6 grid grid-cols-2 gap-2.5" aria-label="Այլ բաժիններ">
         {prev ? (
-          <Link className={`${card} flex min-h-[64px] items-center gap-2 px-3.5 py-2 text-inherit no-underline`} to={`/etiquette/${prev.slug}`}>
+          <Link className={`${card} flex min-h-[64px] items-center gap-2 px-3.5 py-2 text-inherit no-underline`} to={`/church/etiquette/${prev.slug}`}>
             <ChevronLeft className="shrink-0 text-gold" aria-hidden="true" size={20} />
             <span className="grid min-w-0"><span className="text-[11.5px] text-muted">Նախորդը</span><strong className="text-[14px] leading-snug font-semibold text-ink">{prev.title}</strong></span>
           </Link>
-        ) : <Link className={`${card} flex min-h-[64px] items-center gap-2 px-3.5 py-2 text-[14px] font-semibold text-gold-bright no-underline`} to="/etiquette"><ChevronLeft aria-hidden="true" size={20} />Բոլոր բաժինները</Link>}
+        ) : <Link className={`${card} flex min-h-[64px] items-center gap-2 px-3.5 py-2 text-[14px] font-semibold text-gold-bright no-underline`} to="/church/etiquette"><ChevronLeft aria-hidden="true" size={20} />Բոլոր բաժինները</Link>}
         {next ? (
-          <Link className={`${card} flex min-h-[64px] items-center justify-end gap-2 px-3.5 py-2 text-right text-inherit no-underline`} to={`/etiquette/${next.slug}`}>
+          <Link className={`${card} flex min-h-[64px] items-center justify-end gap-2 px-3.5 py-2 text-right text-inherit no-underline`} to={`/church/etiquette/${next.slug}`}>
             <span className="grid min-w-0"><span className="text-[11.5px] text-muted">Հաջորդը</span><strong className="text-[14px] leading-snug font-semibold text-ink">{next.title}</strong></span>
             <ChevronRight className="shrink-0 text-gold" aria-hidden="true" size={20} />
           </Link>
-        ) : <Link className={`${card} flex min-h-[64px] items-center justify-end gap-2 px-3.5 py-2 text-[14px] font-semibold text-gold-bright no-underline`} to="/etiquette">Բոլոր բաժինները<ChevronRight aria-hidden="true" size={20} /></Link>}
+        ) : <Link className={`${card} flex min-h-[64px] items-center justify-end gap-2 px-3.5 py-2 text-[14px] font-semibold text-gold-bright no-underline`} to="/church/etiquette">Բոլոր բաժինները<ChevronRight aria-hidden="true" size={20} /></Link>}
       </nav>
 
-      <p className="mx-auto mt-6 mb-0 max-w-[520px] text-center text-[12.5px] leading-relaxed text-muted">
-        {topic.status === "review" ? "⚑ Ստուգվում է հոգևորականի կողմից։ " : ""}Ձեր հարցը չկա՞՝ <Link className="text-gold-bright" to="/kap">գրեք մեզ</Link>։
-      </p>
+      <SourceNote sources={topic.sources} reviewing={topic.status === "review"} />
     </PageShell>
   );
 }

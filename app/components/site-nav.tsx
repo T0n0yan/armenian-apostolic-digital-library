@@ -247,9 +247,9 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
                     </NavLink>
                   </li>
                   <li>
-                    <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to="/etiquette" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
+                    <NavLink className={({ isActive }) => `${tileClass} ${isActive ? "text-gold-bright" : ""}`} to="/church" tabIndex={isOpen ? 0 : -1} onClick={() => setIsOpen(false)}>
                       <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright"><EtiquetteIcon aria-hidden="true" size={17} /></span>
-                      <span className="line-clamp-2 min-w-0 flex-1 leading-tight">Վարք եկեղեցում</span>
+                      <span className="line-clamp-2 min-w-0 flex-1 leading-tight">Կարգեր և վարքեր</span>
                     </NavLink>
                   </li>
                 </ul>

@@ -72,9 +72,14 @@ export default [
   route("api/help-videos", "routes/help-videos-api.ts"),
   route("admin/help", "routes/admin-help.tsx"),
   route("admin/help/:id/video", "routes/admin-help-video.ts"),
-  // Եկեղեցական վարվելակարգ (տվյալները՝ app/data/etiquette.ts)
-  route("etiquette", "routes/etiquette.tsx"),
-  route("etiquette/:topic", "routes/etiquette-topic.tsx"),
+  // «Կարգեր և վարքեր» (app/data/church.ts, app/data/etiquette.ts)
+  route("church", "routes/church.tsx"),
+  route("church/etiquette", "routes/etiquette.tsx"),
+  route("church/etiquette/:topic", "routes/etiquette-topic.tsx"),
+  route("church/:section", "routes/church-guide.tsx"),
+  // Հին հասցեները՝ 301
+  route("etiquette", "routes/etiquette-redirect.ts", { id: "etiquette-old" }),
+  route("etiquette/:topic", "routes/etiquette-redirect.ts", { id: "etiquette-topic-old" }),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),

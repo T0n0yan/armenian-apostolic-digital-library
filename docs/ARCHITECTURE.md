@@ -333,6 +333,10 @@ flowchart LR
   HOME --> SAVED["/saved պահվածներ"]
   SAVED --> NOTES["/saved?tab=notes Իմ նշումները<br/>(ներդիրներ՝ Պահված նյութեր · Իմ ընթերցանությունը · Իմ նշումները)"]
   HOME --> PLACES["/places քարտեզ"]
+  HOME --> CH["/church Կարգեր և վարքեր"]
+  CH --> ETQ["/church/etiquette Վարք եկեղեցում"]
+  ETQ --> ETQT["/church/etiquette/:topic"]
+  CH --> CHG["/church/:section ուղեցույց (Հիշատակության օրեր…)"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
   HOME --> MY["/my-year Իմ տարին"]
@@ -347,6 +351,8 @@ flowchart LR
   ADM --> A6["/admin/help Օգնության տեսանյութեր"]
   A3 --> A5["/admin/media-inventory"]
 ```
+
+**Կարգեր և վարքեր** (`/church`). ենթաբաժինները՝ `app/data/church.ts` (`CHURCH_SECTIONS`). `kind: "etiquette"`՝ «Վարք եկեղեցում» (`/church/etiquette`, `/church/etiquette/:topic`, կանոններ՝ `app/data/etiquette.ts`), `kind: "guide"`՝ մեկ էջ բացվող բլոկներով («երբ», «ինչ», «ինչու»), օր.՝ `/church/remembrance`։ `status: "soon"`՝ «Շուտով կավելանան» և 404։ **Սկզբունք**. ամեն պնդում՝ հոգևորականի գրքից (`docs/content/sources.md`), ամեն էջի ներքևում՝ աղբյուրը և «դիմեք ձեր ծխի քահանային» (`SourceNote`), պիտակը՝ աղբյուրի բառերից։ Որոնումը՝ `searchEtiquette()` (կանոններ + ուղեցույցի բլոկներ), դաշտը՝ `/church`-ում (`ChurchSearchField`) և `/church/etiquette`-ում, `/search`-ում՝ «Վարք եկեղեցում» բլոկ։ Հին `/etiquette...` հասցեները՝ 301 (`etiquette-redirect.ts`)։ Նոր ուղեցույցի էջ ավելացնելիս՝ միայն `church.ts` (և պատկերակ `ChurchIcon`-ում)։
 
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,

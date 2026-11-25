@@ -7,13 +7,14 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { ETIQUETTE_TOPICS, POPULAR_QUESTIONS } from "../data/etiquette";
 import { searchEtiquette } from "../utils/etiquette-search";
+import { CHURCH_TITLE } from "../data/church";
 import { seoMeta } from "../utils/seo";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({
     title: "Վարք եկեղեցում — Apostolic.am",
     description: "Ինչպես վարվել եկեղեցում. խաչակնքում, մոմավառություն, գլխաշոր, Պատարագի ժամանակ, հոգևորականի հետ։ Ամեն կանոնի կողքին՝ ինչու է այդպես։",
-    path: "/etiquette",
+    path: "/church/etiquette",
   });
 }
 
@@ -33,7 +34,7 @@ export default function Etiquette() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader backTo="/" backLabel="Գրադարան" title="" onSearch={() => input.current?.focus()} />
+      <PageHeader backTo="/church" backLabel={CHURCH_TITLE} title="" onSearch={() => input.current?.focus()} />
 
       <header className="mt-2 grid gap-1.5 px-1">
         <h1 className="m-0 font-noto text-[30px] leading-[38px] font-semibold tracking-[-0.3px] text-ink min-[560px]:text-[36px] min-[560px]:leading-[44px]">Վարք եկեղեցում</h1>
@@ -80,7 +81,7 @@ export default function Etiquette() {
             <ul className={`${card} m-0 list-none p-0`}>
               {ready.map((topic, index) => (
                 <li key={topic.slug} className={index ? divider : ""}>
-                  <Link className={row} to={`/etiquette/${topic.slug}`}>
+                  <Link className={row} to={`/church/etiquette/${topic.slug}`}>
                     <span className="grid size-9 shrink-0 place-items-center rounded-control bg-[rgb(176_125_46/14%)] text-gold-bright"><TopicIcon slug={topic.slug} size={19} /></span>
                     <span className="grid min-w-0 flex-1 gap-0.5">
                       <strong className="text-[15.5px] leading-snug font-semibold text-ink">{topic.title}</strong>
@@ -98,7 +99,7 @@ export default function Etiquette() {
             <ul className={`${card} m-0 list-none p-0`}>
               {POPULAR_QUESTIONS.map(([question, slug, id], index) => (
                 <li key={question} className={index ? divider : ""}>
-                  <Link className={`${row} min-h-[52px]`} to={`/etiquette/${slug}#${id}`}>
+                  <Link className={`${row} min-h-[52px]`} to={`/church/etiquette/${slug}#${id}`}>
                     <span className="flex-1 text-[15px] font-medium text-ink">{question}</span>
                     <ChevronRight className="shrink-0 text-faint" aria-hidden="true" size={18} />
                   </Link>
@@ -128,7 +129,7 @@ export default function Etiquette() {
       )}
 
       <p className="mx-auto mt-6 mb-0 max-w-[520px] text-center text-[12.5px] leading-relaxed text-muted">
-        ⚑ Տեքստերը ստուգվում են հոգևորականի կողմից։ Հարց կամ դիտողություն ունե՞ք՝ <Link className="text-gold-bright" to="/kap">գրեք մեզ</Link>։
+        Այս բաժինը հիմնված է Հայ Առաքելական Եկեղեցու հոգևորականների գրքերի վրա։ Ձեր կոնկրետ դեպքի համար դիմեք ձեր ծխի քահանային։ Հարց ունե՞ք՝ <Link className="text-gold-bright" to="/kap">գրեք մեզ</Link>։
       </p>
     </PageShell>
   );

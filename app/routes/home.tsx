@@ -116,7 +116,7 @@ const CategoryGrid = memo(function CategoryGrid({categories, places}: { categori
         {categories.slice(0, at).map((category, index) => (<CategoryCard key={category.id} category={category} index={index}/>))}
         <SiteSectionCard to="/places" title="Սրբավայրեր" note={places ? `${places} սրբավայր քարտեզում` : "Եկեղեցիներ և վանքեր քարտեզում"} icon={<PlacesIcon size={24}/>} index={at}/>
         {categories.slice(at).map((category, index) => (<CategoryCard key={category.id} category={category} index={at + 1 + index}/>))}
-        <SiteSectionCard to="/etiquette" title="Վարք եկեղեցում" note="Ինչպես վարվել եկեղեցում և ինչու" icon={<EtiquetteIcon size={24}/>} index={categories.length + 1}/>
+        <SiteSectionCard to="/church" title="Կարգեր և վարքեր" note="Արարողություններ, խորհուրդներ, վարվելակարգ" icon={<EtiquetteIcon size={24}/>} index={categories.length + 1}/>
     </ol>);
 });
 

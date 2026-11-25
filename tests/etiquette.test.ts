@@ -22,8 +22,16 @@ test("հաճախ տրվող հարցերը տանում են գոյությու�
 });
 
 test("որոնումը գտնում է բառը վերջավորությամբ", () => {
-  assert.equal(searchEtiquette("գլխաշոր")[0]?.href, "/etiquette/entrance#headscarf");
-  assert.ok(searchEtiquette("մոմը").some((hit) => hit.href.startsWith("/etiquette/candles")));
+  assert.equal(searchEtiquette("գլխաշոր")[0]?.href, "/church/etiquette/entrance#headscarf");
+  assert.ok(searchEtiquette("մոմը").some((hit) => hit.href.startsWith("/church/etiquette/candles")));
   assert.ok(searchEtiquette("քահանային").length > 0);
   assert.deepEqual(searchEtiquette(""), []);
+});
+
+test("որոնումը գտնում է նաև ուղեցույցի էջերում", () => {
+  assert.ok(searchEtiquette("քառասունք").some((hit) => hit.href === "/church/remembrance#karasunk"));
+});
+
+test("ամեն բաժին ունի աղբյուր", () => {
+  for (const topic of ETIQUETTE_TOPICS) if (topic.status !== "soon") assert.ok(topic.sources?.length, topic.slug);
 });
