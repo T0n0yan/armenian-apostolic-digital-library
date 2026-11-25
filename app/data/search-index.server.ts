@@ -1,3 +1,4 @@
+import { psalmNumber } from "../utils/psalm-number";
 import { INTRO_TOPICS, mediaVersion } from "./cloud-library.server";
 import { mediaUrl } from "./media-url.server";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
@@ -8,7 +9,7 @@ type Row = {
   chat_id: string; message_id: number; material_id: string; title: string; content_type: string;
   number_value: number | null; date_value: string | null; published_at: string | null;
   topic_key: string; topic_title: string; topic_slug: string; first_message_id: number;
-  media_index: number | null; media_kind: string | null; media_count: number;
+  media_index: number | null; media_kind: string | null; media_count: number; media_title: string | null;
   r2_key: string | null; r2_etag: string | null; thumbnail_r2_key: string | null; thumbnail_etag: string | null;
 };
 
@@ -27,7 +28,7 @@ export async function buildSearchIndex(database: D1Database, version: string): P
        materials.number_value, materials.date_value, materials.published_at,
        materials.topic_key, topics.title AS topic_title, topics.slug AS topic_slug,
        first_posts.first_message_id,
-       media.media_index, media.kind AS media_kind, media.r2_key, media.r2_etag, media.thumbnail_r2_key, media.thumbnail_etag,
+       media.media_index, media.kind AS media_kind, COALESCE(media.title, media.file_name) AS media_title, media.r2_key, media.r2_etag, media.thumbnail_r2_key, media.thumbnail_etag,
        (SELECT COUNT(*) FROM library_media AS counted
          WHERE counted.chat_id = materials.chat_id AND counted.message_id = materials.message_id AND counted.status = 'ready') AS media_count
      FROM library_materials AS materials
@@ -50,13 +51,15 @@ export async function buildSearchIndex(database: D1Database, version: string): P
     const asset = row.media_index === null ? null : {
       index: row.media_index, version: mediaVersion(row), objectKey: row.r2_key, thumbnailObjectKey: row.thumbnail_r2_key,
     };
+    // Սաղմոսի համարը՝ ձայնագրության անունից («Սաղմոս 41»), եթե գրառման մեջ չկա։
+    const number = row.number_value ?? (category === "category_psalms" ? psalmNumber({ title: row.title, preview: { mediaTitle: row.media_title } }) : null);
     const thumbnail = asset && (row.media_kind === "photo" || row.thumbnail_r2_key) ? mediaUrl(post, asset, true) : null;
     items.push([
       row.material_id,
-      materialPath(row.material_id, row.topic_title, { title: row.title, psalm: row.number_value }),
+      materialPath(row.material_id, row.topic_title, { title: row.title, psalm: number }),
       row.title,
       row.topic_key,
-      row.number_value,
+      number,
       row.date_value ?? row.published_at,
       row.content_type,
       thumbnail,

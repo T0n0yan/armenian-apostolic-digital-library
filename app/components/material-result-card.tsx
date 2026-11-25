@@ -238,7 +238,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const navigation = useNavigation();
   const targetPath = materialPath(material.id, material.categoryName ?? category, {
     title: material.title,
-    psalm: resolveContentCategoryId(material.categoryName ?? category, material.categoryName ?? category) === "category_psalms" ? psalmNumber(material) : null,
+    psalm: resolveContentCategoryId(material.categoryName ?? category, material.categoryName ?? category) === "category_psalms" ? psalmNumber(material) ?? ("numberValue" in material && typeof material.numberValue === "number" ? material.numberValue : null) : null,
   });
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
@@ -248,7 +248,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     isVideo && material.preview.thumbnailUrl ? videoFromThumbnail(material.preview.thumbnailUrl) : null,
     isVideo ? material.preview.thumbnailUrl : null,
   );
-  const psalm = variant === "psalm" ? psalmNumber(material) : null;
+  const psalm = variant === "psalm" ? psalmNumber(material) ?? ("numberValue" in material && typeof material.numberValue === "number" ? material.numberValue : null) : null;
   const day = variant === "daily" ? calendarParts(material.dateValue ?? material.publishedAt ?? null) : null;
   const thumbnail = isVideo ? videoPoster.poster : material.preview.thumbnailUrl ?? material.preview.imageUrl;
   const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
