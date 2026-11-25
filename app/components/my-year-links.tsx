@@ -15,7 +15,7 @@ export function MyYearLinks() {
   useEffect(() => setNow(Date.now()), []);
   const month = now ? monthToShow(now) : null;
   const year = now ? yearToShow(now) : null;
-  const card = "frosted-card flex items-center gap-3 px-4 py-3 text-inherit no-underline";
+  const card = "paper-card flex items-center gap-3 px-4 py-3 text-inherit no-underline";
   return (
     <div className="grid gap-2">
       {year ? (

@@ -35,7 +35,7 @@ export function TermForm({ term, error, onDone, kind, word, fetcher }: {
       {error ? <p className="m-0 text-[13px] font-semibold text-danger">{error}</p> : null}
       <div className="flex gap-2">
         <button className={primaryButton} type="submit" disabled={busy}>{term ? <Check aria-hidden="true" size={16} /> : <Plus aria-hidden="true" size={16} />} {term ? "Պահել" : "Ավելացնել"}</button>
-        {onDone ? <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-button border border-glass-border bg-transparent px-3 text-[13px] text-muted" type="button" onClick={onDone}><X aria-hidden="true" size={15} /> Չեղարկել</button> : null}
+        {onDone ? <button className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-button border border-edge bg-transparent px-3 text-[13px] text-muted" type="button" onClick={onDone}><X aria-hidden="true" size={15} /> Չեղարկել</button> : null}
       </div>
     </FormTag>
   );

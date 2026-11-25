@@ -575,6 +575,3 @@ async function loadSearchCloudLibraryPosts(
   };
 }
 
-export function cloudSearchScoreRank(value: Parameters<typeof searchScoreRank>[0]) {
-  return searchScoreRank(value);
-}

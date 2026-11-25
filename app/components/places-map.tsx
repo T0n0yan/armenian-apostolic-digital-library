@@ -46,11 +46,11 @@ function PlaceCard({ place, onClose, visited, onToggleVisit, closing }: { place:
           Մանրամասն <ChevronRight aria-hidden="true" size={15} />
         </Link>
         {directionLinks(place.latitude, place.longitude).map((link) => (
-          <a key={link.href} className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
+          <a key={link.href} className="inline-flex min-h-9 min-w-0 items-center justify-center gap-1 rounded-control border border-edge bg-subtle px-2.5 text-[12.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer" aria-label={`Ճանապարհ՝ ${link.label}`}>
             <Navigation aria-hidden="true" size={13} /> {link.label.replace(" Maps", "")}
           </a>
         ))}
-        <ShareButton pageUrl={`/places/${place.id}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-control border border-glass-border bg-subtle px-2.5 text-gold-bright" />
+        <ShareButton pageUrl={`/places/${place.id}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-control border border-edge bg-subtle px-2.5 text-gold-bright" />
       </div>
     </div>
   );
@@ -80,7 +80,7 @@ export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle:
   if (!signedIn) {
     return (
       <>
-        <button type="button" onClick={() => setAsking(true)} className="mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-glass-border bg-subtle text-[13px] font-semibold text-muted">
+        <button type="button" onClick={() => setAsking(true)} className="mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-control border border-edge bg-subtle text-[13px] font-semibold text-muted">
           <span className="grid size-[18px] place-items-center rounded-full border-[1.5px] border-current" /> Նշել, որ եղել եմ
         </button>
         <SignInSheet open={asking} onClose={() => setAsking(false)} reason="նշեք այն սրբավայրերը, որտեղ եղել եք" />
@@ -90,7 +90,7 @@ export function VisitButton({ visited, onToggle }: { visited: boolean; onToggle:
   // A quiet checkbox: an empty ring until the reader marks it, then a green tick.
   return (
     <button type="button" onClick={onToggle} aria-pressed={visited}
-      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-control border text-[13px] font-semibold transition-colors ${visited ? "border-[rgb(63_143_90/45%)] bg-[rgb(63_143_90/12%)] text-[#3f8f5a]" : "border-glass-border bg-subtle text-muted"}`}>
+      className={`mt-2.5 inline-flex min-h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-control border text-[13px] font-semibold transition-colors ${visited ? "border-[rgb(63_143_90/45%)] bg-[rgb(63_143_90/12%)] text-[#3f8f5a]" : "border-edge bg-subtle text-muted"}`}>
       <span className={`grid size-[18px] place-items-center rounded-full border-[1.5px] ${visited ? "border-[#3f8f5a] bg-[#3f8f5a] text-white" : "border-current"}`}>{visited ? <Check aria-hidden="true" size={12} strokeWidth={3} /> : null}</span>
       {visited ? "Եղել եմ այստեղ" : "Նշել, որ եղել եմ"}
     </button>

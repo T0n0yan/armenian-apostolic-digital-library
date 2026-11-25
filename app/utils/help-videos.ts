@@ -43,5 +43,3 @@ export function helpVideoList(config: HelpConfig): HelpVideo[] {
   });
 }
 
-/** Նոր այցելուին ցույց տալ ուղեցույցը (այս սարքում մեկ անգամ)։ */
-export const HELP_ONBOARDING_KEY = "help-onboarding-seen";

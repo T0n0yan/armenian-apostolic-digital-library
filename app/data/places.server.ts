@@ -197,8 +197,6 @@ export async function storePlaceFile(bucket: R2Bucket, id: string, name: string,
   return key;
 }
 
-export const PLACE_UPLOAD_TYPES = Object.keys(TYPES);
-
 /** A file a reader sent to the bot, fetched from Telegram (bots may download files up to 20 MB). */
 export async function fetchTelegramFile(token: string, fileId: string) {
   const info = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fileId)}`)

@@ -53,7 +53,7 @@ function MetricCard({ metric }: { metric: UsageMetric }) {
   const tone = percent === null ? "text-faint" : percent >= 100 ? "text-danger" : percent >= 80 ? "text-[#c27a1d]" : "text-[#3f8f5a]";
   const bar = percent === null ? "" : percent >= 100 ? "bg-[#b8483e]" : percent >= 80 ? "bg-[#d4952c]" : "bg-[linear-gradient(90deg,#3f8f5a,#6fb37f)]";
   return (
-    <div className="frosted-card grid gap-2 p-3.5">
+    <div className="paper-card grid gap-2 p-3.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[13px] font-semibold text-ink">{metric.label}</span>
         <span className={`text-[13px] font-bold tabular-nums ${tone}`}>{percent === null ? "—" : `${percent < 1 && percent > 0 ? "<1" : Math.round(percent)}%`}</span>
@@ -92,7 +92,7 @@ function StorageSection({ storage, videos }: { storage: StorageBreakdown | null;
           <p className="m-0 text-[12px] leading-relaxed text-muted">Վերևի «R2 ընդհանուր պահեստ» թիվը մի քիչ ավելի մեծ է, որովհետև այնտեղ հաշվվում են նաև staging-ի (փորձարկման կայքի) ֆայլերը։</p>
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {storage.groups.map((group) => (
-              <li key={group.prefix} className="frosted-card grid gap-1.5 p-3">
+              <li key={group.prefix} className="paper-card grid gap-1.5 p-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{PREFIX_NAMES[group.prefix] ?? group.prefix} <span className="font-normal text-faint">· {group.prefix}/</span></span>
                   <span className="shrink-0 text-[13px] font-bold tabular-nums text-ink">{amount(group.bytes, "byte")}</span>
@@ -100,7 +100,7 @@ function StorageSection({ storage, videos }: { storage: StorageBreakdown | null;
                 <div className="h-1.5 overflow-hidden rounded-full bg-subtle" aria-hidden="true"><div className="h-full rounded-full bg-[linear-gradient(90deg,#c9973f,#e9c46a)]" style={{ width: `${Math.max(1, (group.bytes / Math.max(storage.bytes, 1)) * 100)}%` }} /></div>
                 <span className="text-[11.5px] text-faint">{amount(group.files, "")} ֆայլ{group.prefix === "v1" ? " · խմբի գրառումների տեսանյութերը, ձայնագրությունները և նկարները, որոնք երևում են կայքում" : ""}</span>
                 {group.prefix === "v1" && storage.kinds.length ? (
-                  <div className="mt-1 grid gap-1 border-t border-glass-border pt-2">
+                  <div className="mt-1 grid gap-1 border-t border-edge pt-2">
                     {storage.kinds.map((item) => (
                       <div key={item.kind} className="flex items-baseline justify-between gap-2 text-[12.5px]">
                         <span className="text-ink">{KIND_NAMES[item.kind]} <span className="text-faint">· {amount(item.files, "")}</span></span>
@@ -143,7 +143,7 @@ function GitHubSection({ github }: { github: GitHubUsage }) {
       {!github.configured ? <p className="m-0 text-[13px] text-muted">GitHub-ի բանալին (GITHUB_SYNC_TOKEN) այս միջավայրում դրված չէ։</p>
         : github.error ? <p className="m-0 text-[13px] text-danger">{github.error}</p> : (
         <>
-          <div className="frosted-card grid gap-2 p-3.5">
+          <div className="paper-card grid gap-2 p-3.5">
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-[13px] font-semibold text-ink">Actions-ի րոպեներ այս ամիս</span>
               <span className={`text-[13px] font-bold tabular-nums ${tone}`}>{percent < 1 && percent > 0 ? "<1" : Math.round(percent)}%</span>
@@ -158,7 +158,7 @@ function GitHubSection({ github }: { github: GitHubUsage }) {
             {github.deploys.map((deploy) => {
               const state = label(deploy);
               return (
-                <a key={deploy.branch} href={deploy.url} target="_blank" rel="noreferrer" className="frosted-card grid gap-1 p-3.5 no-underline">
+                <a key={deploy.branch} href={deploy.url} target="_blank" rel="noreferrer" className="paper-card grid gap-1 p-3.5 no-underline">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="text-[13px] font-semibold text-ink">{deploy.branch === "main" ? "Վերջին թողարկումը (apostolic.am)" : "Վերջին staging-ը"}</span>
                     <span className={`text-[12.5px] font-bold ${state.tone}`}>{state.text}</span>
@@ -250,7 +250,7 @@ function ClientErrorsSection({ errors }: { errors: ClientErrorRow[] }) {
       ) : (
         <ul className="m-0 grid list-none gap-2 p-0">
           {errors.map((error) => (
-            <li key={error.fingerprint} className="grid gap-1 rounded-control border border-glass-border bg-subtle p-3 text-[12.5px]">
+            <li key={error.fingerprint} className="grid gap-1 rounded-control border border-edge bg-subtle p-3 text-[12.5px]">
               <div className="flex items-start justify-between gap-3">
                 <strong className="min-w-0 break-words font-mono text-[12px] text-ink">{error.message}</strong>
                 <span className="shrink-0 rounded-full bg-[rgb(217_181_111/22%)] px-2 py-0.5 font-bold text-ink tabular-nums">{error.count}×</span>

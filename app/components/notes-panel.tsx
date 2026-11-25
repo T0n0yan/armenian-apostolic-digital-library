@@ -34,7 +34,7 @@ function NoteCard({ item, onOpen }: { item: Highlight; onOpen: () => void }) {
   const question = item.kind === "question";
   return (
     <li>
-      <button className={`frosted-panel grid w-full cursor-pointer gap-1.5 border-l-4 px-4 py-3 text-left text-ink animate-glass-enter ${question ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} type="button" onClick={onOpen}>
+      <button className={`paper-panel grid w-full cursor-pointer gap-1.5 border-l-4 px-4 py-3 text-left text-ink animate-rise-in ${question ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} type="button" onClick={onOpen}>
         <span className="flex items-start gap-2">
           {item.emoji || question ? <span className="text-[18px] leading-none" aria-hidden="true">{firstEmoji(item.emoji) || "❓"}</span> : null}
           <span className="prayer-text line-clamp-4 flex-1 text-[15px] leading-[1.65]">«{item.quote}»</span>
@@ -74,7 +74,7 @@ function ChurchToggle() {
     void turnOn();
   };
   return (
-    <div className="frosted-panel grid gap-1.5 px-4 py-3">
+    <div className="paper-panel grid gap-1.5 px-4 py-3">
       <button className="flex cursor-pointer items-center justify-between gap-3 border-0 bg-transparent p-0 text-left text-ink" type="button" role="switch" aria-checked={on} onClick={toggle}>
         <span className="text-[14px] font-semibold">⛪ Հուշել, երբ մոտ եմ եկեղեցուն</span>
         <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? "bg-[rgb(74_160_96)]" : "bg-[rgb(150_140_150/40%)]"}`} aria-hidden="true">
@@ -116,14 +116,14 @@ export function NotesPanel({ highlights, failed }: { highlights: Highlight[]; fa
       <ol className="m-0 grid list-none gap-2 p-0">{list.map((item) => <NoteCard key={item.id} item={item} onOpen={() => setOpen(item)} />)}</ol>
     </section>
   ));
-  const empty = (text: string) => <p className="frosted-panel m-0 px-4 py-5 text-center text-[13.5px] leading-relaxed text-muted">{text}</p>;
+  const empty = (text: string) => <p className="paper-panel m-0 px-4 py-5 text-center text-[13.5px] leading-relaxed text-muted">{text}</p>;
 
   return (
     <div className="grid gap-4">
       {failed ? <p className="m-0 text-center text-[13px] text-danger" role="alert">Նշումները չբեռնվեցին. թարմացրեք էջը։</p> : null}
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Նշումների տեսակը">
         {KINDS.map((item) => (
-          <button key={item.id} className={`min-h-9 cursor-pointer rounded-full border px-3.5 text-[13px] font-semibold ${kind === item.id ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}
+          <button key={item.id} className={`min-h-9 cursor-pointer rounded-full border px-3.5 text-[13px] font-semibold ${kind === item.id ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`}
             type="button" aria-pressed={kind === item.id} onClick={() => chooseKind(item.id)}>
             {item.label} <span className="tabular-nums opacity-70">{counts[item.id]}</span>
           </button>
@@ -132,9 +132,9 @@ export function NotesPanel({ highlights, failed }: { highlights: Highlight[]; fa
 
       {emojis.length > 0 ? (
         <div className="flex flex-wrap gap-1.5" aria-label="Ֆիլտր ըստ սմայլիկի">
-          <button className={`min-h-9 cursor-pointer rounded-full border px-3 text-[12.5px] font-semibold ${!emoji ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`} type="button" onClick={() => setEmoji("")}>Բոլորը</button>
+          <button className={`min-h-9 cursor-pointer rounded-full border px-3 text-[12.5px] font-semibold ${!emoji ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`} type="button" onClick={() => setEmoji("")}>Բոլորը</button>
           {emojis.map((item) => (
-            <button key={item} className={`min-h-9 min-w-11 cursor-pointer rounded-full border px-2 text-[17px] ${emoji === item ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)]" : "border-glass-border bg-subtle"}`} type="button" aria-pressed={emoji === item} onClick={() => setEmoji(emoji === item ? "" : item)}>{item}</button>
+            <button key={item} className={`min-h-9 min-w-11 cursor-pointer rounded-full border px-2 text-[17px] ${emoji === item ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/14%)]" : "border-edge bg-subtle"}`} type="button" aria-pressed={emoji === item} onClick={() => setEmoji(emoji === item ? "" : item)}>{item}</button>
           ))}
         </div>
       ) : null}

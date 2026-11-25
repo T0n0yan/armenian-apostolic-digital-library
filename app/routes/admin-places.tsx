@@ -113,9 +113,9 @@ async function performAction({ request }: Route.ActionArgs) {
   return data({ error: "Անհայտ գործողություն։", submissionId: 0 }, { status: 400 });
 }
 
-const card = "frosted-card grid gap-3 p-4";
-const tab = (active: boolean) => `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold ${active ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`;
-const smallButton = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink";
+const card = "paper-card grid gap-3 p-4";
+const tab = (active: boolean) => `inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold ${active ? "border-[rgb(217_181_111/60%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`;
+const smallButton = "inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-subtle px-3 text-[13px] font-semibold text-ink";
 
 /** Readers' /place submissions waiting for a decision, and every place on the map. */
 const OSM_TYPES: Record<string, string> = { n: "node", w: "way", r: "relation" };
@@ -166,7 +166,7 @@ function ConvertAllPhotos({ places }: { places: { id: string; photos: string[] }
     void revalidator.revalidate();
   };
   return (
-    <button className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-2.5 text-[12.5px] font-semibold text-ink disabled:opacity-60" type="button" disabled={working || !total} onClick={() => void run()}>
+    <button className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-subtle px-2.5 text-[12.5px] font-semibold text-ink disabled:opacity-60" type="button" disabled={working || !total} onClick={() => void run()}>
       {progress ?? `Բոլոր նկարները դարձնել WebP (${total} նկար)`}
     </button>
   );
@@ -263,7 +263,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
           {kinds.length ? (
             <div className="grid gap-2 min-[700px]:grid-cols-2">
               {kinds.map((entry) => (
-                <Form key={entry.id} method="post" className="frosted-card flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+                <Form key={entry.id} method="post" className="paper-card flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
                   <input type="hidden" name="kind" value={entry.id} />
                   <span className="text-[14px] text-ink"><strong>{PLACE_KINDS[entry.id]}</strong> <span className="text-muted">· {entry.visible} / {entry.total} ցուցադրված</span></span>
                   <span className="flex gap-1.5">
@@ -274,7 +274,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
               ))}
             </div>
           ) : null}
-          <div className="grid gap-2 rounded-button border border-glass-border p-3">
+          <div className="grid gap-2 rounded-button border border-edge p-3">
             <FilterRow label="Կարգավիճակ">
               {([["all", "Բոլորը"], ["shown", "Ցուցադրված"], ["hidden", "Թաքցված"], ["blocked", "Սև ցուցակով"]] as const).map(([value, label]) => <button key={value} type="button" className={tab(status === value)} aria-pressed={status === value} onClick={() => setStatus(value)}>{label}</button>)}
             </FilterRow>
@@ -299,7 +299,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
             {shown.slice(0, 150).map((place) => {
               const blocked = blockedWords(place.name, blocklist);
               return (
-              <div key={place.id} className={`frosted-card flex flex-wrap items-center gap-2 p-3 ${blocked.length ? "shadow-[inset_0_0_0_1.5px_rgb(184_72_62/70%)]" : ""}`}>
+              <div key={place.id} className={`paper-card flex flex-wrap items-center gap-2 p-3 ${blocked.length ? "shadow-[inset_0_0_0_1.5px_rgb(184_72_62/70%)]" : ""}`}>
               <Link className="flex min-w-0 flex-1 basis-[220px] items-center gap-3 text-inherit no-underline" to={`/admin/places/${place.id}`}>
                 <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
                   {place.icon ? <img className="size-full object-contain" src={placeMediaUrl(place.icon)} alt="" /> : place.photos[0] ? <img className="size-full object-cover" src={placeMediaUrl(place.photos[0])} alt="" /> : <MapPin aria-hidden="true" size={20} className="text-faint" />}
@@ -331,7 +331,7 @@ export default function AdminPlaces({ loaderData, actionData }: Route.ComponentP
             {shown.length === 0 ? <p className="m-0 text-center text-[13px] text-faint">Այս ֆիլտրով տեղ չկա։</p> : null}
             {shown.length > 150 ? <p className="m-0 text-center text-[12.5px] text-faint">Ցույց է տրված 150-ը {shown.length}-ից. նեղացրեք ֆիլտրը կամ գրեք անունը։ Ներբեռնումը և պատճենումը ներառում են բոլոր {shown.length}-ը։</p> : null}
           </div>
-          <Form method="post" preventScrollReset className="grid gap-2 border-t border-glass-border pt-3 min-[560px]:grid-cols-[1fr_1fr_auto]">
+          <Form method="post" preventScrollReset className="grid gap-2 border-t border-edge pt-3 min-[560px]:grid-cols-[1fr_1fr_auto]">
             <input className={fieldControl} name="name" placeholder="Նոր տեղի անունը" required />
             <input className={fieldControl} name="coordinates" placeholder="40.1617, 44.2913 կամ Google Maps-ի հղում" required />
             <button className={primaryButton} type="submit" name="intent" value="new" disabled={busy}><Plus aria-hidden="true" size={16} /> Ավելացնել</button>
@@ -395,7 +395,7 @@ function BlocklistSection({ blocklist, places, busy, error, canEdit }: { blockli
       </p>
       <div className="flex flex-wrap gap-1.5">
         {blocklist.map((word) => (
-          <Form key={word} method="post" className="inline-flex items-center gap-1 rounded-full border border-glass-border bg-subtle py-1 pr-1 pl-3 text-[13px] text-ink">
+          <Form key={word} method="post" className="inline-flex items-center gap-1 rounded-full border border-edge bg-subtle py-1 pr-1 pl-3 text-[13px] text-ink">
             <input type="hidden" name="word" value={word} />
             {word}{countFor(word) ? <span className="text-[11.5px] font-semibold text-danger">· {countFor(word)}</span> : null}
             {canEdit ? <button className="grid size-6 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-faint hover:text-danger" type="submit" name="intent" value="block-remove" disabled={busy} aria-label={`Հանել «${word}»-ը`}><X aria-hidden="true" size={14} /></button> : <span className="w-2" />}

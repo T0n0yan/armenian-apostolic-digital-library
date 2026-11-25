@@ -6,7 +6,7 @@ import { ACCESS_PARTS, accessButton, readAccess } from "../utils/place-answers";
 import { appendLine, normalizeSlot, SCHEDULE_DAYS, SCHEDULE_PRESETS, scheduleLine, type ScheduleKind } from "../utils/place-schedule";
 
 const textarea = `${fieldControl} min-h-[84px] resize-y leading-relaxed`;
-const box = "grid gap-2.5 rounded-control border border-glass-border bg-subtle p-2.5";
+const box = "grid gap-2.5 rounded-control border border-edge bg-subtle p-2.5";
 const smallTitle = "text-[12px] font-semibold text-muted";
 
 /** Կլոր ընտրության կոճակներ (ինչպես «Ավելացնել սրբավայր» ձևում)։ */
@@ -17,7 +17,7 @@ export function ChoiceChips({ options, selected, onToggle }: { options: readonly
         const on = selected.includes(option);
         return (
           <button key={option} type="button" aria-pressed={on} onClick={() => onToggle(option)}
-            className={`inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-full border px-3 text-[13px] font-semibold tabular-nums transition-colors ${on ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
+            className={`inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-full border px-3 text-[13px] font-semibold tabular-nums transition-colors ${on ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`}>
             {on ? <Check aria-hidden="true" size={13} strokeWidth={3} /> : null}{option}
           </button>
         );
@@ -64,7 +64,7 @@ export function ScheduleField({ name, label, kind, initial }: { name: string; la
           <input className={fieldControl} type="time" value={from} onChange={(event) => setFrom(event.target.value)} aria-label={preset.ranges ? "Սկիզբը" : "Այլ ժամ"} />
           {preset.ranges ? <><span aria-hidden="true" className="text-muted">–</span><input className={fieldControl} type="time" value={to} onChange={(event) => setTo(event.target.value)} aria-label="Ավարտը" /></> : null}
           <button type="button" onClick={addCustom} disabled={!custom} aria-label="Ավելացնել այս ժամը"
-            className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright disabled:cursor-default disabled:opacity-40"><Plus aria-hidden="true" size={17} /></button>
+            className="grid size-10 cursor-pointer place-items-center rounded-full border border-edge bg-subtle text-gold-bright disabled:cursor-default disabled:opacity-40"><Plus aria-hidden="true" size={17} /></button>
         </div>
         {slots.length ? <span className="px-1 text-[12.5px] text-muted">Կավելանա՝ <strong className="text-ink">{line}</strong></span> : null}
         <div className="flex flex-wrap gap-1.5">
@@ -72,7 +72,7 @@ export function ScheduleField({ name, label, kind, initial }: { name: string; la
             className="min-h-10 flex-1 cursor-pointer rounded-control border border-[rgb(217_181_111/45%)] bg-[rgb(217_181_111/10%)] px-3 text-[13.5px] font-semibold text-gold-bright disabled:cursor-default disabled:opacity-50">+ Ավելացնել</button>
           {preset.quick.map((text) => (
             <button key={text} type="button" onClick={() => setValue(text)}
-              className="min-h-10 cursor-pointer rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-muted">{text}</button>
+              className="min-h-10 cursor-pointer rounded-control border border-edge bg-subtle px-3 text-[13px] font-semibold text-muted">{text}</button>
           ))}
         </div>
       </div>

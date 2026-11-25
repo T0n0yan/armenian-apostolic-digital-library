@@ -117,7 +117,7 @@ const LETTER_MS = 26;
 const PAUSE_MS = 500;
 
 /**
- * Պատասխանից հետո՝ աղոթքը, առանց վերնագրի, ապակյա վահանակի վրա. տառերը հայտնվում են մեկ-մեկ։
+ * Պատասխանից հետո՝ աղոթքը, առանց վերնագրի, կիսաթափանց վահանակի վրա. տառերը հայտնվում են մեկ-մեկ։
  * Հաղորդություն ստացածին՝ երկու մասն էլ («առաջ» և «հետո»), մյուսներին՝ առաջին մասը։
  * «Ամէն» կոճակը երևում է, երբ աղոթքը ամբողջն է գրվել։
  */
@@ -139,8 +139,8 @@ function SundayPrayer({ withThanks, onDone }: { withThanks: boolean; onDone: () 
   });
   const end = letter * LETTER_MS + parts.length * PAUSE_MS + 400;
   return (
-    // Ապակյա վահանակ աղոթքի հետևում, որ տեքստը շողերի վրա հեշտ կարդացվի։
-    <div className="sunday-glass grid gap-3 rounded-panel px-4 py-4">
+    // Կիսաթափանց վահանակ աղոթքի հետևում, որ տեքստը շողերի վրա հեշտ կարդացվի։
+    <div className="sunday-card grid gap-3 rounded-panel px-4 py-4">
       {paragraphs}
       <button className="sunday-prayer-end mx-auto min-h-11 cursor-pointer rounded-button border border-[color-mix(in_srgb,var(--sunday-ink)_35%,transparent)] bg-transparent px-6 text-[14px] font-semibold text-inherit"
         style={{ animationDelay: `${end}ms` }} type="button" onClick={onDone}>Ամէն</button>

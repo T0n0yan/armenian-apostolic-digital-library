@@ -31,7 +31,7 @@ export default function Help({ loaderData }: Route.ComponentProps) {
   const ready = useMemo(() => loaderData.videos.filter((video) => video.url), [loaderData.videos]);
   const [open, setOpen] = useState<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
-  const card = "frosted-card flex w-full items-center gap-3 rounded-card px-3.5 py-3 text-left";
+  const card = "paper-card flex w-full items-center gap-3 rounded-card px-3.5 py-3 text-left";
 
   return (
     <PageShell>

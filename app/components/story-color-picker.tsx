@@ -75,7 +75,7 @@ export function StoryColorPicker({ value, recent, onChange, disabled = false }: 
     <div className={`grid gap-2.5 ${disabled ? "pointer-events-none opacity-45" : ""}`} aria-disabled={disabled}>
       <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 py-0.5" role="radiogroup" aria-label="Գույն">
         <button type="button" role="radio" aria-checked={value === "auto"} onClick={() => onChange("auto")}
-          className={`min-h-8 shrink-0 cursor-pointer rounded-full border-2 px-3 text-[12px] font-bold text-ink ${value === "auto" ? "border-[#d9b56f] bg-[rgb(217_181_111/18%)]" : "border-glass-border bg-subtle"}`}>Ավտո</button>
+          className={`min-h-8 shrink-0 cursor-pointer rounded-full border-2 px-3 text-[12px] font-bold text-ink ${value === "auto" ? "border-[#d9b56f] bg-[rgb(217_181_111/18%)]" : "border-edge bg-subtle"}`}>Ավտո</button>
         {swatches.map((color) => (
           <button key={color} type="button" role="radio" aria-checked={value === color} aria-label={color} title={color}
             className={`${dot} ${value === color ? "border-[#d9b56f] shadow-[0_0_0_2px_rgb(217_181_111/45%)]" : "border-[rgb(127_127_127/30%)]"}`}
@@ -90,7 +90,7 @@ export function StoryColorPicker({ value, recent, onChange, disabled = false }: 
       </div>
 
       {open ? (
-        <div className="grid gap-2.5 rounded-button border border-glass-border bg-subtle p-3">
+        <div className="grid gap-2.5 rounded-button border border-edge bg-subtle p-3">
           <div ref={areaRef} className="relative h-[132px] cursor-crosshair touch-none overflow-hidden rounded-control"
             style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, hsl(${hsv.h} 100% 50%))` }}
             onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); pick(event); }}
@@ -101,7 +101,7 @@ export function StoryColorPicker({ value, recent, onChange, disabled = false }: 
           <input className="story-hue h-4 w-full cursor-pointer appearance-none rounded-full" type="range" min={0} max={359} value={Math.round(hsv.h)}
             aria-label="Երանգ" onChange={(event) => apply({ ...hsv, h: Number(event.target.value) })} />
           <div className="flex items-center gap-2">
-            <span className="size-8 shrink-0 rounded-full border border-glass-border" style={{ background: draft }} />
+            <span className="size-8 shrink-0 rounded-full border border-edge" style={{ background: draft }} />
             <input className="min-h-9 min-w-0 flex-1 rounded-control border border-[var(--field-border)] bg-[var(--page-bg)] px-3 font-mono text-[13px] uppercase text-ink"
               value={draft} maxLength={7} aria-label="Գույնի կոդը (HEX)" spellCheck={false}
               onChange={(event) => {

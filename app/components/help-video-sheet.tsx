@@ -62,16 +62,16 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
   if (!video?.url) return null;
   const step = "inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-button border text-[14px] font-bold disabled:cursor-default disabled:opacity-35";
   return (
-    <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-[2100] grid place-items-center bg-[rgb(20_12_6/62%)] p-3 backdrop-blur-[6px] animate-glass-enter" role="dialog" aria-modal="true" aria-label={video.title}
+    <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-[2100] grid place-items-center bg-[rgb(20_12_6/62%)] p-3 animate-rise-in" role="dialog" aria-modal="true" aria-label={video.title}
       onClick={(event) => { if (event.target === event.currentTarget && mode === "help") onClose(); }}>
-      <div className="grid w-full max-w-[400px] gap-3 rounded-panel border border-[rgb(217_181_111/45%)] liquid-sheet p-3 shadow-[0_24px_60px_rgb(20_10_4/45%)]">
+      <div className="grid w-full max-w-[400px] gap-3 rounded-panel border border-[rgb(217_181_111/45%)] paper-sheet p-3 shadow-[0_24px_60px_rgb(20_10_4/45%)]">
         <div className="flex items-start gap-2 px-1 pt-1">
           <div className="grid min-w-0 flex-1 gap-0.5">
             <span className="text-[11.5px] font-bold tracking-[1.2px] text-gold uppercase">{mode === "onboarding" ? "Ինչպես օգտվել կայքից" : "Օգնություն"}</span>
             <strong className="font-noto text-[16.5px] leading-snug text-ink">{video.title}</strong>
           </div>
           {mode === "onboarding" ? (
-            <button className="min-h-9 shrink-0 cursor-pointer rounded-full border border-glass-border bg-subtle px-3 text-[13px] font-bold text-muted" type="button" onClick={onClose}>Բաց թողնել</button>
+            <button className="min-h-9 shrink-0 cursor-pointer rounded-full border border-edge bg-subtle px-3 text-[13px] font-bold text-muted" type="button" onClick={onClose}>Բաց թողնել</button>
           ) : (
             <button className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted" type="button" onClick={onClose} aria-label="Փակել"><X aria-hidden="true" size={18} /></button>
           )}
@@ -93,7 +93,7 @@ export function HelpVideoSheet({ videos, index, onIndex, onClose, mode = "help" 
           </div>
         </div>
         <div className="flex gap-2">
-          <button className={`${step} border-glass-border bg-subtle text-ink`} type="button" disabled={index === 0} onClick={() => onIndex(index - 1)}>
+          <button className={`${step} border-edge bg-subtle text-ink`} type="button" disabled={index === 0} onClick={() => onIndex(index - 1)}>
             <ChevronLeft aria-hidden="true" size={18} /> Նախորդը
           </button>
           {last ? (

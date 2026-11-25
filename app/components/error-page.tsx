@@ -3,7 +3,7 @@ import { isRouteErrorResponse, Link } from "react-router";
 
 import { PageShell } from "./page-layout";
 import { SiteNav } from "./site-nav";
-import { glassPanel } from "./ui-styles";
+import { paperPanel } from "./ui-styles";
 import DoveMark from "../assets/dove-mark.png";
 import { SUPPORT_EMAIL } from "../utils/contact";
 
@@ -24,7 +24,7 @@ export function ErrorPage({ status, notFoundTitle }: { status: number; notFoundT
   const title = status === 404 && notFoundTitle ? notFoundTitle : copy.title;
   const button = "inline-flex min-h-11 items-center gap-2 rounded-control px-4 text-[13px] font-bold no-underline";
   return (
-    <section className={`${glassPanel} mx-auto mt-6 grid max-w-[560px] justify-items-center gap-3 px-6 py-10 text-center`} data-error-status={status}>
+    <section className={`${paperPanel} mx-auto mt-6 grid max-w-[560px] justify-items-center gap-3 px-6 py-10 text-center`} data-error-status={status}>
       {status === 404
         ? <span className="font-noto text-[44px] leading-none font-semibold text-gold-bright/70" aria-hidden="true">404</span>
         : <img className="size-16 object-contain" src={DoveMark} width={64} height={64} alt="" aria-hidden="true" />}
@@ -35,11 +35,11 @@ export function ErrorPage({ status, notFoundTitle }: { status: number; notFoundT
           <Home aria-hidden="true" size={16} /> Գլխավոր էջ
         </Link>
         {retry ? (
-          <button className={`${button} cursor-pointer border border-glass-border bg-subtle text-ink`} type="button" onClick={() => window.location.reload()}>
+          <button className={`${button} cursor-pointer border border-edge bg-subtle text-ink`} type="button" onClick={() => window.location.reload()}>
             <RotateCw aria-hidden="true" size={16} /> Կրկին փորձել
           </button>
         ) : (
-          <Link className={`${button} border border-glass-border bg-subtle text-ink`} to="/search">
+          <Link className={`${button} border border-edge bg-subtle text-ink`} to="/search">
             <Search aria-hidden="true" size={16} /> Որոնել
           </Link>
         )}

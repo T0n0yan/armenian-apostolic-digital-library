@@ -15,8 +15,8 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
 }) {
   const index = options.findIndex((option) => option.value === value);
   return (
-    <div className="relative grid gap-1 rounded-card border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
-      {/* Ընտրվածի ապակե ֆոնը սահում է (ինչպես «Իմ անկյունը»-ի ներդիրները)։ */}
+    <div className="relative grid gap-1 rounded-card border border-edge bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
+      {/* Ընտրվածի ֆոնը սահում է (ինչպես «Իմ անկյունը»-ի ներդիրները)։ */}
       {index >= 0 ? (
         <span aria-hidden="true" className="tab-glider pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 rounded-button"
           style={{ width: `calc((100% - 12px - ${(columns - 1) * 4}px) / ${columns})`, transform: `translateX(calc(${index % columns} * (100% + 4px)))` }} />
@@ -41,7 +41,7 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
 
 function Setting({ icon, title, hint, children }: { icon: ReactNode; title: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <section className="frosted-panel grid gap-3 px-3 py-3.5">
+    <section className="paper-panel grid gap-3 px-3 py-3.5">
       <div className="flex items-start gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] text-gold-bright">{icon}</span>
         <div className="grid gap-0.5">
@@ -56,7 +56,7 @@ function Setting({ icon, title, hint, children }: { icon: ReactNode; title: stri
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
-    <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-control border border-glass-border bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+    <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-control border border-edge bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
       {label}
       <span className={`relative h-6 w-11 rounded-full transition-colors ${checked ? "bg-[linear-gradient(135deg,#e2c27e,#b07d2e)]" : "bg-[rgb(120_100_80/30%)]"}`}>
         <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] duration-200 ${checked ? "left-[22px]" : "left-0.5"}`} />
@@ -115,11 +115,11 @@ export function SettingsPanel() {
     setSunText(times ? `Բաց՝ ${time(times.sunrise)}-ից, մուգ՝ ${time(times.sunset)}-ից${readSunPlace() ? "" : " (Երևանի ժամով)"}` : null);
   }, [locating]);
 
-  // Նախ ընտրված կոճակը (անմիջապես երևում է), հետո՝ ծանր վերաներկումը հաջորդ կադրում։
+  // Նախ ընտրված կոճակը (անմիջապես երևում է), հետո՝ գույների փոխումը հաջորդ կադրում։
   const chooseTheme = (next: ThemePreference) => {
     setTheme(next);
     writeStorage(THEME_STORAGE_KEY, next);
-    requestAnimationFrame(() => setTimeout(() => applyThemePreference(next, { animate: true }), 0));
+    requestAnimationFrame(() => setTimeout(() => applyThemePreference(next), 0));
   };
   const locate = () => {
     if (!("geolocation" in navigator)) return;
@@ -143,7 +143,7 @@ export function SettingsPanel() {
                   <>
                     {sunText ?? "Ցերեկը բաց, երեկոյից մուգ"}
                     <br />
-                    <button className="mt-1 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-transparent px-2.5 text-[12px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
+                    <button className="mt-1 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-transparent px-2.5 text-[12px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
                       <LocateFixed aria-hidden="true" size={14} /> {hasSunPlace ? "Թարմացնել իմ վայրը" : "Օգտագործել իմ վայրը"}
                     </button>
                   </>
