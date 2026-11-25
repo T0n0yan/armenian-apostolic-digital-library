@@ -158,7 +158,7 @@ export function HighlightLayer() {
   useEffect(() => () => window.clearTimeout(collapseTimer.current), []);
 
   // Էջը փոխելիս (նույնիսկ նույն նյութի մեջ)՝ ընտրվածը չեղարկվում է։
-  useEffect(() => { clearSpans(); }, [location.key, clearSpans]);
+  useEffect(() => { clearSpans(); setStory(null); }, [location.key, clearSpans]);
 
   // Ո՞ր նյութի էջում ենք (article[data-highlight-material])։
   useEffect(() => {
