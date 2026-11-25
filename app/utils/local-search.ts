@@ -14,6 +14,7 @@ import {
   type ParsedTelegramSearchQuery,
   type StoredSearchField,
 } from "../../shared/telegram-search";
+import { foreignSuggestions, translateQuery } from "../../shared/search-foreign";
 import type { BridgeContentType } from "../../shared/telegram-bridge-contract";
 import type { SearchMaterial } from "../data/search-materials";
 import { searchSuggestions } from "./search-suggestions";
@@ -78,50 +79,7 @@ export function loadSearchIndex(version = contentVersionNow()): Promise<Loaded |
   return promise;
 }
 
-/** What readers type in English or Russian, and the Armenian words the library uses. */
-const FOREIGN_TERMS: Array<[string[], string]> = [
-  [["prayer", "prayers", "pray", "молитва", "молитвы"], "Աղոթք"],
-  [["psalm", "psalms", "псалом", "псалмы", "псалтырь"], "Սաղմոս"],
-  [["our father", "lord's prayer", "lords prayer", "отче наш"], "Հայր մեր"],
-  [["gospel", "evangel", "евангелие"], "Ավետարան"],
-  [["saint", "saints", "святой", "святая", "святые"], "Սուրբ"],
-  [["jesus", "christ", "jesus christ", "иисус", "христос", "иисус христос"], "Հիսուս Քրիստոս"],
-  [["mary", "virgin mary", "мария", "богородица", "дева мария"], "Սուրբ Մարիամ Աստվածածին"],
-  [["holy spirit", "святой дух"], "Սուրբ Հոգի"],
-  [["cross", "holy cross", "крест"], "Սուրբ Խաչ"],
-  [["christmas", "nativity", "рождество"], "Սուրբ Ծնունդ"],
-  [["easter", "resurrection", "пасха", "воскресение"], "Սուրբ Զատիկ"],
-  [["ascension", "вознесение"], "Համբարձում"],
-  [["transfiguration", "преображение"], "Վարդավառ"],
-  [["parable", "притча"], "Առակ"],
-  [["daily reading", "readings", "чтение", "чтения"], "Օրվա ընթերցումներ"],
-  [["repentance", "покаяние"], "Ապաշխարություն"],
-  [["faith", "вера"], "Հավատք"],
-  [["love", "любовь"], "Սեր"],
-  [["hope", "надежда"], "Հույս"],
-  [["forgiveness", "прощение"], "Ներում"],
-  [["gregory the illuminator", "григорий просветитель"], "Սուրբ Գրիգոր Լուսավորիչ"],
-  [["narekatsi", "narek", "нарекаци", "нарек"], "Սուրբ Գրիգոր Նարեկացի"],
-  [["shnorhali", "шнорали"], "Սուրբ Ներսես Շնորհալի"],
-];
-const FOREIGN = new Map(FOREIGN_TERMS.flatMap(([words, armenian]) => words.map((word) => [word, armenian] as const)));
-
-/** An English or Russian search for a known word becomes the Armenian one ("prayer" → «Աղոթք»). */
-export function translateQuery(query: string) {
-  const value = query.trim().toLocaleLowerCase().replace(/\s+/gu, " ");
-  const exact = FOREIGN.get(value);
-  if (exact) return exact;
-  // The start of one known word ("молит", "praye") means that word.
-  const started = value.length >= 4 ? foreignSuggestions(value) : [];
-  return started.length === 1 ? started[0] : query;
-}
-
-/** English and Russian words that start with what was typed, as the Armenian terms they mean. */
-export function foreignSuggestions(typed: string) {
-  const value = typed.trim().toLocaleLowerCase();
-  if (value.length < 2 || /\p{Script=Armenian}/u.test(value)) return [];
-  return [...new Set(FOREIGN_TERMS.filter(([words]) => words.some((word) => word.startsWith(value))).map(([, armenian]) => armenian))];
-}
+export { foreignSuggestions, translateQuery };
 
 /** Suggestion words: the sections, the common terms and every material title. */
 export function indexSuggestionTerms(index: SearchIndex) {
@@ -172,11 +130,15 @@ export function searchTitles(index: Loaded, query: string, categoryId = ""): Sea
     return candidates.filter((entry) => entry.item[4] === number || (!psalms && entry.messageId === number))
       .slice(0, MAX_RESULTS).map((entry) => toMaterial(index.index, entry.item, "message-id"));
   }
+  // Բաժնի անունով («Սաղ», «saxmos», «psalm»)՝ այդ բաժնի նյութերը, վերնագրով գտածներից հետո։
+  const bySection = Array.from(parsed.normalized).length >= 3;
   return candidates.flatMap((entry) => {
-    const match = matchStoredSearchFields(entry.fields, parsed);
-    // A section's name alone ("աղոթք") would list the whole section: only titles count.
-    return match && match.fieldIndex === 0 ? [{ entry, match }] : [];
+    const title = matchStoredSearchFields(entry.fields.slice(0, 1), parsed);
+    if (title) return [{ entry, match: title, section: 0 }];
+    const section = bySection ? matchStoredSearchFields(entry.fields.slice(1), parsed) : null;
+    return section && section.rank >= 2 ? [{ entry, match: section, section: 1 }] : [];
   }).sort((left, right) =>
+    left.section - right.section ||
     right.match.rank - left.match.rank ||
     (left.entry.item[3] === right.entry.item[3] && left.entry.item[4] !== null && right.entry.item[4] !== null ? left.entry.item[4] - right.entry.item[4] : 0) ||
     (right.entry.item[5] ?? "").localeCompare(left.entry.item[5] ?? ""),
