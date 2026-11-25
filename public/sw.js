@@ -291,7 +291,7 @@ self.addEventListener("push", (event) => {
     event.waitUntil(self.registration.showNotification(data.title || "Apostolic.am", {
       body: data.body || "Նոր ծանուցում",
       icon: "/icon-192.png",
-      badge: "/favicon-64.png",
+      badge: "/badge-64.png",
       tag: data.tag === "presence" ? "presence" : "quiet",
       silent: true,
       data: { url: data.url || "/" },
@@ -307,7 +307,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(data.title || "🔔 Ժամանակն է կարդալու", {
     body: data.body || "Apostolic.am",
     icon: "/icon-192.png",
-    badge: "/favicon-64.png",
+    badge: "/badge-64.png",
     tag: data.tag || "reminder",
     renotify: true,
     requireInteraction: true,

@@ -72,8 +72,8 @@ function useIdleReady() {
 // the phone's light/dark setting; elsewhere the browser's prefers-color-scheme does.
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico?v=2", sizes: "any" },
-  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=2" },
+  { rel: "icon", href: "/favicon.ico?v=3", sizes: "any" },
+  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=3" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
   { rel: "manifest", href: "/manifest.webmanifest?v=3" },
 ];
