@@ -59,13 +59,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
               >
                 {isOpening
                   ? <LoaderCircle className="animate-search-spin text-gold" aria-hidden="true" size={16} />
-                  : (
-                    // Համարը՝ ոսկեգույն շրջանակի մեջ, տակը՝ փոքր զարդ (քարտը «դատարկ» չէ)։
-                    <span className="grid justify-items-center gap-1">
-                      <span className="font-noto text-[17px] leading-none font-semibold tabular-nums text-gold-bright min-[640px]:text-[19px]">{number}</span>
-                      <span className="psalm-tile-mark" aria-hidden="true" />
-                    </span>
-                  )}
+                  : <span className="font-noto text-[17px] leading-none font-semibold tabular-nums text-gold-bright min-[640px]:text-[19px]">{number}</span>}
               </Link>
             </li>
           );
