@@ -1,4 +1,5 @@
-import { DoorOpen, Flame, Gift, HandHeart, Home, Music, ShieldQuestion, Sparkles, Wine, type LucideIcon } from "lucide-react";
+import { BookOpen, Church, Clock, DoorOpen, Flame, Flower2, Gift, HandHeart, Home, Music, ShieldQuestion, Sparkles, Wine, type LucideIcon } from "lucide-react";
+import { Link } from "react-router";
 import { RULE_KINDS, type RuleKind } from "../data/etiquette";
 
 /** Կանոն / Ավանդույթ / Սնահավատություն պիտակը։ */
@@ -27,3 +28,21 @@ export function TopicIcon({ slug, size = 22 }: { slug: string; size?: number }) 
 /** Խմբավորված ցուցակի քարտը և խմբի վերնագիրը (բաց, կոկիկ ոճ)։ */
 export const card = "rounded-card bg-[var(--card-glass)] border border-glass-border shadow-[0_1px_2px_rgb(92_64_30/8%)]";
 export const groupTitle = "m-0 px-1 text-[12px] font-bold tracking-[1.2px] text-gold uppercase";
+
+/** «Կարգեր և վարքեր»-ի ենթաբաժինների պատկերակները։ */
+const CHURCH_ICONS: Record<string, LucideIcon> = { etiquette: Church, sacraments: Sparkles, remembrance: Flower2, liturgy: Wine, hours: Clock };
+
+export function ChurchIcon({ slug, size = 20 }: { slug: string; size?: number }) {
+  const Icon = CHURCH_ICONS[slug] ?? BookOpen;
+  return <Icon aria-hidden="true" size={size} strokeWidth={1.7} />;
+}
+
+/** Էջի ներքևի տողը՝ որտեղից է վերցված, և խորհուրդ դիմել քահանային։ */
+export function SourceNote({ sources = [], reviewing = false }: { sources?: string[]; reviewing?: boolean }) {
+  return (
+    <footer className="mx-auto mt-7 grid max-w-[560px] gap-1.5 text-center text-[12.5px] leading-relaxed text-muted">
+      {sources.length ? <p className="m-0"><span className="font-semibold">Աղբյուր. </span>{sources.join("; ")}</p> : null}
+      <p className="m-0">{reviewing ? "⚑ Ստուգվում է հոգևորականի կողմից։ " : ""}Ձեր կոնկրետ դեպքի համար դիմեք ձեր ծխի քահանային։ Հարց ունե՞ք՝ <Link className="text-gold-bright" to="/kap">գրեք մեզ</Link>։</p>
+    </footer>
+  );
+}

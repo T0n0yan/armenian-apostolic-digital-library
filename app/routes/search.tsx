@@ -895,7 +895,7 @@ function EtiquetteMatches({ query }: { query: string }) {
           </li>
         ))}
       </ul>
-      <Link className="w-fit text-[13px] font-semibold text-gold-bright" to={`/etiquette?q=${encodeURIComponent(query)}`}>Բոլորը «Վարք եկեղեցում» բաժնում →</Link>
+      <Link className="w-fit text-[13px] font-semibold text-gold-bright" to={`/church/etiquette?q=${encodeURIComponent(query)}`}>Բոլորը «Վարք եկեղեցում» բաժնում →</Link>
     </section>
   );
 }

@@ -61,7 +61,7 @@ function kindOf(pathname: string): Kind {
   if (first === "my-year") return { page: "year" };
   if (first === "ognutyun") return { page: "help" };
   if (first === "places") return { page: parts.length > 1 && second !== "new" ? "place" : parts.length > 1 ? "plain" : "places" };
-  if (["admin", "namak", "auth", "settings", "mer-masin", "kap", "privacy", "etiquette"].includes(first)) return { page: "plain" };
+  if (["admin", "namak", "auth", "settings", "mer-masin", "kap", "privacy", "etiquette", "church"].includes(first)) return { page: "plain" };
   if (first === "materials") return { page: "material", section: "other", psalm: null };
   if (first === "categories") return { page: "section", section: "other" };
   const section = sectionOf(first);
@@ -417,7 +417,7 @@ function MaterialBody({ section, psalm }: { section: Section; psalm: number | nu
 }
 
 function Home() {
-  const order = HOME_ORDER.map((id) => id === "places" ? { id, name: "Սրբավայրեր" } : id === "etiquette" ? { id, name: "Վարք եկեղեցում" } : CONTENT_CATEGORIES.find((category) => category.id === id)!);
+  const order = HOME_ORDER.map((id) => id === "places" ? { id, name: "Սրբավայրեր" } : id === "etiquette" ? { id, name: "Կարգեր և վարքեր" } : CONTENT_CATEGORIES.find((category) => category.id === id)!);
   return (
     <>
       <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">

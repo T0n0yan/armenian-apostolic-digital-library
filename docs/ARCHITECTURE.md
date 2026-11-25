@@ -318,8 +318,10 @@ flowchart LR
   HOME --> SAVED["/saved պահվածներ"]
   SAVED --> NOTES["/saved?tab=notes Իմ նշումները<br/>(ներդիրներ՝ Պահված նյութեր · Իմ ընթերցանությունը · Իմ նշումները)"]
   HOME --> PLACES["/places քարտեզ"]
-  HOME --> ETQ["/etiquette Վարք եկեղեցում"]
-  ETQ --> ETQT["/etiquette/:topic մեկ բաժին"]
+  HOME --> CH["/church Կարգեր և վարքեր"]
+  CH --> ETQ["/church/etiquette Վարք եկեղեցում"]
+  ETQ --> ETQT["/church/etiquette/:topic"]
+  CH --> CHG["/church/:section ուղեցույց (Հիշատակության օրեր…)"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
   HOME --> MY["/my-year Իմ տարին"]
@@ -335,7 +337,7 @@ flowchart LR
   A3 --> A5["/admin/media-inventory"]
 ```
 
-**Վարք եկեղեցում** (`/etiquette`, `/etiquette/:topic`). տեքստերը կոդում են՝ `app/data/etiquette.ts` (բաժիններ, ամեն կանոն՝ «Կանոն / Ավանդույթ / Սնահավատություն», «Ինչ անել», «Ինչու», `POPULAR_QUESTIONS`), ոչ թե բազայում։ `status: "soon"` բաժինը ցուցակում «Շուտով կավելանան» խմբում է և էջ չունի (404), `review`-ը նշվում է «⚑ Ստուգվում է»։ Տեսքը՝ բաց, խմբավորված ցուցակներ (`card`, `groupTitle`, `TopicIcon`՝ `components/etiquette-ui.tsx`)։ Որոնումը՝ `searchEtiquette()` (`app/utils/etiquette-search.ts`, նույն `parseTelegramSearchQuery`/`matchSearchableText`-ով, ինչ կայքի որոնումը). աշխատում է `/etiquette?q=`-ում, թեմայի էջի որոնման կոճակը տանում է այնտեղ, իսկ `/search`-ը ցույց է տալիս «Վարք եկեղեցում» բլոկ (`EtiquetteMatches`)։ Բաժինը կա մենյուում, գլխավոր էջում (`SiteSectionCard`) և sitemap-ում։ Նոր բաժին ավելացնելիս՝ միայն `etiquette.ts` (և պատկերակ `TOPIC_ICONS`-ում)։ Հետո տեքստերը կտեղափոխվեն բազա՝ ադմինի խմբագրով։
+**Կարգեր և վարքեր** (`/church`). ենթաբաժինները՝ `app/data/church.ts` (`CHURCH_SECTIONS`). `kind: "etiquette"`՝ «Վարք եկեղեցում» (`/church/etiquette`, `/church/etiquette/:topic`, կանոններ՝ `app/data/etiquette.ts`), `kind: "guide"`՝ մեկ էջ բացվող բլոկներով («երբ», «ինչ», «ինչու»), օր.՝ `/church/remembrance`։ `status: "soon"`՝ «Շուտով կավելանան» և 404։ **Սկզբունք**. ամեն պնդում՝ հոգևորականի գրքից (`docs/content/sources.md`), ամեն էջի ներքևում՝ աղբյուրը և «դիմեք ձեր ծխի քահանային» (`SourceNote`), պիտակը՝ աղբյուրի բառերից։ Որոնումը՝ `searchEtiquette()` (կանոններ + ուղեցույցի բլոկներ), դաշտը՝ `/church`-ում (`ChurchSearchField`) և `/church/etiquette`-ում, `/search`-ում՝ «Վարք եկեղեցում» բլոկ։ Հին `/etiquette...` հասցեները՝ 301 (`etiquette-redirect.ts`)։ Նոր ուղեցույցի էջ ավելացնելիս՝ միայն `church.ts` (և պատկերակ `ChurchIcon`-ում)։
 
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
