@@ -51,7 +51,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
           return (
             <li key={number}>
               <Link
-                className={`paper-card grid aspect-square place-items-center rounded-control text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
+                className={`paper-card psalm-tile grid aspect-square place-items-center rounded-control text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
                 to={targetPath}
                 prefetch="intent"
                 aria-label={`Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}`}
@@ -59,7 +59,13 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
               >
                 {isOpening
                   ? <LoaderCircle className="animate-search-spin text-gold" aria-hidden="true" size={16} />
-                  : <span className="font-noto text-[16px] font-semibold tabular-nums text-gold-bright min-[640px]:text-[18px]">{number}</span>}
+                  : (
+                    // Համարը՝ ոսկեգույն շրջանակի մեջ, տակը՝ փոքր զարդ (քարտը «դատարկ» չէ)։
+                    <span className="grid justify-items-center gap-1">
+                      <span className="font-noto text-[17px] leading-none font-semibold tabular-nums text-gold-bright min-[640px]:text-[19px]">{number}</span>
+                      <span className="psalm-tile-mark" aria-hidden="true" />
+                    </span>
+                  )}
               </Link>
             </li>
           );
