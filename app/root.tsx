@@ -45,6 +45,7 @@ import { markPlayingCards } from "./utils/audio-dock";
 import { AudioDockBar } from "./components/audio-dock-bar";
 import "./app.css";
 import "./trchnatar-faces.css";
+import { warmTrchnatar } from "./utils/trchnatar";
 
 // Այս շերտերը էջի առաջին պատկերին պետք չեն. բեռնվում են առանձին ֆայլով, երբ բրաուզերը ազատ է
 // (հին հեռախոսներում էջը ավելի շուտ է բացվում)։
@@ -279,6 +280,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
   // (սաղմոս, աղոթք) եկողը անմիջապես տեսնում է իր փնտրածը։
   const [introHere] = useState(useLocation().pathname === "/");
   const idle = useIdleReady();
+  // Ազատ պահին՝ թռչնատառի բոլոր տառերը, որ ցանկացած էջում զարդատառը հայտնվի միանգամից։
+  useEffect(() => { if (idle) warmTrchnatar(); }, [idle]);
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
   // Մուտք չգործածի մոտ այս սարքում անձնական ոչինչ չի մնում (վերջին կարդացածը, սմայլիկները…)։
