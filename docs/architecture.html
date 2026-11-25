@@ -510,7 +510,9 @@ dialog.big::backdrop { background: rgb(0 0 0 / 55%); }
   CLK --&gt; WP[&quot;Բրաուզերի ծանուցում&lt;br/&gt;(push_subscriptions, VAPID)&quot;]
   CLK --&gt; INB[(&quot;reminder_inbox&quot;)]
   INB --&gt; IND[&quot;Զանգակ մենյուի կոճակի վրա (reminder-indicator)&lt;br/&gt;միայն զանգած ու չկարդացածի համար&lt;br/&gt;✓ կարդացել, կրկին, ջնջել&quot;]
-  SRV --&gt; MNU[&quot;Մենյու → «Հիշեցումներ» սալիկ («Իմ անկյունը»-ի կողքին)&lt;br/&gt;դրված հիշեցումներ (ReminderList)&lt;br/&gt;Կարդալ հիմա · Չեղարկել&quot;]
+  SRV --&gt; MNU[&quot;Մենյու → «Հիշեցումներ» սալիկ («Իմ անկյունը»-ի կողքին)&quot;]
+  MNU --&gt; SHT[&quot;Ներքևից պատուհան (ReminderSheet, BottomSheet)&lt;br/&gt;զանգածներ + դրվածներ&lt;br/&gt;Կարդալ հիմա · Չեղարկել · ներքև քաշել՝ փակել&quot;]
+  IND --&gt; SHT
   INB --&gt; ALM[&quot;Բաց կայքում՝ ազդանշան (reminder-alarm)&quot;]</pre></div>
 </figure>
 </section>
