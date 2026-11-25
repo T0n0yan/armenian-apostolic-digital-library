@@ -1,6 +1,7 @@
 # Բագեր
 
 ## Հիմա
+- Կայքը դեռ կտրտում է (տիրոջ 2-րդ դիմում). անվերջ անիմացիաներ և GPU շերտեր, ամբողջ կայքի ստուգում՝ `ccr-d51480ee-q7uwnr`։
 - GPT QA ուղղումները պատրաստ են Claude-ի review-ին՝ `fix/gpt-qa-review`։ Զեկույց՝ [docs/qa/GPT-REVIEW.md](../qa/GPT-REVIEW.md)։ Staging/production չի հրապարակվել՝ ըստ տիրոջ պահանջի։
 
 
