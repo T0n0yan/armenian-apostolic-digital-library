@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 
 import { isPsalmPagePath } from "../utils/material-path";
@@ -24,13 +24,23 @@ export function NavigationProgress() {
   const moving = navigation.state === "loading" && !navigation.formMethod && navigation.location.pathname !== location.pathname;
   const target = moving && !(isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname)) ? navigation.location.pathname + navigation.location.search : null;
   const [skeleton, setSkeleton] = useState<string | null>(null);
+  // «Հետ» (բրաուզերի, Telegram-ի). էջը վերադառնում է իր նախկին դիրքին, իսկ կմախքը միշտ վերևն է ցույց տալիս.
+  // կմախքը այդ դեպքում չի ցուցադրվում, որ էջը չցատկի վերևից ներքև։
+  const back = useRef(false);
   useEffect(() => {
     if ("requestIdleCallback" in window) window.requestIdleCallback(() => void loadSkeleton());
     else setTimeout(() => void loadSkeleton(), 1500);
+    const onPop = () => { back.current = true; };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
   useEffect(() => {
-    if (!target) { setSkeleton(null); return; }
-    const timer = window.setTimeout(() => setSkeleton(target), 250);
+    if (!busy) back.current = false;
+  }, [busy]);
+  useEffect(() => {
+    if (!target || back.current) { setSkeleton(null); return; }
+    // Արագ եկող էջի համար (հեռախոսի cache) կմախք չկա. դանդաղի համար այն երևում է արագ և առանց երկար անցման։
+    const timer = window.setTimeout(() => setSkeleton(target), 160);
     return () => window.clearTimeout(timer);
   }, [target]);
 

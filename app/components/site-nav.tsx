@@ -16,11 +16,27 @@ import { useActiveReminders } from "../utils/reminder-store";
 import { INSTALL_REQUEST_EVENT, isInstalledApp, isTelegramMiniApp } from "./install-prompt";
 import { SettingsPanel } from "./settings-panel";
 import { sectionPath } from "../utils/material-path";
+import { getCategoryImage } from "../utils/category-image";
+import { preloadArt } from "./art-image";
 
 // Սերվերում useLayoutEffect չկա (glossary-layer.tsx-ի նման)։
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type SiteNavProps = { showAdminLink?: boolean };
+
+/** Երբ է վերջին անգամ բերվել բաժնի տվյալը. բրաուզերը այն պահում է 30 վրկ (`workers/app.ts`, `forClient`)։ */
+const warmedAt = new Map<string, number>();
+
+function warmSections(topics: { id: string; name?: string | null; slug: string }[], current: string) {
+  for (const topic of topics) {
+    const path = sectionPath(topic);
+    if (path === current || Date.now() - (warmedAt.get(path) ?? 0) < 25_000) continue;
+    warmedAt.set(path, Date.now());
+    // Նույն հասցեն, ինչ React Router-ը կխնդրի բաժինը բացելիս (route-ի id-ն՝ "section", app/routes.ts)։
+    void fetch(`${path}.data?_routes=section`, { priority: "low" } as RequestInit).catch(() => undefined);
+    void preloadArt(getCategoryImage(topic.id, topic.name), 0);
+  }
+}
 
 const quickItems = [
   { to: "/", label: "Գլխավոր", icon: Church, end: true },
@@ -84,10 +100,20 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
   useEffect(() => setInMiniApp(Boolean((window as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp?.initData)), []);
   const account = rootData?.account ?? null;
   const location = useLocation();
+  // Հեռախոսի «տվյալ խնայել» ռեժիմ (Chrome/Android). մենյուն այդ դեպքում ոչինչ նախապես չի բերում։
+  const [saveData, setSaveData] = useState(true);
+  useEffect(() => setSaveData(Boolean((navigator as { connection?: { saveData?: boolean } }).connection?.saveData)), []);
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setIsOpen(false), [location.pathname]);
+  // Մենյուն բացելիս բաժինների տվյալը (միասին ~40 ԿԲ) և գլխի նկարը նախապես բերվում են, որ սեղմելիս էջը
+  // միանգամից բացվի (առաջ 0,3–0,9 վրկ սպասում էր և ցույց էր տալիս կմախքը)։ Տվյալ խնայելու ռեժիմում՝ ոչ։
+  useEffect(() => {
+    if (!isOpen || saveData) return;
+    const timer = window.setTimeout(() => warmSections(topicItems, location.pathname), 120);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isOpen) return;
