@@ -279,7 +279,8 @@ export const SiteNav = memo(function SiteNav({ showAdminLink = false }: SiteNavP
           )}
         </div>
 
-        <ReminderIndicator hidden={isOpen} />
+        {/* Զանգը թաքնված է նաև փակվելու ընթացքում. առաջ անմիջապես հայտնվում էր ու մենյուն վեր էր հրում։ */}
+        <ReminderIndicator hidden={isOpen || closing} />
         <button
           ref={triggerRef}
           className={`relative grid size-[62px] cursor-pointer place-items-center liquid-fab rounded-full p-0 outline-none transition-transform duration-200 focus-visible:ring-4 focus-visible:ring-[rgb(217_181_111/26%)] active:scale-95 pointer-events-auto hover:-translate-y-0.5`}
