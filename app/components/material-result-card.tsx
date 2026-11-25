@@ -5,6 +5,7 @@ import {
   Check,
   ExternalLink,
   FileQuestion,
+  BookOpen,
   FileText,
   Headphones,
   Image as ImageIcon,
@@ -361,12 +362,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <strong className="line-clamp-2 font-noto text-[16px] leading-[1.3] font-semibold text-white [text-shadow:0_1px_8px_rgb(0_0_0/50%)]">{highlightText(material.title, highlightPattern)}</strong>
             </span>
           </span>
-        ) : variant === "text" ? null : psalm ? (
-          // Psalms: the number is what readers look for.
+        ) : variant === "text" ? null : variant === "psalm" ? (
+          // Սաղմոսներ՝ համարը. առանց համարի սաղմոսը՝ գրքի նշանով (ձայնագրության նկարն այստեղ չի ցուցադրվում)։
           <span className="relative z-1 grid aspect-square w-full place-items-center rounded-button border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
             <span className="grid justify-items-center leading-none">
               <span className="text-[9.5px] font-bold tracking-[0.08em] text-gold uppercase">Սաղմոս</span>
-              <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span>
+              {psalm ? <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span> : <BookOpen aria-hidden="true" className="mt-1.5 text-gold-bright" size={26} strokeWidth={1.6} />}
             </span>
           </span>
         ) : day ? (

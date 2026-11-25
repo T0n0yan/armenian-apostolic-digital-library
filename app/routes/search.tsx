@@ -146,14 +146,18 @@ const EXACT_MATCHES = new Set(["exact-token", "exact-primary", "message-id"]);
 function searchCorrection(url: URL, materials: SearchMaterial[], vocabulary: SearchVocabulary | null): { redirectTo: string | null; correction: SearchCorrection | null } {
   const query = (url.searchParams.get("q") ?? "").trim();
   if (!vocabulary || !query || url.searchParams.has("exact") || url.searchParams.has("asked") || url.searchParams.has("cursor") || url.searchParams.get("scope") === "saved") return { redirectTo: null, correction: null };
-  if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
-  const correction = correctSearchQuery(query, vocabulary);
-  if (correction.corrected && (correction.latin || materials.length === 0)) {
+  const goTo = (corrected: string) => {
     const next = new URL(url);
-    next.searchParams.set("q", correction.corrected);
+    next.searchParams.set("q", corrected);
     next.searchParams.set("asked", query);
-    return { redirectTo: `${next.pathname}${next.search}`, correction };
-  }
+    return `${next.pathname}${next.search}`;
+  };
+  // Այլ լեզվով բառը («psalm», «молитва»)՝ միշտ հայերենով։ Ռուսատառը դառնում է լատինատառ։
+  const translated = translateQuery(query);
+  if (translated !== query && /\p{Script=Armenian}/u.test(translated)) return { redirectTo: goTo(translated), correction: null };
+  if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
+  const correction = correctSearchQuery(translated, vocabulary);
+  if (correction.corrected && (correction.latin || materials.length === 0)) return { redirectTo: goTo(correction.corrected), correction };
   return { redirectTo: null, correction };
 }
 
@@ -773,8 +777,8 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           <div className="grid gap-3">
             {telegramResults.length ? (
               <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
-                {/* Say so when nothing has the exact word, and that these are the closest matches. */}
-                {filters.query && !telegramResults.some((item) => item.scoreCategory === "exact-token" || item.scoreCategory === "exact-primary" || item.scoreCategory === "message-id") ? (
+                {/* Միայն երբ ամեն արդյունք մոտավոր է (տառասխալով). բառի սկիզբը կամ լատինատառը ճիշտ համընկնում են։ */}
+                {filters.query && telegramResults.every((item) => item.scoreCategory === "fuzzy") ? (
                   <p className="m-0 rounded-button border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
                     «<strong>{filters.query}</strong>» բառով ճշգրիտ համընկնում չգտնվեց։ Ահա ամենամոտ արդյունքները։
                   </p>
