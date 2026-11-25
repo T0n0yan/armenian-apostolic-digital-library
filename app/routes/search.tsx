@@ -160,6 +160,8 @@ function searchCorrection(url: URL, materials: SearchMaterial[], vocabulary: Sea
   if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
   const correction = correctSearchQuery(translated, vocabulary);
   if (correction.corrected && (correction.latin || materials.length === 0)) return { redirectTo: goTo(correction.corrected), correction };
+  // Ոչինչ չգտնվեց՝ բացում ենք ամենամոտ բառով («saxmhu» → «սաղմոս»), ոչ թե դատարկ էջ։
+  if (materials.length === 0 && correction.similar[0]) return { redirectTo: goTo(correction.similar[0]), correction };
   return { redirectTo: null, correction };
 }
 

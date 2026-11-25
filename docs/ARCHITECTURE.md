@@ -333,8 +333,6 @@ flowchart LR
   HOME --> SAVED["/saved պահվածներ"]
   SAVED --> NOTES["/saved?tab=notes Իմ նշումները<br/>(ներդիրներ՝ Պահված նյութեր · Իմ ընթերցանությունը · Իմ նշումները)"]
   HOME --> PLACES["/places քարտեզ"]
-  HOME --> ETQ["/etiquette Վարք եկեղեցում"]
-  ETQ --> ETQT["/etiquette/:topic մեկ բաժին"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
   HOME --> MY["/my-year Իմ տարին"]
@@ -349,8 +347,6 @@ flowchart LR
   ADM --> A6["/admin/help Օգնության տեսանյութեր"]
   A3 --> A5["/admin/media-inventory"]
 ```
-
-**Վարք եկեղեցում** (`/etiquette`, `/etiquette/:topic`). տեքստերը կոդում են՝ `app/data/etiquette.ts` (բաժիններ, ամեն կանոն՝ «Կանոն / Ավանդույթ / Սնահավատություն», «Ինչ անել», «Ինչու», `POPULAR_QUESTIONS`), ոչ թե բազայում։ `status: "soon"` բաժինը ցուցակում «Շուտով կավելանան» խմբում է և էջ չունի (404), `review`-ը նշվում է «⚑ Ստուգվում է»։ Տեսքը՝ բաց, խմբավորված ցուցակներ (`card`, `groupTitle`, `TopicIcon`՝ `components/etiquette-ui.tsx`)։ Որոնումը՝ `searchEtiquette()` (`app/utils/etiquette-search.ts`, նույն `parseTelegramSearchQuery`/`matchSearchableText`-ով, ինչ կայքի որոնումը). աշխատում է `/etiquette?q=`-ում, թեմայի էջի որոնման կոճակը տանում է այնտեղ, իսկ `/search`-ը ցույց է տալիս «Վարք եկեղեցում» բլոկ (`EtiquetteMatches`)։ Բաժինը կա մենյուում, գլխավոր էջում (`SiteSectionCard`) և sitemap-ում։ Նոր բաժին ավելացնելիս՝ միայն `etiquette.ts` (և պատկերակ `TOPIC_ICONS`-ում)։ Հետո տեքստերը կտեղափոխվեն բազա՝ ադմինի խմբագրով։
 
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
@@ -428,7 +424,7 @@ flowchart LR
 **«Գուցե նկատի ունեիք»** (`shared/search-correction.ts`). լատինատառը դառնում է հայերեն, տառասխալը
 ուղղվում է ըստ վերնագրերի բառերի (սերվերում՝ `app/data/search-correction.server.ts`, 10 րոպե
 հիշողության մեջ, հեռախոսում՝ վերնագրերի ինդեքսից)։ Լատինատառ կամ ոչինչ չգտած որոնումը բացվում է
-ուղղվածով (`/search?q=սաղմոս&asked=Saxmos`). ուղղված բառը դրվում է հենց որոնման դաշտում, առանձին հուշում չկա (`&exact=1`՝ որոնել ճիշտ գրածը)։ Հեռախոսի ինդեքսում սաղմոսի համարը վերցվում է նաև ձայնագրության անունից (`search-index.server.ts`), R2-ի պատճենը ունի ձևի համար (`<version>:2`)։ Մնացածում՝ «Գուցե
+ուղղվածով (`/search?q=սաղմոս&asked=Saxmos`). ոչինչ չգտած որոնումը, որի ուղղումը վստահ չէ, բացվում է ամենամոտ բառով։ Ուղղված բառը դրվում է հենց որոնման դաշտում, առանձին հուշում չկա (`&exact=1`՝ որոնել ճիշտ գրածը)։ Հեռախոսի ինդեքսում սաղմոսի համարը վերցվում է նաև ձայնագրության անունից (`search-index.server.ts`), R2-ի պատճենը ունի ձևի համար (`<version>:2`)։ Մնացածում՝ «Գուցե
 նկատի ունեիք» և «Նման բառեր» կոճակներ։
 
 **Այլ լեզուներ** (`shared/search-foreign.ts`). անգլերեն, ռուսերեն, ֆրանսերեն, իսպաներեն, գերմաներեն,
