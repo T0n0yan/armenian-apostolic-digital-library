@@ -998,7 +998,9 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(infiniteSource, /observer\.disconnect\(\)/u);
   assert.match(categorySource, /abortRef\.current\?\.abort\(\)/u);
   assert.match(searchSource, /abortRef\.current\?\.abort\(\)/u);
-  assert.match(rootSource, /ScrollRestoration getKey=\{\(\{ pathname, search \}\) => `\$\{pathname\}\$\{search\}`\}/u);
+  // Դիրքը՝ պատմության քայլով. մենյուից բացված էջը վերևից է, «հետ»-ը՝ նույն տեղը (use-return-anchor.ts)։
+  assert.match(rootSource, /<ScrollRestoration \/>/u);
+  assert.doesNotMatch(rootSource, /ScrollRestoration getKey/u);
   assert.equal(normalizeThemePreference(null), "system");
   assert.equal(normalizeThemePreference("unexpected"), "system");
   assert.equal(resolveTheme("system", false), "light");

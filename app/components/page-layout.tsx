@@ -153,6 +153,9 @@ export function ExpandingSearch({open, onOpen, label = "Որոնում", childre
     </div>);
 }
 
+/** «← բաժին» հղումը. բաժնի էջը վերադառնում է սեղմված նյութի մոտ (use-return-anchor.ts)։ */
+const BACK_STATE = { back: true };
+
 function HeaderBar({action, backLabel, backTo, children, description, eyebrow, home = false, onSearch, search, ornate = false, showSearch = true, title}: PageHeaderProps) {
     return (<header
         className="
@@ -178,6 +181,7 @@ function HeaderBar({action, backLabel, backTo, children, description, eyebrow, h
             {backTo && backLabel ? (<Link
                 className="inline-flex min-h-[30px] min-w-0 items-center gap-[7px] rounded-control px-[2px] text-[13px] font-bold text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
                 to={backTo}
+                state={BACK_STATE}
             >
                 <ArrowLeft aria-hidden="true" size={17} strokeWidth={2}/>
                 <span className="truncate">{backLabel}</span>
