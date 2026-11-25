@@ -11,6 +11,7 @@
 | Ինտեգրացիաներ | Telegram խումբ և բոտ, BotFather, Google, Cloudflare, էլ. փոստ | [integrations.md](integrations.md) |
 
 ## Ընդհանուր որոշումներ (բոլորը պետք է իմանան)
+- 2026-11-25 (տիրոջ որոշում). ամեն ինչ կայքում է, Android/iPhone հավելվածները (Capacitor) միայն պատյան են։ Բնիկ գործառույթ (ֆոնային GPS, զարթուցիչ, ծանուցում, վիջեթ) ավելացնել միայն այն, ինչ բրաուզերը չի կարող, և միշտ երկու հարթակի համար միասին (`docs/ARCHITECTURE.md` բաժին 2)։
 - 2026-11-25 (տիրոջ որոշում). liquid glass-ը հանված է ամբողջ կայքից. մինիմալ «թղթե» մակերեսներ, առանց blur-ի (`docs/DESIGN.md` բաժին 2)։ Դասերը վերանվանված են. `frosted-card/panel` → `paper-card/panel`, `liquid-sheet/fab` → `paper-sheet/fab`, `glass-tile` → `menu-tile`, `glass-selected` → `chip-on`, `glass-arrow` → `sheet-arrow`, `border-glass-border` → `border-edge`, `bg-glass` → `bg-surface`, `animate-glass-enter` → `animate-rise-in`։ Թեման փոխվում է միանգամից (առանց View Transition)։
 - 2026-11-03 (տիրոջ որոշում). ամեն փոփոխություն միանգամից production՝ PR → main, հետո նաև staging (որ երկուսը համընկնեն)։ Staging-ում սպասել և «թողարկիր» պետք չէ։ Deploy-ից հետո `scripts/smoke.mjs`-ը ստուգում է կայքը, ձախողվելիս Worker-ը ինքն է վերադառնում նախորդ տարբերակին։
 - Հասցեները՝ `/psalms/22`, `/pray/71-…` (`app/utils/material-path.ts`). հին հասցեները (`/saghmosner/22`) 301-ով տանում են նորերին։
