@@ -4,6 +4,7 @@ import {Link} from "react-router";
 
 import {paperPanel} from "./ui-styles";
 import {PageFind} from "./page-find";
+import { preloadTrchnatar } from "../utils/trchnatar";
 
 type PageShellProps = {
     children: ReactNode; width?: "admin" | "content" | "library";
@@ -86,6 +87,7 @@ export function PageTitle({title, ornate = false}: { title: ReactNode; ornate?: 
     }
 
     const [firstLetter, ...rest] = Array.from(title);
+    preloadTrchnatar(firstLetter);
 
     return (<>
         {/* WebKit leaks the color font's palette into following text unless the glyph gets its own layer. */}

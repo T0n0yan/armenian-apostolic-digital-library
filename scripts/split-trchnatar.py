@@ -14,6 +14,6 @@ for upper in range(0x0531, 0x0557):
     name = f"{upper:04X}"
     subprocess.run(["pyftsubset", SOURCE, "--unicodes=" + ",".join(f"U+{c:04X}" for c in codes), "--flavor=woff2",
                     f"--output-file=app/assets/fonts/trchnatar/{name}.woff2"], check=True)
-    rules.append('@font-face { font-family: "Trchnatar Birds Color"; src: url("./assets/fonts/trchnatar/%s.woff2") format("woff2"); font-display: swap; unicode-range: %s; }'
+    rules.append('@font-face { font-family: "Trchnatar Birds Color"; src: url("./assets/fonts/trchnatar/%s.woff2") format("woff2"); font-display: block; unicode-range: %s; }'
                  % (name, ", ".join(f"U+{c:04X}" for c in codes)))
 open("app/trchnatar-faces.css", "w").write("\n".join(rules) + "\n")
