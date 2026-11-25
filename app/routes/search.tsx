@@ -388,16 +388,12 @@ function SearchHelp({ query, asked, didYouMean, similar, hrefFor }: {
   query: string; asked: string; didYouMean: string; similar: string[]; hrefFor: (query: string, exact?: boolean) => string;
 }) {
   const words = similar.filter((word) => word !== query && word !== didYouMean);
-  if (!asked && !didYouMean && !words.length) return null;
+  if (!didYouMean && !words.length) return null;
   const chip = "inline-flex min-h-8 items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] px-3 text-[13px] font-semibold text-gold-bright no-underline hover:bg-[rgb(217_181_111/18%)]";
   return (
     <div className="mx-1 mt-3 grid gap-2 text-[13px] leading-snug text-muted" role="status">
-      {asked ? (
-        <p className="m-0">
-          Ցույց ենք տալիս <strong className="text-gold-bright">«{query}»</strong>-ի արդյունքները։{" "}
-          <Link className="text-faint underline underline-offset-2" to={hrefFor(asked, true)}>Փնտրել հենց «{asked}»</Link>
-        </p>
-      ) : didYouMean ? (
+      {/* Ուղղված բառը արդեն դաշտում է (տիրոջ որոշում, 2026-11-25)՝ առանձին հուշում պետք չէ։ */}
+      {asked ? null : didYouMean ? (
         <p className="m-0 flex flex-wrap items-center gap-2">Գուցե նկատի ունեիք՝ <Link className={chip} to={hrefFor(didYouMean)}>{didYouMean}</Link></p>
       ) : null}
       {words.length ? (
@@ -410,16 +406,18 @@ function SearchHelp({ query, asked, didYouMean, similar, hrefFor }: {
 const SearchForm = memo(function SearchForm({
   categories,
   filters,
+  asked,
 }: {
   categories: Route.ComponentProps["loaderData"]["categories"];
   filters: SearchFilters;
+  asked: string;
 }) {
   const { validateSubmit, formRef, clearError, submitImmediately, error } =
     useSearchSubmit((form) => {
       const selected = String(new FormData(form).get("category") ?? "");
       return resolveContentCategoryId(selected, categories.find((category) => category.id === selected)?.name) === "category_psalms";
     });
-  const inputRef = useSyncedQueryInput(filters.query);
+  const inputRef = useSyncedQueryInput(filters.query, asked);
   const navigate = useNavigate();
   const submitFilters = () => {
     if (!formRef.current) return;
@@ -727,6 +725,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         key={`${filters.categoryId}|${filters.scope}|${filters.dateFrom}|${filters.dateTo}`}
         categories={categories}
         filters={filters}
+        asked={loaderData.askedQuery}
       />
 
       <SearchHelp

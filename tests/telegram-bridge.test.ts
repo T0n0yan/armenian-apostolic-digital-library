@@ -1312,7 +1312,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const titleIndex = await titleResponse.json() as { version: string; items: unknown[] };
   assert.ok(titleIndex.items.length > 0);
   const snapshot = await (mediaBucket as unknown as { head(key: string): Promise<{ customMetadata: { version: string } } | null> }).head("public-index/title/current.json");
-  assert.equal(snapshot?.customMetadata.version, titleIndex.version);
+  assert.equal(snapshot?.customMetadata.version, `${titleIndex.version}:2`);
 
   const category = await mf.dispatchFetch(`https://app.fixture/categories/${MOCK_TOPIC_SLUG}`);
   const categoryHtml = await category.text();
