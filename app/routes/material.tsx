@@ -25,6 +25,7 @@ import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type Brid
 import { isPsalmPagePath, sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
 import { fetchPersonal } from "../utils/personal-data";
+import { navigationScope, readNavigationCache, writeNavigationCache } from "../utils/navigation-cache";
 import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, materialSeoTitle, materialHeading, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
@@ -42,9 +43,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
  * Կայքի ներսում նավարկելիս էջի տվյալները ընդհանուր են (cache-ից), իսկ ընթերցողի անձնականը
  * (պահածներ, նշումներ…) բերվում է զուգահեռ (utils/personal-data.ts)։ Առաջին բացմանը՝ սերվերի HTML-ը։
  */
+/** Էկրանին արդեն ցույց տրված նյութի հասցեն (revalidate-ը նավարկությունից տարբերելու համար)։ */
+let shownPath = "";
+
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
+  // Էջի ընդհանուր տվյալը (առանց անձնականի) 5 րոպե պահվում է հեռախոսի հիշողությունում. նույն սաղմոսը
+  // կրկին բացելիս սերվերին չի դիմում։ Անձնականը միշտ թարմ է (մատը դիպչելիս արդեն սկսված, personal-data.ts)։
+  // Նույն էջի նորից բեռնումը (revalidate՝ ադմինի ձևավորում, պահում…) միշտ սերվերից է։
+  const revalidating = new URL(request.url).pathname === shownPath;
+  const cached = revalidating ? null : readNavigationCache<Awaited<ReturnType<typeof serverLoader>>>("material-page", request.url);
   const [data, personal] = await Promise.all([
-    serverLoader(),
+    cached ?? serverLoader().then((fresh) => { writeNavigationCache("material-page", request.url, navigationScope(), fresh); return fresh; }),
     fetchPersonal<MaterialPersonal>("material", new URL(request.url).pathname),
   ]);
   return personal ? { ...data, ...personal } : data;
@@ -100,6 +109,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const toggleSaved = useCallback(() => setSaved(material.id, !isSaved), [isSaved, material.id, setSaved]);
   const location = useLocation();
   const navigation = useNavigation();
+  useEffect(() => { shownPath = location.pathname; return () => { shownPath = ""; }; }, [location.pathname]);
   // Հաջորդ/նախորդ սաղմոսը բեռնվելիս ամբողջ էջը չի փոխվում. միայն տեքստը թեթև մարում է, մինչև նորը գա։
   const psalmSwitching = navigation.state === "loading" && navigation.location.pathname !== location.pathname
     && isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname);
