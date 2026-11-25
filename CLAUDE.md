@@ -15,6 +15,9 @@ in the same branch**, then rebuild the interactive page with `node scripts/build
   Identifiers (names in code) stay English. Since 2026-10-31 (owner's decision): new code comments
   and commit messages are in Armenian, short and plain, so the owner can read them. The owner reads English poorly.
 - Keep them informed in plain words; they want to see what is happening.
+- **Owner's decision (2026-11-25): every design change, even the smallest (color, spacing, icon, ornament,
+  animation, layout), is first described to the owner and done only after they agree.** Bug fixes that
+  don't change the look go straight on; if a fix changes how something looks, ask first.
 
 ## Work is split between chats
 

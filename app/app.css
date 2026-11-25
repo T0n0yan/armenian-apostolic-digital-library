@@ -443,10 +443,9 @@
 .paper-card:active { transform: scale(.982); }
 .paper-card:focus-visible { outline: 3px solid rgb(217 181 111 / 45%); outline-offset: 2px; }
 .paper-card.is-opening { background: var(--card-bg-hover); border-color: rgb(217 181 111 / 45%); }
-/* Սաղմոսի սալիկ. վերևից թեթև ոսկեգույն լույս, ներսում բարակ շրջանակ, համարի տակ փոքր զարդ (ստատիկ, առանց անիմացիայի)։ */
+/* Սաղմոսի սալիկ. վերևից թեթև ոսկեգույն լույս, ներսում բարակ շրջանակ (ստատիկ, առանց անիմացիայի)։ */
 .psalm-tile { background-image: radial-gradient(120% 80% at 50% 0%, rgb(226 194 126 / 13%), transparent 62%); }
 .psalm-tile::before { content: ""; position: absolute; inset: 4px; z-index: -1; border: 0.5px solid rgb(217 181 111 / 26%); border-radius: calc(var(--radius-control) - 4px); pointer-events: none; }
-.psalm-tile-mark { display: block; width: 14px; height: 6px; background: radial-gradient(circle, rgb(226 194 126 / 85%) 0 1.5px, transparent 2px) center / 6px 6px no-repeat, linear-gradient(90deg, transparent, rgb(217 181 111 / 60%), transparent) center / 100% 1px no-repeat; }
 .paper-panel { border-radius: var(--radius-panel); }
 }
 
