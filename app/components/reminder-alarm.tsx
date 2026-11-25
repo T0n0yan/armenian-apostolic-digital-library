@@ -191,7 +191,7 @@ export function ReminderAlarm() {
   return (
     <aside
       ref={card}
-      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
+      className="top-toast fixed top-[calc(var(--tg-inset-top,0px)+12px)] right-[calc(var(--tg-inset-right,0px)+12px)] left-[calc(var(--tg-inset-left,0px)+12px)] z-[70] mx-auto grid max-w-[440px] gap-3 rounded-card border border-[rgb(217_181_111/45%)] paper-sheet p-4 shadow-[0_22px_60px_rgb(40_20_10/35%)]"
       data-phase={phase}
       role="alertdialog"
       aria-live="assertive"
@@ -216,14 +216,14 @@ export function ReminderAlarm() {
         >
           <BookOpen aria-hidden="true" size={16} /> Կարդալ
         </button>
-        <button className={`${action} border-glass-border bg-subtle text-ink`} type="button" onClick={() => snooze(1)}>1 րոպեից</button>
-        <button className={`${action} border-glass-border bg-subtle text-ink`} type="button" onClick={() => snooze(5)}>5 րոպեից</button>
+        <button className={`${action} border-edge bg-subtle text-ink`} type="button" onClick={() => snooze(1)}>1 րոպեից</button>
+        <button className={`${action} border-edge bg-subtle text-ink`} type="button" onClick={() => snooze(5)}>5 րոպեից</button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button className={`${action} inline-flex items-center justify-center gap-1.5 border-[rgb(74_160_96/45%)] bg-[rgb(74_160_96/12%)] text-[rgb(52_130_74)]`} type="button" onClick={() => { void markReminderDone(current.materialId); dismiss(); }}>
           <Check aria-hidden="true" size={15} /> Արդեն կարդացել եմ
         </button>
-        <button className={`${action} border-glass-border bg-transparent text-muted`} type="button" onClick={() => { void cancelReminder(current.materialId); dismiss(); }}>
+        <button className={`${action} border-edge bg-transparent text-muted`} type="button" onClick={() => { void cancelReminder(current.materialId); dismiss(); }}>
           Չեղարկել հիշեցումը
         </button>
       </div>

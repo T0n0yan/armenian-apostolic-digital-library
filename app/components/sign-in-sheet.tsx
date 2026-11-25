@@ -10,7 +10,7 @@ import { BottomSheet } from "./bottom-sheet";
  */
 export function SignInSheet({ open, onClose, reason, hint = "Քարտեզը և ճանապարհը (Google, Yandex) հասանելի են առանց մուտքի։" }: { open: boolean; onClose: () => void; reason: string; hint?: string }) {
   const back = typeof window === "undefined" ? "/" : window.location.pathname + window.location.search;
-  const button = "flex min-h-12 w-full items-center justify-center gap-3 glass-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card";
+  const button = "flex min-h-12 w-full items-center justify-center gap-3 menu-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card";
   return (
     <BottomSheet open={open} onClose={onClose} label="Մուտք" className="justify-items-center gap-3 p-5 text-center">
       <span className="grid size-12 place-items-center rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright"><LogIn aria-hidden="true" size={22} /></span>

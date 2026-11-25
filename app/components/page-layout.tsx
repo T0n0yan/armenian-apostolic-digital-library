@@ -2,7 +2,7 @@ import {useEffect, useRef, useState, type ReactNode} from "react";
 import {ArrowLeft, Search} from "lucide-react";
 import {Link} from "react-router";
 
-import {glassPanel} from "./ui-styles";
+import {paperPanel} from "./ui-styles";
 import {PageFind} from "./page-find";
 
 type PageShellProps = {
@@ -34,7 +34,7 @@ type EmptyStateProps = {
 
 export function EmptyState({children, icon, title}: EmptyStateProps) {
     return (<section
-        className={`${glassPanel} grid justify-items-start gap-[9px] p-[22px] text-muted min-[560px]:p-[30px] min-[960px]:p-[38px]`}>
+        className={`${paperPanel} grid justify-items-start gap-[9px] p-[22px] text-muted min-[560px]:p-[30px] min-[960px]:p-[38px]`}>
         {icon}
         {title ? <h2 className="m-0 text-[16px] leading-[24px] text-ink">{title}</h2> : null}
         <div className="text-[13px] leading-[20px] [&>p]:m-0">{children}</div>
@@ -96,14 +96,14 @@ export function PageTitle({title, ornate = false}: { title: ReactNode; ornate?: 
     </>);
 }
 
-const headerSearchClass = "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]";
+const headerSearchClass = "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full border border-edge bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]";
 
 export function HeaderSearchLink({onSearch}: { onSearch?: () => void }) {
     if (onSearch) return (<span className="ml-auto flex items-center gap-2"><button type="button" className={headerSearchClass} onClick={onSearch} aria-label="Որոնում" title="Որոնում">
         <Search aria-hidden="true" size={17} strokeWidth={2}/>
     </button></span>);
     return (<span className="ml-auto flex items-center gap-2"><Link
-        className="grid size-9 shrink-0 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
+        className="grid size-9 shrink-0 place-items-center rounded-full border border-edge bg-subtle text-gold-bright no-underline transition-colors hover:text-ink focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/42%)]"
         to="/search"
         aria-label="Որոնում"
         title="Որոնում"

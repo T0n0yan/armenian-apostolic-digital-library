@@ -59,7 +59,7 @@ export default function TelegramSignIn() {
   }, []);
   return (
     <PageShell>
-      <section className="frosted-panel mt-16 grid justify-items-center gap-3 px-5 py-9 text-center">
+      <section className="paper-panel mt-16 grid justify-items-center gap-3 px-5 py-9 text-center">
         {failed ? (
           <>
             <h1 className="m-0 font-noto text-[17px] text-ink">Telegram-ով մուտքը չհաջողվեց</h1>

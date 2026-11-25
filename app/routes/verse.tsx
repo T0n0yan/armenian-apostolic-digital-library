@@ -68,7 +68,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
   });
 }
 
-const stepLink = "inline-flex min-h-11 items-center gap-1 rounded-button border border-glass-border bg-subtle px-3.5 text-[13px] font-bold text-ink no-underline";
+const stepLink = "inline-flex min-h-11 items-center gap-1 rounded-button border border-edge bg-subtle px-3.5 text-[13px] font-bold text-ink no-underline";
 
 export default function VersePage({ loaderData }: Route.ComponentProps) {
   const { label, text, psalmPath, verse, previous, next, title } = loaderData;
@@ -77,7 +77,7 @@ export default function VersePage({ loaderData }: Route.ComponentProps) {
       <SiteNav />
       <PageHeader showSearch={false} backTo={psalmPath} backLabel={title} title={label} />
       <article className="prayer-text psalm-text mt-4 grid gap-4">
-        <blockquote className="reading-body m-0 frosted-panel px-5 py-8 text-center text-[length:calc(var(--reading-size)*1.2)] leading-[1.8] text-ink shadow-card min-[560px]:px-9 min-[560px]:py-10">
+        <blockquote className="reading-body m-0 paper-panel px-5 py-8 text-center text-[length:calc(var(--reading-size)*1.2)] leading-[1.8] text-ink shadow-card min-[560px]:px-9 min-[560px]:py-10">
           <p className="m-0 mb-4 font-sans text-[13px] font-bold tracking-[0.04em] text-gold">{label}</p>
           <p className="m-0">«{text}»</p>
         </blockquote>

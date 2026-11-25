@@ -51,7 +51,7 @@ export const PsalmGrid = memo(function PsalmGrid({ materials }: { materials: Car
           return (
             <li key={number}>
               <Link
-                className={`frosted-card grid aspect-square place-items-center rounded-control text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
+                className={`paper-card grid aspect-square place-items-center rounded-control text-inherit no-underline ${isOpening ? "is-opening" : ""}`}
                 to={targetPath}
                 prefetch="intent"
                 aria-label={`Սաղմոս ${number}${material.title ? `․ ${material.title}` : ""}`}
@@ -81,7 +81,7 @@ export const SaintGrid = memo(function SaintGrid({ materials }: { materials: Car
         return (
           <li key={material.id}>
             <Link
-              className="reveal-frame group relative block aspect-[3/4] overflow-hidden rounded-card border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,translate,scale,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
+              className="reveal-frame group relative block aspect-[3/4] overflow-hidden rounded-card border border-edge bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))] text-white no-underline shadow-card transition-[transform,translate,scale,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_18px_40px_rgb(40_20_10/30%)] active:scale-[.985] active:duration-150 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[rgb(217_181_111/45%)]"
               to={targetPath}
               prefetch="intent"
               aria-busy={isOpening || undefined}
@@ -158,7 +158,7 @@ export function SectionIntro({ title, body }: { title: string; body: string }) {
   return (
     <div className="grid gap-2.5">
       <IntroOrnament />
-      <section className="frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center">
+      <section className="paper-panel grid justify-items-center gap-3 px-5 py-5 text-center">
         <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3>
         <p className="m-0 max-w-[620px] font-noto text-[14px] leading-[1.7] text-muted [text-wrap:pretty]">{body}</p>
       </section>
@@ -182,7 +182,7 @@ export const TopicIntro = memo(function TopicIntro({ material }: { material: Car
   return (
     <div className="grid gap-2.5">
     <IntroOrnament />
-    <section className={`frosted-panel grid justify-items-center gap-3 px-5 py-5 text-center ${quote ? "prayer-intro" : ""}`}>
+    <section className={`paper-panel grid justify-items-center gap-3 px-5 py-5 text-center ${quote ? "prayer-intro" : ""}`}>
       {title ? <h3 className="m-0 font-noto text-[16px] leading-[1.45] font-semibold text-gold-bright [text-wrap:balance]">{title}</h3> : null}
       {body.length ? (
         <div className={`relative grid gap-1 ${collapsed ? "max-h-[9.5em] overflow-hidden [mask-image:linear-gradient(180deg,#000_60%,transparent)]" : ""}`}>
@@ -217,7 +217,7 @@ export const DailyReadingCard = memo(function DailyReadingCard({ material }: { m
   return (
     // Cards with a picture fill their row, so neighbours end level; a card still without one keeps its height.
     <li className={image ? "flex" : "self-start"}>
-      <Link className={`frosted-card grid w-full content-start overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath} prefetch="intent">
+      <Link className={`paper-card grid w-full content-start overflow-hidden text-inherit no-underline ${isOpening ? "is-opening" : ""}`} to={targetPath} prefetch="intent">
         {image ? (
           // The picture's top (the day's verse) matters most, so crop from the bottom.
           <span className="reveal-frame relative block aspect-[16/9] overflow-hidden" aria-hidden="true">

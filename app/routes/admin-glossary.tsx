@@ -75,7 +75,7 @@ export default function AdminGlossary({ loaderData, actionData }: Route.Componen
           <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Բառարանի բաժիններ">
             {(Object.keys(GLOSSARY_KINDS) as GlossaryKind[]).map((id) => (
               <button key={id} type="button" role="tab" aria-selected={kind === id} onClick={() => setKind(id)}
-                className={`inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold ${kind === id ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
+                className={`inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold ${kind === id ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`}>
                 {id === "word" ? <BookOpenText aria-hidden="true" size={15} /> : id === "person" ? <User aria-hidden="true" size={15} /> : <MapPin aria-hidden="true" size={15} />}
                 {GLOSSARY_KINDS[id]} · {terms.filter((term) => term.kind === id).length}
               </button>
@@ -84,7 +84,7 @@ export default function AdminGlossary({ loaderData, actionData }: Route.Componen
           <input className={fieldControl} type="search" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Փնտրել բառ կամ բացատրություն…" aria-label="Փնտրել բառարանում" />
           <ul className="m-0 grid list-none gap-2 p-0">
             {shown.map((term) => (
-              <li key={term.id} className="frosted-card grid gap-2 p-3">
+              <li key={term.id} className="paper-card grid gap-2 p-3">
                 {editing === term.id ? <TermForm term={term} error={actionData?.id === term.id ? actionData.error : undefined} onDone={() => setEditing(null)} /> : (
                   <div className="flex items-start gap-3">
                     <div className="grid min-w-0 flex-1 gap-0.5">
@@ -92,10 +92,10 @@ export default function AdminGlossary({ loaderData, actionData }: Route.Componen
                       <span className="text-[13.5px] leading-snug text-ink">{term.meaning}</span>
                       {term.forms.length ? <span className="text-[12px] text-faint">Ձևեր՝ {term.forms.join(", ")}</span> : null}
                     </div>
-                    <button className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control border border-glass-border bg-subtle text-ink" type="button" onClick={() => setEditing(term.id)} aria-label={`Փոխել «${term.word}»-ը`}><Pencil aria-hidden="true" size={15} /></button>
+                    <button className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-control border border-edge bg-subtle text-ink" type="button" onClick={() => setEditing(term.id)} aria-label={`Փոխել «${term.word}»-ը`}><Pencil aria-hidden="true" size={15} /></button>
                     <Form method="post" preventScrollReset onSubmit={(event) => { if (!window.confirm(`Ջնջե՞լ «${term.word}»-ը բառարանից։`)) event.preventDefault(); }}>
                       <input type="hidden" name="id" value={term.id} />
-                      <button className="grid size-9 cursor-pointer place-items-center rounded-control border border-glass-border bg-subtle text-danger" type="submit" name="intent" value="delete" disabled={busy} aria-label={`Ջնջել «${term.word}»-ը`}><Trash2 aria-hidden="true" size={15} /></button>
+                      <button className="grid size-9 cursor-pointer place-items-center rounded-control border border-edge bg-subtle text-danger" type="submit" name="intent" value="delete" disabled={busy} aria-label={`Ջնջել «${term.word}»-ը`}><Trash2 aria-hidden="true" size={15} /></button>
                     </Form>
                   </div>
                 )}

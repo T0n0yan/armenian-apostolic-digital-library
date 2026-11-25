@@ -47,7 +47,7 @@ export function LocationHelp({ failure, lead, onRetry }: { failure: LocationFail
         </ol>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        {kind === "telegram" ? <button type="button" className="min-h-9 cursor-pointer rounded-control border border-glass-border bg-subtle px-3 text-[12.5px] font-semibold text-gold-bright" onClick={() => openLocationSettings()}>Բացել կարգավորումները</button> : null}
+        {kind === "telegram" ? <button type="button" className="min-h-9 cursor-pointer rounded-control border border-edge bg-subtle px-3 text-[12.5px] font-semibold text-gold-bright" onClick={() => openLocationSettings()}>Բացել կարգավորումները</button> : null}
         <button type="button" className="min-h-9 cursor-pointer rounded-control border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-3 text-[12.5px] font-bold text-[#2a1708]" onClick={onRetry}>Փորձել կրկին</button>
       </div>
     </div>

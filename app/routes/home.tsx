@@ -51,7 +51,7 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
     const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
         <Link
-            className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
+            className={`paper-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
             to={targetPath}
             aria-busy={isOpening || undefined}
             // Start the section's picture as soon as a finger or pointer reaches the card.
@@ -90,7 +90,7 @@ function PlacesCard({count, index}: { count: number | null; index: number }) {
     const navigation = useNavigation();
     const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, "/places");
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
-        <Link className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
+        <Link className={`paper-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
             to="/places" aria-busy={isOpening || undefined} onClick={(event) => { if (isOpening) event.preventDefault(); }}>
             <span className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"
                 style={{"--ti-delay": `${index * 0.45}s`} as React.CSSProperties} aria-hidden="true">

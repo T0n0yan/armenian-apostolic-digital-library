@@ -179,16 +179,6 @@ export function foldSpelling(value: string) {
   return value.replaceAll("է", "ե").replaceAll("օ", "ո");
 }
 
-/** Classical spellings of a reformed word, for finding it in classical texts ("սեր" → "սէր"). */
-export function classicalVariants(token: string) {
-  const variants = new Set<string>();
-  if (token.includes("ե")) variants.add(token.replaceAll("ե", "է"));
-  if (token.startsWith("ո")) variants.add(`օ${token.slice(1)}`);
-  if (token.includes("յու")) variants.add(token.replaceAll("յու", "իւ"));
-  variants.delete(token);
-  return [...variants];
-}
-
 export function armenianToLatin(value: string) {
   return replacePairs(normalizeTelegramSearchText(value), armenianToLatinPairs).replace(/\s+/gu, " ").trim();
 }

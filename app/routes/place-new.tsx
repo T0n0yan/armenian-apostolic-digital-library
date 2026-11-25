@@ -87,7 +87,7 @@ function Choices({ name, options, value, onChange }: { name: string; options: Ar
       <input type="hidden" name={name} value={value} />
       {options.map(([id, label]) => (
         <button key={id} type="button" role="radio" aria-checked={value === id} onClick={() => onChange(value === id ? "" : id)}
-          className={`inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors ${value === id ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
+          className={`inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors ${value === id ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`}>
           {value === id ? <Check aria-hidden="true" size={14} strokeWidth={3} /> : null}{label}
         </button>
       ))}
@@ -249,7 +249,7 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
           <Step number={5} title="Գործո՞ղ է">
             <Choices name="active" value={active} onChange={setActive} options={Object.entries(ACTIVE_LABELS)} />
             {active === "yes" ? (
-              <div className="grid gap-3 border-t border-glass-border pt-3">
+              <div className="grid gap-3 border-t border-edge pt-3">
                 <label className="grid gap-1.5 text-[13.5px] font-semibold text-ink">Սուրբ Պատարագ<input className={fieldControl} name="liturgy" placeholder="Օր.՝ Կիրակի 10:00" maxLength={300} /></label>
                 <label className="grid gap-1.5 text-[13.5px] font-semibold text-ink">Ժամերգություններ<input className={fieldControl} name="services" placeholder="Օր.՝ Ամեն օր 09:30 և 17:00" maxLength={500} /></label>
                 <div className="grid gap-2">
@@ -262,13 +262,13 @@ export default function PlaceNew({ loaderData }: Route.ComponentProps) {
                         </select>
                         <input className={fieldControl} name="clergyName" value={person.name} placeholder="Անուն Ազգանուն" maxLength={160}
                           onChange={(event) => setClergy(clergy.map((item, at) => (at === index ? { ...item, name: event.target.value } : item)))} />
-                        <button type="button" aria-label="Հանել" onClick={() => setClergy(clergy.filter((_, at) => at !== index))} className="grid size-11 cursor-pointer place-items-center rounded-control border border-glass-border bg-transparent text-faint"><Trash2 aria-hidden="true" size={16} /></button>
+                        <button type="button" aria-label="Հանել" onClick={() => setClergy(clergy.filter((_, at) => at !== index))} className="grid size-11 cursor-pointer place-items-center rounded-control border border-edge bg-transparent text-faint"><Trash2 aria-hidden="true" size={16} /></button>
                       </div>
                       {person.name.trim() ? <span className="px-1 text-[12.5px] text-muted">Կայքում՝ <strong className="text-ink">{clergyName(person.role, person.name)}</strong></span> : null}
                     </div>
                   ))}
                   <button type="button" onClick={() => setClergy([...clergy, { role: CLERGY_RANKS[6].role, name: "" }])}
-                    className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13px] font-semibold text-ink"><Plus aria-hidden="true" size={15} /> Ավելացնել ծառայող</button>
+                    className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-subtle px-3 text-[13px] font-semibold text-ink"><Plus aria-hidden="true" size={15} /> Ավելացնել ծառայող</button>
                 </div>
               </div>
             ) : null}

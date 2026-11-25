@@ -111,7 +111,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
     if (scale === 1 && gesture.current.moved && !gesture.current.pinched && enough && count > 1) go(dx < 0 ? 1 : -1);
   };
 
-  const round = "grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white backdrop-blur-md disabled:cursor-default disabled:opacity-40";
+  const round = "grid size-11 cursor-pointer place-items-center rounded-full border border-white/20 bg-[rgb(17_8_22/72%)] text-white disabled:cursor-default disabled:opacity-40";
   const arrow = "grid size-10 cursor-pointer place-items-center rounded-full text-white active:bg-white/15";
   return createPortal(
     <div className="fixed inset-0 z-[2100] flex items-center justify-center overflow-hidden bg-[rgb(8_4_10/94%)] p-[max(12px,env(safe-area-inset-top))_12px_max(12px,env(safe-area-inset-bottom))]"
@@ -123,7 +123,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
         onDoubleClick={() => zoomTo(scale > 1 ? 1 : 2.5)}
         onWheel={(event) => { event.preventDefault(); zoomTo(scale - Math.sign(event.deltaY) * 0.3); }}>
         <img ref={image} key={photos[index]} draggable={false}
-          className="max-h-full max-w-full rounded-control object-contain select-none will-change-transform motion-safe:animate-[glass-enter_250ms_ease-out]"
+          className="max-h-full max-w-full rounded-control object-contain select-none will-change-transform motion-safe:animate-[rise-in_250ms_ease-out]"
           style={{ transform: `translate(${offset.x + swipe}px, ${offset.y}px) scale(${scale})`, opacity: swipe ? Math.max(0.4, 1 - Math.abs(swipe) / 600) : 1, cursor: scale > 1 ? "grab" : "zoom-in", transition: pointers.current.size ? "none" : "transform .18s ease, opacity .18s ease" }}
           src={photos[index]} alt={`${alt}, նկար ${index + 1}`} onClick={(event) => event.stopPropagation()} />
       </div>
@@ -131,7 +131,7 @@ export function PhotoGallery({ photos, start, alt, onClose }: { photos: string[]
       {/* Ներքևի շերտ. հեռախոսում սլաքները և համարը միասին են (նկարի վրա չեն), խոշորացումը՝ աջում։ */}
       <div className="pointer-events-none absolute inset-x-3 bottom-[max(12px,env(safe-area-inset-bottom))] flex items-center justify-center">
         {count > 1 ? (
-          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/15 bg-[rgb(17_8_22/72%)] p-1 backdrop-blur-md">
+          <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/15 bg-[rgb(17_8_22/72%)] p-1">
             <button className={arrow} type="button" onClick={(event) => { event.stopPropagation(); go(-1); }} aria-label="Նախորդ նկարը"><ChevronLeft aria-hidden="true" size={20} /></button>
             <span className="min-w-[52px] text-center text-[13.5px] font-semibold text-white tabular-nums" aria-live="polite">{index + 1} / {count}</span>
             <button className={arrow} type="button" onClick={(event) => { event.stopPropagation(); go(1); }} aria-label="Հաջորդ նկարը"><ChevronRight aria-hidden="true" size={20} /></button>

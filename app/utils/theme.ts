@@ -50,7 +50,20 @@ export function readStoredTextSize(): TextSizePreference {
   return normalizeTextSizePreference(readStorage(TEXT_SIZE_STORAGE_KEY));
 }
 
-export function applyThemePreference(preference: ThemePreference, options: { animate?: boolean } = {}) {
+/**
+ * Կոճակների գույնի անցումները (hover-ի համար են) թեման փոխելիս չեն սահում, այլ ավարտվում են անմիջապես։
+ * Ոճերը հաշվվում են հենց հիմա (մեկ անգամ, միևնույն է պետք էր), ու ստեղծված անցումները փակվում են։
+ * Շարժման անցումները (ընտրված կոճակի սահելը) մնում են։
+ */
+function finishColorTransitions() {
+  if (typeof CSSTransition === "undefined" || typeof document.getAnimations !== "function") return;
+  void getComputedStyle(document.documentElement).color;
+  for (const animation of document.getAnimations()) {
+    if (animation instanceof CSSTransition && !/^(transform|translate|scale|rotate|opacity)$/u.test(animation.transitionProperty)) animation.finish();
+  }
+}
+
+export function applyThemePreference(preference: ThemePreference) {
   const root = window.document.documentElement;
   const telegramTheme = root.dataset.telegramContext === "true" &&
       (root.dataset.telegramTheme === "light" || root.dataset.telegramTheme === "dark")
@@ -63,23 +76,12 @@ export function applyThemePreference(preference: ThemePreference, options: { ani
     readSunPlaceSafely(),
   );
   root.dataset.themePreference = preference;
+  // Գույները փոխվում են միանգամից, մեկ անգամ (ինչպես մյուս կայքերում)։ Առաջ View Transition-ով
+  // երկու ամբողջական էկրանի նկար էր խառնվում 0,42 վրկ-ում, և ամբողջ էջի ոճերը երկու անգամ էին
+  // հաշվվում. հեռախոսում թեմայի փոխումը մինչև 1 վրկ կախվում էր (2026-11-25)։
   if (root.dataset.theme !== resolved) {
-    // Տարրերի գույնի անիմացիաները անջատված են (app.css, `data-theme-switching`). առանց դրա ամեն մեկը
-    // 300 մվ ամբողջ էջն էր նորից նկարում, և հեռախոսը կախվում էր։
-    const switchTheme = () => {
-      root.dataset.themeSwitching = "";
-      root.dataset.theme = resolved;
-    };
-    const done = () => { delete root.dataset.themeSwitching; };
-    const startViewTransition = (document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } }).startViewTransition;
-    const calm = root.dataset.motion === "reduced" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (options.animate && startViewTransition && !calm) {
-      // Սահուն անցում. զննարկիչը հին և նոր էկրանի նկարները միացնում է վիդեոքարտով (app.css, ::view-transition)։
-      startViewTransition.call(document, switchTheme).finished.finally(done);
-    } else {
-      switchTheme();
-      requestAnimationFrame(() => requestAnimationFrame(done));
-    }
+    root.dataset.theme = resolved;
+    finishColorTransitions();
   }
   const color = THEME_COLORS[resolved];
   window.document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
