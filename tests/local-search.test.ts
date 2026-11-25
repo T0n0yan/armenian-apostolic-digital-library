@@ -37,3 +37,22 @@ test("titles are searched on the phone", async () => {
   assert.deepEqual(searchTitles(loaded, "22").map((item) => item.id), ["c_80"]);
   assert.deepEqual(searchTitles(loaded, "Տերունական", "psalms"), []);
 });
+
+test("other languages and Cyrillic-typed Armenian", () => {
+  assert.equal(translateQuery("Psaume"), "Սաղմոս");
+  assert.equal(translateQuery("Oración"), "Աղոթք");
+  assert.equal(translateQuery("oracion"), "Աղոթք");
+  assert.equal(translateQuery("Evangelium"), "Ավետարան");
+  assert.equal(translateQuery("مزمور"), "Սաղմոս");
+  assert.equal(translateQuery("сагмос"), "sagmos");
+  assert.equal(translateQuery("saxmos"), "saxmos");
+});
+
+test("a section's name finds that section, after title matches", async () => {
+  const loaded = await loadedIndex();
+  assert.ok(loaded);
+  assert.deepEqual(searchTitles(loaded, "Սաղ").map((item) => item.id), ["c_81", "c_80"]);
+  assert.deepEqual(searchTitles(loaded, "saxmos").map((item) => item.id), ["c_81", "c_80"]);
+  assert.deepEqual(searchTitles(loaded, "Псалом").map((item) => item.id), ["c_81", "c_80"]);
+  assert.deepEqual(searchTitles(loaded, "աղոթք").map((item) => item.id), ["c_71"]);
+});
