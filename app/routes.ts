@@ -80,6 +80,8 @@ export default [
   // Հին հասցեները՝ 301
   route("etiquette", "routes/etiquette-redirect.ts", { id: "etiquette-old" }),
   route("etiquette/:topic", "routes/etiquette-redirect.ts", { id: "etiquette-topic-old" }),
+  // Փորձնական 3D եկեղեցի (թաքնված էջ, միայն staging)
+  route("church-3d", "routes/church-3d.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),

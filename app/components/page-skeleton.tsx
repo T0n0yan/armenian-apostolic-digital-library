@@ -61,7 +61,7 @@ function kindOf(pathname: string): Kind {
   if (first === "my-year") return { page: "year" };
   if (first === "ognutyun") return { page: "help" };
   if (first === "places") return { page: parts.length > 1 && second !== "new" ? "place" : parts.length > 1 ? "plain" : "places" };
-  if (["admin", "namak", "auth", "settings", "mer-masin", "kap", "privacy", "etiquette", "church"].includes(first)) return { page: "plain" };
+  if (["admin", "namak", "auth", "settings", "mer-masin", "kap", "privacy", "etiquette", "church", "church-3d"].includes(first)) return { page: "plain" };
   if (first === "materials") return { page: "material", section: "other", psalm: null };
   if (first === "categories") return { page: "section", section: "other" };
   const section = sectionOf(first);
