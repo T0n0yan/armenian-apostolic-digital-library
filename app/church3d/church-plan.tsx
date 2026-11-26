@@ -16,7 +16,7 @@ export function ChurchPlan({ parts, selected, onPick }: { parts: readonly Church
       {inside.map((part) => {
         const on = part.id === selected;
         return (
-          <g key={part.id} className="cursor-pointer" role="button" tabIndex={0} aria-label={part.name} aria-pressed={on}
+          <g key={part.id} className="cursor-pointer outline-none [&:focus-visible>circle:nth-child(2)]:stroke-[var(--gold-bright)]" role="button" tabIndex={0} aria-label={part.name} aria-pressed={on}
             onClick={() => onPick(part.id)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onPick(part.id); } }}>
             <circle cx={part.at[0]} cy={part.at[2]} r="0.9" fill="transparent" />
             <circle cx={part.at[0]} cy={part.at[2]} r={on ? 0.42 : 0.3} className={on ? "fill-gold-bright" : "fill-gold"} stroke="var(--page-bg)" strokeWidth="0.1" />
