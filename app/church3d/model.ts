@@ -62,7 +62,7 @@ export type Camera = { eye: V3; look: V3 };
 /** Մարդուկ՝ դերով (զգեստի գույնն ու ձևը)։ `rot`՝ աստիճան, ինչպես պարագաներինը։ */
 export type Role = "priest" | "deacon" | "dpir" | "believer";
 export type Person = { role: Role; at: V3; rot?: number };
-export type TourStep = { title: string; text: string; part: PartKind; priest: V3; vested: boolean; curtainClosed: boolean; eye: V3; look: V3; people?: readonly Person[] };
+export type TourStep = { title: string; text: string; part: PartKind; priest: V3; priestRot?: number; vested: boolean; curtainClosed: boolean; eye: V3; look: V3; people?: readonly Person[] };
 export type TuffColor = "pink" | "ochre" | "gray" | "black";
 
 export type ChurchModel = {
@@ -390,4 +390,94 @@ export function defaultView(model: ChurchModel, mode: "cutaway" | "outside"): Ca
   const size = Math.max(box.maxX - box.minX, box.maxZ - box.minZ);
   if (mode === "outside") return { eye: [c[0] + size * 1.1, size * 0.55, c[2] + size * 1.4], look: [c[0], 6, c[2]] };
   return { eye: [c[0] + size * 0.9, size * 1.05, c[2] + size * 1.15], look: c };
+}
+
+// ---------- «Պատարագից առաջ»՝ ցանկացած եկեղեցու համար ----------
+
+/**
+ * Քայլերը հաշվվում են եկեղեցու մասերից (մուտք, ավանդատուն, ատյան, բեմ, դաս), այնպես որ աշխատում են բոլոր
+ * տիպերում։ Ավանդատուն չունեցող եկեղեցում զգեստավորման քայլերը բաց են թողնվում։ `model.tour`-ը (եթե կա) գերակա է։
+ */
+export function liturgyTour(model: ChurchModel): TourStep[] {
+  if (model.tour) return [...model.tour];
+  if (!model.bema) return [];
+  const spots = computeHotspots(model);
+  const spotOf = (kind: PartKind) => spots.find((spot) => spot.kind === kind);
+  const { mid, length: len, u, f } = bemaFront(model.bema);
+  const at = (along: number, forward: number, y: number): V3 => [mid[0] + u[0] * along + f[0] * forward, y, mid[1] + u[1] * along + f[1] * forward];
+  const facingBema = (Math.atan2(-f[0], -f[1]) * 180) / Math.PI;
+  const from = (p: V3, back = 5, up = 2.4): Pick<TourStep, "eye" | "look"> => ({
+    eye: [p[0] + f[0] * back, p[1] + up, p[2] + f[1] * back],
+    look: [p[0], p[1] + 1.2, p[2]],
+  });
+  const atyanY = model.bema.atyan?.height ?? 0;
+
+  let entrance: V3 = at(0, 9, 0);
+  for (const room of model.rooms) {
+    const door = room.doors?.find((item) => item.part === "mutq");
+    if (!door) continue;
+    const { p, n } = pointOnEdge(edgesOf(room.outline)[door.edge], door.at);
+    entrance = [p[0] + n[0] * 1.4, 0, p[1] + n[1] * 1.4];
+  }
+  const choir = model.items.find((item) => item.type === "choir");
+  const dpirs: Person[] = choir
+    ? [-0.9, 0, 0.9].map((x) => {
+        const q = rotate([x, -0.1], choir.rot ?? 0);
+        return { role: "dpir", at: [choir.at[0] + q[0], (choir.y ?? 0) + 0.15, choir.at[1] + q[1]], rot: choir.rot ?? 0 };
+      })
+    : [];
+  const vestry = model.rooms.find((room) => room.part === "avandatun");
+  const vestrySpot = spotOf("avandatun");
+  const bemaSpot = spotOf("bem");
+  const steps: TourStep[] = [{
+    title: "Մուտք", part: "mutq", vested: false, curtainClosed: false, priestRot: facingBema,
+    text: "Քահանան եկեղեցի է մտնում արևմտյան դռնով, խաչակնքվում է և խոնարհվում խորանի առջև։",
+    priest: entrance, ...from(entrance, 5, 2.6),
+  }];
+  if (vestry && vestrySpot) {
+    const c = centroid(polygonOf(vestry.outline));
+    const p: V3 = [c[0], 0, c[1]];
+    const view = { eye: vestrySpot.eye, look: vestrySpot.look };
+    steps.push(
+      {
+        title: "Ավանդատուն", part: "avandatun", vested: false, curtainClosed: false, priest: p, priestRot: facingBema, ...view,
+        text: "Նավով անցնում է առաջ և մտնում ավանդատուն, որտեղ պատրաստված են պատարագի զգեստները։",
+      },
+      {
+        title: "Զգեստավորում", part: "avandatun", vested: true, curtainClosed: false, priest: p, priestRot: facingBema, ...view, people: dpirs,
+        text: "Հագնում է պատարագի զգեստները՝ շապիկ, փորուրար, գոտի, բազպաններ, վակաս և շուրջառ, ամեն մեկի համար աղոթք ասելով։ Այդ ժամանակ դասը երգում է «Խորհուրդ խորին» շարականը։",
+      },
+    );
+  }
+  const washing = at(-Math.min(1.6, len / 2 - 0.8), 0.9, atyanY);
+  const confession = at(0, 0.9, atyanY);
+  const onBema = at(Math.min(1.4, len / 2 - 0.8), -1.2, model.bema.height);
+  steps.push(
+    {
+      title: "Ձեռքերի լվացում", part: model.bema.atyan ? "atyan" : "bem", vested: true, curtainClosed: false, priest: washing, priestRot: facingBema, ...from(washing), people: dpirs,
+      text: "Դուրս գալով՝ լվանում է ձեռքերը՝ ասելով 25-րդ սաղմոսը. «Լուացից ընդ անմեղս զձեռս իմ…»։",
+    },
+    {
+      title: "Խոստովանություն", part: model.bema.atyan ? "atyan" : "bem", vested: true, curtainClosed: false, priest: confession, priestRot: facingBema, ...from(confession, 6), people: dpirs,
+      text: "Բեմի առջև քահանան խոստովանում է ժողովրդի առաջ և խնդրում աղոթել իր համար։",
+    },
+    {
+      title: "Բեմ բարձրանալը", part: "bem", vested: true, curtainClosed: true, priest: onBema, priestRot: facingBema,
+      eye: bemaSpot?.eye ?? from(onBema, 8).eye, look: bemaSpot?.look ?? from(onBema).look, people: dpirs,
+      text: "Բարձրանում է բեմ, վարագույրը փակվում է, և քահանան պատրաստում է ընծաները՝ հացը և գինին։",
+    },
+  );
+  return steps;
+}
+
+// ---------- Մոմավառության սեղանի մոմերը ----------
+
+export const CANDLE_SLOTS = 60;
+
+/** Մոմի տեղը սեղանի վրա (իր տեղում)՝ [x, բարձրություն, z]։ 12 × 5 շարք, մի փոքր անկանոն՝ բնական տեսքի համար։ */
+export function candleSlot(slot: number): V3 {
+  const col = slot % 12;
+  const row = Math.floor(slot / 12) % 5;
+  const jitter = ((slot * 37) % 11) / 11 - 0.5;
+  return [-0.6 + col * 0.109 + (row % 2) * 0.05 + jitter * 0.02, 0.17 + ((slot * 53) % 7) * 0.025, -0.27 + row * 0.135 + jitter * 0.02];
 }

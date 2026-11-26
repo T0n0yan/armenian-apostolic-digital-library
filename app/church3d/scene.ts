@@ -1,18 +1,20 @@
 // 3D տեսարանը՝ renderer, տեսախցիկ, կետեր։ Բեռնվում է միայն 3D էջում և միայն բրաուզերում։
 // Էկրանը նկարվում է միայն շարժման պահին (անընդհատ ցիկլ չկա), ստվերներ չկան։
 import {
-  AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, CapsuleGeometry, DirectionalLight, Group, HemisphereLight,
-  LatheGeometry, Mesh, MeshLambertMaterial, PerspectiveCamera, Points, PointsMaterial, Scene, SphereGeometry, Vector2,
-  Vector3, WebGLRenderer, type Material,
+  AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, CapsuleGeometry, CylinderGeometry, DirectionalLight,
+  Float32BufferAttribute, Group, HemisphereLight, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshLambertMaterial,
+  PerspectiveCamera, Points, Scene, ShaderMaterial, SphereGeometry, Vector2, Vector3, WebGLRenderer, type Material,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildChurch, createMaterials } from "./build";
-import { computeHotspots, defaultView, type ChurchModel, type Person, type Role, type TourStep, type V3 } from "./model";
+import { candleSlot, computeHotspots, defaultView, type ChurchModel, type Person, type Role, type TourStep, type V3 } from "./model";
 
 export type ViewMode = "cutaway" | "outside";
 
 export type ChurchScene = {
   setMode(mode: ViewMode): void;
+  /** Այսօր վառված մոմերը մոմավառության սեղանին (տեղերի համարներ)։ */
+  setCandles(slots: readonly number[]): void;
   focus(eye: V3, look: V3): void;
   select(id: string | null): void;
   showTour(step: TourStep | null): void;
@@ -92,9 +94,32 @@ function glowTexture() {
 }
 
 /** Բոլոր շողերը՝ մեկ Points-ով (մեկ draw call), առանց իրական լույսի աղբյուրների։ */
-function glowPoints(points: Vector3[], size: number, texture: CanvasTexture) {
+/** Թրթռացող շող. չափը և պայծառությունը փոխվում են GPU-ում (`time`), ամեն կետ՝ իր փուլով։ */
+type Flicker = { time: { value: number }; scale: { value: number } };
+function glowPoints(points: Vector3[], size: number, texture: CanvasTexture, flicker: Flicker, amount: number) {
   const geometry = new BufferGeometry().setFromPoints(points);
-  const material = new PointsMaterial({ map: texture, size, sizeAttenuation: true, transparent: true, depthWrite: false, blending: AdditiveBlending, opacity: 0.85 });
+  geometry.setAttribute("phase", new Float32BufferAttribute(points.map((_, i) => (i * 2.399) % (Math.PI * 2)), 1));
+  const material = new ShaderMaterial({
+    uniforms: { map: { value: texture }, time: flicker.time, scale: flicker.scale, size: { value: size }, amount: { value: amount } },
+    vertexShader: `
+      attribute float phase;
+      uniform float time, scale, size, amount;
+      varying float vFlicker;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vFlicker = 1.0 - amount + amount * (0.6 * sin(time * 6.3 + phase) + 0.4 * sin(time * 11.7 + phase * 1.7));
+        gl_PointSize = size * (0.85 + 0.15 * vFlicker) * scale / -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform sampler2D map;
+      varying float vFlicker;
+      void main() {
+        vec4 c = texture2D(map, gl_PointCoord);
+        gl_FragColor = vec4(c.rgb, c.a * 0.85 * clamp(vFlicker, 0.0, 1.2));
+      }`,
+    transparent: true, depthWrite: false, blending: AdditiveBlending,
+  });
   return new Points(geometry, material);
 }
 
@@ -123,8 +148,37 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
   const { interior, exterior, curtainOpen, curtainClosed, glows } = buildChurch(model, materials);
   scene.add(interior, exterior);
   const texture = glowTexture();
-  if (glows.small.length) interior.add(glowPoints(glows.small, 0.28, texture));
-  if (glows.large.length) interior.add(glowPoints(glows.large, 0.9, texture));
+  const flicker: Flicker = { time: { value: 0 }, scale: { value: 1 } };
+  if (glows.small.length) interior.add(glowPoints(glows.small, 0.28, texture, flicker, 0.35));
+  if (glows.large.length) interior.add(glowPoints(glows.large, 0.9, texture, flicker, 0.12));
+
+  // Մոմավառության սեղանի մոմերը՝ այսօր վառվածները (մեկ InstancedMesh մոմերի, մեկը՝ բոցերի, մեկ Points՝ շողի)։
+  const table = model.items.find((item) => item.type === "candle-table");
+  const tableMatrix = table ? new Matrix4().makeRotationY(((table.rot ?? 0) * Math.PI) / 180).setPosition(table.at[0], (table.y ?? 0) + 0.79, table.at[1]) : null;
+  const candleBody = new CylinderGeometry(0.012, 0.012, 1, 6).translate(0, 0.5, 0);
+  const candleFlame = new BoxGeometry(0.022, 0.05, 0.022).translate(0, 0.025, 0);
+  const candles = new Group();
+  interior.add(candles);
+  function setCandles(slots: readonly number[]) {
+    for (const child of candles.children) {
+      if (child instanceof Points) { child.geometry.dispose(); (child.material as Material).dispose(); }
+      if (child instanceof InstancedMesh) child.dispose();
+    }
+    candles.clear();
+    if (!tableMatrix || !slots.length) { requestRender(); return; }
+    const bodies = new InstancedMesh(candleBody, materials.get("marble"), slots.length);
+    const flames = new InstancedMesh(candleFlame, materials.get("glow"), slots.length);
+    const tips: Vector3[] = [];
+    const m = new Matrix4();
+    slots.forEach((slot, i) => {
+      const [x, h, z] = candleSlot(slot);
+      bodies.setMatrixAt(i, m.makeScale(1, h, 1).setPosition(x, 0, z).premultiply(tableMatrix));
+      flames.setMatrixAt(i, m.makeTranslation(x, h, z).premultiply(tableMatrix));
+      tips.push(new Vector3(x, h + 0.03, z).applyMatrix4(tableMatrix));
+    });
+    candles.add(bodies, flames, glowPoints(tips, 0.24, texture, flicker, 0.4));
+    requestRender();
+  }
 
   const people = createPeople();
   const robe = new MeshLambertMaterial({ color: ROBE });
@@ -186,6 +240,7 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
 
   function render() {
     frame = 0;
+    flicker.time.value = performance.now() / 1000;
     renderer.render(scene, camera);
     placeDots();
   }
@@ -201,8 +256,28 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
     requestRender();
   }
 
+  // Բոցերի թրթռոց (տիրոջ թույլտվությամբ, 2026-11-26)՝ ~12 կադր/վրկ, միայն երբ 3D-ն էկրանին է, էջը բաց է,
+  // ներսի տեսքն է, և հեռախոսում «քիչ շարժում» միացված չէ։ Մնացած ժամանակ ոչինչ չի նկարվում։
+  const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  let onScreen = true;
+  let tick = 0;
+  const shouldFlicker = () => !calm && onScreen && !document.hidden && mode === "cutaway";
+  function loop() {
+    tick = 0;
+    if (!shouldFlicker()) return;
+    requestRender();
+    tick = window.setTimeout(loop, 83);
+  }
+  function updateLoop() {
+    if (shouldFlicker() && !tick) tick = window.setTimeout(loop, 83);
+  }
+  const visibility = new IntersectionObserver(([entry]) => { onScreen = entry?.isIntersecting ?? true; updateLoop(); });
+  visibility.observe(host);
+  document.addEventListener("visibilitychange", updateLoop);
+
   function applyMode(next: ViewMode) {
     mode = next;
+    updateLoop();
     interior.visible = next === "cutaway";
     exterior.visible = next === "outside";
     controls.minDistance = next === "outside" ? 8 : 0.4;
@@ -212,6 +287,7 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
     width = Math.max(1, host.clientWidth);
     height = Math.max(1, host.clientHeight);
     renderer.setSize(width, height);
+    flicker.scale.value = (height * dpr) / 2;
     camera.aspect = width / height;
     // Նեղ (ուղղահայաց) էկրանին տեսադաշտը լայնացնում ենք, որ շենքը տեղավորվի։
     camera.fov = camera.aspect < 1 ? Math.min(62, 45 / Math.sqrt(camera.aspect)) : 45;
@@ -238,6 +314,7 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
       home(next);
     },
     focus,
+    setCandles,
     select(id) {
       for (const dot of dots) dot.button.setAttribute("aria-pressed", String(dot.spot.id === id));
     },
@@ -251,6 +328,7 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
       for (const [i, p] of (step?.people ?? []).entries()) crowd.add(placePerson(people.make(p.role, i), p));
       if (step) {
         priest.position.set(...step.priest);
+        priest.rotation.y = (((step.priestRot ?? 180) * Math.PI) / 180);
         robe.color.set(step.vested ? VESTED : ROBE);
         if (mode !== "cutaway") applyMode("cutaway");
         focus(step.eye, step.look);
@@ -263,7 +341,12 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
     },
     dispose() {
       cancelAnimationFrame(frame);
+      window.clearTimeout(tick);
+      visibility.disconnect();
+      document.removeEventListener("visibilitychange", updateLoop);
       observer.disconnect();
+      candleBody.dispose();
+      candleFlame.dispose();
       controls.dispose();
       const disposed = new Set<Material>(materials.values());
       scene.traverse((object) => {

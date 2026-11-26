@@ -4,7 +4,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 import { PART_INFO } from "../church3d/info";
-import { computeHotspots, type Hotspot, type Item } from "../church3d/model";
+import { computeHotspots, liturgyTour, type Hotspot, type Item } from "../church3d/model";
 import { TEMPLATES } from "../church3d/templates";
 import { ChurchPlan } from "../church3d/church-plan";
 import type { ChurchScene, ViewMode } from "../church3d/scene";
@@ -37,6 +37,25 @@ const secondary = "inline-flex min-h-11 cursor-pointer items-center justify-cent
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
 const label = "text-[11px] font-bold tracking-[1.2px] text-gold uppercase";
 
+type Candles = { day: string; total: number; slots: number[] };
+
+/** Սարքի պատահական նշանը (միայն այս բրաուզերում)՝ որ մեկ սարքից օրը մեկ մոմ վառվի։ Հաշիվ չի պահանջվում։ */
+function deviceToken() {
+  try {
+    const saved = localStorage.getItem("church-candle-token");
+    if (saved) return saved;
+    const token = crypto.randomUUID();
+    localStorage.setItem("church-candle-token", token);
+    return token;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+const litKey = (church: string, day: string) => `church-candle:${church}:${day}`;
+function litToday(church: string, day: string) {
+  try { return localStorage.getItem(litKey(church, day)) !== null; } catch { return false; }
+}
+
 /** Պարագայի մանրամասն 3D դիտումը (բեռնվում է միայն բացելիս)։ */
 function ItemViewer({ item }: { item: Item }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -65,6 +84,11 @@ export default function Church3D() {
   const [templateId, setTemplateId] = useState(TEMPLATES[0].id);
   const model = TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
   const spots = useMemo(() => computeHotspots(model), [model]);
+  const steps = useMemo(() => liturgyTour(model), [model]);
+  const church = `template:${model.id}`;
+  const [candles, setCandles] = useState<Candles | null>(null);
+  const [mine, setMine] = useState(false);
+  const [lighting, setLighting] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
   const [mode, setMode] = useState<Mode>("cutaway");
   const [selected, setSelected] = useState<string | null>(null);
@@ -95,6 +119,45 @@ export default function Church3D() {
       sceneRef.current = null;
     };
   }, [model]);
+
+  // Այսօր վառված մոմերը. բեռնվում են եկեղեցին փոխելիս, տեսարանին՝ պատրաստ լինելուն պես։
+  useEffect(() => {
+    let cancelled = false;
+    setCandles(null);
+    fetch(`/api/church-candles?church=${encodeURIComponent(church)}`)
+      .then((response) => (response.ok ? (response.json() as Promise<Candles>) : null))
+      .then((state) => {
+        if (cancelled || !state) return;
+        setCandles(state);
+        setMine(litToday(church, state.day));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [church]);
+  useEffect(() => {
+    if (status === "ready" && candles) sceneRef.current?.setCandles(candles.slots);
+  }, [status, candles]);
+
+  async function lightCandle() {
+    const table = spots.find((item) => item.kind === "momakal");
+    if (table) goTo(table);
+    setLighting(true);
+    try {
+      const response = await fetch("/api/church-candles", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ church, token: deviceToken() }),
+      });
+      const result = (await response.json()) as { ok?: boolean; already?: boolean; slot?: number; state?: Candles };
+      if (result.state) setCandles(result.state);
+      if ((result.ok || result.already) && result.state) {
+        try { localStorage.setItem(litKey(church, result.state.day), String(result.slot ?? "")); } catch { /* բրաուզերի հիշողությունը փակ է */ }
+        setMine(true);
+      }
+    } catch {
+      // Ցանցի սխալ. կոճակը մնում է, կարելի է նորից փորձել։
+    } finally {
+      setLighting(false);
+    }
+  }
 
   function select(id: string | null) {
     setSelected(id);
@@ -130,7 +193,7 @@ export default function Church3D() {
   pickRef.current = (id) => select(id === selected ? null : id);
 
   function showStep(index: number) {
-    const step = model.tour?.[index];
+    const step = steps[index];
     if (!step) return;
     setTour(index);
     setMode("cutaway");
@@ -145,7 +208,6 @@ export default function Church3D() {
 
   const spot = selected ? spots.find((item) => item.id === selected) : undefined;
   const info = spot ? PART_INFO[spot.kind] : undefined;
-  const steps = model.tour ?? [];
   const step = tour === null ? null : steps[tour];
   const can3d = status !== "fallback";
   // Ցանկում ամեն տեսակը մեկ անգամ (օր.՝ երկու ավանդատուն → մեկ կոճակ)։
@@ -226,6 +288,19 @@ export default function Church3D() {
             {can3d ? (
               <button type="button" className={`${secondary} justify-self-start`} onClick={() => goTo(spot)}><ZoomIn aria-hidden="true" size={17} /> Մոտիկից</button>
             ) : null}
+          </section>
+        ) : null}
+
+        {status === "ready" && model.items.some((item) => item.type === "candle-table") ? (
+          <section className="paper-panel grid gap-3 px-5 py-4">
+            <h2 className={heading}>Վառել մոմ</h2>
+            <p className="m-0 text-[14.5px] leading-[1.7] text-ink">
+              {candles ? (candles.total ? `Այսօր այստեղ վառվել է ${candles.total} մոմ։` : "Այսօր այստեղ դեռ մոմ չի վառվել։") : "\u00a0"}
+              {" "}Մոմը վառվում է մինչև օրվա վերջ, և այն տեսնում են բոլոր այցելուները։
+            </p>
+            {mine
+              ? <span className="text-[13.5px] text-gold-bright">Դուք այսօր այստեղ մոմ վառել եք։</span>
+              : <button type="button" className={`${primary} justify-self-start disabled:opacity-60`} disabled={!candles || lighting} onClick={lightCandle}>Վառել մոմ</button>}
           </section>
         ) : null}
 

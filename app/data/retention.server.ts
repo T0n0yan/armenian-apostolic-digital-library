@@ -13,6 +13,9 @@ export async function removeOldData(db: D1Database, testDataDays?: string) {
     db.prepare("DELETE FROM place_submissions WHERE submitted_at IS NULL AND created_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 days')"),
     // Բրաուզերի սխալներ (client-errors.server.ts)՝ 30 օր։
     db.prepare("DELETE FROM client_errors WHERE last_seen < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')"),
+    // 3D եկեղեցու մոմերը վառվում են մինչև օրվա վերջ. 3 օրից հին տողերը պետք չեն։
+    db.prepare("DELETE FROM church_candles WHERE day < date('now', '-3 days')"),
+    db.prepare("DELETE FROM church_candle_totals WHERE day < date('now', '-3 days')"),
   ];
   const days = Number(testDataDays);
   if (Number.isInteger(days) && days > 0) {

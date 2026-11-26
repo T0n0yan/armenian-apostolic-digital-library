@@ -8,7 +8,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
-  bemaFront, bounds, edgesOf, exteriorHit, openingCenters, pointOnEdge, polygonOf,
+  bemaFront, bounds, candleSlot, edgesOf, exteriorHit, openingCenters, pointOnEdge, polygonOf,
   type Arcade, type Balcony, type BaySide, type Bema, type Belfry, type ChurchModel, type Closure, type Dome, type Item,
   type Mass, type OpeningShape, type Pt, type Room, type TuffColor, type Vault,
 } from "./model";
@@ -574,12 +574,13 @@ export function itemParts(item: Item, detail: boolean) {
     case "candle-table": {
       local.add("stone", box(1.4, 0.75, 0.8, 0, 0, 0));
       local.add("sand", box(1.3, 0.04, 0.7, 0, 0.75, 0));
-      for (let i = 0; i < 9; i++) {
-        const x = -0.55 + (i % 5) * 0.27 + (i > 4 ? 0.13 : 0);
-        const z = -0.2 + (i > 4 ? 0.35 : 0) + ((i * 37) % 7) * 0.012;
-        const h = 0.18 + ((i * 53) % 5) * 0.03;
-        local.add("marble", cylinder(0.012, 0.012, h, 5, x, 0.79, z));
-        flame(x, 0.79 + h, z);
+      // Եկեղեցում մոմերը իրական են (այսօր վառվածները, scene.ts-ի setCandles), մանրամասն դիտման մեջ՝ օրինակ։
+      if (detail) {
+        for (const i of [3, 8, 14, 19, 22, 27, 33, 38, 41, 47, 52, 56]) {
+          const [x, h, z] = candleSlot(i);
+          local.add("marble", cylinder(0.012, 0.012, h, 8, x, 0.79, z));
+          flame(x, 0.79 + h, z);
+        }
       }
       break;
     }
@@ -626,59 +627,84 @@ export function itemParts(item: Item, detail: boolean) {
       break;
     }
     case "chalice": {
-      // Սկիհ (~25 սմ)՝ ոտք, բռնակ՝ գնդով, բաժակ։
-      local.add("gold", lathe([[0, 0], [0.075, 0], [0.075, 0.012], [0.032, 0.03], [0.018, 0.07], [0.034, 0.095], [0.018, 0.12], [0.022, 0.15], [0.07, 0.18], [0.082, 0.25], [0.076, 0.25], [0.066, 0.185], [0, 0.165]], seg, 0, 0, 0));
-      if (detail) local.add("gold", place(clean(new ShapeGeometry(crossShape(0.06))), new Vector3(0, 0.215, 0.079), new Vector3(0, 0, 1)));
+      // Սկիհ (~26 սմ)՝ գմբեթաձև ոտք, բռնակ՝ գնդով, կակաչաձև բաժակ, բաժակին՝ խաչ։
+      local.add("gold", lathe([
+        [0, 0], [0.085, 0], [0.086, 0.008], [0.07, 0.022], [0.04, 0.04], [0.022, 0.06], [0.017, 0.08], [0.03, 0.092], [0.034, 0.105],
+        [0.03, 0.118], [0.017, 0.13], [0.02, 0.15], [0.045, 0.165], [0.068, 0.19], [0.08, 0.225], [0.084, 0.262], [0.078, 0.262],
+        [0.074, 0.228], [0.062, 0.196], [0, 0.178],
+      ], seg, 0, 0, 0));
+      local.add("gold", box(0.012, 0.05, 0.012, 0, 0.198, 0.074), box(0.034, 0.011, 0.012, 0, 0.226, 0.074));
+      if (detail) local.add("gold", clean(new TorusGeometry(0.081, 0.004, 6, 48).rotateX(Math.PI / 2).translate(0, 0.262, 0)));
       break;
     }
     case "gospel": {
-      // Ավետարան՝ ոսկե կազմ, էջեր, խաչ։
-      local.add("gold", box(0.34, 0.012, 0.44, 0, 0, 0), box(0.34, 0.012, 0.44, 0, 0.068, 0));
-      local.add("marble", box(0.32, 0.056, 0.42, 0.008, 0.012, 0));
-      local.add("gold", box(0.012, 0.08, 0.44, -0.164, 0, 0));
-      local.add("gold", place(clean(new ShapeGeometry(crossShape(0.2))), new Vector3(0, 0.082, 0), UP));
-      if (detail) for (const [x, z] of [[-0.14, -0.19], [0.14, -0.19], [-0.14, 0.19], [0.14, 0.19]]) local.add("gold", clean(new SphereGeometry(0.014, 8, 6).translate(x, 0.082, z)));
+      // Ավետարան՝ հաստ գիրք, ոսկե կազմ՝ եզրագծով, մեջտեղում ուռուցիկ խաչ, անկյուններում զարդեր, ճարմանդներ։
+      const w = 0.34;
+      const d = 0.44;
+      local.add("gold", box(w, 0.014, d, 0, 0, 0), box(w, 0.014, d, 0, 0.096, 0));
+      local.add("marble", box(w - 0.02, 0.082, d - 0.02, 0.008, 0.014, 0));
+      local.add("gold", clean(new CylinderGeometry(0.055, 0.055, d, 12, 1, false, Math.PI, Math.PI).rotateX(Math.PI / 2).translate(-w / 2, 0.055, 0)));
+      const top = 0.11;
+      for (const [bw, bd, x, z] of [[w - 0.04, 0.014, 0, d / 2 - 0.03], [w - 0.04, 0.014, 0, -d / 2 + 0.03], [0.014, d - 0.06, w / 2 - 0.03, 0], [0.014, d - 0.06, -w / 2 + 0.03, 0]] as const) {
+        local.add("gold", box(bw, 0.008, bd, x, top, z));
+      }
+      local.add("gold", box(0.04, 0.016, 0.24, 0, top, 0.01), box(0.17, 0.016, 0.04, 0, top, -0.04));
+      for (const [x, z] of [[-0.12, -0.17], [0.12, -0.17], [-0.12, 0.17], [0.12, 0.17]]) local.add("gold", cylinder(0.022, 0.026, 0.012, detail ? 16 : 8, x, top, z));
+      local.add("icon", cylinder(0.026, 0.026, 0.018, detail ? 20 : 8, 0, top, -0.04));
+      for (const z of [-0.12, 0.12]) local.add("gold", box(0.03, 0.1, 0.035, w / 2 + 0.005, 0.005, z));
       break;
     }
     case "censer": {
-      // Բուրվառ՝ կախված կանգնակից. աման, կափարիչ՝ խաչով, շղթաներ։
+      // Բուրվառ՝ գնդաձև աման, գմբեթաձև կափարիչ՝ խաչով, չորս շղթա զանգակներով, կախված կանգնակից։
       local.add("gold", cylinder(0.02, 0.025, 1.75, 8, 0, 0, 0), lathe([[0, 0], [0.16, 0], [0.15, 0.03], [0.04, 0.06], [0, 0.06]], seg, 0, 0, 0));
       local.add("gold", box(0.025, 0.025, 0.36, 0, 1.74, 0.17));
-      const hook = new Vector3(0, 1.72, 0.34);
-      const bowlY = 0.98;
-      local.add("gold", lathe([[0, 0], [0.04, 0], [0.04, 0.02], [0.02, 0.035], [0.09, 0.07], [0.1, 0.12], [0, 0.12]], seg, 0, bowlY, 0.34));
-      local.add("gold", lathe([[0.1, 0], [0.095, 0.04], [0.06, 0.1], [0.025, 0.13], [0, 0.14]], seg, 0, bowlY + 0.12, 0.34));
-      local.add("gold", box(0.012, 0.07, 0.012, 0, bowlY + 0.26, 0.34), box(0.04, 0.012, 0.012, 0, bowlY + 0.3, 0.34));
-      const chains = 4;
-      for (let i = 0; i < chains; i++) {
-        const a = (Math.PI * 2 * i) / chains + Math.PI / 4;
-        const rim = new Vector3(0.095 * Math.cos(a), bowlY + 0.11, 0.34 + 0.095 * Math.sin(a));
-        local.add("gold", rod(rim, hook, 0.004));
-        if (detail) {
-          for (let k = 1; k <= 3; k++) {
-            const bell = new Vector3().lerpVectors(rim, hook, k / 4);
-            local.add("gold", clean(new SphereGeometry(0.012, 8, 6).translate(bell.x, bell.y, bell.z)));
-          }
+      const hook = new Vector3(0, 1.66, 0.34);
+      const bowlY = 0.95;
+      local.add("gold", lathe([[0, 0], [0.05, 0], [0.05, 0.015], [0.03, 0.03], [0.08, 0.05], [0.11, 0.09], [0.12, 0.13], [0.115, 0.15], [0, 0.15]], seg, 0, bowlY, 0.34));
+      local.add("gold", lathe([[0.118, 0], [0.112, 0.04], [0.09, 0.09], [0.055, 0.13], [0.03, 0.15], [0.03, 0.17], [0, 0.17]], seg, 0, bowlY + 0.15, 0.34));
+      if (detail) for (const y of [0.15, 0.2]) local.add("gold", clean(new TorusGeometry(y === 0.15 ? 0.118 : 0.108, 0.005, 6, 48).rotateX(Math.PI / 2).translate(0, bowlY + y, 0.34)));
+      local.add("gold", box(0.014, 0.09, 0.014, 0, bowlY + 0.32, 0.34), box(0.05, 0.014, 0.014, 0, bowlY + 0.37, 0.34));
+      local.add("gold", clean(new TorusGeometry(0.03, 0.006, 6, 16).translate(0, hook.y, 0.34)));
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI * 2 * i) / 4 + Math.PI / 4;
+        const rim = new Vector3(0.116 * Math.cos(a), bowlY + 0.14, 0.34 + 0.116 * Math.sin(a));
+        local.add("gold", rod(rim, hook, detail ? 0.003 : 0.004, detail ? 6 : 4));
+        const bells = detail ? 5 : 2;
+        for (let k = 1; k <= bells; k++) {
+          const p = new Vector3().lerpVectors(rim, hook, k / (bells + 1));
+          local.add("gold", lathe([[0, 0], [0.012, 0], [0.01, 0.01], [0.004, 0.018], [0, 0.02]], detail ? 12 : 6, p.x, p.y - 0.022, p.z));
         }
       }
       break;
     }
     case "fan": {
-      // Քշոց՝ ձող, շրջան՝ ճառագայթներով և զանգակներով (երկու կողմից)։
+      // Քշոց՝ ձողի վրա կլոր թիթեղ, վեց թև (սերովբե), մեջտեղում խաչ, եզրին զանգակներ, վերևում խաչ (երկու կողմից)։
       const cy = 2.25;
-      local.add("gold", cylinder(0.018, 0.022, cy, 8, 0, 0, 0), lathe([[0, 0], [0.14, 0], [0.12, 0.03], [0.03, 0.08], [0, 0.08]], seg, 0, 0, 0));
-      local.add("gold", ...twoSided(circleShape(0.2), new Vector3(0, cy, 0)));
-      local.add("icon", ...twoSided(circleShape(0.13), new Vector3(0, cy, 0), 0.008));
-      local.add("gold", ...twoSided(crossShape(0.12), new Vector3(0, cy, 0), 0.012));
-      const rays = detail ? 16 : 8;
-      for (let i = 0; i < rays; i++) {
-        const a = (Math.PI * 2 * i) / rays;
-        const ray = new Shape([new Vector2(-0.035, 0), new Vector2(0.035, 0), new Vector2(0, 0.17)]);
-        for (const g of twoSided(ray, new Vector3(0, 0, 0))) {
-          g.applyMatrix4(new Matrix4().makeRotationZ(a - Math.PI / 2).setPosition(0.19 * Math.cos(a), cy + 0.19 * Math.sin(a), 0));
-          local.add("gold", g);
+      const c = new Vector3(0, cy, 0);
+      local.add("gold", cylinder(0.018, 0.022, cy - 0.21, 8, 0, 0, 0), lathe([[0, 0], [0.14, 0], [0.12, 0.03], [0.03, 0.08], [0, 0.08]], seg, 0, 0, 0));
+      if (detail) for (const y of [0.9, 1.6]) local.add("gold", clean(new SphereGeometry(0.035, 12, 8).translate(0, y, 0)));
+      local.add("gold", ...twoSided(circleShape(0.21), c, 0.003));
+      local.add("gold", clean(new TorusGeometry(0.21, 0.012, 6, detail ? 64 : 24).translate(0, cy, 0)));
+      const wing = new Shape();
+      wing.moveTo(-0.026, 0);
+      wing.bezierCurveTo(-0.07, 0.05, -0.05, 0.12, 0, 0.16);
+      wing.bezierCurveTo(0.03, 0.12, 0.045, 0.05, 0.026, 0);
+      wing.lineTo(-0.026, 0);
+      for (const deg of [55, 125, 0, 180, -55, -125]) {
+        const a = (deg * Math.PI) / 180;
+        for (const g of twoSided(wing, new Vector3(0, 0, 0), 0.007)) {
+          g.applyMatrix4(new Matrix4().makeRotationZ(a - Math.PI / 2).setPosition(0.04 * Math.cos(a), cy + 0.04 * Math.sin(a), 0));
+          local.add("marble", g);
         }
-        if (detail) local.add("gold", clean(new SphereGeometry(0.014, 8, 6).translate(0.37 * Math.cos(a), cy + 0.37 * Math.sin(a), 0)));
+      }
+      local.add("gold", ...twoSided(circleShape(0.055), c, 0.011));
+      local.add("icon", ...twoSided(crossShape(0.07), c, 0.014));
+      local.add("gold", box(0.016, 0.13, 0.016, 0, cy + 0.21, 0), box(0.07, 0.016, 0.016, 0, cy + 0.29, 0));
+      const bells = detail ? 16 : 8;
+      for (let i = 0; i < bells; i++) {
+        const a = (Math.PI * 2 * (i + 0.5)) / bells;
+        if (Math.sin(a) > 0.92) continue;
+        local.add("gold", lathe([[0, 0], [0.016, 0], [0.013, 0.012], [0.005, 0.022], [0, 0.024]], detail ? 12 : 6, 0.235 * Math.cos(a), cy + 0.235 * Math.sin(a) - 0.024, 0));
       }
       break;
     }
