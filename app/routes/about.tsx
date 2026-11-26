@@ -11,7 +11,7 @@ export function meta({}: Route.MetaArgs) {
   });
 }
 
-const panel = "frosted-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
+const panel = "paper-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
 
 /** Who makes the library and what it is (and is not). */

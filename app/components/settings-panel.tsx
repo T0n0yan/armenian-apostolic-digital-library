@@ -15,8 +15,8 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
 }) {
   const index = options.findIndex((option) => option.value === value);
   return (
-    <div className="relative grid gap-1 rounded-card border border-glass-border bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
-      {/* Ընտրվածի ապակե ֆոնը սահում է (ինչպես «Իմ անկյունը»-ի ներդիրները)։ */}
+    <div className="relative grid gap-1 rounded-card border border-edge bg-subtle p-1.5" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }} role="radiogroup">
+      {/* Ընտրվածի ֆոնը սահում է (ինչպես «Իմ անկյունը»-ի ներդիրները)։ */}
       {index >= 0 ? (
         <span aria-hidden="true" className="tab-glider pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 rounded-button"
           style={{ width: `calc((100% - 12px - ${(columns - 1) * 4}px) / ${columns})`, transform: `translateX(calc(${index % columns} * (100% + 4px)))` }} />
@@ -41,7 +41,7 @@ function Choice<T extends string>({ value, options, onChange, columns = 3 }: {
 
 function Setting({ icon, title, hint, children }: { icon: ReactNode; title: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <section className="frosted-panel grid gap-3 px-3 py-3.5">
+    <section className="paper-panel grid gap-3 px-3 py-3.5">
       <div className="flex items-start gap-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] text-gold-bright">{icon}</span>
         <div className="grid gap-0.5">
@@ -56,7 +56,7 @@ function Setting({ icon, title, hint, children }: { icon: ReactNode; title: stri
 
 function Switch({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
-    <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-control border border-glass-border bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
+    <button className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-control border border-edge bg-subtle px-3.5 text-[13.5px] font-semibold text-ink" type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}>
       {label}
       <span className={`relative h-6 w-11 rounded-full transition-colors ${checked ? "bg-[linear-gradient(135deg,#e2c27e,#b07d2e)]" : "bg-[rgb(120_100_80/30%)]"}`}>
         <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-[left] duration-200 ${checked ? "left-[22px]" : "left-0.5"}`} />
@@ -92,6 +92,7 @@ export function SettingsPanel() {
   };
   const [sunText, setSunText] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [hasSunPlace, setHasSunPlace] = useState(false);
 
   useEffect(() => {
     setTheme(readStoredThemePreference());
@@ -105,15 +106,21 @@ export function SettingsPanel() {
   }, []);
 
   // Today's sunrise and sunset for the "sun" theme.
+  // Հաշվում ենք միշտ (ոչ միայն «Ըստ ժամի»-ի ժամանակ), որ թաքնված բացատրությունը նույն երկարությունն ունենա, և բաժինը չցատկի։
   useEffect(() => {
-    if (theme !== "sun") { setSunText(null); return; }
+    setHasSunPlace(Boolean(readSunPlace()));
     const place = readSunPlace() ?? { latitude: 40.18, longitude: 44.51 };
     const times = sunTimes(new Date(), place.latitude, place.longitude);
     const time = formatClock;
     setSunText(times ? `Բաց՝ ${time(times.sunrise)}-ից, մուգ՝ ${time(times.sunset)}-ից${readSunPlace() ? "" : " (Երևանի ժամով)"}` : null);
-  }, [theme, locating]);
+  }, [locating]);
 
-  const chooseTheme = (next: ThemePreference) => { setTheme(next); writeStorage(THEME_STORAGE_KEY, next); applyThemePreference(next); };
+  // Նախ ընտրված կոճակը (անմիջապես երևում է), հետո՝ գույների փոխումը հաջորդ կադրում։
+  const chooseTheme = (next: ThemePreference) => {
+    setTheme(next);
+    writeStorage(THEME_STORAGE_KEY, next);
+    requestAnimationFrame(() => setTimeout(() => applyThemePreference(next), 0));
+  };
   const locate = () => {
     if (!("geolocation" in navigator)) return;
     setLocating(true);
@@ -126,18 +133,31 @@ export function SettingsPanel() {
 
   return (
       <div className="grid gap-3">
-        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Կայքի լուսավորություն" hint={theme === "sun" ? sunText ?? "Ցերեկը բաց, երեկոյից մուգ" : theme === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}>
+        <Setting icon={<SunMoon aria-hidden="true" size={18} />} title="Կայքի լուսավորություն" hint={
+          // Բոլոր բացատրությունները նույն տեղում են (երևում է միայն ընտրվածը), որ բաժնի բարձրությունը
+          // չփոխվի և թեման փոխելիս վահանակը չցատկի։
+          <span className="grid">
+            {(["system", "sun", "light", "dark"] as const).map((option) => (
+              <span key={option} className={`[grid-area:1/1] ${option === theme ? "" : "invisible"}`}>
+                {option === "sun" ? (
+                  <>
+                    {sunText ?? "Ցերեկը բաց, երեկոյից մուգ"}
+                    <br />
+                    <button className="mt-1 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-transparent px-2.5 text-[12px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
+                      <LocateFixed aria-hidden="true" size={14} /> {hasSunPlace ? "Թարմացնել իմ վայրը" : "Օգտագործել իմ վայրը"}
+                    </button>
+                  </>
+                ) : option === "system" ? "Ինչպես Ձեր հեռախոսում (կամ Telegram-ում)" : "«Ըստ ժամի»՝ ցերեկը բաց, երեկոյից մուգ, ըստ արևածագի ու մայրամուտի"}
+              </span>
+            ))}
+          </span>
+        }>
           <Choice columns={4} value={theme} onChange={chooseTheme} options={[
             { value: "system", label: "Սարքի պես", icon: <Monitor aria-hidden="true" size={17} /> },
             { value: "sun", label: "Ըստ ժամի", icon: <SunMoon aria-hidden="true" size={17} /> },
             { value: "light", label: "Բաց", icon: <Sun aria-hidden="true" size={17} /> },
             { value: "dark", label: "Մուգ", icon: <Moon aria-hidden="true" size={17} /> },
           ]} />
-          {theme === "sun" ? (
-            <button className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-2 rounded-control border border-glass-border bg-transparent px-3 text-[12.5px] font-semibold text-gold-bright" type="button" onClick={locate} disabled={locating}>
-              <LocateFixed aria-hidden="true" size={15} /> {readSunPlace() ? "Թարմացնել իմ վայրը" : "Օգտագործել իմ վայրը"}
-            </button>
-          ) : null}
         </Setting>
 
         <Setting icon={<BookOpen aria-hidden="true" size={18} />} title="Ընթերցանության տառատեսակ" hint="«Ըստ բաժնի»՝ աղոթքներն ու սաղմոսները Արիան գրքով, մնացածը՝ իրենց տառատեսակով։">

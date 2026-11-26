@@ -10,7 +10,7 @@ export function showNotice(text: string, ms = 4_000) {
   box.setAttribute("role", "alert");
   box.textContent = text;
   box.style.cssText = "position:fixed;z-index:120;left:12px;right:12px;top:calc(var(--tg-inset-top,0px) + 12px);margin:0 auto;max-width:440px;"
-    + "padding:12px 16px;border-radius:16px;background:var(--page-bg);color:var(--ink);border:1px solid var(--glass-border);"
+    + "padding:12px 16px;border-radius:16px;background:var(--page-bg);color:var(--ink);border:1px solid var(--edge);"
     + "box-shadow:0 18px 44px rgb(20 8 24 / 34%);font-size:14px;line-height:1.5;text-align:center";
   document.body.appendChild(box);
   window.setTimeout(() => box.remove(), ms);

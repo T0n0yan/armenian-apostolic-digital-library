@@ -72,7 +72,7 @@ function byProvince(places: MapPlace[]) {
 /** One province's places, shown across the whole width under its row. */
 function ProvincePlaces({ items }: { items: MapPlace[] }) {
   return (
-    <ul className="frosted-card col-span-2 m-0 grid list-none gap-1.5 p-2 min-[560px]:grid-cols-2">
+    <ul className="paper-card col-span-2 m-0 grid list-none gap-1.5 p-2 min-[560px]:grid-cols-2">
       {items.map((place) => (
         <li key={place.id}>
           <Link className="flex items-center gap-3 rounded-control p-2 text-inherit no-underline hover:bg-subtle" to={`/places/${place.id}`}>
@@ -94,7 +94,7 @@ function ProvincePlaces({ items }: { items: MapPlace[] }) {
 function NearbyRow({ place, km }: { place: MapPlace; km: number }) {
   return (
     <li>
-      <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
+      <Link className="paper-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
         <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
           {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
         </span>
@@ -194,7 +194,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
   };
   const chip = (active: boolean, label: string, onClick: () => void) => (
     <button key={label} type="button" aria-pressed={active} onClick={onClick}
-      className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold transition-colors ${active ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-glass-border bg-subtle text-muted"}`}>
+      className={`inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-semibold transition-colors ${active ? "border-[rgb(217_181_111/70%)] bg-[rgb(217_181_111/18%)] text-gold-bright" : "border-edge bg-subtle text-muted"}`}>
       <span className={`grid size-4 place-items-center rounded-chip border ${active ? "border-gold-bright bg-gold-bright text-[#2a1708]" : "border-current"}`}>{active ? <Check aria-hidden="true" size={11} strokeWidth={3} /> : null}</span>
       {label}
     </button>
@@ -240,7 +240,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
         // One bar above the map: all / visited / not yet (each shows just those), and the filters.
         <div ref={filterBox} className="relative z-30 mx-auto mb-3 grid w-full max-w-[560px] gap-2">
           <div className="flex items-stretch gap-2">
-            <div className="frosted-card flex flex-1 gap-1 p-1.5" role="group" aria-label="Ցույց տալ քարտեզում">
+            <div className="paper-card flex flex-1 gap-1 p-1.5" role="group" aria-label="Ցույց տալ քարտեզում">
               {/* Մուտք չգործածը տեսնում է միայն ընդհանուր թիվը. մեկ «ընտրված» կոճակը իմաստ չունի։ */}
               {signedIn ? segment("all", filtered.length, "բոլորը", "text-gold-bright") : (
                 <div className="grid min-w-0 flex-1 place-items-center gap-0 px-1 py-1.5">
@@ -253,7 +253,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
               {signedIn ? segment("unvisited", filtered.length - been, "դեռ չեմ եղել", "text-[#b8483e]") : null}
             </div>
             <button type="button" aria-expanded={filtersOpen} aria-label="Ֆիլտր" onClick={() => setFiltersOpen(!filtersOpen)}
-              className={`frosted-card relative grid w-14 shrink-0 cursor-pointer place-items-center text-gold-bright ${filtersOpen ? "shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : ""}`}>
+              className={`paper-card relative grid w-14 shrink-0 cursor-pointer place-items-center text-gold-bright ${filtersOpen ? "shadow-[inset_0_0_0_1px_rgb(217_181_111/55%)]" : ""}`}>
               <SlidersHorizontal aria-hidden="true" size={19} />
               {filterCount ? <span className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full bg-gold-bright text-[11px] font-bold text-[#2a1708]">{filterCount}</span> : null}
             </button>
@@ -281,7 +281,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
       {places.length ? (
         <div className="mx-auto mb-3 grid w-full max-w-[560px] gap-2">
           {near.status === "on" ? (
-            <div className="frosted-card flex items-center gap-1.5 p-1.5" role="group" aria-label="Իմ մոտակայքում">
+            <div className="paper-card flex items-center gap-1.5 p-1.5" role="group" aria-label="Իմ մոտակայքում">
               <span className="grid size-9 shrink-0 place-items-center text-[#2f7fd8]"><LocateFixed aria-hidden="true" size={18} /></span>
               {NEARBY_RADII.map((radius) => (
                 <button key={radius} type="button" aria-pressed={near.view.radiusKm === radius} onClick={() => setRadius(radius)}
@@ -293,7 +293,7 @@ export default function Places({ loaderData }: Route.ComponentProps) {
             </div>
           ) : (
             <button type="button" disabled={near.status === "locating"} onClick={() => guard("գտնեք Ձեզ մոտ գտնվող սրբավայրերը", () => void locate())}
-              className="frosted-card flex min-h-12 cursor-pointer items-center justify-center gap-2 px-4 text-[14px] font-semibold text-gold-bright disabled:cursor-wait">
+              className="paper-card flex min-h-12 cursor-pointer items-center justify-center gap-2 px-4 text-[14px] font-semibold text-gold-bright disabled:cursor-wait">
               {near.status === "locating" ? <LoaderCircle className="animate-search-spin" aria-hidden="true" size={18} /> : <LocateFixed aria-hidden="true" size={18} />}
               {near.status === "locating" ? "Որոշում եմ ձեր տեղը…" : "Իմ մոտակայքում"}
             </button>
@@ -348,13 +348,13 @@ export default function Places({ loaderData }: Route.ComponentProps) {
             <details key={province} open={open === province}
               onToggle={(event) => { const isOpen = event.currentTarget.open; setOpen((current) => (isOpen ? province : current === province ? null : current)); }}
               className={row.length === 1 || row.some(([name]) => name === open) ? "col-span-2" : ""}>
-              <summary title={province} className={`frosted-card flex h-14 cursor-pointer list-none items-center justify-between gap-2 px-4 text-left text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden ${open === province ? "ring-2 ring-[rgb(217_181_111/60%)]" : ""}`}>
+              <summary title={province} className={`paper-card flex h-14 cursor-pointer list-none items-center justify-between gap-2 px-4 text-left text-[14px] font-semibold text-ink [&::-webkit-details-marker]:hidden ${open === province ? "ring-2 ring-[rgb(217_181_111/60%)]" : ""}`}>
                 <span className="min-w-0 truncate">{shortProvince(province)}</span>
                 <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-normal text-muted tabular-nums">{items.length} <span className={`inline-block transition-transform ${open === province ? "rotate-90" : ""}`}>›</span></span>
               </summary>
               <div className="mt-2 grid">
                 {open === province ? <ProvincePlaces items={items} /> : (
-                  <ul className="frosted-card m-0 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
+                  <ul className="paper-card m-0 grid list-none gap-1 p-3 text-[14px] min-[560px]:grid-cols-2">
                     {items.map((place) => <li key={place.id}><a className="block rounded-control px-2 py-1.5 text-ink no-underline hover:bg-subtle" href={`/places/${place.id}`}>{place.name}</a></li>)}
                   </ul>
                 )}

@@ -134,7 +134,7 @@ export function ContinueCard({ section, className = "" }: { section: string; cla
   const open = (play: boolean) => navigate(place.path, { state: watch ? { mediaTime: place.mediaTime, play } : { resume: place.progress } });
   const onBody = () => { if (watch || !showInList(place.path)) open(false); };
   return (
-    <div className={`continue-card frosted-panel relative flex items-center gap-3 py-2.5 pr-2.5 pl-3 ${className}`}>
+    <div className={`continue-card paper-panel relative flex items-center gap-3 py-2.5 pr-2.5 pl-3 ${className}`}>
       <button className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-0 bg-transparent p-0 text-left text-ink" type="button" onClick={onBody}
         aria-label={watch ? `Բացել՝ ${place.title}` : `Ցույց տալ ցանկում՝ ${place.title}`}>
         <span className="grid size-10 shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-gold-bright"><Icon aria-hidden="true" size={18} /></span>
@@ -148,7 +148,7 @@ export function ContinueCard({ section, className = "" }: { section: string; cla
       </button>
       <button className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[#2a1708] shadow-[0_6px_16px_rgb(150_100_30/25%)]" type="button"
         onClick={() => open(true)} aria-label={watch ? "Շարունակել դիտելը" : "Բացել և շարունակել"}><ChevronRight aria-hidden="true" size={19} strokeWidth={2.2} /></button>
-      <button className="absolute -top-1.5 -right-1.5 grid size-6 cursor-pointer place-items-center rounded-full border border-glass-border bg-[var(--page-bg)] text-faint shadow-card" type="button"
+      <button className="absolute -top-1.5 -right-1.5 grid size-6 cursor-pointer place-items-center rounded-full border border-edge bg-[var(--page-bg)] text-faint shadow-card" type="button"
         onClick={() => { forgetPlace(place.section); setPlace(null); }} aria-label="Մոռանալ"><X aria-hidden="true" size={12} /></button>
     </div>
   );

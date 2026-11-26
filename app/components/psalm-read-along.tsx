@@ -260,7 +260,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
       {canMark && !marking ? (
         <div className="flex flex-wrap items-center justify-end gap-2 font-sans" data-highlight-skip>
           <span className="mr-auto text-[11.5px] text-muted">{numbered ? (timings ? "Համարների ժամերը նշված են" : "Համարների ժամերը նշված չեն") : (timings ? "Տողերի ժամերը նշված են" : "Տողերի ժամերը նշված չեն")}</span>
-          {timings ? <button className={`${button} border-glass-border bg-transparent text-muted`} type="button" disabled={saving} onClick={() => save(null)}>Ջնջել</button> : null}
+          {timings ? <button className={`${button} border-edge bg-transparent text-muted`} type="button" disabled={saving} onClick={() => save(null)}>Ջնջել</button> : null}
           <button className={`${button} border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/12%)] text-gold-bright`} type="button" onClick={startMarking}>
             <PencilLine aria-hidden="true" size={15} /> {timings ? "Վերանշել" : numbered ? "Նշել համարները" : "Նշել տողերը"}
           </button>
@@ -286,7 +286,7 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
 
 
       {marking ? (
-        <div data-highlight-skip className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] liquid-sheet p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
+        <div data-highlight-skip className="sticky bottom-[calc(var(--tg-inset-bottom,0px)+12px)] z-20 grid gap-2 rounded-card border border-[rgb(217_181_111/45%)] paper-sheet p-3 font-sans shadow-[0_18px_44px_rgb(40_20_10/28%)]">
           <p className="m-0 text-[12px] leading-snug text-muted">
             Լսեք ձայնագրությունը և սեղմեք <strong className="text-ink">«Հաջորդ համարը»</strong> հենց որ սկսվի նոր համարը (համակարգչում՝ Space)։ Սխալը ուղղելու համար սեղմեք տողի վրա՝ ճիշտ պահին։
           </p>
@@ -294,9 +294,9 @@ export function PsalmReadAlong({ text, materialId, timings: savedTimings, canMar
             <button className={`${button} min-h-12 border-0 bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] text-[14px] text-[#2a1708]`} type="button" disabled={nextIndex < 0} onClick={markNext}>
               <SkipForward aria-hidden="true" size={17} /> {nextIndex < 0 ? "Բոլորը նշված են" : `Հաջորդ՝ համար ${verseNumbers[nextIndex]} (${nextIndex + 1}/${verseCount})`}
             </button>
-            <button className={`${button} border-glass-border bg-subtle text-ink`} type="button" onClick={undo} aria-label="Հետարկել վերջին նշումը" title="Հետարկել"><RotateCcw aria-hidden="true" size={16} /></button>
+            <button className={`${button} border-edge bg-subtle text-ink`} type="button" onClick={undo} aria-label="Հետարկել վերջին նշումը" title="Հետարկել"><RotateCcw aria-hidden="true" size={16} /></button>
             <button className={`${button} border-[rgb(74_160_96/50%)] bg-[rgb(74_160_96/14%)] text-[rgb(52_130_74)]`} type="button" disabled={saving || draft.every((value) => value === null)} onClick={() => save(draft)} aria-label="Պահել" title="Պահել"><Check aria-hidden="true" size={17} /></button>
-            <button className={`${button} border-glass-border bg-transparent text-muted`} type="button" onClick={() => setMarking(false)} aria-label="Չեղարկել" title="Չեղարկել"><X aria-hidden="true" size={17} /></button>
+            <button className={`${button} border-edge bg-transparent text-muted`} type="button" onClick={() => setMarking(false)} aria-label="Չեղարկել" title="Չեղարկել"><X aria-hidden="true" size={17} /></button>
           </div>
         </div>
       ) : null}

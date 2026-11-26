@@ -17,7 +17,7 @@ export default function Inventory({ loaderData: report }: Route.ComponentProps) 
   return <PageShell width="admin"><SiteNav /><PageHeader backTo="/admin/usage" backLabel="Կայքի վիճակը" title="Մեդիայի հաշվառում" />
     <p className="my-4">Այս էջում ստուգվել է {report.scanned} օբյեկտ՝ {(report.bytes / 1e6).toFixed(2)} MB։ Սա ամբողջ պահեստի ծավալը չէ։</p>
     <p>Ստորև՝ 14 օրից հին գրադարանային ֆայլեր, որոնց հղումը բազայում չի գտնվել։ Սա ջնջելու թույլտվություն չէ․ պետք է համեմատել սինխրոնացման և պահուստային պատճենների հետ։ Ֆայլեր չեն ջնջվում։</p>
-    <ul className="my-4 grid gap-3">{report.candidates.map((item) => <li key={item.key} className="frosted-panel break-all p-3">{item.key} · {(item.bytes / 1e6).toFixed(2)} MB</li>)}</ul>
+    <ul className="my-4 grid gap-3">{report.candidates.map((item) => <li key={item.key} className="paper-panel break-all p-3">{item.key} · {(item.bytes / 1e6).toFixed(2)} MB</li>)}</ul>
     {!report.candidates.length && <p>Այս մասում թեկնածուներ չկան։</p>}
     {report.next && <Link className="my-4 block text-gold-bright" to={`?cursor=${encodeURIComponent(report.next)}`}>Ստուգել հաջորդ 100-ը →</Link>}
   </PageShell>;

@@ -17,11 +17,13 @@ export function useSearchSubmit(allowPsalmNumber: boolean | ((form: HTMLFormElem
   return { validateSubmit, formRef, clearError, submitImmediately, error };
 }
 
-export function useSyncedQueryInput(query: string) {
+export function useSyncedQueryInput(query: string, asked = "") {
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const input = inputRef.current;
-    if (input && document.activeElement !== input && input.value !== query) input.value = query;
-  }, [query]);
+    // Ուղղված որոնումը («saxmos» → «սաղմոս») փոխում է նաև գրածը, նույնիսկ եթե դաշտը ակտիվ է։
+    const corrected = Boolean(asked) && input?.value.trim() === asked;
+    if (input && (corrected || document.activeElement !== input) && input.value !== query) input.value = query;
+  }, [query, asked]);
   return inputRef;
 }

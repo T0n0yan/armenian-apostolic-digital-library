@@ -16,7 +16,7 @@ export function meta({}: Route.MetaArgs) {
   });
 }
 
-const row = "flex items-center gap-3.5 frosted-panel px-4 py-3.5 text-inherit no-underline transition-transform active:scale-[.99]";
+const row = "flex items-center gap-3.5 paper-panel px-4 py-3.5 text-inherit no-underline transition-transform active:scale-[.99]";
 const icon = "grid size-10 shrink-0 place-items-center rounded-full bg-[rgb(217_181_111/14%)] text-gold-bright";
 
 const emails = [

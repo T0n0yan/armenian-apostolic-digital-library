@@ -1,181 +1,89 @@
-# Հայ Առաքելական Սուրբ Եկեղեցու թվային գրադարան
+# Apostolic.am
 
-Telegram Mini App-first գրադարան։ Telegram-ը սկզբնաղբյուրն է։ GitHub Actions-ը նյութերը ներմուծում է D1, իսկ մեդիան՝ R2/CDN։
+**Հայաստանյայց Առաքելական Եկեղեցուն նվիրված թվային գրադարան**՝ սաղմոսներ, աղոթքներ, սրբերի վարք,
+Աստվածաշունչ, տոներ և սրբավայրեր՝ մեկ տեղում, հայերեն, անվճար և առանց գովազդի։
 
-## Architecture
+🌐 **Կայք**՝ [apostolic.am](https://apostolic.am)
+💬 **Telegram խումբ**՝ [Հայ Առաքելական Սուրբ Եկեղեցի](https://t.me/armenian_apostolic_church)
+🤖 **Բոտ**՝ [@armenian_apostolic_church_bot](https://t.me/armenian_apostolic_church_bot)
 
-```text
-Telegram MTProto → GitHub Actions (cloud-sync) → D1 + R2
-                                                    ↓
-                          Cloudflare Worker / React Router → կայք / Mini App
-                          R2 custom domain / CDN           → աուդիո և նկարներ
+Բովանդակությունը գալիս է Telegram խմբից. խմբում հրապարակված ամեն նյութ ինքնաբերաբար հայտնվում է կայքում։
 
-D1 → գրադարան, օգտատերեր, պահված նյութեր, հիշեցումներ, սրբավայրեր
-```
+---
 
-Ընթերցողների հարցումները մատուցվում են D1/R2-ից՝ առանց մշտական Telegram Bridge-ի։ Հիմնական մեդիան ուղիղ CDN-ից է, Worker-ի /media երթուղին պահեստային տարբերակն է։ Տեղական մշակման համար առկա է նաև mock Bridge։
+## Ինչ կա կայքում
 
-## Local mock mode
+### Կարդալ և լսել
+- **Սաղմոսներ**. 150 սաղմոսների ցանկ համարներով, ձայնագրություն՝ տեքստի հետ համաժամեցված (լսելիս ընթացիկ համարը ընդգծվում է), ամեն համար՝ առանձին հղումով։
+- **Աղոթքներ** ձեռագրային ոճով՝ թռչնագիր զարդատառով։
+- **Սրբերի վարք**, Աստվածաշնչյան ընթերցումներ, տոներ և եկեղեցական օրացույց։
+- **Բառարան**. տեքստում հին կամ եկեղեցական բառի վրա սեղմելիս բացվում է բացատրությունը։
+- **Ֆոնային նվագարկում**. ձայնը չի կանգնում, երբ էկրանն անջատում ես կամ դուրս ես գալիս բրաուզերից։
 
-Առաջին terminal՝
+### Որոնում
+- Արագ որոնում ամբողջ գրադարանում, նաև այլ լեզուներով և տառերով գրված բառերով (օրինակ՝ «psalm», «молитва», «сагмос» → «սաղմոս»)։
+- Սխալ գրված բառի դեպքում՝ «Գուցե նկատի ունեիք…» հուշում։
 
-```bash
-pnpm install
-pnpm bridge:mock
-```
+### Անձնական անկյուն (մուտքից հետո)
+- **Պահված նյութեր** և **նշումներ տեքստում**. նախադասության վրա սեղմիր և պահիր, պատճենիր կամ գրիր հարց։
+- **Իմ ընթերցանությունը**. ինչ ես կարդացել ու լսել, օրացույցով։
+- **Հիշեցումներ** աղոթքի և ընթերցանության համար։
+- **«Որտեղ էիր կանգնել»**. կայքը հիշում է վերջին կարդացածդ կամ լսածդ։
+- **Իմ տարին** և կիրակնօրյա հարցը։
 
-Երկրորդ terminal՝
+### Կիսվել
+- **Կիսվել նկարով**. ընտրված տողերից գեղեցիկ նկար (նաև Telegram story-ի համար)։
+- **Կիսվել հղումով**. հղումը ցանկացած տեղ բացվում է նախադիտման քարտով։
 
-```bash
-cp .dev.vars.example .dev.vars
-# .dev.vars-ում TELEGRAM_BRIDGE_SHARED_SECRET-ը դիր նույն local fixture արժեքը,
-# որն օգտագործում է bridge:mock script-ը։
-pnpm db:migrate:local
-pnpm dev
-```
+### Սրբավայրեր
+- **Քարտեզ** եկեղեցիներով և վանքերով, նկարներով և նկարագրությամբ։ Կարելի է առաջարկել նոր սրբավայր։
 
-Local URL՝ `http://127.0.0.1:5173/`։ Mock Bridge-ը լսում է `http://127.0.0.1:8788` հասցեում։
+### Հարմարություններ
+- Լուսավոր և մուգ թեմա, տառատեսակի ու տառաչափի ընտրություն։
+- Աշխատում է բրաուզերում, **Telegram Mini App**-ում, և կարելի է տեղադրել հեռախոսում որպես հավելված։
+- Ուսուցողական տեսանյութեր՝ «Օգնություն» էջում։
 
-Եթե հին local-only 0010 migration-ը նախկինում արդեն կիրառված է, նախ export արա local D1-ը, հետո վերակառուցիր միայն local D1 state-ը։ Remote database-ի վրա reset մի կատարիր։
+---
 
-## Worker variables
+## Ինչպես օգտվել
 
-| Name | Purpose |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | Telegram Mini App `initData` server-side validation |
-| `TELEGRAM_BRIDGE_URL` | Internal HTTPS Bridge origin |
-| `TELEGRAM_BRIDGE_SHARED_SECRET` | Worker → Bridge Bearer authentication |
-| `CF_ACCESS_CLIENT_ID` | Optional Cloudflare Access service-token client ID; configure only with its secret |
-| `CF_ACCESS_CLIENT_SECRET` | Optional Cloudflare Access service-token secret; configure only with its ID |
-| `CF_ACCESS_TEAM_DOMAIN` | Optional Cloudflare Access issuer for `/admin` |
-| `CF_ACCESS_AUD` | Optional Cloudflare Access audience |
-| `CF_ANALYTICS_ACCOUNT_ID` | Cloudflare հաշվի ID՝ գլխավոր ադմինի օգտագործման վահանակի համար |
-| `CF_ANALYTICS_TOKEN` | Միայն ընթերցման Analytics API token՝ Worker secret |
+1. **Բրաուզերում**. բացիր [apostolic.am](https://apostolic.am)։ Կարդալու համար մուտք գործել պետք չէ։
+2. **Telegram-ում**. բացիր [բոտը](https://t.me/armenian_apostolic_church_bot) և սեղմիր կայքը բացելու կոճակը՝ կայքը կբացվի հենց Telegram-ի մեջ։
+3. **Որպես հավելված**. կայքի մենյուում սեղմիր «Ավելացնել գլխավոր էկրանին» (Android-ում և iPhone-ում)։
+4. **Մուտք** (պահվածների, նշումների և հիշեցումների համար)՝ Telegram-ով կամ Google-ով։
 
-Սրանք Worker secrets են և չունեն `VITE_` prefix։
+Կայքը օգտագործելու ձեռնարկը (տեսանյութերով)՝ [apostolic.am/ognutyun](https://apostolic.am/ognutyun)։
 
-## Telegram Bridge
+---
 
-Service-ը գտնվում է `services/telegram-bridge/`-ում և աշխատում է Node.js-ով։
+## Ինչ է ինտեգրված
 
-`TELEGRAM_BOT_TOKEN`-ը միայն Mini App `initData` validation-ի և bot-ի գործող
-ֆունկցիաների համար է։ MTProto history access-ը user session է և առանձին պահանջում
-է `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`, `TELEGRAM_SESSION`։ Bot token-ը դրանց
-փոխարինողը չէ։
+| Ծառայություն | Ինչի համար |
+| --- | --- |
+| **Telegram** (խումբ, բոտ, Mini App, մուտք) | Բովանդակության աղբյուր, ծանուցումներ, կայքը Telegram-ի մեջ, մուտք |
+| **Google** | Մուտք Google հաշվով |
+| **Cloudflare** (Workers, D1, R2) | Կայքը, բազան և մեդիա ֆայլերը (ձայնագրություններ, նկարներ, տեսանյութեր) |
+| **GitHub Actions** | Telegram-ից նյութերի ավտոմատ ներմուծում, ստուգումներ և թողարկում |
+| **Web Push** | Հիշեցումներ և ծանուցումներ հեռախոսին |
 
-Local authorization preparation՝
+Այցելությունների վիճակագրությունը անանուն է. այն հաշվի հետ չի կապվում։
 
-```bash
-cp services/telegram-bridge/.env.example services/telegram-bridge/.env.local
-# Լրացրու միայն TELEGRAM_API_ID և TELEGRAM_API_HASH։
-pnpm telegram:authorize
-```
+---
 
-Command-ը phone/code/2FA արժեքները կարդում է թաքցված interactive input-ով և
-StringSession-ը atomic եղանակով պահում է նույն ignored `.env.local` ֆայլում՝ առանց
-stdout-ում ցուցադրելու։ Նոր Telegram account չի ստեղծվում։
+## Կապ
 
-Session-ը ստուգելու և հասանելի group/supergroup/channel dialog metadata-ն միայն
-read-only ցուցադրելու համար՝
+Առաջարկների և հարցերի համար՝ **info@apostolic.am** կամ [Telegram խումբը](https://t.me/armenian_apostolic_church)։
 
-```bash
-pnpm telegram:discover-chats
-```
+---
 
-Command-ը չի լրացնում `TELEGRAM_ALLOWED_CHAT_IDS`, history չի հարցնում և media չի
-ներբեռնում։ Եթե local shared secret-ը դատարկ է, այն անվտանգ ստեղծվում և նույնացվում
-է Bridge-ի `.env.local` ու Worker-ի `.dev.vars` ignored ֆայլերում։
+<details>
+<summary>Ծրագրավորողների համար</summary>
 
-Production adapter-ի variables՝
+- Ինչպես է կառուցված կայքը՝ [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Տեղական գործարկում և կարգավորումներ՝ [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- Միջավայրեր (production, staging)՝ [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)
+- Դիզայնի կանոններ՝ [docs/DESIGN.md](docs/DESIGN.md)
 
-- `TELEGRAM_API_ID`
-- `TELEGRAM_API_HASH`
-- `TELEGRAM_SESSION`
-- `TELEGRAM_ALLOWED_CHAT_IDS`՝ comma-separated allowlist
-- `TELEGRAM_CONTENT_CHAT_ID`՝ տվյալ environment-ի միակ active content forum-ը։ Այն
-  պետք է ներառված լինի allowlist-ում։ Մեկ-chat allowlist-ի դեպքում այդ միակ արժեքը
-  backward-compatible fallback է, իսկ բազմաչատ allowlist-ը պահանջում է explicit արժեք։
-- `TELEGRAM_BRIDGE_SHARED_SECRET`
-- optional `TELEGRAM_MEDIA_CONCURRENCY`
-- optional `TELEGRAM_MEDIA_QUEUE_LIMIT`
-- optional `TELEGRAM_MEDIA_PER_ASSET_CONCURRENCY`
-- optional `TELEGRAM_MEDIA_PER_CLIENT_CONCURRENCY`
-- optional `TELEGRAM_MEDIA_RANGE_WINDOW_BYTES` (defaults to a 2 MiB window for open-ended browser ranges)
-- optional `TELEGRAM_MEDIA_TIMEOUT_MS`
-- optional `TELEGRAM_REQUEST_CONCURRENCY`
-- optional `TELEGRAM_REQUEST_TIMEOUT_MS`
-- optional `TELEGRAM_SHUTDOWN_GRACE_MS`
+Կառուցված է React Router-ով և TypeScript-ով, աշխատում է Cloudflare Workers-ում։
 
-Գործարկում՝
-
-```bash
-pnpm bridge:start
-```
-
-Bridge API՝
-
-- `GET /health`
-- `GET /ready`
-- `GET /categories`
-- `GET /categories/:slug/posts?cursor=...`
-- `GET /posts/:chatId/:messageId`
-- `GET /search?q=...&category=...&cursor=...`
-- `GET|HEAD /media/:chatId/:messageId/:mediaIndex`
-
-Բոլոր endpoints-ը պահանջում են service authentication։ Bridge-ը մերժում է allowlist-ից դուրս chat ID-ները։
-
-Search-ը deterministic է և AI provider չի օգտագործում։ Bridge-ը lazy կերպով կառուցում է
-default 10,000 Telegram material / 20,000,000 searchable character պարունակող
-memory-only index։ Configurable hard ceiling-ները համապատասխանաբար 50,000 և
-100,000,000 են։ Default TTL-ը 30 վայրկյան է, նույն build-ի concurrent request-ները
-deduplicate են արվում, իսկ restart-ից հետո index-ը նորից է կառուցվում Telegram-ից։
-Index-ը disk/D1/R2 content mirror չէ։ Նոր, խմբագրված և ջնջված նյութերը երևում են
-հաջորդ TTL refresh-ից հետո։ Սահմանները server-only
-`TELEGRAM_SEARCH_INDEX_MAX_DOCUMENTS` և `TELEGRAM_SEARCH_INDEX_MAX_CHARACTERS`
-environment variables-ով կարող են միայն նվազեցվել սահմանափակ runtime-ների համար։
-
-D1-ի `search_query_aggregates` table-ը պահում է միայն server-keyed HMAC-SHA-256 query key, scope,
-day bucket և aggregate counters։ Query text, user ID, IP, initData, note կամ Telegram
-body չի պահվում։ 90 օրից հին bucket-ները մաքրվում են opportunistic cleanup-ով։
-
-Staging/production environment contract-ը, Docker deployment-ը, անվտանգ rollout-ը և
-rollback-ը նկարագրված են [`docs/deployment-runbook.md`](docs/deployment-runbook.md)-ում։
-Bridge image-ի local build command-ը՝
-
-```bash
-docker build -f services/telegram-bridge/Dockerfile -t telegram-bridge:local .
-```
-
-## Category mapping
-
-Առաջնահերթությունը՝
-
-1. forum topic ID,
-2. configured hashtag,
-3. exact Telegram chat/message admin mapping,
-4. unclassified review։
-
-Ցուցադրվող հայերեն անունները identifier չեն։ Stable արժեքներն են category ID/slug, chat ID, topic ID և message ID։
-
-## D1
-
-`0010_telegram_bridge_references.sql` migration-ը legacy content mirror-ը հեռացնում է և պահում միայն՝
-
-- app users և admin role,
-- bookmarks որպես `user_id + chat_id + message_id`,
-- personal notes,
-- topic/hashtag/post category mappings,
-- review state։
-
-## Verification
-
-```bash
-pnpm lint
-pnpm test
-pnpm typecheck
-pnpm build
-```
-
-Tests-ը իրական Telegram credential չի օգտագործում։ 100+ MB video-ն virtual generated stream է և repository-ում մեծ fixture file չի պահվում։
-
-Անվճար պլանի օպտիմալացման փոփոխություններն ու կարգավորումը՝ [հանձնման հաշվետվություն](docs/qa/FREE-TIER-REVIEW.md)։
+</details>

@@ -19,7 +19,7 @@ import lastSupper from "../assets/last-supper.webp";
 
 /**
  * Բացվող էջի կմախքը, մինչև էջը գա։ Ամեն էջ ունի իրենը՝ նույն նկարները, վերնագրերը, կոճակները և
- * ապակե վահանակները, ինչ իրական էջում, իսկ տեքստի ու նկարների տեղերում՝ փայլող ոսկեգույն ձևեր։
+ * վահանակները, ինչ իրական էջում, իսկ տեքստի ու նկարների տեղերում՝ փայլող ոսկեգույն ձևեր։
  * Ինչ նախօրոք հայտնի է (բաժնի անունը, սաղմոսի համարը, ստատիկ տեքստերը), գրվում է իսկական տեքստով։
  */
 type Section = "psalms" | "pray" | "saints" | "gospel" | "daily" | "questions" | "other";
@@ -112,7 +112,7 @@ function SectionTop({ image, title, backLabel = "Բաժիններ" }: { image: s
           <ArtImage className="block h-full w-full object-cover" src={image} width={1774} height={887} decoding="async" alt="" />
         </div>
         <div className="grid justify-items-center gap-[9px] text-center">
-          <p className="m-0 w-full font-noto text-[26px] leading-[32px] font-medium tracking-[-0.4px] text-balance text-ink min-[390px]:text-[28px] min-[390px]:leading-[34px] min-[768px]:text-[34px] min-[768px]:leading-[40px] min-[960px]:text-[40px] min-[960px]:leading-[46px]">{title}</p>
+          <p className="page-skeleton-title m-0 w-full font-noto text-[26px] leading-[32px] font-medium tracking-[-0.4px] text-balance text-ink min-[390px]:text-[28px] min-[390px]:leading-[34px] min-[768px]:text-[34px] min-[768px]:leading-[40px] min-[960px]:text-[40px] min-[960px]:leading-[46px]">{title}</p>
           <img src={divider2} alt="" width={1200} height={126} decoding="async" className="h-[40px] w-full object-contain" />
         </div>
       </div>
@@ -145,7 +145,7 @@ function TopicIntroBones({ section }: { section: Section }) {
   return (
     <div className="mb-4 grid gap-2.5">
       <Ornament />
-      <div className="frosted-panel grid justify-items-center gap-3 px-5 py-5">{body}</div>
+      <div className="paper-panel grid justify-items-center gap-3 px-5 py-5">{body}</div>
       <Ornament />
     </div>
   );
@@ -180,7 +180,7 @@ function SectionBody({ section }: { section: Section }) {
           <Bone className="ml-1 h-3 w-28 rounded-full" />
           <ol className="m-0 grid list-none grid-cols-6 gap-1.5 p-0 min-[420px]:grid-cols-7 min-[640px]:grid-cols-10 min-[960px]:grid-cols-12">
             {repeat(60, (index) => (
-              <li key={index} className="frosted-card grid aspect-square place-items-center rounded-control">
+              <li key={index} className="paper-card grid aspect-square place-items-center rounded-control">
                 <span className="font-noto text-[16px] font-semibold text-gold-bright/45 tabular-nums min-[640px]:text-[18px]">{index + 1}</span>
               </li>
             ))}
@@ -192,7 +192,7 @@ function SectionBody({ section }: { section: Section }) {
       return (
         <ol className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 min-[720px]:grid-cols-3">
           {repeat(6, (index) => (
-            <li key={index} className="relative aspect-[3/4] overflow-hidden rounded-card border border-glass-border bg-[rgb(217_181_111/6%)] shadow-card">
+            <li key={index} className="relative aspect-[3/4] overflow-hidden rounded-card border border-edge bg-[rgb(217_181_111/6%)] shadow-card">
               <Bone className="absolute inset-0 opacity-70" />
               <span className="absolute inset-x-0 bottom-0 grid justify-items-center gap-2 p-3">
                 <span className="h-px w-10 bg-[rgb(217_181_111/70%)]" />
@@ -208,8 +208,8 @@ function SectionBody({ section }: { section: Section }) {
       return (
         <ol className={twoColumns}>
           {repeat(4, (index) => (
-            <li key={index} className="frosted-card grid gap-[11px] p-[10px] pb-[14px]">
-              <span className="relative grid aspect-video place-items-center overflow-hidden rounded-button border border-glass-border bg-[rgb(217_181_111/6%)]">
+            <li key={index} className="paper-card grid gap-[11px] p-[10px] pb-[14px]">
+              <span className="relative grid aspect-video place-items-center overflow-hidden rounded-button border border-edge bg-[rgb(217_181_111/6%)]">
                 <Bone className="absolute inset-0 opacity-60" />
                 <span className="relative size-12 rounded-full bg-[rgb(60_40_20/22%)]" />
               </span>
@@ -223,7 +223,7 @@ function SectionBody({ section }: { section: Section }) {
       return (
         <ol className="m-0 grid list-none gap-3 p-0 min-[860px]:grid-cols-2">
           {repeat(3, (index) => (
-            <li key={index} className="frosted-card grid overflow-hidden p-0">
+            <li key={index} className="paper-card grid overflow-hidden p-0">
               <Bone className="aspect-[16/9] w-full rounded-none opacity-70" />
               <span className="grid grid-cols-[78px_1fr] items-start gap-3.5 p-4">
                 <span className="grid h-[68px] content-center justify-items-center gap-2 rounded-button border border-[rgb(217_181_111/40%)] bg-[rgb(217_181_111/8%)]">
@@ -241,7 +241,7 @@ function SectionBody({ section }: { section: Section }) {
       return (
         <ol className={twoColumns}>
           {repeat(5, (index) => (
-            <li key={index} className="frosted-card grid grid-cols-[30px_1fr] items-start gap-2.5 px-[16px] py-[14px]">
+            <li key={index} className="paper-card grid grid-cols-[30px_1fr] items-start gap-2.5 px-[16px] py-[14px]">
               <span className="grid size-[30px] place-items-center rounded-full border border-[rgb(217_181_111/45%)] text-[14px] font-bold text-gold-bright/50">?</span>
               <span className="grid gap-2 pt-1"><Bone className="h-4 w-full rounded-full" /><Bone className="h-4 w-11/12 rounded-full" /><Bone className="h-4 w-2/5 rounded-full" /><Bone className="mt-1 h-3 w-24 rounded-full" /></span>
             </li>
@@ -257,7 +257,7 @@ function SectionBody({ section }: { section: Section }) {
             <div key={group} className="grid gap-2.5">
               <Bone className="ml-1 h-4 w-28 rounded-full" />
               <ol className={twoColumns}>{repeat(group ? 2 : 3, (index) => (
-                <li key={index} className="frosted-card grid gap-2.5 px-[16px] py-[14px]">
+                <li key={index} className="paper-card grid gap-2.5 px-[16px] py-[14px]">
                   <Bone className="h-4 w-11/12 rounded-full" />
                   <Bone className="h-4 w-3/5 rounded-full" />
                 </li>
@@ -270,7 +270,7 @@ function SectionBody({ section }: { section: Section }) {
       return (
         <ol className={twoColumns}>
           {repeat(6, (index) => (
-            <li key={index} className="frosted-card grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] p-3 min-[560px]:grid-cols-[96px_minmax(0,1fr)]">
+            <li key={index} className="paper-card grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-[13px] p-3 min-[560px]:grid-cols-[96px_minmax(0,1fr)]">
               <Bone className="aspect-[4/3] w-full rounded-control" />
               <span className="grid gap-2 pt-1"><Bone className="h-5 w-16 rounded-full" /><Bone className="h-4 w-11/12 rounded-full" /><Bone className="h-3 w-3/4 rounded-full" /></span>
             </li>
@@ -307,13 +307,13 @@ function SectionPage({ section, names }: { section: Section; names: Record<strin
 }
 
 /** Ընթերցման վահանակ, ինչպես `.reading-body`-ն։ */
-const reading = "frosted-panel grid gap-3 px-4 py-5 shadow-card min-[560px]:px-7 min-[560px]:py-7";
+const reading = "paper-panel grid gap-3 px-4 py-5 shadow-card min-[560px]:px-7 min-[560px]:py-7";
 
 /** Սաղմոսի նվագարկիչը՝ ‹ Սաղմոս N ›, սահիչը և երեք կոճակները։ */
 function PsalmPlayer({ psalm }: { psalm: number | null }) {
-  const round = "grid size-11 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright/60";
+  const round = "grid size-11 place-items-center rounded-full border border-edge bg-subtle text-gold-bright/60";
   return (
-    <div className="frosted-panel grid gap-3 px-4 py-4 shadow-card">
+    <div className="paper-panel grid gap-3 px-4 py-4 shadow-card">
       <span className="grid grid-cols-[44px_1fr_44px] items-center">
         <span className={round}><ChevronLeft aria-hidden="true" size={20} /></span>
         <span className="grid justify-items-center gap-1">
@@ -401,14 +401,14 @@ function MaterialBody({ section, psalm }: { section: Section; psalm: number | nu
       // Պատասխանի տարբերակները մեկ վահանակում, տակը՝ «Կիսվել»։
       return (
         <>
-          <div className="frosted-panel grid gap-3 p-4 shadow-card">
+          <div className="paper-panel grid gap-3 p-4 shadow-card">
             <span className="grid grid-cols-[22px_1fr] items-start gap-2.5">
               <Bone className="size-5 rounded-chip" />
               <span className="grid gap-2"><Bone className="h-3.5 w-24 rounded-full" /><Bone className="h-2.5 w-44 rounded-full" /></span>
             </span>
-            {repeat(4, (index) => <span key={index} className="flex min-h-[44px] items-center rounded-button border border-glass-border bg-control px-4"><Bone className={`h-3.5 rounded-full ${["w-24", "w-28", "w-20", "w-24"][index]}`} /></span>)}
+            {repeat(4, (index) => <span key={index} className="flex min-h-[44px] items-center rounded-button border border-edge bg-control px-4"><Bone className={`h-3.5 rounded-full ${["w-24", "w-28", "w-20", "w-24"][index]}`} /></span>)}
           </div>
-          <span className="frosted-panel grid min-h-[52px] place-items-center gap-1 py-2.5 text-gold-bright/60"><Share2 aria-hidden="true" size={16} /><Bone className="h-2.5 w-12 rounded-full" /></span>
+          <span className="paper-panel grid min-h-[52px] place-items-center gap-1 py-2.5 text-gold-bright/60"><Share2 aria-hidden="true" size={16} /><Bone className="h-2.5 w-12 rounded-full" /></span>
         </>
       );
     default:
@@ -436,7 +436,7 @@ function Home() {
         <span className="m-0 flex items-center gap-3 px-1 text-[12px] font-semibold tracking-[1.6px] text-gold uppercase">Բաժիններ<span className="h-px flex-1 bg-[linear-gradient(90deg,rgb(217_181_111/45%),transparent)]" /></span>
         <ol className="m-0 grid list-none gap-2.5 p-0 min-[560px]:grid-cols-2 min-[960px]:grid-cols-3">
           {order.map((category) => (
-            <li key={category.id} className="frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 min-[560px]:min-h-[88px] min-[560px]:p-[16px]">
+            <li key={category.id} className="paper-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 min-[560px]:min-h-[88px] min-[560px]:p-[16px]">
               <span className="grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] text-gold-bright">
                 {category.id === "places" ? <PlacesIcon size={24} /> : category.id === "etiquette" ? <EtiquetteIcon size={24} /> : <CategoryIcon categoryId={category.id} categoryName={category.name} size={24} />}
               </span>
@@ -459,13 +459,13 @@ function Saved({ signedIn }: { signedIn: boolean }) {
     <>
       <SectionTop image={MY_CORNER_IMAGE} title="Իմ անկյունը" backLabel="Գրադարան" />
       {signedIn ? (
-        <div className="frosted-panel grid gap-3 p-4">
+        <div className="paper-panel grid gap-3 p-4">
           <span className="flex items-center justify-between"><span className="grid gap-2"><Bone className="h-4 w-40 rounded-full" /><Bone className="h-3 w-24 rounded-full" /></span><Bone className="h-8 w-14 rounded-full" /></span>
           <Bone className="h-14 w-full rounded-button opacity-70" />
           <span className="grid grid-cols-7 gap-1.5">{repeat(28, (index) => <span key={index} className="page-bone aspect-square rounded-control" />)}</span>
         </div>
       ) : (
-        <div className="frosted-panel grid justify-items-center gap-3 px-5 py-6">
+        <div className="paper-panel grid justify-items-center gap-3 px-5 py-6">
           <Bone className="size-11 rounded-full" />
           <Bone className="h-4 w-40 rounded-full" />
           <Lines count={3} className="h-3" last="w-1/2" center />
@@ -503,15 +503,15 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
         <>
           <PageHeader showSearch={false} backTo="/" backLabel={<Bone className="h-3.5 w-32 rounded-full" />} title={`Սաղմոս ${kind.psalm}:${kind.verse}`} />
           <div className="mt-4 grid gap-4">
-            <div className="frosted-panel grid justify-items-center gap-3 px-5 py-8 shadow-card min-[560px]:px-9 min-[560px]:py-10">
+            <div className="paper-panel grid justify-items-center gap-3 px-5 py-8 shadow-card min-[560px]:px-9 min-[560px]:py-10">
               <span className="mb-1 text-[13px] font-bold tracking-[0.04em] text-gold">Սաղմոս {kind.psalm}:{kind.verse}</span>
               <Lines count={3} className="h-5" gap="gap-[16px]" last="w-2/3" center />
             </div>
             <span className="flex min-h-12 items-center justify-center gap-2 rounded-button bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[15px] font-bold text-[#2a1708] shadow-card"><BookOpen aria-hidden="true" size={18} /> Կարդալ ամբողջ սաղմոսը</span>
             <span className="flex items-center justify-between gap-2 text-[13px] font-bold text-gold-bright">
-              <span className={`inline-flex min-h-10 items-center gap-1 rounded-full border border-glass-border bg-subtle px-3.5 ${kind.verse > 1 ? "" : "invisible"}`}><ChevronLeft aria-hidden="true" size={16} />{kind.verse - 1}</span>
-              <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-glass-border bg-subtle px-3.5"><Share2 aria-hidden="true" size={16} />Կիսվել</span>
-              <span className="inline-flex min-h-10 items-center gap-1 rounded-full border border-glass-border bg-subtle px-3.5">{kind.verse + 1}<ChevronRight aria-hidden="true" size={16} /></span>
+              <span className={`inline-flex min-h-10 items-center gap-1 rounded-full border border-edge bg-subtle px-3.5 ${kind.verse > 1 ? "" : "invisible"}`}><ChevronLeft aria-hidden="true" size={16} />{kind.verse - 1}</span>
+              <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-edge bg-subtle px-3.5"><Share2 aria-hidden="true" size={16} />Կիսվել</span>
+              <span className="inline-flex min-h-10 items-center gap-1 rounded-full border border-edge bg-subtle px-3.5">{kind.verse + 1}<ChevronRight aria-hidden="true" size={16} /></span>
             </span>
           </div>
         </>
@@ -520,23 +520,23 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
       return (
         <>
           <PageHeader backTo="/" backLabel="Գրադարան" showSearch={false} title="Որոնում" eyebrow="Ամբողջ գրադարանը" description="Աղոթքներ, սաղմոսներ, սրբերի վարքեր, ընթերցումներ և հարցեր՝ մեկ տեղում։" />
-          <div className="frosted-panel mt-1 grid gap-3 p-3">
+          <div className="paper-panel mt-1 grid gap-3 p-3">
             <span className="search-field flex min-h-[52px] items-center gap-3 px-3"><Search aria-hidden="true" size={19} />{searching ? <Bone className="h-3.5 w-1/3 rounded-full" /> : <span className="truncate text-[16px] text-faint">Օրինակ՝ առակ, Սուրբ Մարիամ, աղոթք…</span>}</span>
-            <span className="flex min-h-11 items-center gap-2.5 rounded-button border border-glass-border bg-subtle px-3.5 text-[13px] font-semibold text-gold-bright"><Filter aria-hidden="true" size={16} />Զտել արդյունքները<ChevronDown aria-hidden="true" size={17} className="ml-auto" /></span>
+            <span className="flex min-h-11 items-center gap-2.5 rounded-button border border-edge bg-subtle px-3.5 text-[13px] font-semibold text-gold-bright"><Filter aria-hidden="true" size={16} />Զտել արդյունքները<ChevronDown aria-hidden="true" size={17} className="ml-auto" /></span>
           </div>
           {searching ? (
             // Արդյունքների ցանկը՝ ինչպես MaterialListSkeleton-ը։
             <div className="mt-4 grid gap-2.5">
               <Bone className="ml-1 h-3 w-32 rounded-full" />
               {repeat(4, (index) => (
-                <span key={index} className="frosted-card grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-3 p-3 min-[560px]:grid-cols-[96px_minmax(0,1fr)]">
+                <span key={index} className="paper-card grid min-h-[122px] grid-cols-[78px_minmax(0,1fr)] items-start gap-3 p-3 min-[560px]:grid-cols-[96px_minmax(0,1fr)]">
                   <Bone className="aspect-[4/3] w-full rounded-control" />
                   <span className="grid gap-2 pt-1"><Bone className="h-5 w-1/3 rounded-full" /><Bone className="h-4 w-4/5 rounded-full" /><Bone className="h-3 w-2/3 rounded-full" /></span>
                 </span>
               ))}
             </div>
           ) : (
-            <div className="frosted-panel mt-4 grid gap-2 p-5 text-left">
+            <div className="paper-panel mt-4 grid gap-2 p-5 text-left">
               <Search aria-hidden="true" size={26} strokeWidth={1.6} className="text-gold-bright" />
               <strong className="font-noto text-[16px] text-ink">Գրիր այն, ինչ փնտրում ես</strong>
               <span className="text-[13px] text-muted">Կարող ես որոնել նաև բաժնով, ամսաթվով կամ Telegram հղումով։</span>
@@ -552,7 +552,7 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
           <PageHeader backTo="/saved" backLabel="Իմ անկյունը" showSearch={false} title={<Bone className="mx-auto h-[26px] w-36 rounded-full" />} />
           <Bone className="mx-auto mt-1 mb-4 h-3.5 w-48 rounded-full" />
           <div className="grid gap-4">{repeat(3, (index) => (
-            <div key={index} className="frosted-panel grid gap-3 p-4">
+            <div key={index} className="paper-panel grid gap-3 p-4">
               <Bone className="h-4 w-40 rounded-full" />
               <span className="grid grid-cols-2 gap-2">{repeat(2, (cell) => <span key={cell} className="grid justify-items-center gap-2 rounded-button bg-subtle p-3"><Bone className="h-6 w-10 rounded-full" /><Bone className="h-2.5 w-20 rounded-full" /></span>)}</span>
             </div>
@@ -566,7 +566,7 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
           <p className="mx-auto mt-2 mb-4 max-w-[34rem] text-center text-[14.5px] leading-relaxed text-muted">Կարճ տեսանյութեր՝ ինչպես օգտվել կայքից։ Սեղմեք վերնագրի վրա, և տեսանյութը կբացվի։</p>
           <ol className="m-0 grid list-none gap-2.5 p-0 min-[760px]:grid-cols-2">
             {repeat(10, (index) => (
-              <li key={index} className="frosted-card flex min-h-[60px] items-center gap-3 px-3 py-2.5">
+              <li key={index} className="paper-card flex min-h-[60px] items-center gap-3 px-3 py-2.5">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[radial-gradient(circle_at_35%_30%,#f1d79c,#c99a4b_60%,#a87a32)] text-[15px] font-bold text-[#2a1708] tabular-nums">{index + 1}</span>
                 <Bone className={`h-4 rounded-full ${index % 3 === 1 ? "w-3/5" : "w-2/5"}`} />
                 <CirclePlay aria-hidden="true" size={24} className="ml-auto shrink-0 text-gold-bright/50" />
@@ -582,29 +582,29 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
           <p className="mx-auto mt-2 mb-4 max-w-[620px] text-center text-[14px] leading-relaxed text-muted">Հայաստանի վանքերն ու եկեղեցիները քարտեզի վրա։ Հպեք եկեղեցուն՝ տեղեկության և ճանապարհի համար։</p>
           <div className="mx-auto mb-3 grid w-full max-w-[560px] gap-2">
             <span className="flex items-stretch gap-2">
-              <span className="frosted-card grid min-h-[52px] flex-1 place-items-center gap-1 p-1.5"><Bone className="h-4 w-10 rounded-full" /><Bone className="h-2.5 w-28 rounded-full" /></span>
-              <span className="frosted-card grid w-14 shrink-0 place-items-center text-gold-bright/60"><SlidersHorizontal aria-hidden="true" size={18} /></span>
+              <span className="paper-card grid min-h-[52px] flex-1 place-items-center gap-1 p-1.5"><Bone className="h-4 w-10 rounded-full" /><Bone className="h-2.5 w-28 rounded-full" /></span>
+              <span className="paper-card grid w-14 shrink-0 place-items-center text-gold-bright/60"><SlidersHorizontal aria-hidden="true" size={18} /></span>
             </span>
-            <span className="frosted-card flex min-h-12 items-center justify-center gap-2 px-4 text-[14px] font-semibold text-gold-bright/70"><LocateFixed aria-hidden="true" size={18} />Իմ մոտակայքում</span>
+            <span className="paper-card flex min-h-12 items-center justify-center gap-2 px-4 text-[14px] font-semibold text-gold-bright/70"><LocateFixed aria-hidden="true" size={18} />Իմ մոտակայքում</span>
           </div>
           <span className="block aspect-[1/0.92] max-h-[min(78svh,720px)] min-h-[320px] w-full p-[14px] min-[860px]:aspect-auto min-[860px]:h-[min(72svh,560px)]"><ArmeniaOutline /></span>
           <span className="mx-auto mt-4 flex flex-wrap justify-center gap-2 text-[13.5px]">
             <span className="flex items-center gap-2 rounded-button bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 font-bold text-[#2a1708] opacity-70"><Plus aria-hidden="true" size={16} strokeWidth={2.4} /> Ավելացնել սրբավայր</span>
             <span className="flex items-center gap-2 rounded-button border border-[rgb(217_181_111/35%)] bg-[rgb(217_181_111/10%)] px-4 py-2.5 font-semibold text-gold-bright/70"><Send aria-hidden="true" size={16} /> Բոտի միջոցով</span>
           </span>
-          <div className="mt-5 grid grid-cols-2 gap-2"><span className="frosted-card col-span-2 flex h-14 items-center justify-between px-4"><Bone className="h-4 w-20 rounded-full" /><Bone className="h-3 w-8 rounded-full" /></span>{repeat(6, (index) => <span key={index} className="frosted-card flex h-14 items-center justify-between px-4"><Bone className="h-4 w-20 rounded-full" /><Bone className="h-3 w-6 rounded-full" /></span>)}</div>
+          <div className="mt-5 grid grid-cols-2 gap-2"><span className="paper-card col-span-2 flex h-14 items-center justify-between px-4"><Bone className="h-4 w-20 rounded-full" /><Bone className="h-3 w-8 rounded-full" /></span>{repeat(6, (index) => <span key={index} className="paper-card flex h-14 items-center justify-between px-4"><Bone className="h-4 w-20 rounded-full" /><Bone className="h-3 w-6 rounded-full" /></span>)}</div>
         </>
       );
     case "place":
       return (
         <>
           <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={<Bone className="mx-auto h-[26px] w-52 rounded-full" />}
-            action={<span className="grid size-10 place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright/60"><Share2 aria-hidden="true" size={17} /></span>} />
+            action={<span className="grid size-10 place-items-center rounded-full border border-edge bg-subtle text-gold-bright/60"><Share2 aria-hidden="true" size={17} /></span>} />
           <Bone className="mx-auto mt-1 mb-4 h-3 w-48 rounded-full" />
           <div className="grid gap-4">
             <Bone className="mx-auto aspect-[4/3] w-full max-w-[720px] rounded-card" />
             <Bone className="mx-auto h-11 w-full max-w-[420px] rounded-button opacity-70" />
-            {repeat(2, (index) => <div key={index} className="frosted-panel grid gap-3 p-5"><Bone className="h-4 w-32 rounded-full" /><Lines count={3} /></div>)}
+            {repeat(2, (index) => <div key={index} className="paper-panel grid gap-3 p-5"><Bone className="h-4 w-32 rounded-full" /><Lines count={3} /></div>)}
           </div>
         </>
       );
@@ -613,7 +613,7 @@ function Content({ kind, names, signedIn, searching }: { kind: Kind; names: Reco
       return (
         <>
           <PageHeader backTo="/" backLabel={<Bone className="h-3.5 w-24 rounded-full" />} showSearch={false} title={<Bone className="mx-auto h-[26px] w-48 rounded-full" />} />
-          <div className="mt-4 grid gap-3">{repeat(3, (index) => <div key={index} className="frosted-panel grid gap-3 p-5"><Bone className="h-4 w-40 rounded-full" /><Lines count={3} /></div>)}</div>
+          <div className="mt-4 grid gap-3">{repeat(3, (index) => <div key={index} className="paper-panel grid gap-3 p-5"><Bone className="h-4 w-40 rounded-full" /><Lines count={3} /></div>)}</div>
         </>
       );
   }

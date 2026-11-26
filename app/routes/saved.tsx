@@ -150,14 +150,14 @@ const SavedGroup = memo(function SavedGroup({ group, open, query }: {
   );
 
   return (
-    <details className="group overflow-hidden frosted-panel animate-glass-enter" open={open}>
+    <details className="group overflow-hidden paper-panel animate-rise-in" open={open}>
       <summary className="grid min-h-[66px] cursor-pointer list-none grid-cols-[34px_minmax(0,1fr)_auto_20px] items-center gap-2.5 px-[13px] py-[11px] outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-[rgb(217_181_111/42%)]">
         <CategoryIcon categoryId={group.categoryId} categoryName={group.categoryName} size={20} strokeWidth={1.8} />
         <span className="grid gap-0.5">
           <strong className="text-[13px]">{group.categoryName}</strong>
           <small className="text-[11px] text-faint">{materials.length} պահված նյութ</small>
         </span>
-        <span className="grid h-8 min-w-8 place-items-center rounded-full border border-glass-border px-2 text-[12px] text-gold-bright tabular-nums">{materials.length}</span>
+        <span className="grid h-8 min-w-8 place-items-center rounded-full border border-edge px-2 text-[12px] text-gold-bright tabular-nums">{materials.length}</span>
         <ChevronDown className="text-gold transition-transform duration-[180ms] group-open:rotate-180" aria-hidden="true" size={18} />
       </summary>
       <ol className="m-0 grid list-none gap-2.5 px-[9px] pb-[9px]">
@@ -200,8 +200,8 @@ function CornerTabs({ tab, onChoose, notes, saved }: { tab: CornerTab; onChoose:
   const questions = notes.filter((item) => item.kind === "question" && !item.answeredAt).length;
   const count: Record<CornerTab, string> = { saved: saved ? String(saved) : "", reading: "", notes: notes.length ? String(notes.length) : "" };
   return (
-    <div className="relative grid grid-cols-3 gap-1 rounded-card border border-glass-border bg-subtle p-1.5" role="tablist" aria-label="Իմ անկյունը">
-      {/* Ակտիվ ներդիրի ապակե ֆոնը սահում է ներդիրից ներդիր։ */}
+    <div className="relative grid grid-cols-3 gap-1 rounded-card border border-edge bg-subtle p-1.5" role="tablist" aria-label="Իմ անկյունը">
+      {/* Ակտիվ ներդիրի ֆոնը սահում է ներդիրից ներդիր։ */}
       <span aria-hidden="true" className="tab-glider pointer-events-none absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-20px)/3)] rounded-button"
         style={{ transform: `translateX(calc(${CORNER_TABS.findIndex((item) => item.id === tab)} * (100% + 4px)))` }} />
       {CORNER_TABS.map(({ id, label, icon: Icon }) => (
@@ -252,7 +252,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
         />
       ) : !loaderData.user ? (
         // Sign-in: a centred card whose buttons keep a phone's width on wide screens too.
-        <section className="frosted-panel grid justify-items-center gap-3 px-5 py-7 text-center min-[560px]:px-10 min-[560px]:py-9">
+        <section className="paper-panel grid justify-items-center gap-3 px-5 py-7 text-center min-[560px]:px-10 min-[560px]:py-9">
           <span className="grid size-12 place-items-center rounded-full border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/10%)] text-gold-bright"><Bookmark aria-hidden="true" size={24} strokeWidth={1.7} /></span>
           <h2 className="m-0 max-w-[420px] font-noto text-[17px] leading-snug text-ink">{loaderData.authStatus === "invalid" ? "Մուտքը դադարել է" : "Մուտք «Իմ անկյունը»"}</h2>
           <p className="m-0 max-w-[420px] text-[13px] leading-[1.6] text-muted">{loaderData.authStatus === "invalid"
@@ -265,13 +265,13 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           {loaderData.authStatus === "guest" || loaderData.authStatus === "invalid" ? (
             <div className="mt-1 grid w-full max-w-[320px] gap-2">
               {loaderData.googleAvailable ? (
-                <a className="flex min-h-12 w-full items-center justify-center gap-3 glass-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
+                <a className="flex min-h-12 w-full items-center justify-center gap-3 menu-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/google?return=/saved">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                   Մուտք Google-ով
                 </a>
               ) : null}
               {/* Telegram's own sign-in page; the same account as in the Mini App. */}
-              <a className="flex min-h-12 w-full items-center justify-center gap-3 glass-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/telegram/start?return=/saved">
+              <a className="flex min-h-12 w-full items-center justify-center gap-3 menu-tile rounded-button px-3.5 text-[14px] font-semibold text-ink no-underline shadow-card" href="/auth/telegram/start?return=/saved">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2AABEE" /><path fill="#fff" d="M5.4 11.8l11.6-4.5c.54-.2 1 .13.83.94l-1.98 9.3c-.15.66-.54.82-1.1.51l-3-2.22-1.45 1.4c-.16.16-.3.3-.6.3l.21-3.05 5.56-5.02c.24-.21-.05-.33-.38-.12l-6.87 4.33-2.96-.92c-.64-.2-.66-.64.14-.95z" /></svg>
                   Մուտք Telegram-ով
               </a>
@@ -309,7 +309,7 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
               </Link>
             </EmptyState>
           ) : loaderData.groups.length === 0 ? (
-            <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-[13px] gap-y-[11px] frosted-panel p-4 text-muted [&>a]:col-start-2 [&>a]:w-fit [&>a]:text-[12px] [&>a]:font-[740] [&>a]:text-gold-bright [&>a]:no-underline [&_h2]:m-0 [&_h2]:text-[15px] [&_h2]:leading-[1.45] [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[12px] [&_p]:leading-[1.5]">
+            <div className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-x-[13px] gap-y-[11px] paper-panel p-4 text-muted [&>a]:col-start-2 [&>a]:w-fit [&>a]:text-[12px] [&>a]:font-[740] [&>a]:text-gold-bright [&>a]:no-underline [&_h2]:m-0 [&_h2]:text-[15px] [&_h2]:leading-[1.45] [&_h2]:text-ink [&_p]:m-0 [&_p]:text-[12px] [&_p]:leading-[1.5]">
               <span className="grid size-11 place-items-center rounded-button border border-[rgb(217_181_111/22%)] bg-[rgb(217_181_111/8%)] text-gold-bright" aria-hidden="true">
                 <Search size={22} strokeWidth={1.7} />
               </span>
@@ -335,8 +335,8 @@ export default function Saved({ loaderData }: Route.ComponentProps) {
           )}
           {loaderData.user?.source === "google" ? (
             // Joining moves this account's saved items to the Telegram account, so the Mini App shows them too.
-            <div className="mt-4 grid gap-2 border-t border-glass-border px-1 pt-4">
-              <a className="flex min-h-11 items-center justify-center gap-2 rounded-button border border-glass-border bg-subtle px-3 text-[13px] font-bold text-ink no-underline" href="/auth/telegram/start?return=/saved">
+            <div className="mt-4 grid gap-2 border-t border-edge px-1 pt-4">
+              <a className="flex min-h-11 items-center justify-center gap-2 rounded-button border border-edge bg-subtle px-3 text-[13px] font-bold text-ink no-underline" href="/auth/telegram/start?return=/saved">
                 Կապել Telegram հաշիվս
               </a>
               <p className="m-0 text-[11.5px] leading-snug text-faint">Կապելուց հետո պահածներդ, նշումներդ և հիշեցումներդ նույնը կլինեն թե՛ կայքում, թե՛ Telegram-ի Mini App-ում։</p>

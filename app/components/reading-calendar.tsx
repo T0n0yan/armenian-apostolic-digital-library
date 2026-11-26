@@ -106,7 +106,7 @@ function DayEntries({ day, today, count }: { day: string; today: string | null; 
             const { verb, icon: Icon } = ENTRY_TEXT[entry.kind];
             return (
               <li key={entry.materialId}>
-                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-1.5 py-1.5 text-inherit no-underline hover:bg-glass-strong" to={materialPath(entry.materialId, entry.categoryName, { title: entry.title })}>
+                <Link className="grid grid-cols-[30px_1fr] items-center gap-2.5 rounded-control px-1.5 py-1.5 text-inherit no-underline hover:bg-surface-strong" to={materialPath(entry.materialId, entry.categoryName, { title: entry.title })}>
                   <span className="grid size-[30px] place-items-center rounded-full bg-[rgb(217_181_111/14%)] text-gold-bright"><Icon aria-hidden="true" size={15} /></span>
                   <span className="grid min-w-0">
                     <span className="text-[11px] font-semibold text-muted">{verb}{entry.categoryName ? ` · ${entry.categoryName}` : ""}</span>
@@ -170,7 +170,7 @@ export function ReadingCalendar({ days, joinedAt }: { days: Record<string, numbe
   const isCurrentMonth = month.getFullYear() === new Date().getFullYear() && month.getMonth() === new Date().getMonth();
   const shift = (by: number) => setMonth((value) => new Date(value.getFullYear(), value.getMonth() + by, 1));
   return (
-    <section className="frosted-panel grid gap-3 px-4 py-4" aria-label="Ընթերցանության օրացույց">
+    <section className="paper-panel grid gap-3 px-4 py-4" aria-label="Ընթերցանության օրացույց">
       <div className="flex items-center justify-between gap-3">
         <div className="grid gap-0.5">
           <strong className="text-[14.5px] text-ink">{readToday ? "Այսօր կարդացել եք ✓" : "Այսօր դեռ չեք կարդացել"}</strong>
@@ -190,7 +190,7 @@ export function ReadingCalendar({ days, joinedAt }: { days: Record<string, numbe
       {ranges.length > 1 ? (
       <div className="grid gap-1 rounded-control bg-subtle p-1" style={{ gridTemplateColumns: `repeat(${ranges.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label="Ժամանակահատված">
         {ranges.map((option) => (
-          <button key={option.value} className={`min-h-8 cursor-pointer rounded-chip border-0 text-[11.5px] font-semibold ${range === option.value ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
+          <button key={option.value} className={`min-h-8 cursor-pointer rounded-chip border-0 text-[11.5px] font-semibold ${range === option.value ? "chip-on text-gold-bright" : "bg-transparent text-muted"}`} type="button" role="radio" aria-checked={range === option.value} onClick={() => setRange(option.value)}>{option.label}</button>
         ))}
       </div>
       ) : null}

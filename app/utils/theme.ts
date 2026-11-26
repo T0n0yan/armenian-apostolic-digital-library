@@ -50,6 +50,19 @@ export function readStoredTextSize(): TextSizePreference {
   return normalizeTextSizePreference(readStorage(TEXT_SIZE_STORAGE_KEY));
 }
 
+/**
+ * Կոճակների գույնի անցումները (hover-ի համար են) թեման փոխելիս չեն սահում, այլ ավարտվում են անմիջապես։
+ * Ոճերը հաշվվում են հենց հիմա (մեկ անգամ, միևնույն է պետք էր), ու ստեղծված անցումները փակվում են։
+ * Շարժման անցումները (ընտրված կոճակի սահելը) մնում են։
+ */
+function finishColorTransitions() {
+  if (typeof CSSTransition === "undefined" || typeof document.getAnimations !== "function") return;
+  void getComputedStyle(document.documentElement).color;
+  for (const animation of document.getAnimations()) {
+    if (animation instanceof CSSTransition && !/^(transform|translate|scale|rotate|opacity)$/u.test(animation.transitionProperty)) animation.finish();
+  }
+}
+
 export function applyThemePreference(preference: ThemePreference) {
   const root = window.document.documentElement;
   const telegramTheme = root.dataset.telegramContext === "true" &&
@@ -63,7 +76,13 @@ export function applyThemePreference(preference: ThemePreference) {
     readSunPlaceSafely(),
   );
   root.dataset.themePreference = preference;
-  root.dataset.theme = resolved;
+  // Գույները փոխվում են միանգամից, մեկ անգամ (ինչպես մյուս կայքերում)։ Առաջ View Transition-ով
+  // երկու ամբողջական էկրանի նկար էր խառնվում 0,42 վրկ-ում, և ամբողջ էջի ոճերը երկու անգամ էին
+  // հաշվվում. հեռախոսում թեմայի փոխումը մինչև 1 վրկ կախվում էր (2026-11-25)։
+  if (root.dataset.theme !== resolved) {
+    root.dataset.theme = resolved;
+    finishColorTransitions();
+  }
   const color = THEME_COLORS[resolved];
   window.document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
   // Match Telegram's own header and background to the page so the Mini App has no mismatched band.

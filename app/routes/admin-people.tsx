@@ -104,8 +104,8 @@ export default function AdminPeople({ loaderData }: Route.ComponentProps) {
   const [exportError, setExportError] = useState(false);
   const total = (tab === "people" ? people?.total : devices?.total) ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const row = "grid gap-0.5 rounded-button border border-glass-border bg-subtle px-3 py-2.5 text-[12.5px]";
-  const tabClass = (active: boolean) => `inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-control text-[13px] font-bold no-underline ${active ? "glass-selected text-gold-bright" : "text-muted"}`;
+  const row = "grid gap-0.5 rounded-button border border-edge bg-subtle px-3 py-2.5 text-[12.5px]";
+  const tabClass = (active: boolean) => `inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-control text-[13px] font-bold no-underline ${active ? "chip-on text-gold-bright" : "text-muted"}`;
 
   const download = async () => {
     setExportError(false);

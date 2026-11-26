@@ -1,4 +1,5 @@
 import { Check, ChevronLeft, ChevronRight, Download, Image as ImageIcon, Link2, Minus, Plus, RotateCcw, Send, Share2, SlidersHorizontal, Type, Heading, X } from "lucide-react";
+import { useBackToClose } from "../hooks/use-back-to-close";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -59,7 +60,7 @@ function Segmented<T extends string | number | boolean>({ label, value, options,
       <div className="flex gap-1 rounded-control bg-[rgb(127_127_127/12%)] p-[3px]" role="radiogroup" aria-label={label}>
         {options.map(([option, text]) => (
           <button key={String(option)} type="button" role="radio" aria-checked={option === value}
-            className={`min-h-8 flex-1 cursor-pointer rounded-chip border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "glass-selected text-gold-bright" : "bg-transparent text-muted"}`}
+            className={`min-h-8 flex-1 cursor-pointer rounded-chip border-0 px-1 text-[12.5px] font-bold transition-colors ${option === value ? "chip-on text-gold-bright" : "bg-transparent text-muted"}`}
             onClick={() => onChange(option)}>{text}</button>
         ))}
       </div>
@@ -143,6 +144,8 @@ function snap(center: number, target: number) {
  * մեջտեղին, և դրանից է կախված, թե որքան տեքստ է տեղավորվում։ apostolic.am-ը միշտ բաց է մնում։
  */
 export function StoryEditor({ source, onClose, onLink }: { source: StorySource; onClose: () => void; onLink: () => void }) {
+  // Հեռախոսի «հետ»-ը փակում է պատուհանը (առաջ ետևի էջն էր փոխվում, իսկ պատուհանը մնում էր վրան)։
+  useBackToClose(onClose);
   useScrollLock(true);
   const saved = useMemo(() => readJson<Saved>(SETTINGS_KEY, {}), []);
   const [design, setDesign] = useState(() => saved.design ?? STORY_DESIGNS[0].id);
@@ -441,15 +444,16 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
 
   const chosenNow = textMode === "custom" ? custom : textMode === "all" ? range(units.length) : range(shownCount);
   const disabled = !ready || tooLong || busy;
-  const primary = "inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-5 text-[14.5px] font-bold text-[#2a1708] shadow-[0_8px_22px_rgb(176_125_46/35%)] disabled:cursor-default disabled:opacity-50";
-  const ghost = "inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-glass-border bg-subtle px-4 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
-  const chip = (on: boolean) => `inline-flex min-h-8 cursor-pointer items-center rounded-full border px-3 text-[12px] font-bold ${on ? "border-[#d9b56f] bg-[rgb(217_181_111/20%)] text-ink" : "border-glass-border bg-transparent text-muted"}`;
+  // Երկու կոճակը կիսում են լայնությունը (min-w-0), նեղ էկրանին տառը փոքրանում է և տողը կարող է բաժանվել. էկրանից դուրս չեն գալիս։
+  const primary = "inline-flex min-h-12 min-w-0 flex-1 basis-0 cursor-pointer items-center justify-center gap-2 rounded-full border-0 bg-[linear-gradient(135deg,#ecd08f,#b9852f)] px-3 py-1.5 text-center text-[clamp(12.5px,3.6vw,14.5px)] leading-tight font-bold text-[#2a1708] shadow-[0_8px_22px_rgb(176_125_46/35%)] disabled:cursor-default disabled:opacity-50";
+  const ghost = "inline-flex min-h-12 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-edge bg-subtle px-4 text-[13px] font-bold text-ink disabled:cursor-default disabled:opacity-50";
+  const chip = (on: boolean) => `inline-flex min-h-8 cursor-pointer items-center rounded-full border px-3 text-[12px] font-bold ${on ? "border-[#d9b56f] bg-[rgb(217_181_111/20%)] text-ink" : "border-edge bg-transparent text-muted"}`;
   const tabButton = (on: boolean) => `flex min-h-12 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-control border-0 text-[11px] font-bold transition-colors ${on ? "bg-[rgb(217_181_111/16%)] text-gold-bright" : "bg-transparent text-muted"}`;
   const primaryAction = canStory
-    ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
+    ? <button className={primary} type="button" disabled={disabled} onClick={telegramStory}><Send className="shrink-0" size={18} aria-hidden="true" /> {pageCount > 1 ? `Story (${page + 1}/${pageCount})` : "Telegram story"}</button>
     : canShareFiles
-      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 size={18} aria-hidden="true" /> Կիսվել նկարով{pageCount > 1 ? ` · ${pageCount}` : ""}</button>
-      : <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>;
+      ? <button className={primary} type="button" disabled={disabled} onClick={shareFiles}><Share2 className="shrink-0" size={18} aria-hidden="true" /> Կիսվել նկարով{pageCount > 1 ? ` · ${pageCount}` : ""}</button>
+      : <button className={primary} type="button" disabled={disabled} onClick={canDownloadInTelegram ? telegramSave : saveFiles}><Download className="shrink-0" size={18} aria-hidden="true" /> Պահել նկար{pageCount > 1 ? "ները" : "ը"}</button>;
   // Ներբեռնելը (վերևի պատկերակը). Mini App-ում՝ Telegram-ի միջոցով։
   const saveAction = canDownloadInTelegram ? telegramSave : saveFiles;
 
@@ -504,7 +508,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
               onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} />
             {/* «Ձևավորել»-ը նկարի վրա է միայն դիտելիս. ձևավորելիս նկարը ամբողջությամբ ազատ է։ */}
             {editing ? null : (
-              <button className="absolute right-2.5 top-2.5 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-[rgb(20_12_24/55%)] px-3 text-[12.5px] font-bold text-white shadow-[0_4px_14px_rgb(0_0_0/30%)] backdrop-blur-md"
+              <button className="absolute right-2.5 top-2.5 inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border-0 bg-[rgb(20_12_24/55%)] px-3 text-[12.5px] font-bold text-white shadow-[0_4px_14px_rgb(0_0_0/30%)]"
                 type="button" onClick={() => setEditing(true)}>
                 <SlidersHorizontal size={16} aria-hidden="true" /> Ձևավորել
               </button>
@@ -524,7 +528,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
         </div>
 
         {editing ? (
-          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-card border-t border-glass-border liquid-sheet shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-card min-[860px]:border">
+          <section className="story-panel flex max-h-[46svh] min-h-0 flex-col rounded-t-card border-t border-edge paper-sheet shadow-[0_-12px_30px_rgb(0_0_0/22%)] min-[860px]:my-4 min-[860px]:max-h-none min-[860px]:w-[400px] min-[860px]:rounded-card min-[860px]:border">
             <nav className="grid grid-cols-3 gap-1 p-2 pb-1" aria-label="Ձևավորման բաժիններ">
               <button className={tabButton(tab === "background")} type="button" aria-pressed={tab === "background"} onClick={() => setTab("background")}><ImageIcon size={18} aria-hidden="true" />Ֆոն</button>
               <button className={tabButton(tab === "title")} type="button" aria-pressed={tab === "title"} onClick={() => setTab("title")}><Heading size={18} aria-hidden="true" />Վերնագիր</button>
@@ -576,7 +580,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
                             <li key={index}>
                               <button type="button" aria-pressed={on} onClick={() => toggleUnit(index)}
                                 className={`flex w-full cursor-pointer items-start gap-2 rounded-control border-0 p-2 text-left text-[12.5px] leading-snug ${on ? "bg-[rgb(217_181_111/16%)] text-ink" : "bg-transparent text-muted"}`}>
-                                <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-chip border ${on ? "border-[#b07d2e] bg-[#d9b56f] text-[#2a1708]" : "border-glass-border"}`}>{on ? <Check size={12} aria-hidden="true" /> : null}</span>
+                                <span className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-chip border ${on ? "border-[#b07d2e] bg-[#d9b56f] text-[#2a1708]" : "border-edge"}`}>{on ? <Check size={12} aria-hidden="true" /> : null}</span>
                                 <span className="line-clamp-2">{unit.text}</span>
                               </button>
                             </li>
@@ -599,7 +603,7 @@ export function StoryEditor({ source, onClose, onLink }: { source: StorySource; 
         {notice ? <p className="m-0 text-center text-[12.5px] font-semibold text-gold-bright" role="status">{notice}</p> : null}
         <div className="mx-auto flex w-full max-w-[520px] gap-2">
           {primaryAction}
-          <button className={`${ghost} flex-1`} type="button" onClick={() => { onClose(); onLink(); }}><Link2 size={17} aria-hidden="true" /> Կիսվել հղումով</button>
+          <button className="inline-flex min-h-12 min-w-0 flex-1 basis-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-edge bg-subtle px-3 py-1.5 text-center text-[clamp(12.5px,3.6vw,14px)] leading-tight font-bold text-ink" type="button" onClick={() => { onClose(); onLink(); }}><Link2 className="shrink-0" size={17} aria-hidden="true" /> Կիսվել հղումով</button>
         </div>
       </footer>
     </div>,

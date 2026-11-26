@@ -165,7 +165,7 @@ function searchMaterialSelect() {
 
 async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
   if (rows.length === 0) return [];
-  const mediaRows: MediaRow[] = [];
+  const statements: D1PreparedStatement[] = [];
   // Each row binds 4 values (media and site attachments); D1 allows 100 per statement.
   const batchSize = 20;
   for (let offset = 0; offset < rows.length; offset += batchSize) {
@@ -173,7 +173,7 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
     const clauses = batch.map(() => "(chat_id = ? AND message_id = ?)").join(" OR ");
     const bindings = batch.flatMap((row) => [row.chat_id, row.message_id]);
     // Telegram's own media, then recordings added on the site (material_attachments).
-    const media = await database.prepare(
+    statements.push(database.prepare(
       `SELECT chat_id, message_id, media_index, kind, mime_type, file_name,
          size_bytes, width, height, duration, title, performer, waveform,
          alt_text, thumbnail_r2_key, r2_key, r2_etag, thumbnail_etag
@@ -184,9 +184,12 @@ async function hydrateRows(database: D1Database, rows: MaterialRow[]) {
          '', NULL, r2_key, r2_etag, NULL
        FROM material_attachments WHERE (${clauses})
        ORDER BY chat_id, message_id, media_index`,
-    ).bind(...bindings, ...bindings).all<MediaRow>();
-    mediaRows.push(...media.results);
+    ).bind(...bindings, ...bindings));
   }
+  // Բոլոր փաթեթները մեկ batch-ով՝ մեկ գնալ-գալով բազա։ Առաջ 200 գրառումը 10 հաջորդական հարցում էր (~2 վ)։
+  const mediaRows: MediaRow[] = (statements.length === 1
+    ? [await statements[0].all<MediaRow>()]
+    : await database.batch<MediaRow>(statements)).flatMap((result) => result.results);
   const byMaterial = new Map<string, BridgeMedia[]>();
   for (const item of mediaRows) {
     const key = `${item.chat_id}:${item.message_id}`;
@@ -364,6 +367,10 @@ async function loadCloudLibraryCategoryPosts(
   const bindings: unknown[] = [topic.id];
   if (position) bindings.push(position.publishedAt, position.publishedAt, position.messageId);
   bindings.push(safeLimit + 1);
+  // Ընդհանուր թիվը՝ գրառումների հետ զուգահեռ, ոչ թե դրանցից հետո։
+  const totalQuery = database.prepare(
+    "SELECT COUNT(*) AS count FROM library_materials WHERE topic_key = ? AND sync_state = 'ready' AND deleted_at IS NULL",
+  ).bind(topic.id).first<{ count: number }>();
   const result = await database.prepare(
     `${materialSelect()}
      WHERE materials.topic_key = ? AND materials.sync_state = 'ready' AND materials.deleted_at IS NULL
@@ -373,11 +380,8 @@ async function loadCloudLibraryCategoryPosts(
   ).bind(...bindings).all<MaterialRow>();
   const hasMore = result.results.length > safeLimit;
   const rows = result.results.slice(0, safeLimit);
-  const posts = await hydrateRows(database, rows);
+  const [posts, total] = await Promise.all([hydrateRows(database, rows), totalQuery]);
   const last = rows.at(-1);
-  const total = await database.prepare(
-    "SELECT COUNT(*) AS count FROM library_materials WHERE topic_key = ? AND sync_state = 'ready' AND deleted_at IS NULL",
-  ).bind(topic.id).first<{ count: number }>();
   return {
     posts,
     total: total?.count ?? posts.length,
@@ -571,6 +575,3 @@ async function loadSearchCloudLibraryPosts(
   };
 }
 
-export function cloudSearchScoreRank(value: Parameters<typeof searchScoreRank>[0]) {
-  return searchScoreRank(value);
-}

@@ -51,7 +51,7 @@ const CategoryCard = memo(function CategoryCard({category, index}: { category: C
     const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
         <Link
-            className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
+            className={`paper-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
             to={targetPath}
             aria-busy={isOpening || undefined}
             // Start the section's picture as soon as a finger or pointer reaches the card.
@@ -90,7 +90,7 @@ function SiteSectionCard({to, title, note, icon, index}: { to: string; title: st
     const navigation = useNavigation();
     const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, to);
     return (<li className="hero-rise" style={{animationDelay: `${380 + index * 70}ms`}}>
-        <Link className={`frosted-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
+        <Link className={`paper-card relative flex min-h-[76px] items-center gap-[14px] px-3.5 py-3 text-inherit no-underline min-[560px]:min-h-[88px] min-[560px]:p-[16px] ${isOpening ? "is-opening" : ""}`}
             to={to} aria-busy={isOpening || undefined} onClick={(event) => { if (isOpening) event.preventDefault(); }}>
             <span className="topic-icon relative z-1 grid size-[42px] shrink-0 place-items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[radial-gradient(circle_at_35%_30%,rgb(255_255_255/18%),transparent_65%)] text-gold-bright shadow-[inset_0_1px_0_rgb(255_255_255/18%)]"
                 style={{"--ti-delay": `${index * 0.45}s`} as React.CSSProperties} aria-hidden="true">
@@ -148,7 +148,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
     return (<PageShell width="library">
         <div className="relative mt-[10px] w-full pt-[12px] min-[560px]:mt-[16px] min-[560px]:pt-[20px]">
             <div className="absolute top-[12px] -left-[4%] z-4 w-[25%] min-[560px]:top-[20px]">
-                <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async"/>
+                <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async" fetchPriority="low"/>
             </div>
             <ArtImage
                 className="relative z-1 block h-auto w-full"
@@ -161,7 +161,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
                 decoding="async"
             />
             <div className="absolute top-[12px] -right-[4%] z-4 w-[25%] scale-x-[-1] min-[560px]:top-[20px]">
-                <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async"/>
+                <img className="reveal-img block h-auto w-full" src={AngelLeft} srcSet={ANGEL_SRCSET} sizes={ANGEL_SIZES} alt="" width={540} height={728} decoding="async" fetchPriority="low"/>
             </div>
         </div>
         <HomeTitle/>

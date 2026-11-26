@@ -27,7 +27,8 @@ import {contentVersion} from "./data/content-version.server";
 import { setRemindersEnabled } from "./utils/reminder-store";
 import { setContentVersion, setRootSearchState } from "./utils/search-state";
 import {clearNavigationCache, setNavigationCacheScope} from "./utils/navigation-cache";
-import { markAppHydrated, setPersonalContext } from "./utils/personal-data";
+import { markAppHydrated, prefetchPersonal, setPersonalContext } from "./utils/personal-data";
+import { isLibraryPath } from "./utils/material-path";
 import {applyThemePreference, readStoredThemePreference} from "./utils/theme";
 import {InstallPrompt} from "./components/install-prompt";
 import { NavigationProgress } from "./components/navigation-progress";
@@ -43,6 +44,8 @@ import { installBackgroundPlayback } from "./utils/background-playback";
 import { markPlayingCards } from "./utils/audio-dock";
 import { AudioDockBar } from "./components/audio-dock-bar";
 import "./app.css";
+import "./trchnatar-faces.css";
+import { warmTrchnatar } from "./utils/trchnatar";
 
 // Այս շերտերը էջի առաջին պատկերին պետք չեն. բեռնվում են առանձին ֆայլով, երբ բրաուզերը ազատ է
 // (հին հեռախոսներում էջը ավելի շուտ է բացվում)։
@@ -70,8 +73,8 @@ function useIdleReady() {
 // the phone's light/dark setting; elsewhere the browser's prefers-color-scheme does.
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.ico?v=2", sizes: "any" },
-  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=2" },
+  { rel: "icon", href: "/favicon.ico?v=3", sizes: "any" },
+  { rel: "icon", type: "image/png", sizes: "64x64", href: "/favicon-64.png?v=3" },
   { rel: "apple-touch-icon", href: "/apple-touch-icon.png?v=2" },
   { rel: "manifest", href: "/manifest.webmanifest?v=3" },
 ];
@@ -261,7 +264,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <ScrollRestoration getKey={({ pathname, search }) => `${pathname}${search}`} />
+        {/* Դիրքը հիշվում է պատմության ամեն քայլի համար (հետ գալիս՝ նույն տեղը), իսկ մենյուից բացված
+            էջը միշտ սկսվում է վերևից։ Առաջ հասցեով էր, ու նախկինում բացված բաժինը բացվում էր կեսից։ */}
+        <ScrollRestoration />
         <Scripts />
       </body>
     </html>
@@ -275,6 +280,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
   // (սաղմոս, աղոթք) եկողը անմիջապես տեսնում է իր փնտրածը։
   const [introHere] = useState(useLocation().pathname === "/");
   const idle = useIdleReady();
+  // Ազատ պահին՝ թռչնատառի բոլոր տառերը, որ ցանկացած էջում զարդատառը հայտնվի միանգամից։
+  useEffect(() => { if (idle) warmTrchnatar(); }, [idle]);
   // Guests have no reminders: don't ask the server for them (set before children's effects run).
   setRemindersEnabled(Boolean(loaderData.signedIn), loaderData.navigationCacheScope);
   // Մուտք չգործածի մոտ այս սարքում անձնական ոչինչ չի մնում (վերջին կարդացածը, սմայլիկները…)։
@@ -291,6 +298,28 @@ export default function App({ loaderData }: Route.ComponentProps) {
     setNavigationCacheScope(loaderData.navigationCacheScope);
   }, [loaderData.navigationCacheScope]);
   useEffect(() => { markAppHydrated(); }, []);
+  // Նյութի հղմանը մատը դիպչելիս (pointerdown) ընթերցողի անձնական մասը սկսում է բեռնվել, մինչև մատը
+  // բարձրանա. էջի տվյալը նույն պահին բերում է React Router-ը (prefetch="intent")։
+  useEffect(() => {
+    // Ոլորելիս բրաուզերը ուղարկում է pointercancel. այդ դեպքում հարցում չի արվում (ավելորդ ծախս չկա)։
+    let timer = 0;
+    const cancel = () => window.clearTimeout(timer);
+    const warm = (event: PointerEvent) => {
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.origin !== location.origin) return;
+      const parts = link.pathname.split("/").filter(Boolean);
+      if (parts.length !== 2 || !isLibraryPath(link.pathname)) return;
+      cancel();
+      timer = window.setTimeout(() => prefetchPersonal("material", link.pathname), 70);
+    };
+    document.addEventListener("pointerdown", warm, { capture: true, passive: true });
+    document.addEventListener("pointercancel", cancel, { capture: true, passive: true });
+    return () => {
+      cancel();
+      document.removeEventListener("pointerdown", warm, { capture: true });
+      document.removeEventListener("pointercancel", cancel, { capture: true });
+    };
+  }, []);
   // Բրաուզերից դուրս գալիս ձայնը չի կանգնում (utils/background-playback.ts)։
   useEffect(() => { installBackgroundPlayback(); }, []);
   // Անկյան տեսանյութին սեղմելիս՝ նրա էջը (video-dock.ts). նոր էջում նվագողի քարտը նշվում և երևում է։

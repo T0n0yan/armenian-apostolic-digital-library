@@ -8,7 +8,6 @@ export const CONTENT_CATEGORIES = [
 ] as const;
 
 export type ContentCategoryId = (typeof CONTENT_CATEGORIES)[number]["id"];
-export type ContentCategorySlug = (typeof CONTENT_CATEGORIES)[number]["slug"];
 export type CategorySort = (typeof CONTENT_CATEGORIES)[number]["defaultSort"];
 
 export type BridgeCategory = {
@@ -241,11 +240,6 @@ export type BridgeCategoryMappings = {
   posts: Record<string, ContentCategoryId>;
 };
 
-export type BridgeMediaDescriptor = BridgeMedia & {
-  chatId: string;
-  messageId: number;
-};
-
 export function telegramReferenceKey(chatId: string, messageId: number) {
   return `${chatId}:${messageId}`;
 }
@@ -317,6 +311,3 @@ const CATEGORY_KEYWORDS: Array<[ContentCategoryId, RegExp]> = [
   ["category_daily_readings", /ընթերց|օրվա|օրուայ|տոնացույց/u],
 ];
 
-export function categoryBySlug(slug: string | null | undefined) {
-  return CONTENT_CATEGORIES.find((category) => category.slug === slug) ?? null;
-}

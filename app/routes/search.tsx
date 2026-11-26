@@ -148,14 +148,20 @@ const EXACT_MATCHES = new Set(["exact-token", "exact-primary", "message-id"]);
 function searchCorrection(url: URL, materials: SearchMaterial[], vocabulary: SearchVocabulary | null): { redirectTo: string | null; correction: SearchCorrection | null } {
   const query = (url.searchParams.get("q") ?? "").trim();
   if (!vocabulary || !query || url.searchParams.has("exact") || url.searchParams.has("asked") || url.searchParams.has("cursor") || url.searchParams.get("scope") === "saved") return { redirectTo: null, correction: null };
-  if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
-  const correction = correctSearchQuery(query, vocabulary);
-  if (correction.corrected && (correction.latin || materials.length === 0)) {
+  const goTo = (corrected: string) => {
     const next = new URL(url);
-    next.searchParams.set("q", correction.corrected);
+    next.searchParams.set("q", corrected);
     next.searchParams.set("asked", query);
-    return { redirectTo: `${next.pathname}${next.search}`, correction };
-  }
+    return `${next.pathname}${next.search}`;
+  };
+  // Այլ լեզվով բառը («psalm», «молитва»)՝ միշտ հայերենով։ Ռուսատառը դառնում է լատինատառ։
+  const translated = translateQuery(query);
+  if (translated !== query && /\p{Script=Armenian}/u.test(translated)) return { redirectTo: goTo(translated), correction: null };
+  if (materials.some((item) => EXACT_MATCHES.has(item.scoreCategory ?? ""))) return { redirectTo: null, correction: null };
+  const correction = correctSearchQuery(translated, vocabulary);
+  if (correction.corrected && (correction.latin || materials.length === 0)) return { redirectTo: goTo(correction.corrected), correction };
+  // Ոչինչ չգտնվեց՝ բացում ենք ամենամոտ բառով («saxmhu» → «սաղմոս»), ոչ թե դատարկ էջ։
+  if (materials.length === 0 && correction.similar[0]) return { redirectTo: goTo(correction.similar[0]), correction };
   return { redirectTo: null, correction };
 }
 
@@ -384,16 +390,12 @@ function SearchHelp({ query, asked, didYouMean, similar, hrefFor }: {
   query: string; asked: string; didYouMean: string; similar: string[]; hrefFor: (query: string, exact?: boolean) => string;
 }) {
   const words = similar.filter((word) => word !== query && word !== didYouMean);
-  if (!asked && !didYouMean && !words.length) return null;
+  if (!didYouMean && !words.length) return null;
   const chip = "inline-flex min-h-8 items-center rounded-full border border-[rgb(217_181_111/38%)] bg-[rgb(217_181_111/10%)] px-3 text-[13px] font-semibold text-gold-bright no-underline hover:bg-[rgb(217_181_111/18%)]";
   return (
     <div className="mx-1 mt-3 grid gap-2 text-[13px] leading-snug text-muted" role="status">
-      {asked ? (
-        <p className="m-0">
-          Ցույց ենք տալիս <strong className="text-gold-bright">«{query}»</strong>-ի արդյունքները։{" "}
-          <Link className="text-faint underline underline-offset-2" to={hrefFor(asked, true)}>Փնտրել հենց «{asked}»</Link>
-        </p>
-      ) : didYouMean ? (
+      {/* Ուղղված բառը արդեն դաշտում է (տիրոջ որոշում, 2026-11-25)՝ առանձին հուշում պետք չէ։ */}
+      {asked ? null : didYouMean ? (
         <p className="m-0 flex flex-wrap items-center gap-2">Գուցե նկատի ունեիք՝ <Link className={chip} to={hrefFor(didYouMean)}>{didYouMean}</Link></p>
       ) : null}
       {words.length ? (
@@ -406,16 +408,18 @@ function SearchHelp({ query, asked, didYouMean, similar, hrefFor }: {
 const SearchForm = memo(function SearchForm({
   categories,
   filters,
+  asked,
 }: {
   categories: Route.ComponentProps["loaderData"]["categories"];
   filters: SearchFilters;
+  asked: string;
 }) {
   const { validateSubmit, formRef, clearError, submitImmediately, error } =
     useSearchSubmit((form) => {
       const selected = String(new FormData(form).get("category") ?? "");
       return resolveContentCategoryId(selected, categories.find((category) => category.id === selected)?.name) === "category_psalms";
     });
-  const inputRef = useSyncedQueryInput(filters.query);
+  const inputRef = useSyncedQueryInput(filters.query, asked);
   const navigate = useNavigate();
   const submitFilters = () => {
     if (!formRef.current) return;
@@ -443,7 +447,7 @@ const SearchForm = memo(function SearchForm({
   return (
     <Form
       ref={formRef}
-      className="relative z-30 grid min-w-0 gap-3 frosted-panel p-3 shadow-glass"
+      className="relative z-30 grid min-w-0 gap-3 paper-panel p-3 shadow-float"
       method="get"
       role="search"
       onSubmit={handleSubmit}
@@ -481,7 +485,7 @@ const SearchForm = memo(function SearchForm({
 
       {error ? <p id="search-error" role="alert" className="m-0 text-sm search-validation-error">{error}</p> : null}
       <details
-        className="group w-full min-w-0 overflow-hidden rounded-button border border-glass-border bg-subtle"
+        className="group w-full min-w-0 overflow-hidden rounded-button border border-edge bg-subtle"
         open={Boolean(
           filters.categoryId ||
             filters.dateFrom ||
@@ -542,7 +546,7 @@ function DateField({ name, label, value, onChange }: { name: string; label: stri
   const [current, setCurrent] = useState(value);
   const shown = current ? `${Number(current.slice(8))} ${DATE_MONTHS[Number(current.slice(5, 7)) - 1]} ${current.slice(0, 4)}` : "Ընտրել";
   return (
-    <label className="relative grid cursor-pointer gap-0.5 rounded-button border border-glass-border bg-control px-3 py-1.5">
+    <label className="relative grid cursor-pointer gap-0.5 rounded-button border border-edge bg-control px-3 py-1.5">
       <span className="text-[11px] font-semibold text-muted">{label}</span>
       <span className={`text-[14px] ${current ? "text-ink" : "text-faint"}`}>{shown}</span>
       <input
@@ -723,6 +727,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
         key={`${filters.categoryId}|${filters.scope}|${filters.dateFrom}|${filters.dateTo}`}
         categories={categories}
         filters={filters}
+        asked={loaderData.askedQuery}
       />
 
       <SearchHelp
@@ -765,7 +770,7 @@ export default function Search({ loaderData }: Route.ComponentProps) {
             <p>Փորձիր ավելի կարճ բառ կամ հանիր զտիչներից մեկը։</p>
             {filters.categoryId && filters.query ? (
               <Link
-                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-glass active:scale-[.985]"
+                className="mt-1 inline-flex min-h-11 items-center justify-center gap-2 rounded-control border border-[rgb(217_181_111/34%)] bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 py-2.5 text-[13px] font-[760] text-[#2a1708] no-underline shadow-float active:scale-[.985]"
                 to={getPageHref({ ...filters, categoryId: "" })}
               >
                 Փորձել բոլոր բաժիններում <ArrowRight aria-hidden="true" size={16} />
@@ -776,8 +781,8 @@ export default function Search({ loaderData }: Route.ComponentProps) {
           <div className="grid gap-3">
             {telegramResults.length ? (
               <section className="grid gap-2.5" aria-label="Որոնման արդյունքներ">
-                {/* Say so when nothing has the exact word, and that these are the closest matches. */}
-                {filters.query && !telegramResults.some((item) => item.scoreCategory === "exact-token" || item.scoreCategory === "exact-primary" || item.scoreCategory === "message-id") ? (
+                {/* Միայն երբ ամեն արդյունք մոտավոր է (տառասխալով). բառի սկիզբը կամ լատինատառը ճիշտ համընկնում են։ */}
+                {filters.query && telegramResults.every((item) => item.scoreCategory === "fuzzy") ? (
                   <p className="m-0 rounded-button border border-[rgb(217_181_111/30%)] bg-[rgb(217_181_111/8%)] px-3.5 py-2.5 text-[13px] leading-snug text-ink">
                     «<strong>{filters.query}</strong>» բառով ճշգրիտ համընկնում չգտնվեց։ Ահա ամենամոտ արդյունքները։
                   </p>
@@ -857,7 +862,7 @@ function NoteMatches({ query }: { query: string }) {
       <ul className="m-0 grid list-none gap-2 p-0">
         {found.highlights.map((item) => (
           <li key={item.id}>
-            <Link className={`frosted-card grid gap-1 border-l-4 px-3.5 py-2.5 text-inherit no-underline ${item.kind === "question" ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} to={`${item.path}?hl=${encodeURIComponent(item.id)}`}>
+            <Link className={`paper-card grid gap-1 border-l-4 px-3.5 py-2.5 text-inherit no-underline ${item.kind === "question" ? "border-l-[rgb(120_165_230/75%)]" : "border-l-[rgb(226_190_90/85%)]"}`} to={`${item.path}?hl=${encodeURIComponent(item.id)}`}>
               <span className="line-clamp-2 text-[14px] leading-snug text-ink">{firstEmoji(item.emoji) || (item.kind === "question" ? "❓" : "")} «<Found text={item.quote} query={query} />»</span>
               {item.note ? <span className="line-clamp-1 text-[12.5px] text-muted">✎ <Found text={item.note} query={query} /></span> : null}
               {item.answer && matchAround(item.answer, query) ? <span className="line-clamp-1 text-[12.5px] text-[rgb(52_130_74)]">✓ <Found text={item.answer} query={query} /></span> : null}
@@ -920,7 +925,7 @@ function PlaceMatches({ query }: { query: string }) {
       <ul className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2">
         {found.places.map((place) => (
           <li key={place.id}>
-            <Link className="frosted-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
+            <Link className="paper-card flex items-center gap-3 px-3 py-2.5 text-inherit no-underline" to={`/places/${place.id}`}>
               <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-control bg-[#efe3c8]">
                 {place.icon ? <img className="size-10 object-contain" src={placeThumbUrl(place.icon)} alt="" loading="lazy" decoding="async" /> : place.cover ? <img className="size-full object-cover" src={placeThumbUrl(place.cover)} alt="" loading="lazy" decoding="async" /> : <MapPin aria-hidden="true" size={18} className="text-[#a06d22]" />}
               </span>

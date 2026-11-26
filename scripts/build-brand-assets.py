@@ -8,7 +8,7 @@ Re-run after replacing the source: python3 scripts/build-brand-assets.py
 import pathlib
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "design" / "logo" / "dove" / "source.webp"
@@ -89,10 +89,18 @@ def main():
     icon.save(PUBLIC / "icon-512.png", optimize=True)
     icon.resize((192, 192), Image.LANCZOS).save(PUBLIC / "icon-192.png", optimize=True)
     icon.resize((180, 180), Image.LANCZOS).convert("RGB").save(PUBLIC / "apple-touch-icon.png", optimize=True)
-    # The favicon is the bird alone so it stays legible on light and dark browser tabs.
+    # Favicon՝ աղունիկը մագաղաթե կլորացված սալիկի վրա (տիրոջ ընտրություն 2026-11-26). թափանցիկ ֆոնի վրա
+    # միայն աղունիկը մուգ ֆոնին (Chrome-ի «հետ»-ի էկրան, մուգ ներդիր) կտրտված էր երևում։
+    tile = icon.copy()
+    mask = Image.new("L", (2048, 2048), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, 2047, 2047), round(2048 * 0.215), fill=255)
+    tile.putalpha(mask.resize(tile.size, Image.LANCZOS))
+    tile.resize((64, 64), Image.LANCZOS).save(PUBLIC / "favicon-64.png", optimize=True)
+    tile.save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
+    # Ծանուցման փոքր նշան (badge)՝ միայն թափանցիկ աղունիկը. Android-ը օգտագործում է միայն ուրվագիծը,
+    # և սալիկը այնտեղ կդառնար սպիտակ քառակուսի։
     small = compose(dove, 256, "none", 0.98, False)
-    small.save(PUBLIC / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
-    small.resize((64, 64), Image.LANCZOS).save(PUBLIC / "favicon-64.png", optimize=True)
+    small.resize((64, 64), Image.LANCZOS).save(PUBLIC / "badge-64.png", optimize=True)
 
     # Maskable home-screen icons: flat paper (the launcher draws its own shape), bird inside the
     # central safe circle.

@@ -8,13 +8,7 @@ import {
 import { memo, useEffect, useState } from "react";
 import { Form, Link, useNavigation } from "react-router";
 
-import bibleQuestionsImage from "../assets/bible-questions.webp";
-import dailyReadingsImage from "../assets/daily-readings.webp";
-import gospelTeachingImage from "../assets/gospel-teaching.webp";
 import myCornerImage from "../assets/my-corner.webp";
-import prayersImage from "../assets/prayers.webp";
-import psalmsImage from "../assets/psalms.webp";
-import saintsLivesImage from "../assets/saints-lives.webp";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
 import { useSearchSubmit, useSyncedQueryInput } from "../hooks/use-search-submit";
 import { SearchSuggestions } from "./search-suggestions";
@@ -24,14 +18,6 @@ import { focusRing } from "./ui-styles";
 import divider2 from "../assets/divider2.webp";
 import { ArtImage } from "./art-image";
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  category_saints_lives: saintsLivesImage,
-  category_gospel_teachings: gospelTeachingImage,
-  category_psalms: psalmsImage,
-  category_bible_questions: bibleQuestionsImage,
-  category_prayers: prayersImage,
-  category_daily_readings: dailyReadingsImage,
-};
 
 type SectionHeaderProps = {
   backLabel: string;
@@ -52,10 +38,7 @@ type SectionHeaderProps = {
 
 export const MY_CORNER_IMAGE = myCornerImage;
 
-export function getCategoryImage(categoryId: string, categoryName?: string | null) {
-  const resolved = resolveContentCategoryId(categoryId, categoryName);
-  return (resolved && CATEGORY_IMAGES[resolved]) || saintsLivesImage;
-}
+export { getCategoryImage } from "../utils/category-image";
 
 export const SectionHeader = memo(function SectionHeader({
   backLabel,

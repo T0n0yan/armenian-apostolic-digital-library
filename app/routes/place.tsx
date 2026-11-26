@@ -105,7 +105,7 @@ function photoBox(size: { width: number; height: number } | undefined) {
   };
 }
 
-const panel = "frosted-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
+const panel = "paper-panel grid gap-2.5 px-5 py-4 text-[14.5px] leading-[1.75] text-ink";
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
 
 /** One church or shrine: its photos, story, clergy, services, video and the way there. */
@@ -122,7 +122,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
     <PageShell>
       <SiteNav />
       <PageHeader backTo="/places" backLabel="Սրբավայրեր" title={place.name}
-        action={<ShareButton pageUrl={`/places/${place.id}`} className="grid size-10 cursor-pointer place-items-center rounded-full border border-glass-border bg-subtle text-gold-bright transition-colors hover:text-ink" />} />
+        action={<ShareButton pageUrl={`/places/${place.id}`} className="grid size-10 cursor-pointer place-items-center rounded-full border border-edge bg-subtle text-gold-bright transition-colors hover:text-ink" />} />
       <p className="mt-1 mb-4 text-center text-[13px] text-muted">{PLACE_KINDS[place.kind]}{ACTIVE_LABELS[place.active] ? ` · ${ACTIVE_LABELS[place.active]}` : ""}{place.region ? ` · ${place.region}` : ""}</p>
       {place.verified ? (
         // Checked by the clergy: a gold seal under the title, instead of the «⚑ Ճշտել» note.
@@ -183,7 +183,7 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
           <h2 className={heading}>Ինչպես հասնել</h2>
           <div className="flex flex-wrap gap-2">
             {directionLinks(place.latitude, place.longitude).map((link) => (
-              <a key={link.href} className="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[13.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer">
+              <a key={link.href} className="inline-flex min-h-10 items-center gap-1.5 rounded-control border border-edge bg-subtle px-3 text-[13.5px] font-semibold text-gold-bright no-underline" href={link.href} target="_blank" rel="noreferrer">
                 <Navigation aria-hidden="true" size={15} /> {link.label}
               </a>
             ))}

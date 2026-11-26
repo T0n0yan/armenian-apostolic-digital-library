@@ -49,7 +49,7 @@ function Chip({ active = false, onClick, label, children, disabled = false }: { 
   return (
     <button
       type="button"
-      className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center gap-1 rounded-control border px-2 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-gold/70 bg-[rgb(217_181_111/22%)] text-gold-bright" : "border-glass-border bg-subtle text-ink hover:bg-[rgb(217_181_111/12%)]"}`}
+      className={`inline-flex min-h-9 min-w-9 cursor-pointer items-center justify-center gap-1 rounded-control border px-2 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${active ? "border-gold/70 bg-[rgb(217_181_111/22%)] text-gold-bright" : "border-edge bg-subtle text-ink hover:bg-[rgb(217_181_111/12%)]"}`}
       aria-pressed={active}
       aria-label={label}
       title={label}
@@ -192,7 +192,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
 
   const editor = (
     <div className="fixed inset-0 z-[90] flex flex-col bg-[var(--page-bg)] text-ink" role="dialog" aria-modal="true" aria-label="Աղոթքի ձևավորում" ref={rootRef}>
-      <header className="flex flex-wrap items-center gap-2 border-b border-glass-border bg-nav-surface px-3 py-2 backdrop-blur min-[560px]:px-5">
+      <header className="flex flex-wrap items-center gap-2 border-b border-edge bg-nav-surface px-3 py-2 min-[560px]:px-5">
         <Chip onClick={close} label="Փակել"><X size={18} aria-hidden="true" /></Chip>
         <h2 className="m-0 mr-auto text-[15px] font-bold">Ձևավորում</h2>
         <Chip onClick={undo} label="Հետարկել" disabled={!dirty}><Undo2 size={17} aria-hidden="true" /></Chip>
@@ -221,7 +221,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
           </p>
 
           {layout.paragraphs.map((paragraph, index) => (
-            <section className={`grid gap-2 rounded-button border p-2.5 ${active === index ? "border-gold/60 bg-glass" : "border-glass-border"}`} key={index} aria-label={`Պարբերություն ${index + 1}`} onClick={() => setActive(index)}>
+            <section className={`grid gap-2 rounded-button border p-2.5 ${active === index ? "border-gold/60 bg-surface" : "border-edge"}`} key={index} aria-label={`Պարբերություն ${index + 1}`} onClick={() => setActive(index)}>
               {active === index ? <>
               <div className="flex flex-wrap items-center gap-1.5">
                 {kindLabels.map(([kind, label]) => (
@@ -234,11 +234,11 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                     prayer: kind === "text",
                   }))}>{label}</Chip>
                 ))}
-                <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
+                <span className="mx-0.5 h-6 w-px bg-edge" aria-hidden="true" />
                 {alignIcons.map(([align, Icon, label]) => (
                   <Chip key={align} active={paragraph.align === align} label={label} onClick={() => setParagraph(index, (item) => ({ ...item, align }))}><Icon size={16} aria-hidden="true" /></Chip>
                 ))}
-                <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
+                <span className="mx-0.5 h-6 w-px bg-edge" aria-hidden="true" />
                 <Chip active={paragraph.initial && paragraph.kind === "text"} disabled={paragraph.kind !== "text"} label="Թռչնատառ" onClick={() => setParagraph(index, (item) => ({ ...item, initial: !item.initial }))}>
                   <span className="font-trchnatar text-[18px] leading-none" aria-hidden="true">Ա</span> Թռչնատառ
                 </Chip>
@@ -248,7 +248,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <select
-                  className="min-h-9 rounded-control border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
+                  className="min-h-9 rounded-control border border-edge bg-subtle px-2 text-[12px] font-semibold text-ink"
                   aria-label="Պարբերության չափը"
                   value={paragraph.size}
                   onChange={(event) => setParagraph(index, (item) => ({ ...item, size: event.target.value as LayoutSize }))}
@@ -256,7 +256,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                   {sizeLabels.map(([size, label]) => <option key={size} value={size}>{label}</option>)}
                 </select>
                 <select
-                  className="min-h-9 rounded-control border border-glass-border bg-subtle px-2 text-[12px] font-semibold text-ink"
+                  className="min-h-9 rounded-control border border-edge bg-subtle px-2 text-[12px] font-semibold text-ink"
                   aria-label="Պարբերության տառատեսակը"
                   value={paragraph.font}
                   onChange={(event) => setParagraph(index, (item) => ({ ...item, font: event.target.value as LayoutFont }))}
@@ -265,7 +265,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
                 </select>
                 <Chip active={paragraph.bold} label="Ամբողջը թավ" onClick={() => setParagraph(index, (item) => ({ ...item, bold: !item.bold }))}><Bold size={15} aria-hidden="true" /></Chip>
                 <Chip active={paragraph.italic} label="Ամբողջը շեղ" onClick={() => setParagraph(index, (item) => ({ ...item, italic: !item.italic }))}><Italic size={15} aria-hidden="true" /></Chip>
-                <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
+                <span className="mx-0.5 h-6 w-px bg-edge" aria-hidden="true" />
                 <Chip active={editing === index} label="Ուղղել տեքստը" onClick={() => { setSelection(null); setEditing(editing === index ? null : index); }}><Pencil size={15} aria-hidden="true" /> Տեքստ</Chip>
                 <Chip label="Վեր" disabled={index === 0} onClick={() => { move(index, -1); setActive(index - 1); }}><ArrowUp size={15} aria-hidden="true" /></Chip>
                 <Chip label="Վար" disabled={index === layout.paragraphs.length - 1} onClick={() => { move(index, 1); setActive(index + 1); }}><ArrowDown size={15} aria-hidden="true" /></Chip>
@@ -278,7 +278,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               {editing === index && active === index ? (
                 <div className="grid gap-1.5">
                   <textarea
-                    className="min-h-32 w-full resize-y rounded-control border border-glass-border bg-subtle p-2.5 font-[inherit] text-[15px] leading-relaxed text-ink"
+                    className="min-h-32 w-full resize-y rounded-control border border-edge bg-subtle p-2.5 font-[inherit] text-[15px] leading-relaxed text-ink"
                     value={paragraph.text}
                     // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus
@@ -301,7 +301,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
             </section>
           ))}
 
-          <div className="mt-2 flex flex-wrap gap-2 border-t border-glass-border pt-3">
+          <div className="mt-2 flex flex-wrap gap-2 border-t border-edge pt-3">
             {!stale ? <Chip onClick={restartFromSeed} label="Սկսել Telegram-ի տեքստից"><RotateCcw size={15} aria-hidden="true" /> Սկսել Telegram-ի տեքստից</Chip> : null}
             {saved ? <Chip onClick={resetToTelegram} label="Ջնջել ձևավորումը"><Trash2 size={15} aria-hidden="true" /> Ջնջել ձևավորումը (Telegram-ի տեսքը)</Chip> : null}
           </div>
@@ -310,7 +310,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
 
       {/* Ընտրված բառերի/տառերի կոճակները։ */}
       {selection && selected && current ? (
-        <div className="absolute inset-x-0 bottom-0 border-t border-glass-border bg-nav-surface px-3 pt-2 pb-[max(10px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(0_0_0/18%)] backdrop-blur">
+        <div className="absolute inset-x-0 bottom-0 border-t border-edge bg-nav-surface px-3 pt-2 pb-[max(10px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgb(0_0_0/18%)]">
           <div className="mx-auto grid max-w-[760px] gap-1.5">
             <span className="truncate text-[11.5px] text-muted">Ընտրված՝ «{selected.text.slice(selection.from, selection.to)}»</span>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -321,7 +321,7 @@ export function PrayerLayoutEditor({ materialId, start, seed, saved, stale, hasA
               <Chip active={current.size === "sm"} label="Փոքր տառեր" onClick={() => styleSelection({ type: "size", size: "sm" })}><span className="text-[11px]">Ա</span></Chip>
               <Chip active={current.size === "lg"} label="Մեծ տառեր" onClick={() => styleSelection({ type: "size", size: "lg" })}><span className="text-[15px]">Ա</span></Chip>
               <Chip active={current.size === "xl"} label="Շատ մեծ տառեր" onClick={() => styleSelection({ type: "size", size: "xl" })}><span className="text-[19px] leading-none">Ա</span></Chip>
-              <span className="mx-0.5 h-6 w-px bg-glass-border" aria-hidden="true" />
+              <span className="mx-0.5 h-6 w-px bg-edge" aria-hidden="true" />
               {fontLabels.map(([font, label, className]) => (
                 <Chip key={font} active={current.font === font} label={`Տառատեսակ՝ ${label}`} onClick={() => styleSelection({ type: "font", font })}><span className={className}>{label}</span></Chip>
               ))}

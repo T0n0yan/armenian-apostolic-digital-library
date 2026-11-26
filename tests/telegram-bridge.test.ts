@@ -998,7 +998,9 @@ test("pending navigation, media failure isolation, and metadata abort remain saf
   assert.match(infiniteSource, /observer\.disconnect\(\)/u);
   assert.match(categorySource, /abortRef\.current\?\.abort\(\)/u);
   assert.match(searchSource, /abortRef\.current\?\.abort\(\)/u);
-  assert.match(rootSource, /ScrollRestoration getKey=\{\(\{ pathname, search \}\) => `\$\{pathname\}\$\{search\}`\}/u);
+  // Դիրքը՝ պատմության քայլով. մենյուից բացված էջը վերևից է, «հետ»-ը՝ նույն տեղը (use-return-anchor.ts)։
+  assert.match(rootSource, /<ScrollRestoration \/>/u);
+  assert.doesNotMatch(rootSource, /ScrollRestoration getKey/u);
   assert.equal(normalizeThemePreference(null), "system");
   assert.equal(normalizeThemePreference("unexpected"), "system");
   assert.equal(resolveTheme("system", false), "light");
@@ -1310,7 +1312,7 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const titleIndex = await titleResponse.json() as { version: string; items: unknown[] };
   assert.ok(titleIndex.items.length > 0);
   const snapshot = await (mediaBucket as unknown as { head(key: string): Promise<{ customMetadata: { version: string } } | null> }).head("public-index/title/current.json");
-  assert.equal(snapshot?.customMetadata.version, titleIndex.version);
+  assert.equal(snapshot?.customMetadata.version, `${titleIndex.version}:2`);
 
   const category = await mf.dispatchFetch(`https://app.fixture/categories/${MOCK_TOPIC_SLUG}`);
   const categoryHtml = await category.text();
@@ -1341,7 +1343,9 @@ test("cloud library flows through Worker loaders, SSR, bookmark references and p
   const imageHtml = await imagePage.text();
   assert.equal(imagePage.status, 200);
   assert.match(imageHtml, /<img/u);
-  assert.match(imageHtml, /<img[^>]+thumbnail=1/u);
+  // Էջի առաջին նկարը (LCP) բեռնվում է անմիջապես, առանց թափանցիկ նախնական պատկերի, որ JS-ին չսպասի։
+  assert.match(imageHtml, /<img[^>]+loading="eager"[^>]+fetchPriority="high"/u);
+  assert.doesNotMatch(imageHtml, /<img[^>]+thumbnail=1/u);
   const richPage = await mf.dispatchFetch("https://app.fixture/materials/material_tg_n100900_112");
   const richHtml = await richPage.text();
   // The leading rich heading repeats the page title, so it renders once in the header, not again in the body.

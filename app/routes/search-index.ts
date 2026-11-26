@@ -19,10 +19,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   const key = "public-index/title/current.json";
   // R2 shares the prepared public projection across isolates/regions. Failure falls back to D1.
   const stored = await env.MEDIA.get(key).catch(() => null);
-  if (stored?.customMetadata?.version === version) return new Response(stored.body, { headers });
+  // Ինդեքսի ձևը փոխելիս բարձրացնել, որ R2-ի հին պատճենը չտրվի։
+  const slot = `${version}:2`;
+  if (stored?.customMetadata?.version === slot) return new Response(stored.body, { headers });
   if (stored) await stored.body.cancel();
   const index = await remember(env.DB, `title-index:${version}`, 60_000, () => buildSearchIndex(env.DB, version));
   const body = JSON.stringify(index);
-  await env.MEDIA.put(key, body, { customMetadata: { version }, httpMetadata: { contentType: headers["Content-Type"], cacheControl: "no-cache" } }).catch(() => undefined);
+  await env.MEDIA.put(key, body, { customMetadata: { version: slot }, httpMetadata: { contentType: headers["Content-Type"], cacheControl: "no-cache" } }).catch(() => undefined);
   return new Response(body, { headers });
 }

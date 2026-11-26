@@ -1,5 +1,5 @@
 import { BookPlus, Copy, HelpCircle, Highlighter, PencilLine, Play, Share2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { useLocation, useRouteLoaderData } from "react-router";
 
@@ -27,7 +27,7 @@ type Psalm = { verse: number; audio: boolean; path: string | null } | null;
 type Place = { top: number; left: number; width: number; arrow: number; above: boolean; dotTop: number; dotLeft: number };
 /** Բացված պատուհանը 1 վայրկյան հետո փոքրանում է կլոր կոճակի՝ նախադասության վերջում։ */
 const COLLAPSE_MS = 1000;
-const CLOSE_MS = 320;
+const CLOSE_MS = 180;
 const DOT = 38;
 const PENDING_KEY = "pending-highlight";
 const HINT_KEY = "highlight-hint";
@@ -158,7 +158,7 @@ export function HighlightLayer() {
   useEffect(() => () => window.clearTimeout(collapseTimer.current), []);
 
   // Էջը փոխելիս (նույնիսկ նույն նյութի մեջ)՝ ընտրվածը չեղարկվում է։
-  useEffect(() => { clearSpans(); }, [location.key, clearSpans]);
+  useEffect(() => { clearSpans(); setStory(null); }, [location.key, clearSpans]);
 
   // Ո՞ր նյութի էջում ենք (article[data-highlight-material])։
   useEffect(() => {
@@ -386,15 +386,17 @@ export function HighlightLayer() {
     };
   }, [materialId, clearSpans, openBriefly, psalm]);
 
-  /** Ընտրվածների տեքստը. իրար կպածները՝ մեկ կտոր։ */
-  const sources = (): Source[] => {
+  /** Ընտրվածների տեքստը. իրար կպածները՝ մեկ կտոր։ Հաշվվում է միայն ընտրվածը փոխվելիս.
+   * նախկինում ամեն նկարելիս ամբողջ տեքստը երեք անգամ էր անցնում, և պատուհանը կտրտվում էր։ */
+  const selected = useMemo((): Source[] => {
     if (!spans.length || typeof document === "undefined") return [];
     const root = highlightRoot();
     if (!root) return [];
     const map = buildTextMap(readingBodies(root));
     return mergeSpans(spans, map.text).map((span) => anchorFor(map.text, span.start, span.end))
       .filter((anchor) => anchor.quote).map(({ quote, prefix, suffix }) => ({ quote, prefix, suffix }));
-  };
+  }, [spans]);
+  const sources = () => selected;
 
   const save = async (kind: HighlightKind) => {
     const list = sources();
@@ -465,8 +467,8 @@ export function HighlightLayer() {
     clearSpans();
   };
 
-  const length = sources().reduce((total, source) => total + source.quote.length, 0);
-  const tooLong = spans.length > 0 && sources().some((source) => source.quote.length > QUOTE_MAX);
+  const length = selected.reduce((total, source) => total + source.quote.length, 0);
+  const tooLong = selected.some((source) => source.quote.length > QUOTE_MAX);
   const single = spans.length === 1;
   const storyKind = typeof document !== "undefined" && spans.length ? highlightRoot()?.dataset.storyKind : undefined;
   const icon = "grid size-10 shrink-0 cursor-pointer place-items-center rounded-button border-0 bg-subtle text-ink disabled:opacity-50";
@@ -488,9 +490,9 @@ export function HighlightLayer() {
       {spans.length && place && !open && !askSignIn && glossaryWord === null && expanded ? createPortal(
         <div className="absolute z-[2040]" style={{ top: place.top, left: place.left, width: place.width, transform: place.above ? "translateY(-100%)" : undefined }} data-highlight-bar>
           <div className={`${closing ? "highlight-pop-out" : "highlight-pop"} relative`} data-side={place.above ? "above" : "below"} style={{ transformOrigin: `${place.arrow}px ${place.above ? "100%" : "0"}` }}>
-            <span className="absolute size-3.5 rotate-45 border-[var(--frost-border)] glass-arrow" aria-hidden="true"
+            <span className="absolute size-3.5 rotate-45 border-[var(--card-edge)] sheet-arrow" aria-hidden="true"
               style={{ left: place.arrow - 7, ...(place.above ? { bottom: -7, borderRightWidth: 1, borderBottomWidth: 1 } : { top: -7, borderLeftWidth: 1, borderTopWidth: 1 }) }} />
-            <div className="relative grid gap-1.5 rounded-card border border-[rgb(217_181_111/55%)] liquid-sheet p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
+            <div className="relative grid gap-1.5 rounded-card border border-[rgb(217_181_111/55%)] paper-sheet p-1.5 shadow-[0_16px_40px_rgb(40_20_10/26%)] select-none" role="toolbar" aria-label="Նշել ընտրվածը"
               onMouseDown={(event) => event.preventDefault()}>
               {tooLong ? <p className="m-0 px-1 text-center text-[11.5px] text-muted">Շատ երկար է. ընտրեք ավելի կարճ (մինչև {QUOTE_MAX} նշան)։</p> : null}
               <div className="flex items-center gap-1">
@@ -515,7 +517,7 @@ export function HighlightLayer() {
       {toast && !spans.length && !open ? createPortal(
         // Հուշումները վերևից են գալիս, որ չծածկեն էջի ներքևի կոճակները (Կիսվել, Պահել)։
         <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--tg-inset-top,0px)+12px)] z-[2040] flex justify-center px-3" role="status" data-highlight-bar>
-          <div className="highlight-toast pointer-events-auto flex max-w-[440px] items-center gap-2 rounded-full border border-[rgb(217_181_111/45%)] liquid-sheet py-1.5 pr-1.5 pl-4 text-[13px] text-ink shadow-[0_14px_36px_rgb(40_20_10/24%)]">
+          <div className="highlight-toast pointer-events-auto flex max-w-[440px] items-center gap-2 rounded-full border border-[rgb(217_181_111/45%)] paper-sheet py-1.5 pr-1.5 pl-4 text-[13px] text-ink shadow-[0_14px_36px_rgb(40_20_10/24%)]">
             <span className="py-1.5">{toast.text}</span>
             {toast.item ? (
               <button className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1 rounded-full border-0 bg-[rgb(217_181_111/16%)] px-3 text-[12.5px] font-bold text-gold-bright" type="button"

@@ -5,6 +5,7 @@ import {
   Check,
   ExternalLink,
   FileQuestion,
+  BookOpen,
   FileText,
   Headphones,
   Image as ImageIcon,
@@ -33,7 +34,7 @@ import type { BridgeContentType, BridgeSearchHit, BridgeSearchMatchReason } from
 import type { MaterialCardPreview } from "../data/materials.server";
 import { formatArmenianDate } from "../utils/armenian-date";
 import { isPendingNavigation } from "../../shared/navigation-state";
-import { fieldControl, iconButton, interactiveGlassCard } from "./ui-styles";
+import { fieldControl, iconButton, interactiveCard } from "./ui-styles";
 import { sameOriginMedia, useVideoPoster, videoFromThumbnail } from "../utils/video-frame";
 import { stripZeroWidth } from "../utils/text";
 import { MaterialActionSheet } from "./material-action-sheet";
@@ -216,13 +217,6 @@ type TelegramWindow = Window & {
   };
 };
 
-export function openTelegramPost(event: MouseEvent<HTMLAnchorElement>) {
-  const webApp = (window as TelegramWindow).Telegram?.WebApp;
-  if (!webApp?.openTelegramLink || webApp.platform === "unknown") return;
-  event.preventDefault();
-  webApp.openTelegramLink(event.currentTarget.href);
-}
-
 export const MaterialResultCard = memo(function MaterialResultCard({
   material,
   canSave,
@@ -244,7 +238,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
   const navigation = useNavigation();
   const targetPath = materialPath(material.id, material.categoryName ?? category, {
     title: material.title,
-    psalm: resolveContentCategoryId(material.categoryName ?? category, material.categoryName ?? category) === "category_psalms" ? psalmNumber(material) : null,
+    psalm: resolveContentCategoryId(material.categoryName ?? category, material.categoryName ?? category) === "category_psalms" ? psalmNumber(material) ?? ("numberValue" in material && typeof material.numberValue === "number" ? material.numberValue : null) : null,
   });
   const isOpening = isPendingNavigation(navigation.state, navigation.location?.pathname, targetPath);
   const typeMeta = contentTypeMeta(material.contentType, material.preview.mediaCount);
@@ -254,7 +248,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     isVideo && material.preview.thumbnailUrl ? videoFromThumbnail(material.preview.thumbnailUrl) : null,
     isVideo ? material.preview.thumbnailUrl : null,
   );
-  const psalm = variant === "psalm" ? psalmNumber(material) : null;
+  const psalm = variant === "psalm" ? psalmNumber(material) ?? ("numberValue" in material && typeof material.numberValue === "number" ? material.numberValue : null) : null;
   const day = variant === "daily" ? calendarParts(material.dateValue ?? material.publishedAt ?? null) : null;
   const thumbnail = isVideo ? videoPoster.poster : material.preview.thumbnailUrl ?? material.preview.imageUrl;
   const extraMatchReason = informativeMatchReasons.find((reason) => material.matchReasons?.includes(reason));
@@ -331,15 +325,15 @@ export const MaterialResultCard = memo(function MaterialResultCard({
     [closeNoteComposer, material.id, noteDraft, onSavedChange],
   );
 
-
   // Bible questions share one even card shape in their list.
   const quizCard = variant === "text" && material.contentType === "poll";
   return (
-    <li className={`animate-glass-enter h-full`} data-material-id={material.id}>
+    <li className={`animate-rise-in h-full`} data-material-id={material.id}>
       <div className={`relative h-full`}>
         <Link
-          className={`${interactiveGlassCard} hold-card grid h-full ${day ? "items-center" : quizCard ? "items-stretch" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? `grid-cols-1 px-[16px] py-[14px] h-full` : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-glass-strong" : ""}`}
+          className={`${interactiveCard} hold-card grid h-full ${day ? "items-center" : quizCard ? "items-stretch" : "items-start"} gap-[13px] text-inherit no-underline active:scale-[.992] ${variant === "text" ? `grid-cols-1 px-[16px] py-[14px] h-full` : variant === "video" || variant === "portrait" ? "grid-cols-1 gap-[11px] p-[10px] pb-[14px]" : `min-h-[122px] grid-cols-[78px_minmax(0,1fr)] px-[12px] py-[12px] min-[560px]:grid-cols-[96px_minmax(0,1fr)]`}${isNoteMounted ? " pointer-events-none" : ""}${isOpening ? " border-[rgb(217_181_111/52%)] bg-surface-strong" : ""}`}
           to={targetPath}
+          prefetch="intent"
           state={material.searchHit ? { searchHit: material.searchHit } : undefined}
           tabIndex={isNoteMounted ? -1 : undefined}
           aria-hidden={isNoteMounted ? true : undefined}
@@ -348,7 +342,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           {...longPress.handlers}
         >
         {variant === "video" ? (
-          <span ref={videoPoster.ref} className="reveal-frame relative z-1 block aspect-video w-full overflow-hidden rounded-button border border-glass-border bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
+          <span ref={videoPoster.ref} className="reveal-frame relative z-1 block aspect-video w-full overflow-hidden rounded-button border border-edge bg-[radial-gradient(circle_at_30%_20%,rgb(217_181_111/22%),transparent_55%),linear-gradient(150deg,#2a1633,#120a17)]">
             {videoPoster.poster ? (
               <img className="reveal-img h-full w-full object-cover" src={videoPoster.poster} alt="" loading="lazy" decoding="async" onError={(event) => { const image = event.currentTarget; const fallback = sameOriginMedia(image.src); if (new URL(fallback, location.origin).href !== image.src) image.src = fallback; else image.style.visibility = "hidden"; }} />
             ) : null}
@@ -358,7 +352,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
           </span>
         ) : variant === "portrait" ? (
           // Saints: the portrait fills the top of the card with the name on it, as in their section.
-          <span className="reveal-frame relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-button border border-glass-border bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
+          <span className="reveal-frame relative z-1 block aspect-[4/3] w-full overflow-hidden rounded-button border border-edge bg-[linear-gradient(160deg,rgb(124_74_143/45%),rgb(36_19_40/90%))]">
             {thumbnail && !thumbnailFailed ? (
               <img className="reveal-img h-full w-full object-cover object-top" src={thumbnail} alt="" loading="lazy" decoding="async" onError={() => setThumbnailFailed(true)} />
             ) : null}
@@ -368,12 +362,12 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <strong className="line-clamp-2 font-noto text-[16px] leading-[1.3] font-semibold text-white [text-shadow:0_1px_8px_rgb(0_0_0/50%)]">{highlightText(material.title, highlightPattern)}</strong>
             </span>
           </span>
-        ) : variant === "text" ? null : psalm ? (
-          // Psalms: the number is what readers look for.
+        ) : variant === "text" ? null : variant === "psalm" ? (
+          // Սաղմոսներ՝ համարը. առանց համարի սաղմոսը՝ գրքի նշանով (ձայնագրության նկարն այստեղ չի ցուցադրվում)։
           <span className="relative z-1 grid aspect-square w-full place-items-center rounded-button border border-[rgb(217_181_111/40%)] bg-[radial-gradient(circle_at_35%_25%,rgb(240_211_151/22%),rgb(217_181_111/6%)_70%)]">
             <span className="grid justify-items-center leading-none">
               <span className="text-[9.5px] font-bold tracking-[0.08em] text-gold uppercase">Սաղմոս</span>
-              <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span>
+              {psalm ? <span className="mt-1 font-noto text-[28px] font-semibold text-gold-bright tabular-nums">{psalm}</span> : <BookOpen aria-hidden="true" className="mt-1.5 text-gold-bright" size={26} strokeWidth={1.6} />}
             </span>
           </span>
         ) : day ? (
@@ -383,7 +377,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
             <span className="mt-1.5 max-w-full truncate px-1 text-[9.5px] font-semibold text-muted">{day.month}</span>
           </span>
         ) : (
-          <span ref={isVideo ? videoPoster.ref : undefined} className={`reveal-frame relative z-1 block w-full overflow-hidden rounded-control border border-glass-border bg-subtle aspect-[4/3]`}>
+          <span ref={isVideo ? videoPoster.ref : undefined} className={`reveal-frame relative z-1 block w-full overflow-hidden rounded-control border border-edge bg-subtle aspect-[4/3]`}>
             {thumbnail && !thumbnailFailed ? (
               <img
                 className="reveal-img h-full w-full object-cover object-top"
@@ -495,7 +489,7 @@ export const MaterialResultCard = memo(function MaterialResultCard({
               <Check aria-hidden="true" size={17} strokeWidth={2} />
             </button>
             <button
-              className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-control border border-glass-border bg-subtle p-0 text-muted focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
+              className="grid h-11 w-[38px] cursor-pointer place-items-center rounded-control border border-edge bg-subtle p-0 text-muted focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[rgb(217_181_111/42%)]"
               type="button"
               onClick={closeNoteComposer}
               aria-label="Փակել առանց պահելու"

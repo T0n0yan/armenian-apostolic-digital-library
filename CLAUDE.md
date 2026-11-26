@@ -7,7 +7,7 @@ Read them only when the task needs it, and only the needed section (see "Saving 
 **Whenever you add or change a feature, page, table, workflow or service, update `docs/ARCHITECTURE.md`
 in the same branch**, then rebuild the interactive page with `node scripts/build-architecture-page.mjs`
 (it writes `docs/architecture.html`; never read or edit the HTML by hand). The owner reads it to understand the site.
-**Design rules** (radius scale, glass, fields, button groups): `docs/DESIGN.md` — follow them for any UI change.
+**Design rules** (radius scale, surfaces, fields, button groups): `docs/DESIGN.md` — follow them for any UI change.
 
 ## Talking to the owner
 
@@ -15,6 +15,9 @@ in the same branch**, then rebuild the interactive page with `node scripts/build
   Identifiers (names in code) stay English. Since 2026-10-31 (owner's decision): new code comments
   and commit messages are in Armenian, short and plain, so the owner can read them. The owner reads English poorly.
 - Keep them informed in plain words; they want to see what is happening.
+- **Owner's decision (2026-11-25): every design change, even the smallest (color, spacing, icon, ornament,
+  animation, layout), is first described to the owner and done only after they agree.** Bug fixes that
+  don't change the look go straight on; if a fix changes how something looks, ask first.
 
 ## Work is split between chats
 

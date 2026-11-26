@@ -25,6 +25,7 @@ import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type Brid
 import { isPsalmPagePath, sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
 import { fetchPersonal } from "../utils/personal-data";
+import { navigationScope, readNavigationCache, writeNavigationCache } from "../utils/navigation-cache";
 import { SITE_IMAGE, SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd, describe, mediaJsonLd, cardImage, materialSeoTitle, materialHeading, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 import { PrayerLayoutView } from "../components/prayer-layout-view";
@@ -42,9 +43,17 @@ export async function loader({ params, request }: Route.LoaderArgs) {
  * Կայքի ներսում նավարկելիս էջի տվյալները ընդհանուր են (cache-ից), իսկ ընթերցողի անձնականը
  * (պահածներ, նշումներ…) բերվում է զուգահեռ (utils/personal-data.ts)։ Առաջին բացմանը՝ սերվերի HTML-ը։
  */
+/** Էկրանին արդեն ցույց տրված նյութի հասցեն (revalidate-ը նավարկությունից տարբերելու համար)։ */
+let shownPath = "";
+
 export async function clientLoader({ request, serverLoader }: Route.ClientLoaderArgs) {
+  // Էջի ընդհանուր տվյալը (առանց անձնականի) 5 րոպե պահվում է հեռախոսի հիշողությունում. նույն սաղմոսը
+  // կրկին բացելիս սերվերին չի դիմում։ Անձնականը միշտ թարմ է (մատը դիպչելիս արդեն սկսված, personal-data.ts)։
+  // Նույն էջի նորից բեռնումը (revalidate՝ ադմինի ձևավորում, պահում…) միշտ սերվերից է։
+  const revalidating = new URL(request.url).pathname === shownPath;
+  const cached = revalidating ? null : readNavigationCache<Awaited<ReturnType<typeof serverLoader>>>("material-page", request.url);
   const [data, personal] = await Promise.all([
-    serverLoader(),
+    cached ?? serverLoader().then((fresh) => { writeNavigationCache("material-page", request.url, navigationScope(), fresh); return fresh; }),
     fetchPersonal<MaterialPersonal>("material", new URL(request.url).pathname),
   ]);
   return personal ? { ...data, ...personal } : data;
@@ -100,6 +109,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const toggleSaved = useCallback(() => setSaved(material.id, !isSaved), [isSaved, material.id, setSaved]);
   const location = useLocation();
   const navigation = useNavigation();
+  useEffect(() => { shownPath = location.pathname; return () => { shownPath = ""; }; }, [location.pathname]);
   // Հաջորդ/նախորդ սաղմոսը բեռնվելիս ամբողջ էջը չի փոխվում. միայն տեքստը թեթև մարում է, մինչև նորը գա։
   const psalmSwitching = navigation.state === "loading" && navigation.location.pathname !== location.pathname
     && isPsalmPagePath(location.pathname) && isPsalmPagePath(navigation.location.pathname);
@@ -191,7 +201,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {isPrayer && loaderData.canLayout ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             {loaderData.layoutStale ? <span className="inline-flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert className="text-gold" size={15} aria-hidden="true" /> Telegram-ում տեքստը փոխվել է</span> : null}
-            <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-glass-border bg-subtle px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setLayoutOpen(true)}>
+            <button className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-control border border-edge bg-subtle px-3 text-[12px] font-bold text-gold-bright" type="button" onClick={() => setLayoutOpen(true)}>
               <Paintbrush size={15} aria-hidden="true" /> Ձևավորել
             </button>
           </div>
@@ -219,7 +229,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {material.tags.length > 0 ? (
           <ul className="m-0 flex list-none flex-wrap gap-2 p-0" aria-label="Պիտակներ">
             {material.tags.map((tag) => (
-              <li className="inline-flex items-center gap-1 rounded-full border border-glass-border bg-subtle px-2.5 py-1 text-[11px] text-muted" key={tag}>
+              <li className="inline-flex items-center gap-1 rounded-full border border-edge bg-subtle px-2.5 py-1 text-[11px] text-muted" key={tag}>
                 <Tag aria-hidden="true" size={12} /> {tag}
               </li>
             ))}
@@ -229,7 +239,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
         {layout ? (
           <PrayerLayoutView layout={layout} />
         ) : linesView ? (
-          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+          <div className="reading-body paper-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
             <PsalmReadAlong
               key={material.id}
               text={plainText}
@@ -245,7 +255,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
           </div>
         ) : psalmView ? (
           // Psalms follow their recording verse by verse.
-          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
+          <div className="reading-body paper-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7">
             <PsalmReadAlong
               key={material.id}
               text={psalmText}
@@ -260,7 +270,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             />
           </div>
         ) : !material.richContent && material.formattedText.text.length > textTitleLength ? (
-          <div className="reading-body frosted-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
+          <div className="reading-body paper-panel px-4 py-5 text-[length:var(--reading-size)] leading-[1.9] text-ink shadow-card min-[560px]:px-7 min-[560px]:py-7" id="telegram-formatted-text" tabIndex={activeHit?.blockId === "formatted-text" ? -1 : undefined}>
             {superscriptionEnd > 0 ? (
               <p className="psalm-superscription m-0 mb-3 border-b border-[rgb(217_181_111/32%)] pb-3 text-center">
                 <FormattedTelegramText value={material.formattedText} from={textTitleLength} to={superscriptionEnd} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
@@ -269,12 +279,12 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
             <FormattedTelegramText value={material.formattedText} from={superscriptionEnd > 0 ? versesStart : textTitleLength} ornateInitial={isPrayer} hit={activeHit?.blockId === "formatted-text" ? activeHit : undefined} />
           </div>
         ) : !material.richContent && !material.formattedText.text && material.formattedCaption.text.length > captionTitleLength ? (
-          <p className="reading-body m-0 frosted-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
+          <p className="reading-body m-0 paper-panel p-5 text-[length:var(--reading-size)] leading-[1.8] text-ink" id="telegram-formatted-caption" tabIndex={activeHit?.blockId === "formatted-caption" ? -1 : undefined}><FormattedTelegramText value={material.formattedCaption} from={captionTitleLength} hit={activeHit?.blockId === "formatted-caption" ? activeHit : undefined} /></p>
         ) : null}
 
         {loaderData.canSave && !material.poll ? <ReadMark materialId={material.id} kind={readKindFor(material.media)} marks={loaderData.readMarks} /> : null}
 
-        {/* Գործողությունների ապակե գոտի (Telegram-ի կոճակը հանված է՝ կայքը առաջնային է)։ */}
+        {/* Գործողությունների գոտի (Telegram-ի կոճակը հանված է՝ կայքը առաջնային է)։ */}
         <div className="action-bar">
           {loaderData.canSave ? (
             <button className={actionTile} type="button" disabled={isSaving} onClick={toggleSaved} aria-pressed={isSaved} aria-label={isSaved ? "Հեռացնել Իմ անկյունից" : "Պահել Իմ անկյունում"}>

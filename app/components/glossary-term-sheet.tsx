@@ -13,7 +13,7 @@ export function GlossaryTermSheet({ word, onClose }: { word: string | null; onCl
     if (fetcher.state === "idle" && result?.ok) onClose();
   }, [fetcher.state, result, onClose]);
   return (
-    <BottomSheet open={word !== null} onClose={onClose} label="Ավելացնել բառարանում" className="glossary-sheet gap-3 p-4">
+    <BottomSheet open={word !== null} onClose={onClose} label="Ավելացնել բառարանում" className="gap-3 p-4">
       <div className="flex items-center gap-2.5">
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[rgb(217_181_111/16%)] text-gold-bright"><BookPlus aria-hidden="true" size={18} /></span>
         <h2 className="m-0 min-w-0 flex-1 font-sans text-[16px] font-bold text-ink">Ավելացնել բառարանում</h2>
