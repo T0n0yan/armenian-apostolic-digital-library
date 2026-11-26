@@ -72,6 +72,8 @@ export default [
   route("api/help-videos", "routes/help-videos-api.ts"),
   route("admin/help", "routes/admin-help.tsx"),
   route("admin/help/:id/video", "routes/admin-help-video.ts"),
+  // Փորձնական 3D եկեղեցի (թաքնված էջ, միայն staging)
+  route("church-3d", "routes/church-3d.tsx"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),
