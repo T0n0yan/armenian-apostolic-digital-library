@@ -22,7 +22,7 @@ test("հաճախ տրվող հարցերը տանում են գոյությու�
 });
 
 test("որոնումը գտնում է բառը վերջավորությամբ", () => {
-  assert.equal(searchEtiquette("գլխաշոր")[0]?.href, "/church/etiquette/entrance#headscarf");
+  assert.equal(searchEtiquette("գլխաշոր")[0]?.href, "/church/etiquette/appearance#headscarf");
   assert.ok(searchEtiquette("մոմը").some((hit) => hit.href.startsWith("/church/etiquette/candles")));
   assert.ok(searchEtiquette("քահանային").length > 0);
   assert.deepEqual(searchEtiquette(""), []);

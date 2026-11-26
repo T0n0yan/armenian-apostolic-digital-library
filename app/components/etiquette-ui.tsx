@@ -1,4 +1,4 @@
-import { BookOpen, Church, Clock, DoorOpen, Flame, Flower2, Gift, HandHeart, Home, Music, ShieldQuestion, Sparkles, Wine, type LucideIcon } from "lucide-react";
+import { BookOpen, Church, Clock, DoorOpen, Shirt, Flame, Flower2, Gift, HandHeart, Home, Music, ShieldQuestion, Sparkles, Wine, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
 import { RULE_KINDS, type RuleKind } from "../data/etiquette";
 
@@ -10,6 +10,7 @@ export function KindBadge({ kind }: { kind: RuleKind }) {
 /** Ամեն բաժնի պատկերակը (ճանապարհի կանգառները)։ */
 export const TOPIC_ICONS: Record<string, LucideIcon> = {
   entrance: DoorOpen,
+  appearance: Shirt,
   candles: Flame,
   liturgy: Music,
   holy: Sparkles,
@@ -26,7 +27,7 @@ export function TopicIcon({ slug, size = 22 }: { slug: string; size?: number }) 
 }
 
 /** Խմբավորված ցուցակի քարտը և խմբի վերնագիրը (բաց, կոկիկ ոճ)։ */
-export const card = "rounded-card bg-[var(--card-glass)] border border-glass-border shadow-[0_1px_2px_rgb(92_64_30/8%)]";
+export const card = "paper-panel rounded-card";
 export const groupTitle = "m-0 px-1 text-[12px] font-bold tracking-[1.2px] text-gold uppercase";
 
 /** «Կարգեր և վարքեր»-ի ենթաբաժինների պատկերակները։ */

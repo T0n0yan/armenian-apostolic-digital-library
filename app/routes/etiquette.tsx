@@ -5,7 +5,7 @@ import type { Route } from "./+types/etiquette";
 import { card, groupTitle, TopicIcon } from "../components/etiquette-ui";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
-import { ETIQUETTE_TOPICS, POPULAR_QUESTIONS } from "../data/etiquette";
+import { ETIQUETTE_INTRO, ETIQUETTE_TOPICS, POPULAR_QUESTIONS } from "../data/etiquette";
 import { searchEtiquette } from "../utils/etiquette-search";
 import { CHURCH_TITLE } from "../data/church";
 import { seoMeta } from "../utils/seo";
@@ -38,7 +38,7 @@ export default function Etiquette() {
 
       <header className="mt-2 grid gap-1.5 px-1">
         <h1 className="m-0 font-noto text-[30px] leading-[38px] font-semibold tracking-[-0.3px] text-ink min-[560px]:text-[36px] min-[560px]:leading-[44px]">Վարք եկեղեցում</h1>
-        <p className="m-0 text-[14.5px] leading-[1.6] text-muted">Ինչպես վարվել եկեղեցում և ինչու է այդպես։</p>
+        <p className="m-0 text-[14.5px] leading-[1.6] text-muted">{ETIQUETTE_INTRO}</p>
       </header>
 
       <label className="search-field mt-5 flex min-h-[52px] items-center gap-2.5 pr-2 pl-4">
