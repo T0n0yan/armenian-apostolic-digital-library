@@ -1,0 +1,207 @@
+// Պատրաստի ձևանմուշներ՝ եկեղեցու հիմնական տիպերը։ Ամեն մեկը պարզ տվյալ է (JSON), որ հետագայում ադմինը
+// կարողանա պատճենել և փոխել։ Չափերը մոտավոր են՝ տիպը ցույց տալու համար, ոչ թե կոնկրետ եկեղեցի։
+
+import type { ChurchModel } from "./model";
+
+const CROSS_DOMED: ChurchModel = {
+  version: 1,
+  id: "cross-domed",
+  name: "Խաչաձև գմբեթավոր",
+  tuff: "pink",
+  rooms: [
+    {
+      id: "main", part: "nav", partAt: [0, 1.6, 7], height: 9, ceiling: "open",
+      outline: [[-4, 11], [4, 11], [4, 4], [7, 4], [7, -4], [4, -4, 4], [-4, -4], [-7, -4], [-7, 4], [-4, 4]],
+      apses: [{ edge: 5, part: "khoran" }],
+      doors: [{ edge: 0, at: 4, w: 2, h: 3.2 }, { edge: 4, at: 1.6, w: 1.2, h: 2.4 }, { edge: 6, at: 1.4, w: 1.2, h: 2.4 }],
+      windows: [
+        { edge: 0, at: 4, y: 9.8, w: 0.6, h: 1.6 }, { edge: 0, at: 4, y: 4.6, w: 0.5, h: 1.6 },
+        { edge: 3, at: 4, y: 9.8, w: 0.6, h: 1.6 }, { edge: 3, at: 4, y: 5.4, w: 0.5, h: 1.6 },
+        { edge: 7, at: 4, y: 9.8, w: 0.6, h: 1.6 }, { edge: 7, at: 4, y: 5.4, w: 0.5, h: 1.6 },
+        { edge: 1, at: 3.5, y: 5.6, w: 0.5, h: 1.6 }, { edge: 9, at: 3.5, y: 5.6, w: 0.5, h: 1.6 },
+        { edge: 5, at: 2.62, y: 5.8, w: 0.45, h: 1.5 }, { edge: 5, at: 9.95, y: 5.8, w: 0.45, h: 1.5 },
+      ],
+    },
+    {
+      id: "avandatun-n", part: "avandatun", height: 6, ceiling: "flat",
+      outline: [[-7, -4.4], [-4.4, -4.4], [-4.4, -8.4], [-7, -8.4]],
+      doors: [{ edge: 0, at: 1.6, w: 1.2, h: 2.4 }],
+    },
+    {
+      id: "avandatun-s", part: "avandatun", height: 6, ceiling: "flat",
+      outline: [[4.4, -4.4], [7, -4.4], [7, -8.4], [4.4, -8.4]],
+      doors: [{ edge: 0, at: 1, w: 1.2, h: 2.4 }],
+    },
+    {
+      id: "gavit", part: "gavit", partAt: [0, 2.2, 14.2], height: 6, ceiling: "flat",
+      outline: [[-5, 17], [5, 17], [5, 11.4], [-5, 11.4]],
+      doors: [{ edge: 0, at: 5, w: 2, h: 3, part: "mutq" }, { edge: 2, at: 5, w: 2, h: 3.2 }],
+      windows: [{ edge: 1, at: 2.8, y: 2.4, w: 0.5, h: 1.4 }, { edge: 3, at: 2.8, y: 2.4, w: 0.5, h: 1.4 }],
+    },
+  ],
+  vaults: [
+    { from: [0, 4], to: [0, 11], width: 8, spring: 9, closeTo: true },
+    { from: [-4, 0], to: [-7, 0], width: 8, spring: 9, closeTo: true },
+    { from: [4, 0], to: [7, 0], width: 8, spring: 9, closeTo: true },
+  ],
+  arcades: [],
+  dome: { at: [0, 0], radius: 3.6, base: 13, drum: 3, sides: 12, bay: 4, windows: { count: 12, w: 0.42, h: 1.5 } },
+  masses: [
+    { outline: [[-7.4, -8.8], [7.4, -8.8], [7.4, 11.4], [-7.4, 11.4]], height: 9.4, roof: { type: "flat" } },
+    { outline: [[-4.4, -8.8], [4.4, -8.8], [4.4, 11.4], [-4.4, 11.4]], base: 9.4, height: 9.4, roof: { type: "gable", axis: "z", rise: 4.2 } },
+    { outline: [[-7.4, -4.4], [7.4, -4.4], [7.4, 4.4], [-7.4, 4.4]], base: 9.4, height: 9.4, roof: { type: "gable", axis: "x", rise: 4.2 } },
+    { outline: [[-5.4, 11.4], [5.4, 11.4], [5.4, 17.4], [-5.4, 17.4]], height: 6.4, roof: { type: "gable", axis: "x", rise: 1.6 } },
+  ],
+  bema: {
+    outline: [[-4, -3], [4, -3], [4, -4, 4], [-4, -4]],
+    height: 1.3, stairs: "sides", atyan: { width: 5.2, depth: 1.9, height: 0.35 }, curtainTop: 8.65,
+  },
+  balconies: [],
+  belfry: { at: [0, 14.4], base: 7.4, radius: 1.2, columns: 6, height: 2.3 },
+  items: [
+    { type: "altar", at: [0, -6.1], y: 1.3 },
+    { type: "icon", at: [0, -7.82], y: 4.6, w: 2, h: 3, name: "Սուրբ Աստվածածնի սրբապատկեր" },
+    { type: "lectern", at: [0, -1.6], y: 0.35 },
+    { type: "choir", at: [-5.6, -0.6], rot: 90 },
+    { type: "font", at: [-6.2, 2.6], rot: 90, niche: true },
+    { type: "candle-table", at: [2.9, 9.2] },
+    { type: "chandelier", at: [0, 0], y: 9.6, top: 13 },
+  ],
+  cameras: {
+    khoran: { eye: [0, 4, 7], look: [0, 5.5, -6] },
+    bem: { eye: [-3.4, 3.4, 3.6], look: [0, 1.3, -4.6] },
+    seghan: { eye: [2.4, 3.6, 0.2], look: [0, 2.2, -6.3] },
+    patker: { eye: [0, 3.6, -0.6], look: [0, 6, -7.9] },
+    varaguyr: { eye: [1.2, 3.2, 6.2], look: [0, 4.8, -3] },
+    avandatun: { eye: [-15, 10, -2.5], look: [-5.7, 1.2, -6.4] },
+    atyan: { eye: [2.6, 2.6, 4.2], look: [0, 0.6, -2] },
+    grakal: { eye: [1.6, 2.1, 2.4], look: [0, 1.2, -1.6] },
+    das: { eye: [-1, 2.8, 4.6], look: [-5.4, 1, -0.6] },
+    nav: { eye: [0, 2.4, 10.4], look: [0, 3, 1] },
+    jah: { eye: [3, 5, 7.4], look: [0, 9.4, 0] },
+    avazan: { eye: [-1.8, 2.4, 0.6], look: [-6.2, 1, 2.6] },
+    momakal: { eye: [0.6, 2.3, 6.2], look: [2.9, 0.9, 9.2] },
+    gavit: { eye: [3.8, 2.6, 16.4], look: [0, 2, 13] },
+    "gmbet-durs": { eye: [20, 17, 24], look: [0, 15, 0] },
+    zangakatun: { eye: [10, 10, 28], look: [0, 8, 14.4] },
+    mutq: { eye: [6, 4, 30], look: [0, 3, 17.4] },
+  },
+  tour: [
+    {
+      title: "Մուտք", part: "mutq", vested: false, curtainClosed: false,
+      text: "Քահանան եկեղեցի է մտնում արևմտյան դռնով, խաչակնքվում է և խոնարհվում խորանի առջև։",
+      priest: [0, 0, 10.2], eye: [3.2, 3, 15.6], look: [0, 1.6, 9],
+    },
+    {
+      title: "Ավանդատուն", part: "avandatun", vested: false, curtainClosed: false,
+      text: "Նավով անցնում է առաջ և մտնում ավանդատուն, որտեղ պատրաստված են պատարագի զգեստները։",
+      priest: [-5.6, 0, -6.2], eye: [-15, 10, -2.5], look: [-5.7, 1.2, -6.4],
+    },
+    {
+      title: "Զգեստավորում", part: "avandatun", vested: true, curtainClosed: false,
+      text: "Հագնում է պատարագի զգեստները՝ շապիկ, փորուրար, գոտի, բազպաններ, վակաս և շուրջառ, ամեն մեկի համար աղոթք ասելով։ Այդ ժամանակ դասը երգում է «Խորհուրդ խորին» շարականը։",
+      priest: [-5.6, 0, -6.2], eye: [-15, 10, -2.5], look: [-5.7, 1.2, -6.4],
+    },
+    {
+      title: "Ձեռքերի լվացում", part: "atyan", vested: true, curtainClosed: false,
+      text: "Դուրս գալով՝ լվանում է ձեռքերը՝ ասելով 25-րդ սաղմոսը. «Լուացից ընդ անմեղս զձեռս իմ…»։",
+      priest: [-2, 0.35, -2.2], eye: [1.4, 2.4, 3.4], look: [-1.6, 1.2, -2.2],
+    },
+    {
+      title: "Խոստովանություն", part: "atyan", vested: true, curtainClosed: false,
+      text: "Ատյանում, բեմի առջև, քահանան խոստովանում է ժողովրդի առաջ և խնդրում աղոթել իր համար։",
+      priest: [0, 0.35, -2], eye: [0, 2.6, 5], look: [0, 1.4, -2],
+    },
+    {
+      title: "Բեմ բարձրանալը", part: "bem", vested: true, curtainClosed: true,
+      text: "Բարձրանում է բեմ, վարագույրը փակվում է, և քահանան պատրաստում է ընծաները՝ հացը և գինին։",
+      priest: [1.4, 1.3, -4.4], eye: [-3.4, 3.4, 3.6], look: [0, 2.4, -4],
+    },
+  ],
+};
+
+const SINGLE_NAVE: ChurchModel = {
+  version: 1,
+  id: "single-nave",
+  name: "Միանավ բազիլիկ",
+  tuff: "ochre",
+  rooms: [
+    {
+      id: "main", part: "nav", partAt: [0, 1.6, 5], height: 6, ceiling: "open",
+      outline: [[-4, 10], [4, 10], [4, -5], [3, -5, 3], [-3, -5], [-4, -5]],
+      apses: [{ edge: 3, part: "khoran" }],
+      doors: [{ edge: 0, at: 4, w: 1.8, h: 3, part: "mutq" }],
+      windows: [
+        { edge: 1, at: 7.5, y: 3.2, w: 0.5, h: 1.6, count: 3, gap: 4.5 },
+        { edge: 5, at: 7.5, y: 3.2, w: 0.5, h: 1.6, count: 3, gap: 4.5 },
+        { edge: 0, at: 4, y: 7.3, w: 1, h: 1, shape: "cross" },
+        { edge: 3, at: 4.71, y: 3.4, w: 0.4, h: 1.4 },
+      ],
+    },
+  ],
+  vaults: [{ from: [0, -5], to: [0, 10], width: 8, spring: 6, closeFrom: { hole: 3, rise: 3 }, closeTo: true }],
+  arcades: [],
+  masses: [{ outline: [[-4.4, -8.4], [4.4, -8.4], [4.4, 10.4], [-4.4, 10.4]], height: 6.4, roof: { type: "gable", axis: "z", rise: 3.9 } }],
+  bema: { outline: [[-3, -2.6], [3, -2.6], [3, -5, 3], [-3, -5]], height: 1.1, stairs: "center", curtainTop: 5.8 },
+  cameras: { nav: { eye: [0, 2.4, 9.4], look: [0, 2.6, -2] } },
+  balconies: [],
+  belfry: { at: [0, 9.2], base: 9.6, radius: 0.85, columns: 4, height: 1.6 },
+  items: [
+    { type: "altar", at: [0, -5.8], y: 1.1 },
+    { type: "lectern", at: [1.8, -1.6], rot: -20 },
+    { type: "choir", at: [-2.8, -0.9], rot: 90 },
+    { type: "font", at: [-3.22, 6.5], rot: 90, niche: true },
+    { type: "candle-table", at: [2.6, 8.3] },
+    { type: "icon", at: [3.97, 2], y: 1.6, w: 1.1, h: 1.6, rot: -90 },
+    { type: "chandelier", at: [0, 3], y: 6.4, top: 10 },
+  ],
+};
+
+const THREE_NAVE: ChurchModel = {
+  version: 1,
+  id: "three-nave",
+  name: "Եռանավ բազիլիկ",
+  tuff: "gray",
+  rooms: [
+    {
+      id: "main", part: "nav", partAt: [0, 1.6, 4], height: 5.5, heights: { 1: 8, 5: 8 }, ceiling: "open",
+      outline: [[-7, 12], [-3, 12], [3, 12], [7, 12], [7, -6], [3, -6, 3], [-3, -6], [-7, -6]],
+      apses: [{ edge: 5, part: "khoran" }],
+      doors: [{ edge: 1, at: 3, w: 2, h: 2.9, part: "mutq" }],
+      windows: [
+        { edge: 3, at: 9, y: 2.6, w: 0.5, h: 1.5, count: 4, gap: 4 },
+        { edge: 7, at: 9, y: 2.6, w: 0.5, h: 1.5, count: 4, gap: 4 },
+        { edge: 1, at: 3, y: 8.6, w: 0.9, h: 0.9, shape: "round" },
+        { edge: 5, at: 4.71, y: 4, w: 0.45, h: 1.6 },
+      ],
+    },
+  ],
+  vaults: [
+    { from: [0, -6], to: [0, 12], width: 6, spring: 8, closeTo: true },
+    { from: [-5, -6], to: [-5, 12], width: 4, spring: 5.5, closeFrom: true, closeTo: true },
+    { from: [5, -6], to: [5, 12], width: 4, spring: 5.5, closeFrom: true, closeTo: true },
+  ],
+  arcades: [
+    { from: [-3, -6], to: [-3, 12], count: 6, spring: 4.2, top: 8, pillar: 0.8 },
+    { from: [3, -6], to: [3, 12], count: 6, spring: 4.2, top: 8, pillar: 0.8 },
+  ],
+  masses: [
+    { outline: [[-7.4, -9.4], [7.4, -9.4], [7.4, 12.4], [-7.4, 12.4]], height: 6, roof: { type: "flat" } },
+    { outline: [[-3.4, -9.4], [3.4, -9.4], [3.4, 12.4], [-3.4, 12.4]], base: 6, height: 8.4, roof: { type: "gable", axis: "z", rise: 3 } },
+  ],
+  bema: { outline: [[-3, -3.4], [3, -3.4], [3, -6, 3], [-3, -6]], height: 1.2, stairs: "center", curtainTop: 7.6 },
+  balconies: [{ outline: [[-7, 9.5], [7, 9.5], [7, 12], [-7, 12]], floor: 3.4, part: "das-hark", stairs: { at: [-5.4, 4], dir: [0, 1], width: 1 } }],
+  items: [
+    { type: "altar", at: [0, -6.6], y: 1.2 },
+    { type: "lectern", at: [0, -2.6] },
+    { type: "choir", at: [0, 10.7], y: 3.4, rot: 180 },
+    { type: "font", at: [-6.2, 5], rot: 90, niche: true },
+    { type: "candle-table", at: [5.2, 6] },
+    { type: "icon", at: [6.97, 0], y: 1.6, w: 1.1, h: 1.6, rot: -90 },
+    { type: "icon", at: [-6.97, -2], y: 1.6, w: 1.1, h: 1.6, rot: 90 },
+    { type: "chandelier", at: [0, 2], y: 6.6, top: 11 },
+  ],
+  cameras: { "das-hark": { eye: [2, 2.4, 0], look: [0, 3.8, 11] }, nav: { eye: [0, 5.3, 11], look: [0, 2.6, -3] } },
+};
+
+export const TEMPLATES: readonly ChurchModel[] = [CROSS_DOMED, SINGLE_NAVE, THREE_NAVE];
