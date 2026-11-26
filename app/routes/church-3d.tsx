@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw, X, ZoomIn } from "lucide-react";
 import { PageHeader, PageShell } from "../components/page-layout";
@@ -7,15 +8,27 @@ import { PART_INFO } from "../church3d/info";
 import { computeHotspots, liturgyTour, type Hotspot, type Item } from "../church3d/model";
 import { TEMPLATES } from "../church3d/templates";
 import { ChurchPlan } from "../church3d/church-plan";
+import { getPublishedModel } from "../data/church-models.server";
+import type { Route } from "./+types/church-3d";
 import type { ChurchScene, ViewMode } from "../church3d/scene";
 
 // Փորձնական էջ՝ եկեղեցու կառուցվածքը 3D-ով։ Թաքնված է (ոչ մի տեղից հղված չէ, noindex)։
 
-export function meta() {
+/** `?place=<id>`՝ սրբավայրի հրապարակված մոդելը, առանց դրա՝ ձևանմուշներ։ */
+export async function loader({ request }: Route.LoaderArgs) {
+  const id = new URL(request.url).searchParams.get("place");
+  if (!id) return { place: null };
+  if (!/^[a-z0-9-]{1,80}$/u.test(id)) throw new Response("Not found", { status: 404 });
+  const found = await getPublishedModel(env.DB, id);
+  if (!found) throw new Response("Not found", { status: 404 });
+  return { place: { id, name: found.name, model: found.model } };
+}
+
+export function meta({ loaderData }: Route.MetaArgs) {
   return seoMeta({
-    title: "Եկեղեցու կառուցվածքը — Apostolic.am",
+    title: loaderData?.place ? `${loaderData.place.name}՝ 3D — Apostolic.am` : "Եկեղեցու կառուցվածքը — Apostolic.am",
     description: "Հայ Առաքելական եկեղեցու կառուցվածքը ներսից և դրսից՝ խորան, բեմ, Սուրբ Սեղան, ավանդատուն, ավազան, գմբեթ, զանգակատուն։",
-    path: "/church-3d",
+    path: loaderData?.place ? `/church-3d?place=${loaderData.place.id}` : "/church-3d",
     index: false,
   });
 }
@@ -78,14 +91,15 @@ function ItemViewer({ item }: { item: Item }) {
   );
 }
 
-export default function Church3D() {
+export default function Church3D({ loaderData }: Route.ComponentProps) {
+  const place = loaderData.place;
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ChurchScene | null>(null);
   const [templateId, setTemplateId] = useState(TEMPLATES[0].id);
-  const model = TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
+  const model = place?.model ?? TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
   const spots = useMemo(() => computeHotspots(model), [model]);
   const steps = useMemo(() => liturgyTour(model), [model]);
-  const church = `template:${model.id}`;
+  const church = place ? `place:${place.id}` : `template:${model.id}`;
   const [candles, setCandles] = useState<Candles | null>(null);
   const [mine, setMine] = useState(false);
   const [lighting, setLighting] = useState(false);
@@ -216,8 +230,9 @@ export default function Church3D() {
   return (
     <PageShell>
       <SiteNav />
-      <PageHeader showSearch={false} backTo="/" backLabel="Գրադարան" title="Եկեղեցու կառուցվածքը" />
+      <PageHeader showSearch={false} backTo={place ? `/places/${place.id}` : "/"} backLabel={place ? place.name : "Գրադարան"} title={place ? place.name : "Եկեղեցու կառուցվածքը"} />
       <div className="mt-4 grid gap-4">
+        {place ? <p className="m-0 text-center text-[12.5px] text-faint">Սխեմատիկ մոդել՝ ըստ եկեղեցու տիպի, ոչ ճշգրիտ պատճեն։</p> : (
         <div className="grid gap-2">
           <span className={label}>Եկեղեցու տիպը</span>
           <div className="flex flex-wrap gap-2">
@@ -228,6 +243,7 @@ export default function Church3D() {
             ))}
           </div>
         </div>
+        )}
 
         {can3d ? (
           <div className="paper-card flex gap-1 p-1.5" role="tablist" aria-label="Տեսք">

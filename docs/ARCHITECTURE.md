@@ -343,6 +343,7 @@ flowchart LR
   HOME --> ADM["/admin Կառավարում"]
   ADM --> A1["/admin/people"]
   ADM --> A2["/admin/places"]
+  A2 --> A7["/admin/places/:id/3d 3D մոդելի խմբագրիչ"]
   ADM --> A3["/admin/usage Կայքի վիճակը"]
   ADM --> A4["/admin/glossary"]
   ADM --> A6["/admin/help Օգնության տեսանյութեր"]
@@ -353,7 +354,7 @@ flowchart LR
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
 `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`, `/api/material-layout`,
 `/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
-`/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
+`/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`, `/api/church-candles`։
 **Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/og/card/...`, `/sitemap.xml`։
 
 **Որոնիչների համար (SEO)**. Ամեն էջի վերնագիրը, նկարագրությունը և structured data-ն տալիս է `seoMeta()`-ն (`app/utils/seo.ts`). վերնագիրը մինչև 65 նիշ է (`pageTitle()`), սեփական structured data չունեցող էջը ստանում է «Գլխավոր → էջ» ճանապարհը։ Սրբավայրի էջը մտնում է որոնման և sitemap-ի մեջ միայն երբ բովանդակություն ունի (`placeHasContent()`՝ պատմություն ≥ 80 նիշ, նկար, արարողություններ կամ ծառայողներ). դատարկները `noindex, follow` են, լրացվելուն պես ինքնուրույն բացվում են։ `/places`-ում և «ավելին»-ով բեռնվող բաժիններում (`/daily`, `/gospel`) բոլոր էջերի հղումները HTML-ում են՝ օգտատիրոջը հասանելի `<details>` ցանկերով։ Մոմի ներածությունը ցուցադրվում է միայն երբ այցը սկսվում է գլխավոր էջից (`root.tsx`)։ Սրբավայրի նկարը էջում՝ `?w=1200` (WebP, R2-ում պահվող), նախադիտման մեջ՝ `?w=1200&f=jpg` (JPEG)։ `/places`-ում ամեն մարզ մեկ բացվող քարտ է (`<details>`). փակ վիճակում ներսում պարզ հղումներ են, բացելիս՝ նկարներով ցանկը։ Սրբավայրի նկարների չափերը պահվում են `place_photo_sizes`-ում (migration 0053, լրացվում է ինքնուրույն՝ `placePhotoSizes()`), որ նկարի տեղը նախապես պահվի և էջը չցատկի։ Բոլոր պատկերակները (lucide) build-ում մեկ `icons` ֆայլում են (`vite.config.ts`)՝ էջը տասնյակ JS հարցում պակաս է անում։
@@ -558,6 +559,20 @@ flowchart LR
   Դրսի պատուհաններն ու դռները ինքնին են հայտնվում՝ ներսի դիրքից դեպի դուրս ամենամոտ պատին (`exteriorHit`)։
 - `cameras`՝ ձեռքով ընտրված տեսախցիկի տեղեր, `tour`՝ քայլեր («Պատարագից առաջ»)։ Առանց դրանց տեսախցիկը հաշվվում է ինքնին։
 
+- **«Պատարագից առաջ»**՝ `liturgyTour(model)`. քայլերը հաշվվում են մասերից (մուտք, ավանդատուն, ատյան, բեմ, դաս)
+  ցանկացած եկեղեցու համար, ավանդատուն չունեցողում զգեստավորման քայլերը բաց են թողնվում։
+- **Բոցերի թրթռոց** (տիրոջ թույլտվությամբ)՝ GPU-ում (`ShaderMaterial`, `time`), ~12 կադր/վրկ, միայն երբ 3D-ն էկրանին է,
+  էջը բաց է, ներսի տեսքն է և «քիչ շարժում» միացված չէ (`scene.ts`, `shouldFlicker`)։
+- **«Վառել մոմ»**՝ `/api/church-candles` (GET ?church=…, POST { church, token })։ Անանուն. սարքի պատահական նշանը
+  (`localStorage`) + օր + եկեղեցի → hash, օրը մեկ մոմ ամեն սարքից, մինչև Երևանի օրվա վերջ։ Աղյուսակներ՝ `church_candles`,
+  `church_candle_totals` (migration 0054), սեղանին 60 տեղ (`candleSlot`), նորերը փոխարինում են ամենահներին։
+  Եկեղեցու նշանը՝ `template:<id>` կամ `place:<id>`։ Մաքրում՝ 3 օրից հին (`retention.server.ts`)։
+- **Ադմինի խմբագրիչ**՝ `/admin/places/:id/3d` (`admin-church-model.tsx` + `app/church3d/editor.tsx`, «places» թույլտվություն)։
+  Հատակագծում քաշվում են սենյակների կետերն ու պարագաները, կողքին 3D նախադիտում, դաշտերով՝ պատուհաններ, դռներ,
+  բարձրություններ, պատի կորություն, «JSON / GPT» ներդիր՝ JSON խմբագրում և GPT-ի հրահանգ (`prompt.ts`). AI-ն մեզ ոչինչ չարժե։
+  Պահվում է սևագիր, հրապարակում է միայն տերը։ Աղյուսակներ՝ `church_models` (draft/published), `church_model_versions`
+  (վերջին 20-ը, «Վերադարձնել որպես սևագիր»), migration 0055։ Ամեն պահում ստուգվում է `validateModel`-ով (սխալները հայերեն, տեղով)։
+- **Սրբավայրի էջում** «Դիտել 3D-ով» կոճակ, երբ մոդելը հրապարակված է → `/church-3d?place=<id>` (սխեմատիկ մոդել, «Վառել մոմ»)։
 - **Տեքստ փոխել**՝ `info.ts` (բոլոր եկեղեցիների համար), կամ պարագայի `name`՝ կոնկրետ եկեղեցում։ Բոլորը ⚑ Ճշտել են։
 - **Նոր տիպ**՝ նոր անձնագիր `templates.ts`-ում (կոդ գրել պետք չէ)։ Հետագայում անձնագրերը կպահվեն բազայում (ադմինի խմբագրիչ)։
 - **Արագություն**. three.js-ը (~145 ԿԲ gzip) բեռնվում է միայն այս էջում (`import()`)։ Ամեն գույնի մասերը միացված են
@@ -775,6 +790,9 @@ erDiagram
   app_users ||--o{ push_subscriptions : "բրաուզերներ"
   app_users ||--o{ poll_votes : "քվեարկում է"
   app_users ||--o{ place_visits : "այցելել է"
+  places ||--o| church_models : "3D մոդել"
+  church_models ||--o{ church_model_versions : "տարբերակներ"
+  church_candles }o--|| church_candle_totals : "օրվա թիվ"
   app_users ||--o{ liturgy_marks : "Պատարագ"
   app_users ||--o| user_settings : "կարգավորումներ"
   app_users ||--o{ yearly_summaries : "տարվա ամփոփում"
