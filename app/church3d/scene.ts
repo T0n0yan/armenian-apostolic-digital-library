@@ -2,12 +2,13 @@
 // Էկրանը նկարվում է միայն շարժման պահին (անընդհատ ցիկլ չկա), ստվերներ չկան։
 import {
   AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, CapsuleGeometry, CylinderGeometry, DirectionalLight,
-  Float32BufferAttribute, Group, HemisphereLight, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshLambertMaterial,
-  PerspectiveCamera, Points, Scene, ShaderMaterial, SphereGeometry, Vector2, Vector3, WebGLRenderer, type Material,
+  Float32BufferAttribute, Group, HemisphereLight, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
+  Object3D, PerspectiveCamera, Plane, Points, Raycaster, Scene, ShaderMaterial, SphereGeometry, TorusGeometry, Vector2, Vector3,
+  WebGLRenderer, type Material,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildChurch, createMaterials } from "./build";
-import { candleSlot, computeHotspots, defaultView, type ChurchModel, type Person, type Role, type TourStep, type V3 } from "./model";
+import { candleSlot, computeHotspots, defaultView, type ChurchModel, type Person, type Pt, type Role, type TourStep, type V3 } from "./model";
 
 export type ViewMode = "cutaway" | "outside";
 
@@ -15,6 +16,9 @@ export type ChurchScene = {
   setMode(mode: ViewMode): void;
   /** Այսօր վառված մոմերը մոմավառության սեղանին (տեղերի համարներ)։ */
   setCandles(slots: readonly number[]): void;
+  /** Ընտրված պարագայի ոսկե օղակը (խմբագրիչ)։ */
+  highlight(index: number | null): void;
+  getView(): { mode: ViewMode; eye: V3; look: V3 };
   focus(eye: V3, look: V3): void;
   select(id: string | null): void;
   showTour(step: TourStep | null): void;
@@ -129,7 +133,19 @@ function placePerson(group: Group, person: Person) {
   return group;
 }
 
-export function createChurchScene(host: HTMLElement, options: { model: ChurchModel; onPick: (id: string) => void }): ChurchScene {
+/** Խմբագրիչի համար՝ պարագաները սեղմվում և քաշվում են 3D-ում։ */
+export type EditHooks = {
+  onSelectItem: (index: number | null) => void;
+  onMoveItem: (index: number, at: Pt) => void;
+};
+
+export function createChurchScene(host: HTMLElement, options: {
+  model: ChurchModel;
+  onPick: (id: string) => void;
+  edit?: EditHooks;
+  /** Սկզբնական տեսքը (խմբագրիչում՝ նախորդ տեսարանից, որ վերակառուցելիս տեսախցիկը չթռչի)։ */
+  view?: { mode: ViewMode; eye: V3; look: V3 };
+}): ChurchScene {
   const { model } = options;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const renderer = new WebGLRenderer({ antialias: dpr < 2, alpha: true });
@@ -145,7 +161,7 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
   scene.add(sun);
 
   const materials = createMaterials(model.tuff);
-  const { interior, exterior, curtainOpen, curtainClosed, glows } = buildChurch(model, materials);
+  const { interior, exterior, curtainOpen, curtainClosed, glows, itemGroups } = buildChurch(model, materials, { separateItems: Boolean(options.edit) });
   scene.add(interior, exterior);
   const texture = glowTexture();
   const flicker: Flicker = { time: { value: 0 }, scale: { value: 1 } };
@@ -200,6 +216,8 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
   // Կետերը՝ սովորական կոճակներ canvas-ի վրա (հստակ տեքստ, մատով հեշտ սեղմվում են)։
   const overlay = document.createElement("div");
   overlay.className = "church3d-overlay";
+  // Խմբագրիչում կետերը չենք ցույց տալիս՝ որ պարագաները սեղմելիս չխանգարեն։
+  if (options.edit) overlay.hidden = true;
   host.appendChild(overlay);
   const dots = computeHotspots(model).map((spot) => {
     const button = document.createElement("button");
@@ -301,10 +319,76 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
   };
 
   controls.addEventListener("change", requestRender);
+
+  // ---------- Խմբագրում 3D-ում՝ պարագան սեղմել (ընտրել) և քաշել հատակով ----------
+  const ring = new Mesh(new TorusGeometry(0.55, 0.035, 6, 40).rotateX(Math.PI / 2), new MeshBasicMaterial({ color: "#e2c27e" }));
+  ring.visible = false;
+  interior.add(ring);
+  const raycaster = new Raycaster();
+  const pointer = new Vector2();
+  const plane = new Plane(new Vector3(0, 1, 0), 0);
+  const hit = new Vector3();
+  let drag: { group: Group; index: number; offset: Vector3; moved: boolean; startX: number; startY: number } | null = null;
+  const toPointer = (event: PointerEvent) => {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+  };
+  const snapTo = (v: number) => Math.round(v * 10) / 10;
+  function onDown(event: PointerEvent) {
+    if (!options.edit || mode !== "cutaway" || event.target !== renderer.domElement) return;
+    toPointer(event);
+    const found = raycaster.intersectObjects(itemGroups, true)[0];
+    if (!found) return;
+    let group: Object3D | null = found.object;
+    while (group && group.userData.item === undefined) group = group.parent;
+    if (!group) return;
+    controls.enabled = false;
+    plane.constant = -group.position.y;
+    raycaster.ray.intersectPlane(plane, hit);
+    drag = { group: group as Group, index: group.userData.item as number, offset: group.position.clone().sub(hit), moved: false, startX: event.clientX, startY: event.clientY };
+    renderer.domElement.setPointerCapture(event.pointerId);
+  }
+  function onMove(event: PointerEvent) {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 6) return;
+    drag.moved = true;
+    toPointer(event);
+    if (!raycaster.ray.intersectPlane(plane, hit)) return;
+    drag.group.position.x = snapTo(hit.x + drag.offset.x);
+    drag.group.position.z = snapTo(hit.z + drag.offset.z);
+    ring.position.set(drag.group.position.x, drag.group.position.y + 0.02, drag.group.position.z);
+    requestRender();
+  }
+  function onUp() {
+    if (!drag) return;
+    const { index, group, moved } = drag;
+    drag = null;
+    controls.enabled = true;
+    if (moved) options.edit?.onMoveItem(index, [group.position.x, group.position.z]);
+    else options.edit?.onSelectItem(index);
+  }
+  if (options.edit) {
+    host.addEventListener("pointerdown", onDown, { capture: true });
+    renderer.domElement.addEventListener("pointermove", onMove);
+    renderer.domElement.addEventListener("pointerup", onUp);
+    renderer.domElement.addEventListener("pointercancel", onUp);
+  }
+  function highlight(index: number | null) {
+    const group = index === null ? undefined : itemGroups[index];
+    ring.visible = Boolean(group);
+    if (group) ring.position.set(group.position.x, group.position.y + 0.02, group.position.z);
+    requestRender();
+  }
   const observer = new ResizeObserver(resize);
   observer.observe(host);
-  applyMode("cutaway");
-  home("cutaway");
+  if (options.view) {
+    applyMode(options.view.mode);
+    focus(options.view.eye, options.view.look);
+  } else {
+    applyMode("cutaway");
+    home("cutaway");
+  }
   resize();
 
   return {
@@ -315,6 +399,8 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
     },
     focus,
     setCandles,
+    highlight,
+    getView: () => ({ mode, eye: camera.position.toArray() as unknown as V3, look: controls.target.toArray() as unknown as V3 }),
     select(id) {
       for (const dot of dots) dot.button.setAttribute("aria-pressed", String(dot.spot.id === id));
     },
@@ -342,6 +428,7 @@ export function createChurchScene(host: HTMLElement, options: { model: ChurchMod
     dispose() {
       cancelAnimationFrame(frame);
       window.clearTimeout(tick);
+      host.removeEventListener("pointerdown", onDown, { capture: true });
       visibility.disconnect();
       document.removeEventListener("visibilitychange", updateLoop);
       observer.disconnect();
