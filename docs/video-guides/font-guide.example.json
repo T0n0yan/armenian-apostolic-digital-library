@@ -1,0 +1,36 @@
+{
+  "project": "apostolic.am tutorial series",
+  "version": 2,
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 24,
+    "audio": false
+  },
+  "design": {
+    "background": "subtle parchment matching light site theme",
+    "topBrand": false,
+    "ornamentalArcs": false,
+    "extraUI": false,
+    "footer": "apostolic.am",
+    "tapEffect": "no additional ripples; capture-only"
+  },
+  "tutorial": {
+    "title": "Տառատեսակ և տառաչափ",
+    "scenes": [
+      "Բացիր մենյուն",
+      "Բացիր կարգավորումները",
+      "Ընտրիր տառատեսակը",
+      "Փոխիր տառաչափը",
+      "Ընտրիր վերնագրերի չափը",
+      "Պատրաստ է"
+    ],
+    "headingChoices": [
+      "Փոքր",
+      "Միջին",
+      "Մեծ"
+    ],
+    "note": "Heading-size demo is reconstructed from app/components/settings-panel.tsx; it was not captured in the supplied original footage."
+  },
+  "source": "user original 03-taratesak.mp4; editable render_v2.py and assets in the downloadable ZIP"
+}
