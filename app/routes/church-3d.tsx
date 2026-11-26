@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, RotateCcw, X, ZoomIn } from "lucide-react";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
-import { CHURCH_PARTS, LITURGY_TOUR, PART_BY_ID, type ChurchPart } from "../church3d/parts";
+import { PART_INFO } from "../church3d/info";
+import { computeHotspots, type Hotspot } from "../church3d/model";
+import { TEMPLATES } from "../church3d/templates";
 import { ChurchPlan } from "../church3d/church-plan";
 import type { ChurchScene, ViewMode } from "../church3d/scene";
 
@@ -33,10 +35,14 @@ const iconButton = "grid size-9 cursor-pointer place-items-center rounded-full b
 const primary = "inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-button bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] px-4 text-[14.5px] font-bold text-[#2a1708]";
 const secondary = "inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-button border border-edge bg-subtle px-3 text-[14px] font-semibold text-ink disabled:cursor-default disabled:opacity-40";
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
+const label = "text-[11px] font-bold tracking-[1.2px] text-gold uppercase";
 
 export default function Church3D() {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<ChurchScene | null>(null);
+  const [templateId, setTemplateId] = useState(TEMPLATES[0].id);
+  const model = TEMPLATES.find((item) => item.id === templateId) ?? TEMPLATES[0];
+  const spots = useMemo(() => computeHotspots(model), [model]);
   const [status, setStatus] = useState<Status>("loading");
   const [mode, setMode] = useState<Mode>("cutaway");
   const [selected, setSelected] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export default function Church3D() {
 
   useEffect(() => {
     let cancelled = false;
-    // three.js-ը բեռնվում է միայն այս էջում և միայն բրաուզերում։
+    // three.js-ը բեռնվում է միայն այս էջում և միայն բրաուզերում։ Տիպը փոխելիս տեսարանը կառուցվում է նորից։
     import("../church3d/scene").then(({ createChurchScene, webglAvailable }) => {
       if (cancelled || !hostRef.current) return;
       if (!webglAvailable()) {
@@ -54,7 +60,7 @@ export default function Church3D() {
         setMode("plan");
         return;
       }
-      sceneRef.current = createChurchScene(hostRef.current, { parts: CHURCH_PARTS, onPick: (id) => pickRef.current(id) });
+      sceneRef.current = createChurchScene(hostRef.current, { model, onPick: (id) => pickRef.current(id) });
       setStatus("ready");
     }).catch(() => {
       if (cancelled) return;
@@ -66,11 +72,19 @@ export default function Church3D() {
       sceneRef.current?.dispose();
       sceneRef.current = null;
     };
-  }, []);
+  }, [model]);
 
   function select(id: string | null) {
     setSelected(id);
     sceneRef.current?.select(id);
+  }
+
+  function changeTemplate(id: string) {
+    if (id === templateId) return;
+    setTour(null);
+    setSelected(null);
+    setMode((current) => (current === "plan" ? "plan" : "cutaway"));
+    setTemplateId(id);
   }
 
   function changeMode(next: Mode) {
@@ -80,24 +94,25 @@ export default function Church3D() {
   }
 
   /** Տեսախցիկը տանում է մասի մոտ (անհրաժեշտության դեպքում փոխում է ներս/դուրս)։ */
-  function goTo(part: ChurchPart) {
+  function goTo(spot: Hotspot) {
     const scene = sceneRef.current;
-    select(part.id);
+    select(spot.id);
     if (!scene) return;
-    const view: ViewMode = part.view === "outside" ? "outside" : "cutaway";
+    const view: ViewMode = spot.view === "outside" ? "outside" : "cutaway";
     if (tour !== null) endTour();
     setMode(view);
     scene.setMode(view);
-    scene.focus(part.eye, part.look ?? part.at);
+    scene.focus(spot.eye, spot.look);
   }
 
   pickRef.current = (id) => select(id === selected ? null : id);
 
   function showStep(index: number) {
-    const step = LITURGY_TOUR[index];
+    const step = model.tour?.[index];
+    if (!step) return;
     setTour(index);
     setMode("cutaway");
-    select(step.part);
+    select(spots.find((spot) => spot.kind === step.part)?.id ?? null);
     sceneRef.current?.showTour(step);
   }
 
@@ -106,15 +121,30 @@ export default function Church3D() {
     sceneRef.current?.showTour(null);
   }
 
-  const part = selected ? PART_BY_ID.get(selected) : undefined;
-  const step = tour === null ? null : LITURGY_TOUR[tour];
+  const spot = selected ? spots.find((item) => item.id === selected) : undefined;
+  const info = spot ? PART_INFO[spot.kind] : undefined;
+  const steps = model.tour ?? [];
+  const step = tour === null ? null : steps[tour];
   const can3d = status !== "fallback";
+  // Ցանկում ամեն տեսակը մեկ անգամ (օր.՝ երկու ավանդատուն → մեկ կոճակ)։
+  const unique = spots.filter((item, i) => spots.findIndex((other) => other.kind === item.kind) === i);
 
   return (
     <PageShell>
       <SiteNav />
       <PageHeader showSearch={false} backTo="/" backLabel="Գրադարան" title="Եկեղեցու կառուցվածքը" />
       <div className="mt-4 grid gap-4">
+        <div className="grid gap-2">
+          <span className={label}>Եկեղեցու տիպը</span>
+          <div className="flex flex-wrap gap-2">
+            {TEMPLATES.map((item) => (
+              <button key={item.id} type="button" aria-pressed={item.id === templateId} className={chip(item.id === templateId)} onClick={() => changeTemplate(item.id)}>
+                {item.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {can3d ? (
           <div className="paper-card flex gap-1 p-1.5" role="tablist" aria-label="Տեսք">
             {MODES.map((item) => (
@@ -128,7 +158,7 @@ export default function Church3D() {
         <div className="paper-card relative h-[min(64svh,560px)] min-h-[320px] overflow-hidden">
           <div ref={hostRef} className={`absolute inset-0 ${mode === "plan" ? "invisible" : ""}`} />
           {mode === "plan" ? (
-            <div className="absolute inset-0 p-3"><ChurchPlan parts={CHURCH_PARTS} selected={selected} onPick={(id) => select(id === selected ? null : id)} /></div>
+            <div className="absolute inset-0 p-3"><ChurchPlan model={model} selected={selected} onPick={(id) => select(id === selected ? null : id)} /></div>
           ) : null}
           {status === "loading" && mode !== "plan" ? (
             <p className="absolute inset-0 m-0 grid place-items-center text-[14px] text-muted">Բեռնվում է…</p>
@@ -146,7 +176,7 @@ export default function Church3D() {
         {step ? (
           <section className="paper-panel grid gap-3 px-5 py-4" aria-live="polite">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-bold tracking-[1.2px] text-gold uppercase">Պատարագից առաջ · {tour! + 1}/{LITURGY_TOUR.length}</span>
+              <span className={label}>Պատարագից առաջ · {tour! + 1}/{steps.length}</span>
               <button type="button" className={iconButton} aria-label="Ավարտել" onClick={endTour}><X aria-hidden="true" size={17} /></button>
             </div>
             <h2 className={heading}>{step.title}</h2>
@@ -154,46 +184,50 @@ export default function Church3D() {
             <span className="text-[12px] text-faint">⚑ Ճշտել՝ հոգևորականի հետ</span>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" className={secondary} disabled={tour === 0} onClick={() => showStep(tour! - 1)}><ChevronLeft aria-hidden="true" size={18} /> Նախորդ</button>
-              {tour! < LITURGY_TOUR.length - 1
+              {tour! < steps.length - 1
                 ? <button type="button" className={primary} onClick={() => showStep(tour! + 1)}>Հաջորդ <ChevronRight aria-hidden="true" size={18} /></button>
                 : <button type="button" className={primary} onClick={endTour}>Ավարտել</button>}
             </div>
           </section>
-        ) : part ? (
+        ) : spot && info ? (
           <section className="paper-panel grid gap-2.5 px-5 py-4" aria-live="polite">
             <div className="flex items-start justify-between gap-3">
               <div className="grid gap-0.5">
-                <h2 className={heading}>{part.name}</h2>
-                {part.aka ? <span className="text-[13px] text-muted">նաև՝ {part.aka}</span> : null}
+                <h2 className={heading}>{spot.name}</h2>
+                {info.aka ? <span className="text-[13px] text-muted">նաև՝ {info.aka}</span> : null}
               </div>
               <button type="button" className={iconButton} aria-label="Փակել" onClick={() => select(null)}><X aria-hidden="true" size={17} /></button>
             </div>
-            <p className="m-0 text-[14.5px] leading-[1.7] text-ink">{part.text}</p>
-            {part.check ? <span className="text-[12px] text-faint">⚑ Ճշտել՝ հոգևորականի հետ</span> : null}
+            <p className="m-0 text-[14.5px] leading-[1.7] text-ink">{info.text}</p>
+            {info.check ? <span className="text-[12px] text-faint">⚑ Ճշտել՝ հոգևորականի հետ</span> : null}
             {can3d ? (
-              <button type="button" className={`${secondary} justify-self-start`} onClick={() => goTo(part)}><ZoomIn aria-hidden="true" size={17} /> Մոտիկից</button>
+              <button type="button" className={`${secondary} justify-self-start`} onClick={() => goTo(spot)}><ZoomIn aria-hidden="true" size={17} /> Մոտիկից</button>
             ) : null}
           </section>
         ) : null}
 
         <section className="paper-panel grid gap-3 px-5 py-4">
           <h2 className={heading}>Եկեղեցու մասերը</h2>
-          {(["inside", "outside"] as const).map((view) => (
-            <div key={view} className="grid gap-2">
-              <span className="text-[11px] font-bold tracking-[1.2px] text-gold uppercase">{view === "inside" ? "Ներսում" : "Դրսում"}</span>
-              <div className="flex flex-wrap gap-2">
-                {CHURCH_PARTS.filter((item) => item.view === view).map((item) => (
-                  <button key={item.id} type="button" aria-pressed={selected === item.id} className={chip(selected === item.id)}
-                    onClick={() => (can3d ? goTo(item) : select(item.id))}>
-                    {item.name}
-                  </button>
-                ))}
+          {(["inside", "outside"] as const).map((view) => {
+            const list = unique.filter((item) => item.view === view);
+            if (!list.length) return null;
+            return (
+              <div key={view} className="grid gap-2">
+                <span className={label}>{view === "inside" ? "Ներսում" : "Դրսում"}</span>
+                <div className="flex flex-wrap gap-2">
+                  {list.map((item) => (
+                    <button key={item.id} type="button" aria-pressed={spot?.kind === item.kind} className={chip(spot?.kind === item.kind)}
+                      onClick={() => (can3d ? goTo(item) : select(item.id))}>
+                      {PART_INFO[item.kind].name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </section>
 
-        {can3d && !step ? (
+        {can3d && steps.length > 0 && !step ? (
           <section className="paper-panel grid gap-3 px-5 py-4">
             <h2 className={heading}>Պատարագից առաջ</h2>
             <p className="m-0 text-[14.5px] leading-[1.7] text-ink">Քայլ առ քայլ՝ ինչ է անում քահանան եկեղեցի մտնելուց մինչև բեմ բարձրանալը։</p>
