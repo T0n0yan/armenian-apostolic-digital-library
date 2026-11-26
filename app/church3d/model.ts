@@ -52,12 +52,17 @@ export type Bema = { outline: readonly Vertex[]; height: number; stairs: "sides"
 export type Balcony = { outline: readonly Vertex[]; floor: number; part?: PartKind; stairs?: { at: Pt; dir: Pt; width: number } };
 export type Belfry = { at: Pt; base: number; radius: number; columns: number; height: number };
 
-export type ItemType = "altar" | "lectern" | "font" | "candle-table" | "chandelier" | "choir" | "icon" | "bench" | "column";
+export type ItemType =
+  | "altar" | "lectern" | "font" | "candle-table" | "chandelier" | "choir" | "icon" | "bench" | "column"
+  | "chalice" | "gospel" | "censer" | "fan" | "candlestick" | "procession-icon";
 /** Պարագա. `rot`՝ աստիճան (0՝ դեմքով դեպի արևմուտք, 90՝ դեպի հարավ)։ */
 export type Item = { type: ItemType; at: Pt; y?: number; rot?: number; w?: number; h?: number; top?: number; name?: string; niche?: boolean };
 
 export type Camera = { eye: V3; look: V3 };
-export type TourStep = { title: string; text: string; part: PartKind; priest: V3; vested: boolean; curtainClosed: boolean; eye: V3; look: V3 };
+/** Մարդուկ՝ դերով (զգեստի գույնն ու ձևը)։ `rot`՝ աստիճան, ինչպես պարագաներինը։ */
+export type Role = "priest" | "deacon" | "dpir" | "believer";
+export type Person = { role: Role; at: V3; rot?: number };
+export type TourStep = { title: string; text: string; part: PartKind; priest: V3; vested: boolean; curtainClosed: boolean; eye: V3; look: V3; people?: readonly Person[] };
 export type TuffColor = "pink" | "ochre" | "gray" | "black";
 
 export type ChurchModel = {
@@ -255,6 +260,10 @@ export type Hotspot = {
   at: V3;
   eye: V3;
   look: V3;
+  /** Պարագա է (կարելի է բացել մանրամասն դիտումով)։ */
+  item?: Item;
+  /** Կետը երևում է միայն այսքան մետրից մոտ։ */
+  near?: number;
 };
 
 /** Բեմի առջևի եզրը՝ կենտրոն, երկարություն, լայնակի և դեպի ժողովուրդ ուղղություններ։ */
@@ -268,12 +277,16 @@ export function bemaFront(bema: Bema) {
 export function itemAnchor(item: Item): { at: V3; front: Pt } {
   const front = rotate([0, 1], item.rot ?? 0);
   const y = item.y ?? 0;
-  const lift: Record<ItemType, number> = { altar: 1.4, lectern: 1.4, font: 1.3, "candle-table": 1.2, chandelier: 0.1, choir: 1.4, icon: (item.h ?? 3) * 0.55, bench: 1.1, column: (item.h ?? 4) * 0.6 };
+  const lift: Record<ItemType, number> = {
+    altar: 1.4, lectern: 1.4, font: 1.3, "candle-table": 1.2, chandelier: 0.1, choir: 1.4, icon: (item.h ?? 3) * 0.55, bench: 1.1, column: (item.h ?? 4) * 0.6,
+    chalice: 0.4, gospel: 0.25, censer: 1.2, fan: 2.3, candlestick: 1.7, "procession-icon": 2.4,
+  };
   return { at: [item.at[0], y + lift[item.type], item.at[1]], front };
 }
 
 const ITEM_KIND: Partial<Record<ItemType, PartKind>> = {
   altar: "seghan", lectern: "grakal", font: "avazan", "candle-table": "momakal", chandelier: "jah", choir: "das", icon: "patker", bench: "nstaran",
+  chalice: "skih", gospel: "avetaran", censer: "burvar", fan: "kshots", candlestick: "ashtanak", "procession-icon": "tapori-patker",
 };
 
 /** Բոլոր կետերը՝ ամեն մեկը իր անունով, տեղով և տեսախցիկի տեղով։ Աշխատում է առանց three.js-ի։ */
@@ -281,7 +294,7 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
   const box = modelBounds(model);
   const center: Pt = [(box.minX + box.maxX) / 2, (box.minZ + box.maxZ) / 2];
   const size = Math.max(box.maxX - box.minX, box.maxZ - box.minZ);
-  const spots: Array<Omit<Hotspot, "id" | "name" | "view" | "eye" | "look"> & { front?: Pt; dist?: number; name?: string; eyeY?: number; look?: V3 }> = [];
+  const spots: Array<Omit<Hotspot, "id" | "name" | "view" | "eye" | "look" | "near"> & { front?: Pt; dist?: number; name?: string; eyeY?: number; look?: V3 }> = [];
 
   for (const room of model.rooms) {
     const edges = edgesOf(room.outline);
@@ -339,7 +352,7 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
     const kind = ITEM_KIND[item.type];
     if (!kind) continue;
     const anchor = itemAnchor(item);
-    spots.push({ kind, at: anchor.at, front: anchor.front, name: item.name });
+    spots.push({ kind, at: anchor.at, front: anchor.front, name: item.name, item });
   }
 
   const seen = new Map<string, number>();
@@ -366,7 +379,7 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
       const d = unit([at[0] - center[0] || 0.001, at[2] - center[1]]);
       eye = [at[0] + d[0] * 12, at[1] + 9, at[2] + d[1] * 12];
     }
-    return { id, kind: spot.kind, name: spot.name ?? info.name, view: info.view, at, eye: camera?.eye ?? eye, look: camera?.look ?? look };
+    return { id, kind: spot.kind, name: spot.name ?? info.name, view: info.view, at, eye: camera?.eye ?? eye, look: camera?.look ?? look, item: spot.item, near: info.near };
   });
 }
 

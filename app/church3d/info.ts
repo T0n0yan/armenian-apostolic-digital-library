@@ -3,7 +3,8 @@
 
 export type PartKind =
   | "khoran" | "bem" | "seghan" | "patker" | "varaguyr" | "avandatun" | "atyan" | "grakal" | "das" | "das-hark"
-  | "nav" | "gmbet" | "jah" | "avazan" | "momakal" | "gavit" | "nstaran" | "gmbet-durs" | "zangakatun" | "mutq";
+  | "nav" | "gmbet" | "jah" | "avazan" | "momakal" | "gavit" | "nstaran" | "gmbet-durs" | "zangakatun" | "mutq"
+  | "skih" | "burvar" | "kshots" | "ashtanak" | "tapori-patker" | "avetaran";
 
 export type PartInfo = {
   name: string;
@@ -13,6 +14,8 @@ export type PartInfo = {
   /** «front»՝ նայում ենք առջևից, «outward»՝ վերևից-դրսից (կտրվածքով), «below»՝ ներքևից վեր։ */
   camera: "front" | "outward" | "below";
   distance?: number;
+  /** Մանր պարագայի կետը երևում է միայն այսքան մետրից մոտ (որ ընդհանուր տեսքը չծանրաբեռնվի)։ */
+  near?: number;
   check: boolean;
 };
 
@@ -84,6 +87,30 @@ export const PART_INFO: Record<PartKind, PartInfo> = {
   nstaran: {
     name: "Նստարան", view: "inside", camera: "front", distance: 4, check: true,
     text: "Նստարաններ կան ոչ բոլոր եկեղեցիներում. ավանդաբար Պատարագին մասնակցում են կանգնած։",
+  },
+  skih: {
+    name: "Սկիհ", view: "inside", camera: "front", distance: 2.2, near: 9, check: true,
+    text: "Սրբազան բաժակը, որում Սուրբ Պատարագի ժամանակ գինին օրհնվում է և դառնում Քրիստոսի Արյունը։ Դրանից են հաղորդվում։",
+  },
+  avetaran: {
+    name: "Ավետարան", view: "inside", camera: "front", distance: 2.2, near: 9, check: true,
+    text: "Ավետարանը դրվում է Սուրբ Սեղանի վրա։ Պատարագի ժամանակ այն բարձրացնում են, ընթերցում և համբուրում։",
+  },
+  burvar: {
+    name: "Բուրվառ", view: "inside", camera: "front", distance: 2.6, near: 9, check: true,
+    text: "Շղթաներով խնկաման, որով խնկարկում են։ Խնկի բուրումնավետ ծուխը խորհրդանշում է դեպի Աստված բարձրացող աղոթքը։",
+  },
+  kshots: {
+    name: "Քշոց", aka: "Խշխշան", view: "inside", camera: "front", distance: 3.2, near: 10, check: true,
+    text: "Ձողի վրա ամրացված մետաղե շրջանակ՝ սերովբեների պատկերով և զանգակներով։ Սարկավագները շարժում են այն Պատարագի ժամանակ, և նրա ղողանջը հիշեցնում է հրեշտակների ներկայությունը։",
+  },
+  ashtanak: {
+    name: "Աշտանակ", aka: "Կանգնած մոմակալ", view: "inside", camera: "front", distance: 3, near: 10, check: true,
+    text: "Բարձր մոմակալ՝ վառվող մոմով։ Կանգնում է բեմի մոտ, իսկ թափորների ժամանակ այն տանում են։",
+  },
+  "tapori-patker": {
+    name: "Թափորի սրբապատկեր", view: "inside", camera: "front", distance: 3.4, near: 10, check: true,
+    text: "Ձողի վրա ամրացված սրբապատկեր, որը տանում են թափորի ժամանակ։ Օրինակ՝ Սուրբ Աստվածածնի պատկերը Պատարագի սկզբի թափորում։",
   },
   "gmbet-durs": {
     name: "Գմբեթ և թմբուկ", view: "outside", camera: "front", check: true,

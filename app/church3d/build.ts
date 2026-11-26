@@ -3,7 +3,7 @@
 // Ներսի պատերը միակողմանի են և նայում են ներս. դրսից մոտակա պատերն ինքնին անտեսանելի են («կտրվածք»)։
 import {
   BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group,
-  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Shape, ShapeGeometry, TorusGeometry, Vector2,
+  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, Shape, ShapeGeometry, SphereGeometry, TorusGeometry, Vector2,
   Vector3, type Material,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -191,8 +191,10 @@ function tint(geometry: BufferGeometry, low: Color, high: Color, top: number) {
   geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
 }
 
-class Kit {
+export class Kit {
   readonly buckets = new Map<LookName, BufferGeometry[]>();
+  /** Բոցերի և լամպերի շողի կետերը (մեկ draw call-ով նկարվում են scene.ts-ում)։ */
+  readonly glows = { small: [] as Vector3[], large: [] as Vector3[] };
   add(look: LookName, ...geometries: BufferGeometry[]) {
     const bucket = this.buckets.get(look) ?? [];
     bucket.push(...geometries);
@@ -507,23 +509,51 @@ function balcony(kit: Kit, model: ChurchModel, balcony: Balcony) {
 
 // ---------- Պարագաներ ----------
 
-/** Պարագան կառուցվում է իր տեղում (դեմքը +Z), հետո պտտվում և տեղադրվում։ */
-function item(kit: Kit, item: Item) {
+/** Բարակ ձող a-ից b (շղթա, թել)։ */
+function rod(a: Vector3, b: Vector3, r: number, segments = 4) {
+  const geometry = new CylinderGeometry(r, r, a.distanceTo(b), segments, 1, true);
+  const dir = new Vector3().subVectors(b, a).normalize();
+  geometry.applyMatrix4(new Matrix4().makeRotationFromQuaternion(new Quaternion().setFromUnitVectors(UP, dir)).setPosition(new Vector3().lerpVectors(a, b, 0.5)));
+  return clean(geometry);
+}
+
+/** Երկկողմանի հարթ ձև (քշոց, թափորի սրբապատկեր)՝ նույն ձևը առջևից և հետևից։ */
+function twoSided(shape: Shape, at: Vector3, offset = 0.004) {
+  return [
+    place(clean(new ShapeGeometry(shape, 8)), at.clone().setZ(at.z + offset), new Vector3(0, 0, 1)),
+    place(clean(new ShapeGeometry(shape, 8)), at.clone().setZ(at.z - offset), new Vector3(0, 0, -1)),
+  ];
+}
+
+function crossShape(size: number) {
+  const t = size * 0.22;
+  const shape = new Shape();
+  const pts: Array<[number, number]> = [[-t / 2, -size / 2], [t / 2, -size / 2], [t / 2, size * 0.12], [size * 0.32, size * 0.12], [size * 0.32, size * 0.12 + t], [t / 2, size * 0.12 + t], [t / 2, size / 2], [-t / 2, size / 2], [-t / 2, size * 0.12 + t], [-size * 0.32, size * 0.12 + t], [-size * 0.32, size * 0.12], [-t / 2, size * 0.12]];
+  shape.moveTo(...pts[0]);
+  for (const p of pts.slice(1)) shape.lineTo(...p);
+  return shape;
+}
+
+/** Պարագայի կտորները և լույսերի կետերը՝ իր տեղում (դեմքը +Z, հատակը y=0)։ `detail`՝ մանրամասն դիտման համար։ */
+export function itemParts(item: Item, detail: boolean) {
   const local = new Kit();
-  const y0 = 0;
+  const seg = detail ? 40 : 12;
+  const flame = (x: number, y: number, z: number, big = false) => {
+    local.add("glow", box(big ? 0.07 : 0.03, big ? 0.14 : 0.07, big ? 0.07 : 0.03, x, y, z));
+    (big ? local.glows.large : local.glows.small).push(new Vector3(x, y + (big ? 0.07 : 0.035), z));
+  };
   switch (item.type) {
     case "altar": {
-      local.add("marble", box(2, 1.05, 1.1, 0, y0, 0));
+      local.add("marble", box(2, 1.05, 1.1, 0, 0, 0));
       local.add("fabric", box(1.9, 0.8, 0.02, 0, 0.16, 0.56));
       local.add("gold", box(0.06, 0.5, 0.025, 0, 0.3, 0.58), box(0.32, 0.06, 0.025, 0, 0.6, 0.58));
-      local.add("gold", box(0.36, 0.07, 0.46, 0, 1.05, 0.1));
       for (let k = 0; k < 3; k++) {
         const h = 1.25 + 0.3 * k;
         const z = -0.75 - 0.35 * k;
         local.add("marble", box(2.4 - 0.3 * k, h, 0.35, 0, 0, z));
         for (const x of [-0.95, -0.55, 0.55, 0.95].map((v) => v * (1 - 0.12 * k))) {
           local.add("marble", cylinder(0.03, 0.03, 0.32, 6, x, h, z));
-          local.add("glow", box(0.035, 0.08, 0.035, x, h + 0.33, z));
+          flame(x, h + 0.33, z);
         }
       }
       local.add("gold", box(0.08, 0.85, 0.08, 0, 1.85, -1.45), box(0.46, 0.08, 0.08, 0, 2.4, -1.45));
@@ -537,7 +567,7 @@ function item(kit: Kit, item: Item) {
     }
     case "font": {
       if (item.niche) local.add("niche", panel("arch", 1.7, 2.7, new Vector3(0, 0, -0.76), new Vector3(0, 0, 1)));
-      local.add("stone", lathe([[0, 0], [0.36, 0], [0.36, 0.1], [0.2, 0.22], [0.16, 0.6], [0.5, 0.75], [0.56, 1.0], [0.48, 1.02], [0.42, 0.86], [0, 0.86]], 18, 0, 0, 0));
+      local.add("stone", lathe([[0, 0], [0.36, 0], [0.36, 0.1], [0.2, 0.22], [0.16, 0.6], [0.5, 0.75], [0.56, 1.0], [0.48, 1.02], [0.42, 0.86], [0, 0.86]], seg + 6, 0, 0, 0));
       local.add("water", place(clean(new ShapeGeometry(circleShape(0.42), 12)), new Vector3(0, 0.88, 0), UP));
       break;
     }
@@ -549,18 +579,18 @@ function item(kit: Kit, item: Item) {
         const z = -0.2 + (i > 4 ? 0.35 : 0) + ((i * 37) % 7) * 0.012;
         const h = 0.18 + ((i * 53) % 5) * 0.03;
         local.add("marble", cylinder(0.012, 0.012, h, 5, x, 0.79, z));
-        local.add("glow", box(0.022, 0.05, 0.022, x, 0.79 + h, z));
+        flame(x, 0.79 + h, z);
       }
       break;
     }
     case "chandelier": {
       const top = (item.top ?? (item.y ?? 0) + 3) - (item.y ?? 0);
-      local.add("gold", clean(new TorusGeometry(1.6, 0.05, 6, 36).rotateX(Math.PI / 2)));
+      local.add("gold", clean(new TorusGeometry(1.6, 0.05, 6, detail ? 64 : 36).rotateX(Math.PI / 2)));
       local.add("gold", cylinder(0.03, 0.03, top, 6, 0, 0, 0));
       for (const a of [0, Math.PI / 2]) local.add("gold", clean(new BoxGeometry(3.2, 0.04, 0.04).rotateY(a)));
       for (let i = 0; i < 12; i++) {
         const a = (Math.PI * 2 * i) / 12;
-        local.add("glow", box(0.07, 0.14, 0.07, 1.6 * Math.cos(a), 0.06, 1.6 * Math.sin(a)));
+        flame(1.6 * Math.cos(a), 0.05, 1.6 * Math.sin(a), true);
       }
       break;
     }
@@ -581,7 +611,7 @@ function item(kit: Kit, item: Item) {
       local.add("gold", panel("arch", w + 0.2, h + 0.2, new Vector3(0, -0.1, 0.01), new Vector3(0, 0, 1)));
       local.add("icon", panel("arch", w, h, new Vector3(0, 0, 0.03), new Vector3(0, 0, 1)));
       const s = Math.min(w, h) * 0.32;
-      local.add("gold", box(s * 0.16, s, 0.02, 0, h * 0.42 - s / 2 + s * 0.1, 0.04), box(s * 0.62, s * 0.16, 0.02, 0, h * 0.42 + s * 0.12, 0.04));
+      local.add("gold", place(clean(new ShapeGeometry(crossShape(s))), new Vector3(0, h * 0.45, 0.04), new Vector3(0, 0, 1)));
       break;
     }
     case "bench": {
@@ -595,11 +625,96 @@ function item(kit: Kit, item: Item) {
       local.add("stone", box(0.7, 0.25, 0.7, 0, 0, 0), cylinder(0.25, 0.28, h - 0.5, 16, 0, 0.25, 0), box(0.7, 0.25, 0.7, 0, h - 0.25, 0));
       break;
     }
+    case "chalice": {
+      // Սկիհ (~25 սմ)՝ ոտք, բռնակ՝ գնդով, բաժակ։
+      local.add("gold", lathe([[0, 0], [0.075, 0], [0.075, 0.012], [0.032, 0.03], [0.018, 0.07], [0.034, 0.095], [0.018, 0.12], [0.022, 0.15], [0.07, 0.18], [0.082, 0.25], [0.076, 0.25], [0.066, 0.185], [0, 0.165]], seg, 0, 0, 0));
+      if (detail) local.add("gold", place(clean(new ShapeGeometry(crossShape(0.06))), new Vector3(0, 0.215, 0.079), new Vector3(0, 0, 1)));
+      break;
+    }
+    case "gospel": {
+      // Ավետարան՝ ոսկե կազմ, էջեր, խաչ։
+      local.add("gold", box(0.34, 0.012, 0.44, 0, 0, 0), box(0.34, 0.012, 0.44, 0, 0.068, 0));
+      local.add("marble", box(0.32, 0.056, 0.42, 0.008, 0.012, 0));
+      local.add("gold", box(0.012, 0.08, 0.44, -0.164, 0, 0));
+      local.add("gold", place(clean(new ShapeGeometry(crossShape(0.2))), new Vector3(0, 0.082, 0), UP));
+      if (detail) for (const [x, z] of [[-0.14, -0.19], [0.14, -0.19], [-0.14, 0.19], [0.14, 0.19]]) local.add("gold", clean(new SphereGeometry(0.014, 8, 6).translate(x, 0.082, z)));
+      break;
+    }
+    case "censer": {
+      // Բուրվառ՝ կախված կանգնակից. աման, կափարիչ՝ խաչով, շղթաներ։
+      local.add("gold", cylinder(0.02, 0.025, 1.75, 8, 0, 0, 0), lathe([[0, 0], [0.16, 0], [0.15, 0.03], [0.04, 0.06], [0, 0.06]], seg, 0, 0, 0));
+      local.add("gold", box(0.025, 0.025, 0.36, 0, 1.74, 0.17));
+      const hook = new Vector3(0, 1.72, 0.34);
+      const bowlY = 0.98;
+      local.add("gold", lathe([[0, 0], [0.04, 0], [0.04, 0.02], [0.02, 0.035], [0.09, 0.07], [0.1, 0.12], [0, 0.12]], seg, 0, bowlY, 0.34));
+      local.add("gold", lathe([[0.1, 0], [0.095, 0.04], [0.06, 0.1], [0.025, 0.13], [0, 0.14]], seg, 0, bowlY + 0.12, 0.34));
+      local.add("gold", box(0.012, 0.07, 0.012, 0, bowlY + 0.26, 0.34), box(0.04, 0.012, 0.012, 0, bowlY + 0.3, 0.34));
+      const chains = 4;
+      for (let i = 0; i < chains; i++) {
+        const a = (Math.PI * 2 * i) / chains + Math.PI / 4;
+        const rim = new Vector3(0.095 * Math.cos(a), bowlY + 0.11, 0.34 + 0.095 * Math.sin(a));
+        local.add("gold", rod(rim, hook, 0.004));
+        if (detail) {
+          for (let k = 1; k <= 3; k++) {
+            const bell = new Vector3().lerpVectors(rim, hook, k / 4);
+            local.add("gold", clean(new SphereGeometry(0.012, 8, 6).translate(bell.x, bell.y, bell.z)));
+          }
+        }
+      }
+      break;
+    }
+    case "fan": {
+      // Քշոց՝ ձող, շրջան՝ ճառագայթներով և զանգակներով (երկու կողմից)։
+      const cy = 2.25;
+      local.add("gold", cylinder(0.018, 0.022, cy, 8, 0, 0, 0), lathe([[0, 0], [0.14, 0], [0.12, 0.03], [0.03, 0.08], [0, 0.08]], seg, 0, 0, 0));
+      local.add("gold", ...twoSided(circleShape(0.2), new Vector3(0, cy, 0)));
+      local.add("icon", ...twoSided(circleShape(0.13), new Vector3(0, cy, 0), 0.008));
+      local.add("gold", ...twoSided(crossShape(0.12), new Vector3(0, cy, 0), 0.012));
+      const rays = detail ? 16 : 8;
+      for (let i = 0; i < rays; i++) {
+        const a = (Math.PI * 2 * i) / rays;
+        const ray = new Shape([new Vector2(-0.035, 0), new Vector2(0.035, 0), new Vector2(0, 0.17)]);
+        for (const g of twoSided(ray, new Vector3(0, 0, 0))) {
+          g.applyMatrix4(new Matrix4().makeRotationZ(a - Math.PI / 2).setPosition(0.19 * Math.cos(a), cy + 0.19 * Math.sin(a), 0));
+          local.add("gold", g);
+        }
+        if (detail) local.add("gold", clean(new SphereGeometry(0.014, 8, 6).translate(0.37 * Math.cos(a), cy + 0.37 * Math.sin(a), 0)));
+      }
+      break;
+    }
+    case "candlestick": {
+      // Աշտանակ՝ հիմք, ձող, մոմակալ սկուտեղ, մոմ։
+      local.add("gold", lathe([[0, 0], [0.2, 0], [0.18, 0.04], [0.06, 0.12], [0.035, 0.2], [0, 0.2]], seg, 0, 0, 0));
+      local.add("gold", cylinder(0.022, 0.03, 1.3, 8, 0, 0.2, 0));
+      if (detail) for (const y of [0.55, 0.95, 1.3]) local.add("gold", clean(new SphereGeometry(0.045, 12, 8).translate(0, y, 0)));
+      local.add("gold", lathe([[0, 0], [0.11, 0], [0.12, 0.03], [0.1, 0.035], [0, 0.03]], seg, 0, 1.5, 0));
+      local.add("marble", cylinder(0.026, 0.026, 0.3, 8, 0, 1.53, 0));
+      flame(0, 1.84, 0);
+      break;
+    }
+    case "procession-icon": {
+      // Թափորի սրբապատկեր՝ ձող, շրջանակ (երկու կողմից), խաչ վերևում, կանգնակ։
+      local.add("gold", lathe([[0, 0], [0.16, 0], [0.14, 0.03], [0.03, 0.1], [0, 0.1]], seg, 0, 0, 0), cylinder(0.02, 0.024, 2.05, 8, 0, 0, 0));
+      const base = 2.05;
+      local.add("gold", ...twoSided(openingShape("arch", 0.56, 0.74), new Vector3(0, base, 0)));
+      local.add("icon", ...twoSided(openingShape("arch", 0.46, 0.64), new Vector3(0, base + 0.05, 0), 0.009));
+      local.add("gold", ...twoSided(crossShape(0.18), new Vector3(0, base + 0.36, 0), 0.014));
+      local.add("gold", box(0.025, 0.22, 0.025, 0, base + 0.74, 0), box(0.12, 0.025, 0.025, 0, base + 0.88, 0));
+      break;
+    }
   }
+  return local;
+}
+
+/** Պարագան տեղադրվում է եկեղեցում (պտույտ + տեղ)։ */
+function item(kit: Kit, item: Item) {
+  const local = itemParts(item, false);
   const matrix = new Matrix4().makeRotationY(((item.rot ?? 0) * Math.PI) / 180).setPosition(item.at[0], item.y ?? 0, item.at[1]);
   for (const [look, parts] of local.buckets) {
     for (const part of parts) kit.add(look, part.applyMatrix4(matrix));
   }
+  for (const p of local.glows.small) kit.glows.small.push(p.applyMatrix4(matrix));
+  for (const p of local.glows.large) kit.glows.large.push(p.applyMatrix4(matrix));
 }
 
 // ---------- Դուրսը ----------
@@ -741,5 +856,5 @@ export function buildChurch(model: ChurchModel, materials: Map<LookName, Materia
     curtainClosed.visible = false;
     interior.add(curtainOpen, curtainClosed);
   }
-  return { interior, exterior, curtainOpen, curtainClosed };
+  return { interior, exterior, curtainOpen, curtainClosed, glows: inside.glows };
 }

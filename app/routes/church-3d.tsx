@@ -4,7 +4,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { seoMeta } from "../utils/seo";
 import { PART_INFO } from "../church3d/info";
-import { computeHotspots, type Hotspot } from "../church3d/model";
+import { computeHotspots, type Hotspot, type Item } from "../church3d/model";
 import { TEMPLATES } from "../church3d/templates";
 import { ChurchPlan } from "../church3d/church-plan";
 import type { ChurchScene, ViewMode } from "../church3d/scene";
@@ -36,6 +36,28 @@ const primary = "inline-flex min-h-11 cursor-pointer items-center justify-center
 const secondary = "inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-button border border-edge bg-subtle px-3 text-[14px] font-semibold text-ink disabled:cursor-default disabled:opacity-40";
 const heading = "m-0 font-noto text-[17px] font-semibold text-gold-bright";
 const label = "text-[11px] font-bold tracking-[1.2px] text-gold uppercase";
+
+/** Պարագայի մանրամասն 3D դիտումը (բեռնվում է միայն բացելիս)։ */
+function ItemViewer({ item }: { item: Item }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    let viewer: { dispose(): void } | null = null;
+    import("../church3d/viewer").then(({ createItemViewer }) => {
+      if (!cancelled && ref.current) viewer = createItemViewer(ref.current, item);
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+      viewer?.dispose();
+    };
+  }, [item]);
+  return (
+    <div className="relative h-60 overflow-hidden rounded-button border border-edge bg-subtle">
+      <div ref={ref} className="absolute inset-0" />
+      <p className="pointer-events-none absolute right-0 bottom-1.5 left-0 m-0 text-center text-[11.5px] text-faint">Մատով՝ պտտել</p>
+    </div>
+  );
+}
 
 export default function Church3D() {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -198,6 +220,7 @@ export default function Church3D() {
               </div>
               <button type="button" className={iconButton} aria-label="Փակել" onClick={() => select(null)}><X aria-hidden="true" size={17} /></button>
             </div>
+            {spot.item && can3d ? <ItemViewer item={spot.item} /> : null}
             <p className="m-0 text-[14.5px] leading-[1.7] text-ink">{info.text}</p>
             {info.check ? <span className="text-[12px] text-faint">⚑ Ճշտել՝ հոգևորականի հետ</span> : null}
             {can3d ? (
