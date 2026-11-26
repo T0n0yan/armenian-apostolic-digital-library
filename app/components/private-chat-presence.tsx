@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef } from "react";
 import { useLocation, useRouteLoaderData } from "react-router";
 
 import { useChatSocket } from "./chat-socket";
@@ -13,12 +13,13 @@ export const UNREAD_EVENT = "private-chat-unread";
 export function PrivateChatPresence() {
   const chat = (useRouteLoaderData("root") as { privateChat?: { unread: number; side: ChatSide } | null } | undefined)?.privateChat ?? null;
   const onChatPage = useLocation().pathname === "/namak";
-  const [, setUnread] = useState(chat?.unread ?? 0);
-  const publish = (next: (value: number) => number) => setUnread((value) => {
-    const result = Math.max(0, next(value));
-    window.dispatchEvent(new CustomEvent(UNREAD_EVENT, { detail: result }));
-    return result;
-  });
+  // Թիվը պահվում է ref-ում. իրադարձությունը ուղարկվում է անմիջապես, ոչ թե setState-ի ներսից
+  // (React-ը այդ ֆունկցիան կանչում է render-ի ժամանակ, ու SiteNav-ը թարմանում էր ուրիշի render-ի մեջ)։
+  const unread = useRef(chat?.unread ?? 0);
+  const publish = (next: (value: number) => number) => {
+    unread.current = Math.max(0, next(unread.current));
+    window.dispatchEvent(new CustomEvent(UNREAD_EVENT, { detail: unread.current }));
+  };
   useChatSocket("app", Boolean(chat) && !onChatPage, (event) => {
     if (event.type === "lite") publish(() => event.unread);
     else if (event.type === "message" && chat && event.message.side !== chat.side) publish((value) => value + 1);
