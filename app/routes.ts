@@ -26,6 +26,7 @@ export default [
   route("api/poll-vote", "routes/poll-vote.ts"),
   route("api/psalm-timings", "routes/psalm-timings.ts"),
   route("api/material-layout", "routes/material-layout-api.ts"),
+  route("api/etiquette-links", "routes/etiquette-links-api.ts"),
   route("api/saved-verses", "routes/saved-verses.ts"),
   route("api/highlights", "routes/highlights-api.ts"),
   route("api/church-points", "routes/church-points.ts"),
