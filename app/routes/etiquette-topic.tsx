@@ -30,7 +30,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 const divider = "border-t border-[rgb(150_110_50/14%)]";
-const kindText: Record<string, string> = { canon: "text-success", tradition: "text-gold-bright", superstition: "text-danger" };
+const kindText: Record<string, string> = { canon: "text-success", tradition: "text-gold-bright", advice: "text-muted", superstition: "text-danger" };
 
 /** Մեկ կանոն՝ բացվող տող. վերնագիրը միշտ երևում է, պատասխանը՝ սեղմելով։ */
 function RuleItem({ rule, first, open, icon, children }: { rule: EtiquetteRule; first: boolean; open: boolean; icon: ReactNode; children: ReactNode }) {
