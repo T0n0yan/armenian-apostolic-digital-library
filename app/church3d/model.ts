@@ -12,6 +12,8 @@ export type OpeningShape = "arch" | "rect" | "round" | "slit" | "cross";
 
 /** `edge`՝ պատի համարը (կետ i → i+1), `at`՝ կենտրոնը պատի սկզբից (մ)։ */
 export type Door = { edge: number; at: number; w: number; h: number; part?: PartKind };
+/** Որմնախորշ՝ փոս պատի մեջ (`depth` մետր դեպի դուրս), կամարով կամ ուղիղ առաստաղով։ Ավազանը կարող է կանգնել ներսում։ */
+export type Niche = { edge: number; at: number; w: number; h: number; depth: number; arch?: boolean };
 export type Window = { edge: number; at: number; y: number; w: number; h: number; shape?: OpeningShape; count?: number; gap?: number };
 
 export type Room = {
@@ -26,6 +28,7 @@ export type Room = {
   ceiling: "flat" | "open";
   doors?: readonly Door[];
   windows?: readonly Window[];
+  niches?: readonly Niche[];
   /** Կոր պատեր, որոնց վրա կիսագմբեթ (խորան) է։ */
   apses?: ReadonlyArray<{ edge: number; part?: PartKind }>;
 };
@@ -564,6 +567,12 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
       edge(window.edge, `${at}.edge`); num(window.at, `${at}.at`, 0, 100); num(window.y, `${at}.y`, 0, 40);
       num(window.w, `${at}.w`, 0.1, 6); num(window.h, `${at}.h`, 0.1, 8); oneOf(window.shape, SHAPES, `${at}.shape`, true);
       optNum(window.count, `${at}.count`, 1, 20); optNum(window.gap, `${at}.gap`, 0.2, 20);
+    }, true);
+    list(room.niches, `${path}.niches`, 20, (niche, at) => {
+      if (!isObj(niche)) return fail(at, "պետք է օբյեկտ լինի");
+      edge(niche.edge, `${at}.edge`); num(niche.at, `${at}.at`, 0, 100); num(niche.w, `${at}.w`, 0.3, 8); num(niche.h, `${at}.h`, 0.5, 15);
+      num(niche.depth, `${at}.depth`, 0.1, 3);
+      if (niche.arch !== undefined && typeof niche.arch !== "boolean") fail(`${at}.arch`, "պետք է լինի true կամ false");
     }, true);
     list(room.apses, `${path}.apses`, 6, (apse, at) => {
       if (!isObj(apse)) return fail(at, "պետք է օբյեկտ լինի");

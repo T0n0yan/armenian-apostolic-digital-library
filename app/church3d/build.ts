@@ -224,7 +224,8 @@ function roomShell(kit: Kit, room: Room) {
   const edges = edgesOf(room.outline);
   for (const edge of edges) {
     const height = room.heights?.[edge.index] ?? room.height;
-    const doors = (room.doors ?? []).filter((door) => door.edge === edge.index && !edge.bulge);
+    // Դռներն ու որմնախորշերը պատի մեջ բացվածք են (կոր պատերին՝ ոչ)։
+    const doors = [...(room.doors ?? []), ...(room.niches ?? [])].filter((door) => door.edge === edge.index && !edge.bulge);
     for (let i = 0; i < edge.pts.length - 1; i++) {
       const a = v3(edge.pts[i], 0);
       const b = v3(edge.pts[i + 1], 0);
@@ -254,6 +255,10 @@ function roomShell(kit: Kit, room: Room) {
       }
     }
   }
+  for (const niche of room.niches ?? []) {
+    const edge = edges[niche.edge];
+    if (edge && !edge.bulge) recess(kit, edge, niche, room.heights?.[niche.edge] ?? room.height);
+  }
   const polygon = polygonOf(room.outline);
   kit.add("floor", flatShape(polygon, 0, "up"));
   if (room.ceiling === "flat") kit.add("tuff", flatShape(polygon, room.height, "down"));
@@ -271,6 +276,33 @@ function roomShell(kit: Kit, room: Room) {
       const th = Math.PI * t;
       return mid.clone().addScaledVector(u, -hw * Math.cos(th) * Math.cos(e)).addScaledVector(out, edge.bulge * Math.sin(th) * Math.cos(e)).addScaledVector(UP, hw * Math.sin(e));
     }, (p) => mid.clone().sub(p).normalize()));
+  }
+}
+
+/** Որմնախորշի փոսը՝ հետևի պատ, կողքեր, հատակ և առաստաղ (կամար կամ հարթ)։ Կամարի դեպքում պատի հարթությունում՝ անկյունները։ */
+function recess(kit: Kit, edge: ReturnType<typeof edgesOf>[number], niche: { at: number; w: number; h: number; depth: number; arch?: boolean }, wallHeight: number) {
+  const dir = new Vector3(edge.b[0] - edge.a[0], 0, edge.b[1] - edge.a[1]).normalize();
+  const n = h3(edge.inward[0]);
+  const back = n.clone().multiplyScalar(-niche.depth);
+  const base = v3(edge.a, 0).addScaledVector(dir, niche.at);
+  const a = base.clone().addScaledVector(dir, -niche.w / 2);
+  const b = base.clone().addScaledVector(dir, niche.w / 2);
+  const hw = niche.w / 2;
+  const spring = niche.arch ? Math.max(0.3, Math.min(niche.h, wallHeight) - hw) : Math.min(niche.h, wallHeight);
+  kit.add("tuff", quad(a.clone().add(back), b.clone().add(back), 0, spring, n));
+  kit.add("tuff", quad(a, a.clone().add(back), 0, spring, dir), quad(b, b.clone().add(back), 0, spring, dir.clone().negate()));
+  kit.add("floor", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).addScaledVector(back, v).setY(0.005), constant(UP)));
+  if (niche.arch) {
+    const c0 = base.clone().setY(spring);
+    const c1 = base.clone().add(back).setY(spring);
+    kit.add("tuff", surface(2, 12, (u, v) => {
+      const t = Math.PI * v;
+      return new Vector3().lerpVectors(c0, c1, u).addScaledVector(dir, hw * Math.cos(t)).addScaledVector(UP, hw * Math.sin(t));
+    }, (p) => { const q = c0.clone().addScaledVector(n, new Vector3().subVectors(p, c0).dot(n)); return q.sub(p).normalize(); }));
+    kit.add("tuff", closure(c1, dir, hw, hw, true, n));
+    kit.add("tuff", ...spandrels(c0, dir, hw, hw, Math.min(niche.h, wallHeight) - spring, n));
+  } else {
+    kit.add("tuff", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).addScaledVector(back, v).setY(spring), constant(UP.clone().negate())));
   }
 }
 
@@ -852,7 +884,7 @@ function openingsOutside(kit: Kit, model: ChurchModel) {
 
 // ---------- Ամբողջը ----------
 
-export function buildChurch(model: ChurchModel, materials: Map<LookName, Material>) {
+export function buildChurch(model: ChurchModel, materials: Map<LookName, Material>, options: { separateItems?: boolean } = {}) {
   const inside = new Kit();
   for (const room of model.rooms) roomShell(inside, room);
   for (const v of model.vaults) vault(inside, v);
@@ -860,7 +892,23 @@ export function buildChurch(model: ChurchModel, materials: Map<LookName, Materia
   if (model.dome) domeInside(inside, model.dome);
   if (model.bema) bema(inside, model.bema);
   for (const b of model.balconies) balcony(inside, model, b);
-  for (const i of model.items) item(inside, i);
+  // Խմբագրիչում ամեն պարագա առանձին խումբ է, որ 3D-ում մկնիկով/մատով տեղափոխվի։
+  const itemGroups: Group[] = [];
+  if (options.separateItems) {
+    model.items.forEach((it, index) => {
+      const local = itemParts(it, false);
+      const group = local.build(materials, model.tuff, 20);
+      group.position.set(it.at[0], it.y ?? 0, it.at[1]);
+      group.rotation.y = ((it.rot ?? 0) * Math.PI) / 180;
+      group.userData.item = index;
+      group.updateMatrixWorld(true);
+      for (const p of [...local.glows.small]) inside.glows.small.push(p.applyMatrix4(group.matrixWorld));
+      for (const p of [...local.glows.large]) inside.glows.large.push(p.applyMatrix4(group.matrixWorld));
+      itemGroups.push(group);
+    });
+  } else {
+    for (const i of model.items) item(inside, i);
+  }
 
   const outside = new Kit();
   for (const m of model.masses) massShell(outside, m);
@@ -882,5 +930,6 @@ export function buildChurch(model: ChurchModel, materials: Map<LookName, Materia
     curtainClosed.visible = false;
     interior.add(curtainOpen, curtainClosed);
   }
-  return { interior, exterior, curtainOpen, curtainClosed, glows: inside.glows };
+  for (const group of itemGroups) interior.add(group);
+  return { interior, exterior, curtainOpen, curtainClosed, glows: inside.glows, itemGroups };
 }
