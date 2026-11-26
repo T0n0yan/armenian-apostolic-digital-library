@@ -31,6 +31,8 @@ export type Room = {
   niches?: readonly Niche[];
   /** Կոր պատեր, որոնց վրա կիսագմբեթ (խորան) է։ */
   apses?: ReadonlyArray<{ edge: number; part?: PartKind }>;
+  /** Պատեր, որոնք չեն կառուցվում (բաց կողմ կամ թաքցված պատ)։ */
+  open?: readonly number[];
 };
 
 /** Կամարի ծայրը՝ փակ (true) կամ փակ՝ բացվածքով (օր.՝ խորանի կամարի համար)։ */
@@ -46,14 +48,26 @@ export type Dome = {
   /** Քառակուսու այն կողմերը, որտեղ կամարի փոխարեն պատ է։ */
   closed?: readonly BaySide[];
   windows?: { count: number; w: number; h: number; shape?: OpeningShape };
+  /** Գլխիկը՝ վեղարաձև (կոն) կամ հովանոցաձև (ծալքավոր)։ */
+  cap?: "cone" | "umbrella";
+  /** Դրսի թմբուկը սկսվում է այս բարձրությունից (տանիքի մեջից), որ օդում չկախվի։ */
+  drumFrom?: number;
+  /** Հարթ առաստաղ թմբուկի շուրջը (առանց առագաստների գմբեթի համար)՝ այս ուրվագծով։ */
+  collar?: readonly Pt[];
 };
-export type Roof = { type: "flat" } | { type: "gable"; axis: "x" | "z"; rise: number } | { type: "tent"; rise: number };
+export type Roof =
+  | { type: "flat" }
+  | { type: "gable"; axis: "x" | "z"; rise: number }
+  | { type: "tent"; rise: number; apex?: Pt }
+  /** Միաթեք՝ `low` կողմը ցածր է։ */
+  | { type: "shed"; axis: "x" | "z"; rise: number; low: "-" | "+" };
 /** Արտաքին ծավալ (դրսի տեսքը)՝ պատեր `base`-ից `height`, վրան տանիք։ */
 export type Mass = { outline: readonly Vertex[]; base?: number; height: number; roof: Roof };
 /** Բեմ. ուրվագծի առաջին պատը (կետ 0 → 1) առջևի եզրն է։ */
 export type Bema = { outline: readonly Vertex[]; height: number; stairs: "sides" | "center"; atyan?: { width: number; depth: number; height: number }; curtainTop: number };
 export type Balcony = { outline: readonly Vertex[]; floor: number; part?: PartKind; stairs?: { at: Pt; dir: Pt; width: number } };
-export type Belfry = { at: Pt; base: number; radius: number; columns: number; height: number };
+/** Զանգակատուն՝ `tiers` հարկ սյուներով (վերևինները՝ մի քիչ նեղ)։ */
+export type Belfry = { at: Pt; base: number; radius: number; columns: number; height: number; tiers?: number };
 
 export type ItemType =
   | "altar" | "lectern" | "font" | "candle-table" | "chandelier" | "choir" | "icon" | "bench" | "column"
@@ -67,25 +81,37 @@ export type Role = "priest" | "deacon" | "dpir" | "believer";
 export type Person = { role: Role; at: V3; rot?: number };
 export type TourStep = { title: string; text: string; part: PartKind; priest: V3; priestRot?: number; vested: boolean; curtainClosed: boolean; eye: V3; look: V3; people?: readonly Person[] };
 export type TuffColor = "pink" | "ochre" | "gray" | "black";
+/** Քարաշարը՝ միագույն, երկգույն «շախմատ» կամ երկգույն շերտեր։ */
+export type Masonry = "plain" | "checker" | "bands";
+export type RoofMaterial = "tile" | "stone";
+/** Դրսի տեսքը. `plinth`՝ բազալտե հիմքի (ցոկոլի) բարձրությունը (0՝ չկա)։ */
+export type ChurchLook = { accent?: TuffColor; masonry?: Masonry; plinth?: number; roof?: RoofMaterial };
 
 export type ChurchModel = {
   version: 1;
   id: string;
   name: string;
   tuff: TuffColor;
+  look?: ChurchLook;
   rooms: readonly Room[];
   vaults: readonly Vault[];
   arcades: readonly Arcade[];
   dome?: Dome;
+  domes?: readonly Dome[];
   masses: readonly Mass[];
   bema?: Bema;
   balconies: readonly Balcony[];
   belfry?: Belfry;
+  belfries?: readonly Belfry[];
   items: readonly Item[];
   /** Տեսախցիկի ձեռքով ընտրված տեղեր (մասի id կամ տեսակ → տեսք)։ */
   cameras?: Readonly<Record<string, Camera>>;
   tour?: readonly TourStep[];
 };
+
+/** Բոլոր գմբեթները (հին `dome` և նոր `domes`)։ */
+export const domesOf = (model: ChurchModel): Dome[] => [...(model.dome ? [model.dome] : []), ...(model.domes ?? [])];
+export const belfriesOf = (model: ChurchModel): Belfry[] => [...(model.belfry ? [model.belfry] : []), ...(model.belfries ?? [])];
 
 // ---------- 2D հաշվարկներ ----------
 
@@ -184,6 +210,22 @@ export function pointOnEdge(edge: Edge, s: number): { p: Pt; n: Pt } {
   return { p, n: edge.inward[i] };
 }
 
+/** Բազմանկյան եզրագիծը `d` մետր դեպի դուրս (անկյուններում՝ սուր միացումով)։ */
+export function offsetPolygon(points: readonly Pt[], d: number): Pt[] {
+  let area = 0;
+  points.forEach((p, i) => { const q = points[(i + 1) % points.length]; area += p[0] * q[1] - q[0] * p[1]; });
+  const sign = area > 0 ? 1 : -1;
+  const normal = (p: Pt, q: Pt): Pt => { const u = unit(sub(q, p)); return [sign * u[1], -sign * u[0]]; };
+  return points.map((p, i) => {
+    const prev = points[(i - 1 + points.length) % points.length];
+    const next = points[(i + 1) % points.length];
+    const n1 = normal(prev, p);
+    const n2 = normal(p, next);
+    const k = Math.max(0.25, 1 + n1[0] * n2[0] + n1[1] * n2[1]);
+    return [p[0] + ((n1[0] + n2[0]) / k) * d, p[1] + ((n1[1] + n2[1]) / k) * d];
+  });
+}
+
 export function centroid(points: readonly Pt[]): Pt {
   let area = 0;
   let cx = 0;
@@ -218,12 +260,19 @@ export function openingCenters(opening: { at: number; count?: number; gap?: numb
 
 /** Արտաքին ծավալի տանիքի բարձրությունը տրված կետում (երկթեք տանիքի ճակատին՝ եռանկյան բարձրությունը)։ */
 function massTopAt(mass: Mass, p: Pt) {
-  if (mass.roof.type !== "gable") return mass.height;
+  const roof = mass.roof;
+  if (roof.type !== "gable" && roof.type !== "shed") return mass.height;
   const box = bounds(polygonOf(mass.outline));
-  const across = mass.roof.axis === "z" ? p[0] - (box.minX + box.maxX) / 2 : p[1] - (box.minZ + box.maxZ) / 2;
-  const half = mass.roof.axis === "z" ? (box.maxX - box.minX) / 2 : (box.maxZ - box.minZ) / 2;
-  const onGableEnd = mass.roof.axis === "z" ? Math.min(Math.abs(p[1] - box.minZ), Math.abs(p[1] - box.maxZ)) < 0.05 : Math.min(Math.abs(p[0] - box.minX), Math.abs(p[0] - box.maxX)) < 0.05;
-  return onGableEnd ? mass.height + mass.roof.rise * Math.max(0, 1 - Math.abs(across) / half) : mass.height;
+  const across = roof.axis === "z" ? p[0] - (box.minX + box.maxX) / 2 : p[1] - (box.minZ + box.maxZ) / 2;
+  const half = roof.axis === "z" ? (box.maxX - box.minX) / 2 : (box.maxZ - box.minZ) / 2;
+  const onGableEnd = roof.axis === "z" ? Math.min(Math.abs(p[1] - box.minZ), Math.abs(p[1] - box.maxZ)) < 0.05 : Math.min(Math.abs(p[0] - box.minX), Math.abs(p[0] - box.maxX)) < 0.05;
+  if (roof.type === "shed") {
+    // Միաթեք. ցածր կողմից (0) մինչև բարձր կողմ (rise)։
+    const t = Math.min(1, Math.max(0, (roof.low === "-" ? across + half : half - across) / (2 * half)));
+    const highSide = Math.abs(Math.abs(across) - half) < 0.05 && t > 0.5;
+    return onGableEnd || highSide ? mass.height + roof.rise * t : mass.height;
+  }
+  return onGableEnd ? mass.height + roof.rise * Math.max(0, 1 - Math.abs(across) / half) : mass.height;
 }
 
 /**
@@ -341,14 +390,12 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
     spots.push({ kind: balcony.part ?? "das-hark", at: [c[0], balcony.floor + 1, c[1]] });
   }
 
-  if (model.dome) {
-    const { at, base, drum, radius } = model.dome;
+  for (const { at, base, drum, radius } of domesOf(model)) {
     spots.push({ kind: "gmbet", at: [at[0], base + drum + radius * 0.45, at[1]] });
     spots.push({ kind: "gmbet-durs", at: [at[0], base + drum + radius * 0.75, at[1]] });
   }
-  if (model.belfry) {
-    const { at, base, height } = model.belfry;
-    spots.push({ kind: "zangakatun", at: [at[0], base + height * 0.6, at[1]] });
+  for (const { at, base, height, tiers } of belfriesOf(model)) {
+    spots.push({ kind: "zangakatun", at: [at[0], base + 0.8 + height * (tiers ?? 1) * 0.6, at[1]] });
   }
 
   for (const item of model.items) {
@@ -496,7 +543,8 @@ const KINDS = Object.keys(PART_INFO) as PartKind[];
  * Ստուգում է անձնագիրը. վերադարձնում է սխալները հայերեն՝ տեղով (օր.՝ «rooms[0].outline[3]»)։
  * Սահմանները պաշտպանում են և՛ բրաուզերը (չափազանց մեծ մոդել), և՛ բազան։
  */
-export function validateModel(input: unknown): { model: ChurchModel | null; errors: string[] } {
+/** Ստուգման օգնականները (օգտագործվում են նաև v2 բլոկների ստուգման մեջ, `blocks.ts`)։ */
+export function makeChecker() {
   const errors: string[] = [];
   const fail = (path: string, what: string) => { if (errors.length < 30) errors.push(`${path}՝ ${what}`); };
   const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -536,12 +584,41 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
     num(v.hole, `${path}.hole`, 0, 30); num(v.rise, `${path}.rise`, 0, 30);
   };
 
+  const dome = (d: unknown, path: string) => {
+    if (!isObj(d)) return fail(path, "պետք է օբյեկտ լինի");
+    pt(d.at, `${path}.at`); num(d.radius, `${path}.radius`, 0.5, 20); num(d.base, `${path}.base`, 1, 60); num(d.drum, `${path}.drum`, 0, 20);
+    num(d.sides, `${path}.sides`, 4, 32); optNum(d.bay, `${path}.bay`, 0.5, 20); optNum(d.drumFrom, `${path}.drumFrom`, 0, 60);
+    oneOf(d.cap, ["cone", "umbrella"] as const, `${path}.cap`, true);
+    list(d.closed, `${path}.closed`, 4, (side, at) => oneOf(side, ["x+", "x-", "z+", "z-"] as const, at), true);
+    list(d.collar, `${path}.collar`, 120, (p, at) => pt(p, at), true);
+    if (d.windows !== undefined) {
+      if (!isObj(d.windows)) fail(`${path}.windows`, "պետք է օբյեկտ լինի");
+      else { num(d.windows.count, `${path}.windows.count`, 0, 32); num(d.windows.w, `${path}.windows.w`, 0.1, 3); num(d.windows.h, `${path}.windows.h`, 0.1, 5); oneOf(d.windows.shape, SHAPES, `${path}.windows.shape`, true); }
+    }
+  };
+  const belfry = (b: unknown, path: string) => {
+    if (!isObj(b)) return fail(path, "պետք է օբյեկտ լինի");
+    pt(b.at, `${path}.at`); num(b.base, `${path}.base`, 0, 60); num(b.radius, `${path}.radius`, 0.3, 6); num(b.columns, `${path}.columns`, 3, 16);
+    num(b.height, `${path}.height`, 0.5, 10); optNum(b.tiers, `${path}.tiers`, 1, 4);
+  };
+  const look = (v: unknown, path: string) => {
+    if (v === undefined) return;
+    if (!isObj(v)) return fail(path, "պետք է օբյեկտ լինի");
+    oneOf(v.accent, TUFFS, `${path}.accent`, true); oneOf(v.masonry, ["plain", "checker", "bands"] as const, `${path}.masonry`, true);
+    optNum(v.plinth, `${path}.plinth`, 0, 3); oneOf(v.roof, ["tile", "stone"] as const, `${path}.roof`, true);
+  };
+  return { errors, fail, isObj, num, optNum, pt, v3, list, outline, str, oneOf, closure, dome, belfry, look };
+}
+
+export function validateModel(input: unknown): { model: ChurchModel | null; errors: string[] } {
+  const { errors, fail, isObj, num, optNum, pt, v3, list, outline, str, oneOf, closure, dome, belfry, look } = makeChecker();
   if (!isObj(input)) return { model: null, errors: ["Անձնագիրը պետք է լինի JSON օբյեկտ { … }"] };
   const m = input;
   if (m.version !== 1) fail("version", "պետք է լինի 1");
   str(m.id, "id", 60, false);
   str(m.name, "name", 120, false);
   oneOf(m.tuff, TUFFS, "tuff");
+  look(m.look, "look");
   list(m.rooms, "rooms", 20, (room, path) => {
     if (!isObj(room)) return fail(path, "պետք է օբյեկտ լինի");
     str(room.id, `${path}.id`, 40, false);
@@ -578,6 +655,7 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
       if (!isObj(apse)) return fail(at, "պետք է օբյեկտ լինի");
       edge(apse.edge, `${at}.edge`); oneOf(apse.part, KINDS, `${at}.part`, true);
     }, true);
+    list(room.open, `${path}.open`, 64, (v, at) => edge(v, at), true);
   });
   list(m.vaults, "vaults", 30, (v, path) => {
     if (!isObj(v)) return fail(path, "պետք է օբյեկտ լինի");
@@ -589,27 +667,17 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
     pt(a.from, `${path}.from`); pt(a.to, `${path}.to`); num(a.count, `${path}.count`, 2, 40);
     num(a.spring, `${path}.spring`, 0.5, 30); num(a.top, `${path}.top`, 1, 40); num(a.pillar, `${path}.pillar`, 0.1, 4);
   });
-  if (m.dome !== undefined) {
-    const d = m.dome;
-    if (!isObj(d)) fail("dome", "պետք է օբյեկտ լինի");
-    else {
-      pt(d.at, "dome.at"); num(d.radius, "dome.radius", 0.5, 20); num(d.base, "dome.base", 1, 60); num(d.drum, "dome.drum", 0, 20);
-      num(d.sides, "dome.sides", 4, 32); optNum(d.bay, "dome.bay", 0.5, 20);
-      list(d.closed, "dome.closed", 4, (side, at) => oneOf(side, ["x+", "x-", "z+", "z-"] as const, at), true);
-      if (d.windows !== undefined) {
-        if (!isObj(d.windows)) fail("dome.windows", "պետք է օբյեկտ լինի");
-        else { num(d.windows.count, "dome.windows.count", 0, 32); num(d.windows.w, "dome.windows.w", 0.1, 3); num(d.windows.h, "dome.windows.h", 0.1, 5); oneOf(d.windows.shape, SHAPES, "dome.windows.shape", true); }
-      }
-    }
-  }
+  if (m.dome !== undefined) dome(m.dome, "dome");
+  list(m.domes, "domes", 8, dome, true);
   list(m.masses, "masses", 20, (mass, path) => {
     if (!isObj(mass)) return fail(path, "պետք է օբյեկտ լինի");
     outline(mass.outline, `${path}.outline`); optNum(mass.base, `${path}.base`, 0, 60); num(mass.height, `${path}.height`, 0, 60);
     const roof = mass.roof;
     if (!isObj(roof)) return fail(`${path}.roof`, "պետք է օբյեկտ լինի");
-    oneOf(roof.type, ["flat", "gable", "tent"] as const, `${path}.roof.type`);
-    if (roof.type === "gable") { oneOf(roof.axis, ["x", "z"] as const, `${path}.roof.axis`); num(roof.rise, `${path}.roof.rise`, 0, 30); }
-    if (roof.type === "tent") num(roof.rise, `${path}.roof.rise`, 0, 30);
+    oneOf(roof.type, ["flat", "gable", "tent", "shed"] as const, `${path}.roof.type`);
+    if (roof.type === "gable" || roof.type === "shed") { oneOf(roof.axis, ["x", "z"] as const, `${path}.roof.axis`); num(roof.rise, `${path}.roof.rise`, 0, 30); }
+    if (roof.type === "shed") oneOf(roof.low, ["-", "+"] as const, `${path}.roof.low`);
+    if (roof.type === "tent") { num(roof.rise, `${path}.roof.rise`, 0, 30); if (roof.apex !== undefined) pt(roof.apex, `${path}.roof.apex`); }
   });
   if (m.bema !== undefined) {
     const b = m.bema;
@@ -631,11 +699,8 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
       else { pt(b.stairs.at, `${path}.stairs.at`); pt(b.stairs.dir, `${path}.stairs.dir`); num(b.stairs.width, `${path}.stairs.width`, 0.4, 5); }
     }
   });
-  if (m.belfry !== undefined) {
-    const b = m.belfry;
-    if (!isObj(b)) fail("belfry", "պետք է օբյեկտ լինի");
-    else { pt(b.at, "belfry.at"); num(b.base, "belfry.base", 0, 60); num(b.radius, "belfry.radius", 0.3, 6); num(b.columns, "belfry.columns", 3, 16); num(b.height, "belfry.height", 0.5, 10); }
-  }
+  if (m.belfry !== undefined) belfry(m.belfry, "belfry");
+  list(m.belfries, "belfries", 6, belfry, true);
   list(m.items, "items", 300, (item, path) => {
     if (!isObj(item)) return fail(path, "պետք է օբյեկտ լինի");
     oneOf(item.type, ITEM_TYPES, `${path}.type`); pt(item.at, `${path}.at`);
