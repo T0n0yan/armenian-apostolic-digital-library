@@ -765,7 +765,7 @@ erDiagram
 | **Հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` |
 | **Սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) |
 | **Բառարան** | `glossary_terms` |
-| **Կարգեր և վարքեր** | `etiquette_links` (կանոններին կցված հղումներ, migration 0054, `/api/etiquette-links`, «layout» իրավունք) |
+| **Կարգեր և վարքեր** | `etiquette_links` (կանոններին կցված հղումներ, migration 0056, `/api/etiquette-links`, «layout» իրավունք) |
 | **Կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր), `client_errors` (բրաուզերի սխալներ, անանուն, 30 օր) |
 | **Telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` |
 | **Հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` |

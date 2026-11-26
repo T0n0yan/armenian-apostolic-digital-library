@@ -1,4 +1,4 @@
-// «Վարք եկեղեցում»-ի կանոններին կցված հղումները (migration 0054)։
+// «Վարք եկեղեցում»-ի կանոններին կցված հղումները (migration 0056)։
 
 export type EtiquetteLink = { id: number; ruleId: string; url: string; title: string };
 
