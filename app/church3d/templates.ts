@@ -94,38 +94,6 @@ const CROSS_DOMED: ChurchModel = {
     zangakatun: { eye: [10, 10, 28], look: [0, 8, 14.4] },
     mutq: { eye: [6, 4, 30], look: [0, 3, 17.4] },
   },
-  tour: [
-    {
-      title: "Մուտք", part: "mutq", vested: false, curtainClosed: false,
-      text: "Քահանան եկեղեցի է մտնում արևմտյան դռնով, խաչակնքվում է և խոնարհվում խորանի առջև։",
-      priest: [0, 0, 10.2], eye: [3.2, 3, 15.6], look: [0, 1.6, 9],
-    },
-    {
-      title: "Ավանդատուն", part: "avandatun", vested: false, curtainClosed: false,
-      text: "Նավով անցնում է առաջ և մտնում ավանդատուն, որտեղ պատրաստված են պատարագի զգեստները։",
-      priest: [-5.6, 0, -6.2], eye: [-15, 10, -2.5], look: [-5.7, 1.2, -6.4],
-    },
-    {
-      title: "Զգեստավորում", people: [{ role: "dpir", at: [-5.8, 0.15, -1.4], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, -0.6], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, 0.2], rot: 90 }], part: "avandatun", vested: true, curtainClosed: false,
-      text: "Հագնում է պատարագի զգեստները՝ շապիկ, փորուրար, գոտի, բազպաններ, վակաս և շուրջառ, ամեն մեկի համար աղոթք ասելով։ Այդ ժամանակ դասը երգում է «Խորհուրդ խորին» շարականը։",
-      priest: [-5.6, 0, -6.2], eye: [-15, 10, -2.5], look: [-5.7, 1.2, -6.4],
-    },
-    {
-      title: "Ձեռքերի լվացում", people: [{ role: "dpir", at: [-5.8, 0.15, -1.4], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, -0.6], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, 0.2], rot: 90 }], part: "atyan", vested: true, curtainClosed: false,
-      text: "Դուրս գալով՝ լվանում է ձեռքերը՝ ասելով 25-րդ սաղմոսը. «Լուացից ընդ անմեղս զձեռս իմ…»։",
-      priest: [-2, 0.35, -2.2], eye: [1.4, 2.4, 3.4], look: [-1.6, 1.2, -2.2],
-    },
-    {
-      title: "Խոստովանություն", people: [{ role: "dpir", at: [-5.8, 0.15, -1.4], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, -0.6], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, 0.2], rot: 90 }], part: "atyan", vested: true, curtainClosed: false,
-      text: "Ատյանում, բեմի առջև, քահանան խոստովանում է ժողովրդի առաջ և խնդրում աղոթել իր համար։",
-      priest: [0, 0.35, -2], eye: [0, 2.6, 5], look: [0, 1.4, -2],
-    },
-    {
-      title: "Բեմ բարձրանալը", people: [{ role: "dpir", at: [-5.8, 0.15, -1.4], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, -0.6], rot: 90 }, { role: "dpir", at: [-5.8, 0.15, 0.2], rot: 90 }], part: "bem", vested: true, curtainClosed: true,
-      text: "Բարձրանում է բեմ, վարագույրը փակվում է, և քահանան պատրաստում է ընծաները՝ հացը և գինին։",
-      priest: [1.4, 1.3, -4.4], eye: [-3.4, 3.4, 3.6], look: [0, 2.4, -4],
-    },
-  ],
 };
 
 const SINGLE_NAVE: ChurchModel = {
@@ -136,24 +104,34 @@ const SINGLE_NAVE: ChurchModel = {
   rooms: [
     {
       id: "main", part: "nav", partAt: [0, 1.6, 5], height: 6, ceiling: "open",
-      outline: [[-4, 10], [4, 10], [4, -5], [3, -5, 3], [-3, -5], [-4, -5]],
+      outline: [[-5, 10], [5, 10], [5, -5], [3, -5, 3], [-3, -5], [-5, -5]],
       apses: [{ edge: 3, part: "khoran" }],
-      doors: [{ edge: 0, at: 4, w: 1.8, h: 3, part: "mutq" }],
+      doors: [{ edge: 0, at: 5, w: 1.8, h: 3, part: "mutq" }, { edge: 2, at: 0.8, w: 1, h: 2.2 }, { edge: 4, at: 1.2, w: 1, h: 2.2 }],
       windows: [
         { edge: 1, at: 7.5, y: 3.2, w: 0.5, h: 1.6, count: 3, gap: 4.5 },
         { edge: 5, at: 7.5, y: 3.2, w: 0.5, h: 1.6, count: 3, gap: 4.5 },
-        { edge: 0, at: 4, y: 7.3, w: 1, h: 1, shape: "cross" },
+        { edge: 0, at: 5, y: 7.6, w: 1, h: 1, shape: "cross" },
         { edge: 3, at: 4.71, y: 3.4, w: 0.4, h: 1.4 },
       ],
     },
+    {
+      id: "avandatun-n", part: "avandatun", height: 4.5, ceiling: "flat",
+      outline: [[-5, -5.4], [-3.4, -5.4], [-3.4, -8.4], [-5, -8.4]],
+      doors: [{ edge: 0, at: 0.8, w: 1, h: 2.2 }],
+    },
+    {
+      id: "avandatun-s", part: "avandatun", height: 4.5, ceiling: "flat",
+      outline: [[3.4, -5.4], [5, -5.4], [5, -8.4], [3.4, -8.4]],
+      doors: [{ edge: 0, at: 0.8, w: 1, h: 2.2 }],
+    },
   ],
-  vaults: [{ from: [0, -5], to: [0, 10], width: 8, spring: 6, closeFrom: { hole: 3, rise: 3 }, closeTo: true }],
+  vaults: [{ from: [0, -5], to: [0, 10], width: 10, spring: 6, closeFrom: { hole: 3, rise: 3 }, closeTo: true }],
   arcades: [],
-  masses: [{ outline: [[-4.4, -8.4], [4.4, -8.4], [4.4, 10.4], [-4.4, 10.4]], height: 6.4, roof: { type: "gable", axis: "z", rise: 3.9 } }],
+  masses: [{ outline: [[-5.4, -8.8], [5.4, -8.8], [5.4, 10.4], [-5.4, 10.4]], height: 6.4, roof: { type: "gable", axis: "z", rise: 4.8 } }],
   bema: { outline: [[-3, -2.6], [3, -2.6], [3, -5, 3], [-3, -5]], height: 1.1, stairs: "center", curtainTop: 5.8 },
   cameras: { nav: { eye: [0, 2.4, 9.4], look: [0, 2.6, -2] } },
   balconies: [],
-  belfry: { at: [0, 9.2], base: 9.6, radius: 0.85, columns: 4, height: 1.6 },
+  belfry: { at: [0, 9.2], base: 10.5, radius: 0.85, columns: 4, height: 1.6 },
   items: [
     { type: "altar", at: [0, -5.8], y: 1.1 },
     { type: "gospel", at: [0.35, -5.7], y: 2.15, rot: 10 },
@@ -165,10 +143,10 @@ const SINGLE_NAVE: ChurchModel = {
     { type: "censer", at: [2.1, -3.8], y: 1.1, rot: -90 },
     { type: "procession-icon", at: [-2.1, -3.8], y: 1.1 },
     { type: "lectern", at: [1.8, -1.6], rot: -20 },
-    { type: "choir", at: [-2.8, -0.9], rot: 90 },
-    { type: "font", at: [-3.22, 6.5], rot: 90, niche: true },
-    { type: "candle-table", at: [2.6, 8.3] },
-    { type: "icon", at: [3.97, 2], y: 1.6, w: 1.1, h: 1.6, rot: -90 },
+    { type: "choir", at: [-3.6, -0.9], rot: 90 },
+    { type: "font", at: [-4.22, 6.5], rot: 90, niche: true },
+    { type: "candle-table", at: [3.2, 8.3] },
+    { type: "icon", at: [4.97, 2], y: 1.6, w: 1.1, h: 1.6, rot: -90 },
     { type: "chandelier", at: [0, 3], y: 6.4, top: 10 },
   ],
 };
@@ -183,13 +161,23 @@ const THREE_NAVE: ChurchModel = {
       id: "main", part: "nav", partAt: [0, 1.6, 4], height: 5.5, heights: { 1: 8, 5: 8 }, ceiling: "open",
       outline: [[-7, 12], [-3, 12], [3, 12], [7, 12], [7, -6], [3, -6, 3], [-3, -6], [-7, -6]],
       apses: [{ edge: 5, part: "khoran" }],
-      doors: [{ edge: 1, at: 3, w: 2, h: 2.9, part: "mutq" }],
+      doors: [{ edge: 1, at: 3, w: 2, h: 2.9, part: "mutq" }, { edge: 4, at: 2, w: 1.1, h: 2.4 }, { edge: 6, at: 2, w: 1.1, h: 2.4 }],
       windows: [
         { edge: 3, at: 9, y: 2.6, w: 0.5, h: 1.5, count: 4, gap: 4 },
         { edge: 7, at: 9, y: 2.6, w: 0.5, h: 1.5, count: 4, gap: 4 },
         { edge: 1, at: 3, y: 8.6, w: 0.9, h: 0.9, shape: "round" },
         { edge: 5, at: 4.71, y: 4, w: 0.45, h: 1.6 },
       ],
+    },
+    {
+      id: "avandatun-n", part: "avandatun", height: 5, ceiling: "flat",
+      outline: [[-7, -6.4], [-3.4, -6.4], [-3.4, -9], [-7, -9]],
+      doors: [{ edge: 0, at: 2, w: 1.1, h: 2.4 }],
+    },
+    {
+      id: "avandatun-s", part: "avandatun", height: 5, ceiling: "flat",
+      outline: [[3.4, -6.4], [7, -6.4], [7, -9], [3.4, -9]],
+      doors: [{ edge: 0, at: 1.6, w: 1.1, h: 2.4 }],
     },
   ],
   vaults: [

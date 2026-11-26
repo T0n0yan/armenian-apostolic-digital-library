@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import mapCss from "maplibre-gl/dist/maplibre-gl.css?url";
 import { RichText } from "../components/rich-text";
-import { Navigation, Pencil, ShieldCheck } from "lucide-react";
+import { Box, Navigation, Pencil, ShieldCheck } from "lucide-react";
+import { hasPublishedModel } from "../data/church-models.server";
 import { useMemo, useState } from "react";
 import { Link, useRouteLoaderData } from "react-router";
 
@@ -28,7 +29,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   if (!place) throw new Response("Not found", { status: 404 });
   const bindings = env as unknown as { MEDIA: R2Bucket; IMAGES?: ImagesBinding };
   const photoSizes = await placePhotoSizes(env.DB, bindings.MEDIA, bindings.IMAGES, place.photos);
-  return { place, photoSizes, origin: new URL(request.url).origin };
+  return { place, photoSizes, origin: new URL(request.url).origin, has3d: await hasPublishedModel(env.DB, place.id) };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -179,6 +180,12 @@ export default function PlacePage({ loaderData }: Route.ComponentProps) {
         ) : null}
         {embed ? <iframe className="aspect-video w-full rounded-card border-0" src={embed} title={place.name} allow="encrypted-media; picture-in-picture; fullscreen" loading="lazy" /> : null}
         {!video && !embed && place.videoUrl ? <a className="text-gold-bright" href={place.videoUrl} target="_blank" rel="noreferrer">Դիտել տեսանյութը →</a> : null}
+        {loaderData.has3d ? (
+          // 3D մոդել (եթե տերը հրապարակել է)՝ ներսից/դրսից, մասերը և «Վառել մոմ»։
+          <Link className="flex min-h-12 items-center justify-center gap-2 rounded-button border border-[rgb(217_181_111/55%)] bg-[rgb(217_181_111/12%)] px-4 text-[14.5px] font-bold text-gold-bright no-underline" to={`/church-3d?place=${place.id}`}>
+            <Box aria-hidden="true" size={18} /> Դիտել 3D-ով՝ ներսից և դրսից
+          </Link>
+        ) : null}
         <section className={panel}>
           <h2 className={heading}>Ինչպես հասնել</h2>
           <div className="flex flex-wrap gap-2">

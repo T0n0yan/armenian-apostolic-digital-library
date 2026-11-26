@@ -53,6 +53,7 @@ export default [
   route("admin/places", "routes/admin-places.tsx"),
   route("admin/places/:id", "routes/admin-place.tsx"),
   route("admin/places/:id/video", "routes/admin-place-video.ts"),
+  route("admin/places/:id/3d", "routes/admin-church-model.tsx"),
   route("admin/telegram-file/:fileId", "routes/admin-telegram-file.ts"),
   // Sacred places: the map, one place, and their pictures from R2.
   route("places", "routes/places.tsx"),
@@ -82,6 +83,7 @@ export default [
   route("etiquette/:topic", "routes/etiquette-redirect.ts", { id: "etiquette-topic-old" }),
   // Փորձնական 3D եկեղեցի (թաքնված էջ, միայն staging)
   route("church-3d", "routes/church-3d.tsx"),
+  route("api/church-candles", "routes/church-candles.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.
   route("og/card/:section/:item/:verse?", "routes/og-card.ts"),

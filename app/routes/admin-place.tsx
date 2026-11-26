@@ -299,7 +299,10 @@ export default function AdminPlace({ loaderData, actionData }: Route.ComponentPr
       <SiteNav />
       <PageHeader backTo="/admin/places" backLabel="Սրբավայրեր" title={place.name} />
       <div className="mt-4 grid gap-5">
-        {place.published ? <Link className="w-fit text-[13px] text-gold-bright" to={`/places/${place.id}`}>Բացել կայքում →</Link> : null}
+        <div className="flex flex-wrap gap-4">
+          {place.published ? <Link className="w-fit text-[13px] text-gold-bright" to={`/places/${place.id}`}>Բացել կայքում →</Link> : null}
+          <Link className="w-fit text-[13px] text-gold-bright" to={`/admin/places/${place.id}/3d`}>3D մոդել →</Link>
+        </div>
 
         <Form method="post" preventScrollReset className={`${panelSection} grid gap-4`}>
           <label className={fieldLabel}>Անունը<input className={fieldControl} name="name" defaultValue={place.name} required /></label>

@@ -62,7 +62,7 @@ export type Camera = { eye: V3; look: V3 };
 /** Մարդուկ՝ դերով (զգեստի գույնն ու ձևը)։ `rot`՝ աստիճան, ինչպես պարագաներինը։ */
 export type Role = "priest" | "deacon" | "dpir" | "believer";
 export type Person = { role: Role; at: V3; rot?: number };
-export type TourStep = { title: string; text: string; part: PartKind; priest: V3; vested: boolean; curtainClosed: boolean; eye: V3; look: V3; people?: readonly Person[] };
+export type TourStep = { title: string; text: string; part: PartKind; priest: V3; priestRot?: number; vested: boolean; curtainClosed: boolean; eye: V3; look: V3; people?: readonly Person[] };
 export type TuffColor = "pink" | "ochre" | "gray" | "black";
 
 export type ChurchModel = {
@@ -390,4 +390,258 @@ export function defaultView(model: ChurchModel, mode: "cutaway" | "outside"): Ca
   const size = Math.max(box.maxX - box.minX, box.maxZ - box.minZ);
   if (mode === "outside") return { eye: [c[0] + size * 1.1, size * 0.55, c[2] + size * 1.4], look: [c[0], 6, c[2]] };
   return { eye: [c[0] + size * 0.9, size * 1.05, c[2] + size * 1.15], look: c };
+}
+
+// ---------- «Պատարագից առաջ»՝ ցանկացած եկեղեցու համար ----------
+
+/**
+ * Քայլերը հաշվվում են եկեղեցու մասերից (մուտք, ավանդատուն, ատյան, բեմ, դաս), այնպես որ աշխատում են բոլոր
+ * տիպերում։ Ավանդատուն չունեցող եկեղեցում զգեստավորման քայլերը բաց են թողնվում։ `model.tour`-ը (եթե կա) գերակա է։
+ */
+export function liturgyTour(model: ChurchModel): TourStep[] {
+  if (model.tour) return [...model.tour];
+  if (!model.bema) return [];
+  const spots = computeHotspots(model);
+  const spotOf = (kind: PartKind) => spots.find((spot) => spot.kind === kind);
+  const { mid, length: len, u, f } = bemaFront(model.bema);
+  const at = (along: number, forward: number, y: number): V3 => [mid[0] + u[0] * along + f[0] * forward, y, mid[1] + u[1] * along + f[1] * forward];
+  const facingBema = (Math.atan2(-f[0], -f[1]) * 180) / Math.PI;
+  const from = (p: V3, back = 5, up = 2.4): Pick<TourStep, "eye" | "look"> => ({
+    eye: [p[0] + f[0] * back, p[1] + up, p[2] + f[1] * back],
+    look: [p[0], p[1] + 1.2, p[2]],
+  });
+  const atyanY = model.bema.atyan?.height ?? 0;
+
+  let entrance: V3 = at(0, 9, 0);
+  for (const room of model.rooms) {
+    const door = room.doors?.find((item) => item.part === "mutq");
+    if (!door) continue;
+    const { p, n } = pointOnEdge(edgesOf(room.outline)[door.edge], door.at);
+    entrance = [p[0] + n[0] * 1.4, 0, p[1] + n[1] * 1.4];
+  }
+  const choir = model.items.find((item) => item.type === "choir");
+  const dpirs: Person[] = choir
+    ? [-0.9, 0, 0.9].map((x) => {
+        const q = rotate([x, -0.1], choir.rot ?? 0);
+        return { role: "dpir", at: [choir.at[0] + q[0], (choir.y ?? 0) + 0.15, choir.at[1] + q[1]], rot: choir.rot ?? 0 };
+      })
+    : [];
+  const vestry = model.rooms.find((room) => room.part === "avandatun");
+  const vestrySpot = spotOf("avandatun");
+  const bemaSpot = spotOf("bem");
+  const steps: TourStep[] = [{
+    title: "Մուտք", part: "mutq", vested: false, curtainClosed: false, priestRot: facingBema,
+    text: "Քահանան եկեղեցի է մտնում արևմտյան դռնով, խաչակնքվում է և խոնարհվում խորանի առջև։",
+    priest: entrance, ...from(entrance, 5, 2.6),
+  }];
+  if (vestry && vestrySpot) {
+    const c = centroid(polygonOf(vestry.outline));
+    const p: V3 = [c[0], 0, c[1]];
+    const view = { eye: vestrySpot.eye, look: vestrySpot.look };
+    steps.push(
+      {
+        title: "Ավանդատուն", part: "avandatun", vested: false, curtainClosed: false, priest: p, priestRot: facingBema, ...view,
+        text: "Նավով անցնում է առաջ և մտնում ավանդատուն, որտեղ պատրաստված են պատարագի զգեստները։",
+      },
+      {
+        title: "Զգեստավորում", part: "avandatun", vested: true, curtainClosed: false, priest: p, priestRot: facingBema, ...view, people: dpirs,
+        text: "Հագնում է պատարագի զգեստները՝ շապիկ, փորուրար, գոտի, բազպաններ, վակաս և շուրջառ, ամեն մեկի համար աղոթք ասելով։ Այդ ժամանակ դասը երգում է «Խորհուրդ խորին» շարականը։",
+      },
+    );
+  }
+  const washing = at(-Math.min(1.6, len / 2 - 0.8), 0.9, atyanY);
+  const confession = at(0, 0.9, atyanY);
+  const onBema = at(Math.min(1.4, len / 2 - 0.8), -1.2, model.bema.height);
+  steps.push(
+    {
+      title: "Ձեռքերի լվացում", part: model.bema.atyan ? "atyan" : "bem", vested: true, curtainClosed: false, priest: washing, priestRot: facingBema, ...from(washing), people: dpirs,
+      text: "Դուրս գալով՝ լվանում է ձեռքերը՝ ասելով 25-րդ սաղմոսը. «Լուացից ընդ անմեղս զձեռս իմ…»։",
+    },
+    {
+      title: "Խոստովանություն", part: model.bema.atyan ? "atyan" : "bem", vested: true, curtainClosed: false, priest: confession, priestRot: facingBema, ...from(confession, 6), people: dpirs,
+      text: "Բեմի առջև քահանան խոստովանում է ժողովրդի առաջ և խնդրում աղոթել իր համար։",
+    },
+    {
+      title: "Բեմ բարձրանալը", part: "bem", vested: true, curtainClosed: true, priest: onBema, priestRot: facingBema,
+      eye: bemaSpot?.eye ?? from(onBema, 8).eye, look: bemaSpot?.look ?? from(onBema).look, people: dpirs,
+      text: "Բարձրանում է բեմ, վարագույրը փակվում է, և քահանան պատրաստում է ընծաները՝ հացը և գինին։",
+    },
+  );
+  return steps;
+}
+
+// ---------- Մոմավառության սեղանի մոմերը ----------
+
+export const CANDLE_SLOTS = 60;
+
+/** Մոմի տեղը սեղանի վրա (իր տեղում)՝ [x, բարձրություն, z]։ 12 × 5 շարք, մի փոքր անկանոն՝ բնական տեսքի համար։ */
+export function candleSlot(slot: number): V3 {
+  const col = slot % 12;
+  const row = Math.floor(slot / 12) % 5;
+  const jitter = ((slot * 37) % 11) / 11 - 0.5;
+  return [-0.6 + col * 0.109 + (row % 2) * 0.05 + jitter * 0.02, 0.17 + ((slot * 53) % 7) * 0.025, -0.27 + row * 0.135 + jitter * 0.02];
+}
+
+// ---------- Անձնագրի ստուգում (ադմինի խմբագրիչ, GPT-ից ներմուծում, բազայից կարդալ) ----------
+
+const ITEM_TYPES: readonly ItemType[] = ["altar", "lectern", "font", "candle-table", "chandelier", "choir", "icon", "bench", "column", "chalice", "gospel", "censer", "fan", "candlestick", "procession-icon"];
+const SHAPES: readonly OpeningShape[] = ["arch", "rect", "round", "slit", "cross"];
+const TUFFS: readonly TuffColor[] = ["pink", "ochre", "gray", "black"];
+const KINDS = Object.keys(PART_INFO) as PartKind[];
+
+/**
+ * Ստուգում է անձնագիրը. վերադարձնում է սխալները հայերեն՝ տեղով (օր.՝ «rooms[0].outline[3]»)։
+ * Սահմանները պաշտպանում են և՛ բրաուզերը (չափազանց մեծ մոդել), և՛ բազան։
+ */
+export function validateModel(input: unknown): { model: ChurchModel | null; errors: string[] } {
+  const errors: string[] = [];
+  const fail = (path: string, what: string) => { if (errors.length < 30) errors.push(`${path}՝ ${what}`); };
+  const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+  const num = (v: unknown, path: string, min = -150, max = 150) => {
+    if (typeof v !== "number" || !Number.isFinite(v) || v < min || v > max) fail(path, `պետք է թիվ լինի ${min}…${max} միջակայքում`);
+  };
+  const optNum = (v: unknown, path: string, min?: number, max?: number) => { if (v !== undefined) num(v, path, min, max); };
+  const pt = (v: unknown, path: string) => {
+    if (!Array.isArray(v) || v.length !== 2) return fail(path, "պետք է լինի [x, z]");
+    num(v[0], `${path}[0]`); num(v[1], `${path}[1]`);
+  };
+  const v3 = (v: unknown, path: string) => {
+    if (!Array.isArray(v) || v.length !== 3) return fail(path, "պետք է լինի [x, y, z]");
+    v.forEach((n, i) => num(n, `${path}[${i}]`));
+  };
+  const list = (v: unknown, path: string, max: number, each: (item: unknown, path: string) => void, optional = false) => {
+    if (v === undefined && optional) return;
+    if (!Array.isArray(v)) return fail(path, "պետք է լինի ցուցակ […]");
+    if (v.length > max) return fail(path, `առավելագույնը ${max} տարր`);
+    v.forEach((item, i) => each(item, `${path}[${i}]`));
+  };
+  const outline = (v: unknown, path: string) => list(v, path, 64, (p, at) => {
+    if (!Array.isArray(p) || (p.length !== 2 && p.length !== 3)) return fail(at, "պետք է լինի [x, z] կամ [x, z, կորություն]");
+    p.forEach((n, i) => num(n, `${at}[${i}]`));
+  });
+  const str = (v: unknown, path: string, max = 120, optional = true) => {
+    if (v === undefined && optional) return;
+    if (typeof v !== "string" || v.length > max) fail(path, `պետք է տեքստ լինի (մինչև ${max} նիշ)`);
+  };
+  const oneOf = <T extends string>(v: unknown, values: readonly T[], path: string, optional = false) => {
+    if (v === undefined && optional) return;
+    if (!values.includes(v as T)) fail(path, `պետք է լինի ${values.join(" / ")}`);
+  };
+  const closure = (v: unknown, path: string) => {
+    if (v === undefined || v === true) return;
+    if (!isObj(v)) return fail(path, "պետք է լինի true կամ { hole, rise }");
+    num(v.hole, `${path}.hole`, 0, 30); num(v.rise, `${path}.rise`, 0, 30);
+  };
+
+  if (!isObj(input)) return { model: null, errors: ["Անձնագիրը պետք է լինի JSON օբյեկտ { … }"] };
+  const m = input;
+  if (m.version !== 1) fail("version", "պետք է լինի 1");
+  str(m.id, "id", 60, false);
+  str(m.name, "name", 120, false);
+  oneOf(m.tuff, TUFFS, "tuff");
+  list(m.rooms, "rooms", 20, (room, path) => {
+    if (!isObj(room)) return fail(path, "պետք է օբյեկտ լինի");
+    str(room.id, `${path}.id`, 40, false);
+    oneOf(room.part, KINDS, `${path}.part`, true);
+    if (room.partAt !== undefined) v3(room.partAt, `${path}.partAt`);
+    outline(room.outline, `${path}.outline`);
+    if (Array.isArray(room.outline) && room.outline.length < 3) fail(`${path}.outline`, "նվազագույնը 3 կետ");
+    num(room.height, `${path}.height`, 1, 40);
+    if (room.heights !== undefined) {
+      if (!isObj(room.heights)) fail(`${path}.heights`, "պետք է լինի { պատի համար: բարձրություն }");
+      else for (const [key, value] of Object.entries(room.heights)) num(value, `${path}.heights.${key}`, 1, 40);
+    }
+    oneOf(room.ceiling, ["flat", "open"] as const, `${path}.ceiling`);
+    const edges = Array.isArray(room.outline) ? room.outline.length : 0;
+    const edge = (v: unknown, at: string) => num(v, at, 0, Math.max(0, edges - 1));
+    list(room.doors, `${path}.doors`, 20, (door, at) => {
+      if (!isObj(door)) return fail(at, "պետք է օբյեկտ լինի");
+      edge(door.edge, `${at}.edge`); num(door.at, `${at}.at`, 0, 100); num(door.w, `${at}.w`, 0.3, 10); num(door.h, `${at}.h`, 0.5, 15);
+      oneOf(door.part, KINDS, `${at}.part`, true);
+    }, true);
+    list(room.windows, `${path}.windows`, 60, (window, at) => {
+      if (!isObj(window)) return fail(at, "պետք է օբյեկտ լինի");
+      edge(window.edge, `${at}.edge`); num(window.at, `${at}.at`, 0, 100); num(window.y, `${at}.y`, 0, 40);
+      num(window.w, `${at}.w`, 0.1, 6); num(window.h, `${at}.h`, 0.1, 8); oneOf(window.shape, SHAPES, `${at}.shape`, true);
+      optNum(window.count, `${at}.count`, 1, 20); optNum(window.gap, `${at}.gap`, 0.2, 20);
+    }, true);
+    list(room.apses, `${path}.apses`, 6, (apse, at) => {
+      if (!isObj(apse)) return fail(at, "պետք է օբյեկտ լինի");
+      edge(apse.edge, `${at}.edge`); oneOf(apse.part, KINDS, `${at}.part`, true);
+    }, true);
+  });
+  list(m.vaults, "vaults", 30, (v, path) => {
+    if (!isObj(v)) return fail(path, "պետք է օբյեկտ լինի");
+    pt(v.from, `${path}.from`); pt(v.to, `${path}.to`); num(v.width, `${path}.width`, 0.5, 40); num(v.spring, `${path}.spring`, 0, 40);
+    optNum(v.rise, `${path}.rise`, 0.1, 30); closure(v.closeFrom, `${path}.closeFrom`); closure(v.closeTo, `${path}.closeTo`);
+  });
+  list(m.arcades, "arcades", 20, (a, path) => {
+    if (!isObj(a)) return fail(path, "պետք է օբյեկտ լինի");
+    pt(a.from, `${path}.from`); pt(a.to, `${path}.to`); num(a.count, `${path}.count`, 2, 40);
+    num(a.spring, `${path}.spring`, 0.5, 30); num(a.top, `${path}.top`, 1, 40); num(a.pillar, `${path}.pillar`, 0.1, 4);
+  });
+  if (m.dome !== undefined) {
+    const d = m.dome;
+    if (!isObj(d)) fail("dome", "պետք է օբյեկտ լինի");
+    else {
+      pt(d.at, "dome.at"); num(d.radius, "dome.radius", 0.5, 20); num(d.base, "dome.base", 1, 60); num(d.drum, "dome.drum", 0, 20);
+      num(d.sides, "dome.sides", 4, 32); optNum(d.bay, "dome.bay", 0.5, 20);
+      list(d.closed, "dome.closed", 4, (side, at) => oneOf(side, ["x+", "x-", "z+", "z-"] as const, at), true);
+      if (d.windows !== undefined) {
+        if (!isObj(d.windows)) fail("dome.windows", "պետք է օբյեկտ լինի");
+        else { num(d.windows.count, "dome.windows.count", 0, 32); num(d.windows.w, "dome.windows.w", 0.1, 3); num(d.windows.h, "dome.windows.h", 0.1, 5); oneOf(d.windows.shape, SHAPES, "dome.windows.shape", true); }
+      }
+    }
+  }
+  list(m.masses, "masses", 20, (mass, path) => {
+    if (!isObj(mass)) return fail(path, "պետք է օբյեկտ լինի");
+    outline(mass.outline, `${path}.outline`); optNum(mass.base, `${path}.base`, 0, 60); num(mass.height, `${path}.height`, 0, 60);
+    const roof = mass.roof;
+    if (!isObj(roof)) return fail(`${path}.roof`, "պետք է օբյեկտ լինի");
+    oneOf(roof.type, ["flat", "gable", "tent"] as const, `${path}.roof.type`);
+    if (roof.type === "gable") { oneOf(roof.axis, ["x", "z"] as const, `${path}.roof.axis`); num(roof.rise, `${path}.roof.rise`, 0, 30); }
+    if (roof.type === "tent") num(roof.rise, `${path}.roof.rise`, 0, 30);
+  });
+  if (m.bema !== undefined) {
+    const b = m.bema;
+    if (!isObj(b)) fail("bema", "պետք է օբյեկտ լինի");
+    else {
+      outline(b.outline, "bema.outline"); num(b.height, "bema.height", 0, 4); oneOf(b.stairs, ["sides", "center"] as const, "bema.stairs");
+      num(b.curtainTop, "bema.curtainTop", 1, 30);
+      if (b.atyan !== undefined) {
+        if (!isObj(b.atyan)) fail("bema.atyan", "պետք է օբյեկտ լինի");
+        else { num(b.atyan.width, "bema.atyan.width", 0.5, 20); num(b.atyan.depth, "bema.atyan.depth", 0.3, 10); num(b.atyan.height, "bema.atyan.height", 0, 2); }
+      }
+    }
+  }
+  list(m.balconies, "balconies", 6, (b, path) => {
+    if (!isObj(b)) return fail(path, "պետք է օբյեկտ լինի");
+    outline(b.outline, `${path}.outline`); num(b.floor, `${path}.floor`, 1, 30); oneOf(b.part, KINDS, `${path}.part`, true);
+    if (b.stairs !== undefined) {
+      if (!isObj(b.stairs)) fail(`${path}.stairs`, "պետք է օբյեկտ լինի");
+      else { pt(b.stairs.at, `${path}.stairs.at`); pt(b.stairs.dir, `${path}.stairs.dir`); num(b.stairs.width, `${path}.stairs.width`, 0.4, 5); }
+    }
+  });
+  if (m.belfry !== undefined) {
+    const b = m.belfry;
+    if (!isObj(b)) fail("belfry", "պետք է օբյեկտ լինի");
+    else { pt(b.at, "belfry.at"); num(b.base, "belfry.base", 0, 60); num(b.radius, "belfry.radius", 0.3, 6); num(b.columns, "belfry.columns", 3, 16); num(b.height, "belfry.height", 0.5, 10); }
+  }
+  list(m.items, "items", 300, (item, path) => {
+    if (!isObj(item)) return fail(path, "պետք է օբյեկտ լինի");
+    oneOf(item.type, ITEM_TYPES, `${path}.type`); pt(item.at, `${path}.at`);
+    optNum(item.y, `${path}.y`, 0, 40); optNum(item.rot, `${path}.rot`, -360, 360); optNum(item.w, `${path}.w`, 0.1, 10);
+    optNum(item.h, `${path}.h`, 0.1, 20); optNum(item.top, `${path}.top`, 0, 60); str(item.name, `${path}.name`);
+    if (item.niche !== undefined && typeof item.niche !== "boolean") fail(`${path}.niche`, "պետք է լինի true կամ false");
+  });
+  if (m.cameras !== undefined) {
+    if (!isObj(m.cameras)) fail("cameras", "պետք է օբյեկտ լինի");
+    else for (const [key, camera] of Object.entries(m.cameras).slice(0, 60)) {
+      if (!isObj(camera)) { fail(`cameras.${key}`, "պետք է լինի { eye, look }"); continue; }
+      v3(camera.eye, `cameras.${key}.eye`); v3(camera.look, `cameras.${key}.look`);
+    }
+  }
+  if (m.tour !== undefined) fail("tour", "ձեռքով քայլերը առայժմ չեն ընդունվում (հաշվվում են ինքնին)");
+  if (!errors.length && Array.isArray(m.rooms) && !m.rooms.length) fail("rooms", "պետք է լինի գոնե մեկ սենյակ");
+  return { model: errors.length ? null : (m as unknown as ChurchModel), errors };
 }

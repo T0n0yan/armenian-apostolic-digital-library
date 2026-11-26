@@ -17,7 +17,7 @@ globalThis.fetch = nominatim({ state: "Արմավիրի մարզ", city: "Վաղ
 function database() {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec("CREATE TABLE app_users (id TEXT PRIMARY KEY); CREATE TABLE site_presence (visitor_id TEXT PRIMARY KEY, last_seen TEXT);");
-  for (const file of ["0028_place_drafts", "0029_places", "0032_places_osm", "0033_place_visits", "0034_place_steps", "0035_place_details", "0036_place_questions", "0037_place_region", "0051_client_errors"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
+  for (const file of ["0028_place_drafts", "0029_places", "0032_places_osm", "0033_place_visits", "0034_place_steps", "0035_place_details", "0036_place_questions", "0037_place_region", "0051_client_errors", "0054_church_candles"]) sqlite.exec(readFileSync(`migrations/${file}.sql`, "utf8"));
   const statement = (sql: string, values: unknown[] = []) => ({
     bind: (...next: unknown[]) => statement(sql, next),
     run: async () => { sqlite.prepare(sql).run(...(values as never[])); return { success: true }; },
