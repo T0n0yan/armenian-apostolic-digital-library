@@ -23,7 +23,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
     title: `${topic.title}. վարք եկեղեցում — Apostolic.am`,
     description: topic.summary ?? topic.description,
     path,
-    jsonLd: [breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: CHURCH_TITLE, path: "/church" }, { name: "Վարք եկեղեցում", path: "/church/etiquette" }, { name: topic.title, path }])],
+    jsonLd: [breadcrumbJsonLd([{ name: "Գլխավոր", path: "/" }, { name: CHURCH_TITLE, path: "/church" }, { name: "Վարք եկեղեցում", path: "/church/etiquette" }, { name: topic.title, path }]),
+      // Հարց ու պատասխանը՝ որոնողական համակարգերի համար (օր.՝ «գունավոր մոմեր»)
+      ...(topic.faq?.length ? [{ "@context": "https://schema.org", "@type": "FAQPage", mainEntity: topic.faq.map((item) => ({ "@type": "Question", name: item.q, acceptedAnswer: { "@type": "Answer", text: item.a } })) }] : [])],
   });
 }
 
