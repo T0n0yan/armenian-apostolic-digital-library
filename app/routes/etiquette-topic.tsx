@@ -81,8 +81,8 @@ export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
             {rules.map((rule, index) => (
               <RuleItem key={rule.id} rule={rule} first={index === 0} open={hash === rule.id}
                 icon={<span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-[rgb(61_118_80/15%)] text-success" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>}>
-                <p className="reading-body m-0 text-[15px] leading-[1.7] text-ink">{rule.what}</p>
-                {rule.why ? <p className="reading-body m-0 rounded-button bg-[rgb(217_181_111/12%)] px-3.5 py-2.5 text-[14px] leading-[1.65] text-ink"><span className="font-semibold text-gold-bright">Ինչու. </span>{rule.why}</p> : null}
+                <p className="reading-body m-0 whitespace-pre-line text-[15px] leading-[1.7] text-ink">{rule.what}</p>
+                {rule.why ? <p className="reading-body m-0 whitespace-pre-line rounded-button bg-[rgb(217_181_111/12%)] px-3.5 py-2.5 text-[14px] leading-[1.65] text-ink"><span className="font-semibold text-gold-bright">Ինչու. </span>{rule.why}</p> : null}
                 <span className={`text-[12px] font-semibold ${kindText[rule.kind]}`}>{RULE_KINDS[rule.kind].label}՝ {RULE_KINDS[rule.kind].hint}</span>
               </RuleItem>
             ))}
@@ -97,7 +97,7 @@ export default function EtiquetteTopic({ loaderData }: Route.ComponentProps) {
             {myths.map((rule, index) => (
               <RuleItem key={rule.id} rule={rule} first={index === 0} open={hash === rule.id}
                 icon={<span className="grid size-[22px] shrink-0 place-items-center rounded-full bg-[rgb(178_72_63/13%)] text-danger" aria-hidden="true"><X size={12} strokeWidth={3} /></span>}>
-                <p className="reading-body m-0 text-[15px] leading-[1.7] text-ink"><span className="font-semibold text-success">Իրականում. </span>{rule.what}</p>
+                <p className="reading-body m-0 whitespace-pre-line text-[15px] leading-[1.7] text-ink"><span className="font-semibold text-success">Իրականում. </span>{rule.what}</p>
               </RuleItem>
             ))}
           </div>
