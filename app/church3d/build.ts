@@ -2,14 +2,14 @@
 // Արագության համար ամեն նյութի (գույնի) բոլոր մասերը միացվում են մեկ mesh-ում։
 // Ներսի պատերը միակողմանի են և նայում են ներս. դրսից մոտակա պատերն ինքնին անտեսանելի են («կտրվածք»)։
 import {
-  BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DoubleSide, Float32BufferAttribute, Group,
-  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, Shape, ShapeGeometry, SphereGeometry, TorusGeometry, Vector2,
-  Vector3, type Material,
+  BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DataTexture, DoubleSide, Float32BufferAttribute, Group,
+  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, RepeatWrapping, Shape, ShapeGeometry, SphereGeometry, SRGBColorSpace,
+  TorusGeometry, Vector2, Vector3, type Material,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
-  bemaFront, bounds, candleSlot, edgesOf, exteriorHit, openingCenters, pointOnEdge, polygonOf,
-  type Arcade, type Balcony, type BaySide, type Bema, type Belfry, type ChurchModel, type Closure, type Dome, type Item,
+  belfriesOf, bemaFront, bounds, candleSlot, domesOf, edgesOf, exteriorHit, offsetPolygon, openingCenters, pointOnEdge, polygonOf,
+  type Arcade, type Balcony, type BaySide, type Bema, type Belfry, type ChurchLook, type ChurchModel, type Closure, type Dome, type Item,
   type Mass, type OpeningShape, type Pt, type Room, type TuffColor, type Vault,
 } from "./model";
 
@@ -153,6 +153,9 @@ const LOOKS = {
   sand: { color: "#d9c69c" },
   extTuff: { color: "#ffffff", gradient: true },
   roof: { color: "#8a5848" },
+  /** Գմբեթի և զանգակատան գլխիկները՝ միշտ քարե։ */
+  capRoof: { color: "#8a5848" },
+  basalt: { color: "#ffffff", gradient: true },
   extDark: { color: "#33241f", basic: true },
 } satisfies Record<string, Look>;
 export type LookName = keyof typeof LOOKS;
@@ -164,15 +167,81 @@ const TUFF: Record<TuffColor, { inLow: string; inHigh: string; outLow: string; o
   gray: { inLow: "#85807a", inHigh: "#ece8e2", outLow: "#6f6a64", outHigh: "#c4bdb4", roof: "#5e5a55" },
   black: { inLow: "#6a625e", inHigh: "#ddd6cf", outLow: "#3b3533", outHigh: "#756b66", roof: "#3c3533" },
 };
+const TILE = "#a5492f";
+const BASALT = "#5f5a56";
 
-export function createMaterials(tuff: TuffColor) {
+// Քարաշարի նկարը՝ մեկ փոքր նկար (DataTexture), որ կրկնվում է պատերի վրա. չափերը մետրով։
+const STONE_W = 0.9;
+const STONE_H = 0.45;
+const STONES_X = 8;
+const STONES_Y = 8;
+const TILE_W = 0.3;
+const TILE_H = 0.42;
+
+function texture(width: number, height: number, pixel: (x: number, y: number) => Color) {
+  const data = new Uint8Array(width * height * 4);
+  const rgb = { r: 0, g: 0, b: 0 };
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Color-ը ներսում գծային է, նկարը՝ sRGB։
+      pixel(x, y).getRGB(rgb, SRGBColorSpace);
+      data.set([Math.round(Math.min(1, rgb.r) * 255), Math.round(Math.min(1, rgb.g) * 255), Math.round(Math.min(1, rgb.b) * 255), 255], (y * width + x) * 4);
+    }
+  }
+  const map = new DataTexture(data, width, height);
+  map.wrapS = map.wrapT = RepeatWrapping;
+  map.colorSpace = SRGBColorSpace;
+  map.generateMipmaps = true;
+  map.needsUpdate = true;
+  return map;
+}
+
+/** Քարերի հերթական փոքր տարբերություն (կրկնվող, բայց ոչ միապաղաղ)։ */
+const jitter = (i: number, j: number) => { const h = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453; return h - Math.floor(h) - 0.5; };
+
+function masonryTexture(main: string, accent: string, masonry: NonNullable<ChurchLook["masonry"]>) {
+  const px = 32;
+  const a = new Color(main);
+  const b = new Color(accent);
+  const mortar = 2;
+  return texture(STONES_X * px * 2, STONES_Y * px, (x, y) => {
+    const row = Math.floor(y / px);
+    const shift = masonry === "checker" ? 0 : (row % 2) * px;
+    const col = Math.floor(((x + shift) % (STONES_X * px * 2)) / (px * 2));
+    const inX = (x + shift) % (px * 2);
+    const inY = y % px;
+    const second = masonry === "checker" ? (col + row) % 2 === 1 : masonry === "bands" ? row % 3 === 2 : false;
+    const c = (second ? b : a).clone().multiplyScalar(1 + jitter(col, row) * 0.12);
+    if (inX < mortar || inY < mortar) c.multiplyScalar(0.8);
+    return c;
+  });
+}
+
+function tileTexture(color: string) {
+  const base = new Color(color);
+  const w = 32;
+  const h = 32;
+  return texture(w * 2, h * 2, (x, y) => {
+    const channel = Math.cos(((x % w) / w) * Math.PI * 2) * 0.5 + 0.5;
+    const c = base.clone().multiplyScalar(0.78 + 0.3 * channel + jitter(Math.floor(x / w), Math.floor(y / h)) * 0.08);
+    if (y % h < 3) c.multiplyScalar(0.62);
+    return c;
+  });
+}
+
+export function createMaterials(tuff: TuffColor, look: ChurchLook = {}) {
   const materials = new Map<LookName, Material>();
-  for (const [name, look] of Object.entries(LOOKS) as Array<[LookName, Look]>) {
-    const side = look.double ? { side: DoubleSide } : {};
-    const color = name === "roof" ? TUFF[tuff].roof : look.color;
-    materials.set(name, look.basic
+  const outside = TUFF[tuff];
+  const walls = masonryTexture(outside.outHigh, TUFF[look.accent ?? "black"].outHigh, look.masonry ?? "plain");
+  const basalt = masonryTexture(BASALT, BASALT, "plain");
+  const tiles = look.roof === "tile" ? tileTexture(TILE) : null;
+  for (const [name, entry] of Object.entries(LOOKS) as Array<[LookName, Look]>) {
+    const side = entry.double ? { side: DoubleSide } : {};
+    const color = name === "capRoof" ? outside.roof : name === "roof" ? (tiles ? "#ffffff" : outside.roof) : entry.color;
+    const map = name === "extTuff" ? walls : name === "basalt" ? basalt : name === "roof" ? tiles : null;
+    materials.set(name, entry.basic
       ? new MeshBasicMaterial({ color, ...side })
-      : new MeshLambertMaterial({ color, emissive: look.emissive ?? "#000000", vertexColors: Boolean(look.gradient), ...side }));
+      : new MeshLambertMaterial({ color, map, emissive: entry.emissive ?? "#000000", vertexColors: Boolean(entry.gradient), ...side }));
   }
   return materials;
 }
@@ -189,6 +258,46 @@ function tint(geometry: BufferGeometry, low: Color, high: Color, top: number) {
     colors.set([c.r, c.g, c.b], i * 3);
   }
   geometry.setAttribute("color", new Float32BufferAttribute(colors, 3));
+}
+
+/** Գույնի պայծառությունը (մոխրագույն), որ դրսի գրադիենտը բազմապատկվի քարաշարի նկարի վրա։ */
+function shade(color: string, against: string) {
+  const l = (c: Color) => 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+  const k = Math.min(1, l(new Color(color)) / l(new Color(against)));
+  return new Color(k, k, k);
+}
+
+/**
+ * Նկարի կոորդինատներ (uv) մետրով. պատերին՝ պատի երկայնքով և բարձրությամբ (քարաշարը հորիզոնական է ամենուր),
+ * տանիքին՝ թեքության երկայնքով։
+ */
+function worldUV(geometry: BufferGeometry, kind: "wall" | "roof") {
+  const position = geometry.getAttribute("position");
+  const normal = geometry.getAttribute("normal");
+  const uv = new Float32Array(position.count * 2);
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const z = position.getZ(i);
+    const nx = normal.getX(i);
+    const ny = normal.getY(i);
+    const nz = normal.getZ(i);
+    const h = Math.hypot(nx, nz);
+    let u: number;
+    let v: number;
+    if (kind === "wall") {
+      if (Math.abs(ny) < 0.7 && h > 1e-6) { u = (x * -nz + z * nx) / h / (STONE_W * STONES_X); v = y / (STONE_H * STONES_Y); }
+      else { u = x / (STONE_W * STONES_X); v = z / (STONE_H * STONES_Y); }
+    } else if (h > 0.05) {
+      const dx = nx / h;
+      const dz = nz / h;
+      u = (x * -dz + z * dx) / (TILE_W * 2);
+      v = (x * dx + z * dz) / Math.max(0.3, Math.abs(ny)) / (TILE_H * 2);
+    } else { u = x / (TILE_W * 2); v = z / (TILE_H * 2); }
+    uv[i * 2] = u;
+    uv[i * 2 + 1] = v;
+  }
+  geometry.setAttribute("uv", new Float32BufferAttribute(uv, 2));
 }
 
 export class Kit {
@@ -208,7 +317,12 @@ export class Kit {
       for (const part of parts) part.dispose();
       if (!merged) continue;
       if (look === "tuff") tint(merged, new Color(colors.inLow), new Color(colors.inHigh), top);
-      if (look === "extTuff") tint(merged, new Color(colors.outLow), new Color(colors.outHigh), top);
+      if (look === "extTuff" || look === "basalt") {
+        // Ցոկոլը ցածր է. նրա համար գրադիենտը չենք մգացնում։
+        tint(merged, look === "basalt" ? new Color(0.95, 0.95, 0.95) : shade(colors.outLow, colors.outHigh), new Color(1, 1, 1), look === "basalt" ? 1 : top);
+        worldUV(merged, "wall");
+      }
+      if (look === "roof") worldUV(merged, "roof");
       merged.computeBoundingSphere();
       const mesh = new Mesh(merged, materials.get(look));
       mesh.matrixAutoUpdate = false;
@@ -223,6 +337,7 @@ export class Kit {
 function roomShell(kit: Kit, room: Room) {
   const edges = edgesOf(room.outline);
   for (const edge of edges) {
+    if (room.open?.includes(edge.index)) continue;
     const height = room.heights?.[edge.index] ?? room.height;
     // Դռներն ու որմնախորշերը պատի մեջ բացվածք են (կոր պատերին՝ ոչ)։
     const doors = [...(room.doors ?? []), ...(room.niches ?? [])].filter((door) => door.edge === edge.index && !edge.bulge);
@@ -410,6 +525,13 @@ function domeInside(kit: Kit, dome: Dome) {
       if (dome.closed?.includes(side)) kit.add("tuff", closure(center, spec.across, b, b, true, spec.n));
     }
     const shape = new Shape([new Vector2(-b, -b), new Vector2(b, -b), new Vector2(b, b), new Vector2(-b, b)]);
+    const hole = new Shape();
+    hole.absarc(0, 0, r, 0, Math.PI * 2, false);
+    shape.holes.push(hole);
+    kit.add("tuff", clean(new ShapeGeometry(shape, 24).rotateX(Math.PI / 2).translate(c.x, dome.base, c.z)));
+  } else if (dome.collar) {
+    // Հարթ առաստաղ՝ թմբուկի բացվածքով (կլոր կամ հարթ առաստաղով դահլիճի վրա)։
+    const shape = new Shape(dome.collar.map(([x, z]) => new Vector2(x - c.x, z - c.z)));
     const hole = new Shape();
     hole.absarc(0, 0, r, 0, Math.PI * 2, false);
     shape.holes.push(hole);
@@ -778,24 +900,73 @@ function item(kit: Kit, item: Item) {
 // ---------- Դուրսը ----------
 
 function gableRoof(kit: Kit, mass: Mass) {
-  if (mass.roof.type !== "gable") return;
+  const roof = mass.roof;
+  if (roof.type !== "gable" && roof.type !== "shed") return;
   const box = bounds(polygonOf(mass.outline));
-  const { axis, rise } = mass.roof;
+  const { axis, rise } = roof;
   const half = axis === "z" ? (box.maxX - box.minX) / 2 : (box.maxZ - box.minZ) / 2;
   const centerAcross = axis === "z" ? (box.minX + box.maxX) / 2 : (box.minZ + box.maxZ) / 2;
   const from = axis === "z" ? box.minZ : box.minX;
   const to = axis === "z" ? box.maxZ : box.maxX;
   const base = mass.height;
   const map = (along: number, across: number, y: number) => axis === "z" ? new Vector3(centerAcross + across, y, along) : new Vector3(along, y, centerAcross + across);
+  const slope = (side: number, width: number) => axis === "z" ? new Vector3(side * rise, width, 0).normalize() : new Vector3(0, width, side * rise).normalize();
+  if (roof.type === "shed") {
+    // Միաթեք. ցածր կողմից (`low`) դեպի բարձր կողմը, բարձր կողմում՝ պատ մինչև տանիքը։
+    const lowSide = roof.low === "-" ? -1 : 1;
+    kit.add("roof", surface(1, 1, (u, v) => map(from + (to - from) * u, lowSide * half * (1 - 2 * v), base + rise * v), constant(slope(lowSide, 2 * half))));
+    const n = axis === "z" ? new Vector3(-lowSide, 0, 0) : new Vector3(0, 0, -lowSide);
+    kit.add("extTuff", quad(map(from, -lowSide * half, 0), map(to, -lowSide * half, 0), base, base + rise, n));
+    for (const [along, sign] of [[from, -1], [to, 1]] as const) {
+      const end = axis === "z" ? new Vector3(0, 0, sign) : new Vector3(sign, 0, 0);
+      const a = map(along, lowSide * half, base);
+      const b = map(along, -lowSide * half, base);
+      const c = map(along, -lowSide * half, base + rise);
+      kit.add("extTuff", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).lerp(c, v * u), constant(end)));
+    }
+    return;
+  }
   for (const side of [1, -1]) {
-    const n = axis === "z" ? new Vector3(side * rise, half, 0).normalize() : new Vector3(0, half, side * rise).normalize();
-    kit.add("roof", surface(1, 1, (u, v) => map(from + (to - from) * u, side * half * (1 - v), base + rise * v), constant(n)));
+    kit.add("roof", surface(1, 1, (u, v) => map(from + (to - from) * u, side * half * (1 - v), base + rise * v), constant(slope(side, half))));
   }
   for (const [along, sign] of [[from, -1], [to, 1]] as const) {
     const n = axis === "z" ? new Vector3(0, 0, sign) : new Vector3(sign, 0, 0);
     const triangle = new Shape([new Vector2(-half, 0), new Vector2(half, 0), new Vector2(0, rise)]);
     kit.add("extTuff", place(clean(new ShapeGeometry(triangle)), map(along, 0, base), n));
   }
+}
+
+/** Բազալտե ցոկոլ՝ պատից մի քիչ դուրս ցցված, դռների տեղում՝ ընդհատված։ */
+function plinth(kit: Kit, mass: Mass, height: number, doors: ReadonlyArray<{ p: Pt; w: number }>) {
+  const inner = polygonOf(mass.outline);
+  const outer = offsetPolygon(inner, 0.12);
+  outer.forEach((p, i) => {
+    const q = outer[(i + 1) % outer.length];
+    const a = v3(p, 0);
+    const b = v3(q, 0);
+    const dir = new Vector3().subVectors(b, a);
+    const total = dir.length();
+    if (total < 1e-6) return;
+    dir.normalize();
+    const n = new Vector3(dir.z, 0, -dir.x);
+    const mid = new Vector3().lerpVectors(a, b, 0.5);
+    if (n.dot(new Vector3(inner[i][0], 0, inner[i][1]).sub(mid)) > 0) n.negate();
+    const gaps = doors
+      .map((door) => ({ s: new Vector3(door.p[0], 0, door.p[1]).sub(a).dot(dir), off: Math.abs(new Vector3(door.p[0], 0, door.p[1]).sub(a).dot(n)), w: door.w }))
+      .filter((door) => door.off < 0.4 && door.s > -door.w && door.s < total + door.w)
+      .map((door) => [door.s - door.w / 2 - 0.1, door.s + door.w / 2 + 0.1] as const)
+      .sort((x, y) => x[0] - y[0]);
+    let cursor = 0;
+    const at = (t: number) => a.clone().addScaledVector(dir, t);
+    const piece = (t0: number, t1: number) => {
+      if (t1 - t0 < 0.02) return;
+      kit.add("basalt", quad(at(t0), at(t1), 0, height, n));
+      const top = n.clone().multiplyScalar(-0.13);
+      kit.add("basalt", surface(1, 1, (u, v) => new Vector3().lerpVectors(at(t0), at(t1), u).addScaledVector(top, v).setY(height), constant(UP)));
+    };
+    for (const [g0, g1] of gaps) { piece(cursor, Math.max(cursor, Math.min(total, g0))); cursor = Math.max(cursor, Math.min(total, g1)); }
+    piece(cursor, total);
+  });
 }
 
 function massShell(kit: Kit, mass: Mass) {
@@ -808,16 +979,22 @@ function massShell(kit: Kit, mass: Mass) {
       }
     }
   }
-  if (mass.roof.type === "flat") kit.add("roof", flatShape(polygon, mass.height, "up"));
-  if (mass.roof.type === "gable") gableRoof(kit, mass);
-  if (mass.roof.type === "tent") {
-    const rise = mass.roof.rise;
-    const c = polygon.reduce((s, p) => [s[0] + p[0] / polygon.length, s[1] + p[1] / polygon.length], [0, 0]);
+  const roof = mass.roof;
+  if (roof.type === "flat") kit.add("roof", flatShape(polygon, mass.height, "up"));
+  if (roof.type === "gable" || roof.type === "shed") gableRoof(kit, mass);
+  if (roof.type === "tent") {
+    const rise = roof.rise;
+    const c = roof.apex ?? polygon.reduce((s, p) => [s[0] + p[0] / polygon.length, s[1] + p[1] / polygon.length], [0, 0]);
     const apex = new Vector3(c[0], mass.height + rise, c[1]);
     polygon.forEach((p, i) => {
       const q = polygon[(i + 1) % polygon.length];
-      kit.add("roof", surface(1, 1, (u, v) => new Vector3().lerpVectors(v3(p, mass.height), v3(q, mass.height), u).lerp(apex, v),
-        () => new Vector3((p[0] + q[0]) / 2 - c[0], rise, (p[1] + q[1]) / 2 - c[1]).normalize()));
+      const a = v3(p, mass.height);
+      const b = v3(q, mass.height);
+      const face = new Vector3().subVectors(b, a).cross(new Vector3().subVectors(apex, a));
+      if (face.lengthSq() < 1e-8) return;
+      face.normalize();
+      if (face.y < 0) face.negate();
+      kit.add("roof", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).lerp(apex, v), constant(face)));
     });
   }
 }
@@ -826,13 +1003,40 @@ function domeOutside(kit: Kit, dome: Dome) {
   const c = v3(dome.at, 0);
   const apothem = dome.radius + 0.4;
   const R = apothem / Math.cos(Math.PI / dome.sides);
-  const y0 = dome.base - 0.4;
+  // Թմբուկը սկսվում է տանիքի մեջից, որ գմբեթը երբեք օդում չկախվի։
+  const y0 = Math.min(dome.drumFrom ?? dome.base - 0.4, dome.base - 0.4);
   const y1 = dome.base + dome.drum + dome.radius * 0.33;
-  kit.add("extTuff", clean(new CylinderGeometry(R, R, y1 - y0, dome.sides, 1, false).translate(c.x, (y0 + y1) / 2, c.z), true));
+  // Նիստերը՝ անկյունով դեպի հյուսիս-արևելք, որ պատուհանները ընկնեն նիստերի մեջտեղը։
+  const turn = Math.PI / dome.sides;
+  kit.add("extTuff", clean(new CylinderGeometry(R, R, y1 - y0, dome.sides, 1, false, turn).translate(c.x, (y0 + y1) / 2, c.z), true));
   const coneH = dome.radius * 0.95;
-  kit.add("roof", clean(new ConeGeometry(R + 0.5, coneH, dome.sides, 1, true).translate(c.x, y1 + coneH / 2, c.z), true));
-  kit.add("roof", clean(new ShapeGeometry(circleShape(R + 0.5), 6).rotateX(Math.PI / 2).translate(c.x, y1, c.z)));
-  const cy = y1 + coneH;
+  const rim = R + 0.5;
+  if (dome.cap === "umbrella") {
+    // Հովանոցաձև. ամեն նիստի վրա փոքր ճակտոն, տանիքը՝ ծալքերով։
+    const lift = Math.min(0.9, (2 * Math.PI * R) / dome.sides / 2.6);
+    const apex = new Vector3(c.x, y1 + coneH + lift * 0.5, c.z);
+    const corner = (i: number, radius: number, y: number) => {
+      const a = turn + (Math.PI * 2 * i) / dome.sides;
+      return new Vector3(c.x + radius * Math.sin(a), y, c.z + radius * Math.cos(a));
+    };
+    const mid = (i: number, radius: number, y: number) => corner(i + 0.5, radius * Math.cos(Math.PI / dome.sides), y);
+    for (let i = 0; i < dome.sides; i++) {
+      const a = corner(i, R, y1);
+      const b = corner(i + 1, R, y1);
+      const m = mid(i, R, y1 + lift);
+      const n = new Vector3().subVectors(m, c.clone().setY(m.y)).normalize();
+      kit.add("extTuff", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).lerp(m, v * (1 - Math.abs(u - 0.5) * 2)), constant(n)));
+      for (const [p, q] of [[corner(i, rim, y1), mid(i, rim, y1 + lift)], [mid(i, rim, y1 + lift), corner(i + 1, rim, y1)]]) {
+        const face = new Vector3().subVectors(q, p).cross(new Vector3().subVectors(apex, p)).normalize();
+        if (face.y < 0) face.negate();
+        kit.add("capRoof", surface(1, 1, (u, v) => new Vector3().lerpVectors(p, q, u).lerp(apex, v), constant(face)));
+      }
+    }
+  } else {
+    kit.add("capRoof", clean(new ConeGeometry(rim, coneH, dome.sides, 1, true, turn).translate(c.x, y1 + coneH / 2, c.z), true));
+  }
+  kit.add("capRoof", clean(new ShapeGeometry(circleShape(rim), 6).rotateX(Math.PI / 2).translate(c.x, y1, c.z)));
+  const cy = y1 + coneH + (dome.cap === "umbrella" ? 0.3 : 0);
   kit.add("gold", box(0.14, 1.5, 0.14, c.x, cy - 0.1, c.z), box(0.8, 0.14, 0.14, c.x, cy + 0.8, c.z));
   const w = dome.windows;
   if (w) {
@@ -844,22 +1048,35 @@ function domeOutside(kit: Kit, dome: Dome) {
 
 function belfry(kit: Kit, belfry: Belfry) {
   const [x, z] = belfry.at;
-  const { base, radius: r, height } = belfry;
-  kit.add("extTuff", box(r * 2.6, 0.8, r * 2.6, x, base, z));
-  for (let i = 0; i < belfry.columns; i++) {
-    const a = (Math.PI * 2 * i) / belfry.columns;
-    kit.add("extTuff", cylinder(0.14, 0.16, height, 8, x + r * Math.cos(a), base + 0.8, z + r * Math.sin(a)));
+  const { base, columns } = belfry;
+  kit.add("extTuff", box(belfry.radius * 2.6, 0.8, belfry.radius * 2.6, x, base, z));
+  let y = base + 0.8;
+  let r = belfry.radius;
+  const tiers = Math.max(1, Math.round(belfry.tiers ?? 1));
+  for (let t = 0; t < tiers; t++) {
+    const height = belfry.height * (t ? 0.8 : 1);
+    for (let i = 0; i < columns; i++) {
+      const a = (Math.PI * 2 * i) / columns;
+      kit.add("extTuff", cylinder(0.14, 0.16, height, 8, x + r * Math.cos(a), y, z + r * Math.sin(a)));
+    }
+    // Զանգը՝ առաջին հարկում։
+    if (t === 0) {
+      const top = y + height;
+      kit.add("gold", lathe([[0.02, 0], [r * 0.35, 0], [r * 0.32, 0.08], [r * 0.2, 0.5], [r * 0.15, 0.75], [0.08, 0.82], [0, 0.82]], 16, x, top - 1.4, z));
+      kit.add("gold", cylinder(0.02, 0.02, 0.6, 4, x, top - 0.6, z));
+    }
+    y += height;
+    kit.add("extTuff", cylinder(r + 0.35, r + 0.35, 0.3, 12, x, y, z, true));
+    y += 0.3;
+    if (t < tiers - 1) r *= 0.82;
   }
-  const top = base + 0.8 + height;
-  kit.add("extTuff", cylinder(r + 0.35, r + 0.35, 0.3, 12, x, top, z, true));
-  kit.add("roof", clean(new ConeGeometry(r + 0.45, 1.5, 12).translate(x, top + 0.3 + 0.75, z), true));
-  kit.add("gold", box(0.08, 0.8, 0.08, x, top + 1.8, z), box(0.4, 0.08, 0.08, x, top + 2.25, z));
-  kit.add("gold", lathe([[0.02, 0], [r * 0.35, 0], [r * 0.32, 0.08], [r * 0.2, 0.5], [r * 0.15, 0.75], [0.08, 0.82], [0, 0.82]], 16, x, top - 1.4, z));
-  kit.add("gold", cylinder(0.02, 0.02, 0.6, 4, x, top - 0.6, z));
+  kit.add("capRoof", clean(new ConeGeometry(r + 0.45, 1.5, 12).translate(x, y + 0.75, z), true));
+  kit.add("gold", box(0.08, 0.8, 0.08, x, y + 1.5, z), box(0.4, 0.08, 0.08, x, y + 1.95, z));
 }
 
 /** Պատուհաններն ու դռները՝ դրսի պատին (ներսի դիրքից դեպի դուրս ամենամոտ պատը)։ */
 function openingsOutside(kit: Kit, model: ChurchModel) {
+  const doorsOut: Array<{ p: Pt; w: number }> = [];
   for (const room of model.rooms) {
     const edges = edgesOf(room.outline);
     for (const window of room.windows ?? []) {
@@ -875,11 +1092,13 @@ function openingsOutside(kit: Kit, model: ChurchModel) {
       const out: Pt = [-n[0], -n[1]];
       const hit = exteriorHit(model, p, out, 0, door.h);
       if (!hit) continue;
+      doorsOut.push({ p: hit.p, w: door.w });
       kit.add("extDark", panel("arch", door.w, door.h, v3(hit.p, 0).addScaledVector(h3(out), 0.02), h3(out)));
       const cross = v3(hit.p, door.h + 0.35).addScaledVector(h3(out), 0.03);
       kit.add("gold", place(clean(new ShapeGeometry(openingShape("cross", 0.36, 0.6))), cross, h3(out)));
     }
   }
+  return doorsOut;
 }
 
 // ---------- Ամբողջը ----------
@@ -889,7 +1108,7 @@ export function buildChurch(model: ChurchModel, materials: Map<LookName, Materia
   for (const room of model.rooms) roomShell(inside, room);
   for (const v of model.vaults) vault(inside, v);
   for (const a of model.arcades) arcade(inside, a);
-  if (model.dome) domeInside(inside, model.dome);
+  for (const d of domesOf(model)) domeInside(inside, d);
   if (model.bema) bema(inside, model.bema);
   for (const b of model.balconies) balcony(inside, model, b);
   // Խմբագրիչում ամեն պարագա առանձին խումբ է, որ 3D-ում մկնիկով/մատով տեղափոխվի։
@@ -912,11 +1131,14 @@ export function buildChurch(model: ChurchModel, materials: Map<LookName, Materia
 
   const outside = new Kit();
   for (const m of model.masses) massShell(outside, m);
-  if (model.dome) domeOutside(outside, model.dome);
-  if (model.belfry) belfry(outside, model.belfry);
-  openingsOutside(outside, model);
+  for (const d of domesOf(model)) domeOutside(outside, d);
+  for (const b of belfriesOf(model)) belfry(outside, b);
+  const doorsOut = openingsOutside(outside, model);
+  const plinthHeight = model.look?.plinth ?? 0;
+  if (plinthHeight > 0) for (const m of model.masses) if (!(m.base ?? 0)) plinth(outside, m, plinthHeight, doorsOut);
 
-  const top = model.dome ? model.dome.base + model.dome.drum + model.dome.radius : Math.max(...model.vaults.map((v) => v.spring + (v.rise ?? v.width / 2)), ...model.rooms.map((r) => r.height));
+  const domes = domesOf(model);
+  const top = domes.length ? Math.max(...domes.map((d) => d.base + d.drum + d.radius)) : Math.max(...model.vaults.map((v) => v.spring + (v.rise ?? v.width / 2)), ...model.rooms.map((r) => r.height));
   const interior = inside.build(materials, model.tuff, top);
   const exterior = outside.build(materials, model.tuff, top + 2);
 

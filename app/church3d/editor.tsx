@@ -5,11 +5,12 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { Copy, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
 import { fieldControl, fieldLabel } from "../components/ui-styles";
 import {
-  bounds, edgesOf, polygonOf, validateModel, type Arcade, type ChurchModel, type Dome, type Item, type ItemType, type Mass, type Niche,
+  bounds, edgesOf, polygonOf, type Arcade, type ChurchModel, type Dome, type Item, type ItemType, type Mass, type Niche,
   type OpeningShape, type Pt, type TuffColor, type V3, type Vault, type Vertex,
 } from "./model";
 import { gptPrompt } from "./prompt";
 import { TEMPLATES } from "./templates";
+import { validateAnyModel } from "./blocks";
 import type { ChurchScene, ViewMode } from "./scene";
 
 export const ITEM_LABELS: Record<ItemType, string> = {
@@ -386,7 +387,7 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
 
   function applyJson() {
     try {
-      const { model: parsed, errors: problems } = validateModel(JSON.parse(json));
+      const { shape: parsed, errors: problems } = validateAnyModel(JSON.parse(json));
       setJsonErrors(problems);
       if (parsed) { commit(parsed); setSelection(null); }
     } catch {

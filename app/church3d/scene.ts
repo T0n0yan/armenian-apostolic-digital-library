@@ -160,7 +160,7 @@ export function createChurchScene(host: HTMLElement, options: {
   sun.position.set(-8, 22, 12);
   scene.add(sun);
 
-  const materials = createMaterials(model.tuff);
+  const materials = createMaterials(model.tuff, model.look);
   const { interior, exterior, curtainOpen, curtainClosed, glows, itemGroups } = buildChurch(model, materials, { separateItems: Boolean(options.edit) });
   scene.add(interior, exterior);
   const texture = glowTexture();
@@ -441,7 +441,7 @@ export function createChurchScene(host: HTMLElement, options: {
         object.geometry.dispose();
         disposed.add(object.material as Material);
       });
-      for (const m of disposed) m.dispose();
+      for (const m of disposed) { (m as Material & { map?: { dispose(): void } | null }).map?.dispose(); m.dispose(); }
       people.dispose();
       texture.dispose();
       renderer.dispose();

@@ -1,15 +1,17 @@
 // Սրբավայրերի 3D մոդելները (անձնագրեր)՝ սևագիր, հրապարակված տարբերակ, պատմություն։
-import { validateModel, type ChurchModel } from "../church3d/model";
+import { validateAnyModel } from "../church3d/blocks";
+import type { ChurchModel } from "../church3d/model";
 
 export const MAX_MODEL_BYTES = 200_000;
 const KEEP_VERSIONS = 20;
 
 export type ModelVersion = { id: number; savedBy: string; savedAt: string; published: boolean };
 
+/** Պահված JSON (v1 կամ v2 բլոկներով) → կառուցված ձև (3D-ի և խմբագրիչի համար)։ */
 function parse(json: string | null | undefined): ChurchModel | null {
   if (!json) return null;
   try {
-    return validateModel(JSON.parse(json)).model;
+    return validateAnyModel(JSON.parse(json)).shape;
   } catch {
     return null;
   }
@@ -58,7 +60,7 @@ export async function saveDraft(db: D1Database, placeId: string, json: string, b
   if (json.length > MAX_MODEL_BYTES) return { ok: false, errors: ["Մոդելը չափազանց մեծ է (առավելագույնը 200 ԿԲ)"] };
   let input: unknown;
   try { input = JSON.parse(json); } catch { return { ok: false, errors: ["JSON-ը կարդալ չհաջողվեց"] }; }
-  const { model, errors } = validateModel(input);
+  const { model, errors } = validateAnyModel(input);
   if (!model) return { ok: false, errors };
   const clean = JSON.stringify(model);
   await db.batch([

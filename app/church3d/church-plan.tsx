@@ -1,4 +1,4 @@
-import { bounds, computeHotspots, polygonOf, type ChurchModel } from "./model";
+import { bounds, computeHotspots, domesOf, polygonOf, type ChurchModel } from "./model";
 
 const pts = (outline: Parameters<typeof polygonOf>[0]) => polygonOf(outline).map(([x, z]) => `${x.toFixed(2)},${z.toFixed(2)}`).join(" ");
 
@@ -21,7 +21,7 @@ export function ChurchPlan({ model, selected, onPick }: { model: ChurchModel; se
       {model.arcades.map((arcade, i) => (
         <line key={i} x1={arcade.from[0]} y1={arcade.from[1]} x2={arcade.to[0]} y2={arcade.to[1]} stroke="rgb(217 181 111 / 45%)" strokeWidth="0.08" strokeDasharray="0.8 1.2" />
       ))}
-      {model.dome ? <circle cx={model.dome.at[0]} cy={model.dome.at[1]} r={model.dome.radius} fill="none" stroke="rgb(217 181 111 / 45%)" strokeWidth="0.08" strokeDasharray="0.3 0.25" /> : null}
+      {domesOf(model).map((dome, i) => <circle key={i} cx={dome.at[0]} cy={dome.at[1]} r={dome.radius} fill="none" stroke="rgb(217 181 111 / 45%)" strokeWidth="0.08" strokeDasharray="0.3 0.25" />)}
       {spots.map((spot) => {
         const on = spot.id === selected;
         return (
