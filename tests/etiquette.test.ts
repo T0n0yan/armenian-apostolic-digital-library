@@ -35,3 +35,15 @@ test("որոնումը գտնում է նաև ուղեցույցի էջերու�
 test("ամեն բաժին ունի աղբյուր", () => {
   for (const topic of ETIQUETTE_TOPICS) if (topic.status !== "soon") assert.ok(topic.sources?.length, topic.slug);
 });
+
+test("հղման հասցեն ընդունվում է միայն http(s)", async () => {
+  const { cleanLinkUrl } = await import("../app/data/etiquette-links.server");
+  assert.equal(cleanLinkUrl(" https://apostolic.am/x "), "https://apostolic.am/x");
+  assert.equal(cleanLinkUrl("javascript:alert(1)"), null);
+  assert.equal(cleanLinkUrl("ոչ հասցե"), null);
+});
+
+test("յոթ խորհուրդները գրված են", async () => {
+  const { churchSection } = await import("../app/data/church");
+  assert.equal(churchSection("sacraments")?.guide?.blocks.length, 7);
+});

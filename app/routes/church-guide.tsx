@@ -46,8 +46,8 @@ function BlockItem({ block, first, open }: { block: GuideBlock; first: boolean; 
         <ChevronDown className="shrink-0 text-faint transition-transform group-open:rotate-180" aria-hidden="true" size={18} />
       </summary>
       <div className="grid gap-2.5 px-4 pb-4">
-        <p className="reading-body m-0 text-[15px] leading-[1.7] text-ink">{block.text}</p>
-        {block.why ? <p className="reading-body m-0 rounded-button bg-[rgb(217_181_111/12%)] px-3.5 py-2.5 text-[14px] leading-[1.65] text-ink"><span className="font-semibold text-gold-bright">Ինչու. </span>{block.why}</p> : null}
+        <p className="reading-body m-0 whitespace-pre-line text-[15px] leading-[1.7] text-ink">{block.text}</p>
+        {block.why ? <p className="reading-body m-0 whitespace-pre-line rounded-button bg-[rgb(217_181_111/12%)] px-3.5 py-2.5 text-[14px] leading-[1.65] text-ink"><span className="font-semibold text-gold-bright">Ինչու. </span>{block.why}</p> : null}
       </div>
     </details>
   );
