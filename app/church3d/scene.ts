@@ -20,6 +20,8 @@ export type ChurchScene = {
   highlight(index: number | null): void;
   getView(): { mode: ViewMode; eye: V3; look: V3 };
   focus(eye: V3, look: V3): void;
+  /** Խմբագրիչում՝ «Խմբագրել» (պարագաները քաշվում են) կամ «Դիտել» (միայն տեսախցիկ)։ */
+  setEditing(on: boolean): void;
   select(id: string | null): void;
   showTour(step: TourStep | null): void;
   reset(): void;
@@ -377,8 +379,9 @@ export function createChurchScene(host: HTMLElement, options: {
     raycaster.setFromCamera(pointer, camera);
   };
   const snapTo = (v: number) => Math.round(v * 10) / 10;
+  let editing = true;
   function onDown(event: PointerEvent) {
-    if (!options.edit || mode !== "cutaway" || event.target !== renderer.domElement) return;
+    if (!options.edit || !editing || mode !== "cutaway" || event.target !== renderer.domElement) return;
     toPointer(event);
     const found = raycaster.intersectObjects(itemGroups, true)[0];
     if (!found) return;
@@ -442,6 +445,7 @@ export function createChurchScene(host: HTMLElement, options: {
     focus,
     setCandles,
     highlight,
+    setEditing(on: boolean) { editing = on; },
     getView: () => ({ mode, eye: camera.position.toArray() as unknown as V3, look: controls.target.toArray() as unknown as V3 }),
     select(id) {
       for (const dot of dots) dot.button.setAttribute("aria-pressed", String(dot.spot.id === id));
