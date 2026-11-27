@@ -2,7 +2,8 @@
 // կամարների ծայրերը, գմբեթը, կողքին 3D-ն է, որտեղ պարագաները նույնպես սեղմվում և քաշվում են։
 // Քաշելիս օգնական գծերը կպցնում են կետը մյուս կետերի ուղղությանը (ուղղահայաց/հորիզոնական պատեր), ցույց են տալիս չափերը։
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { Copy, Crosshair, Eye, Hand, Plus, Redo2, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
+import { Copy, Crosshair, Eye, Hand, ImagePlus, Plus, Redo2, RotateCcw, RotateCw, Trash2, Undo2, X } from "lucide-react";
+import { toWebp } from "../utils/image-webp";
 import { Corner, FullscreenButton, canvasButton, canvasPill, canvasSegment } from "./canvas-tools";
 import { fieldControl, fieldLabel } from "../components/ui-styles";
 import {
@@ -81,19 +82,22 @@ function describeChange(a: ChurchModel, b: ChurchModel) {
  * 3D նախադիտում. տեսարանը նորից է կառուցվում փոփոխությունից 0,35 վրկ հետո, տեսախցիկը մնում է տեղում։
  * Ներսի տեսքում պարագաները սեղմվում (ընտրվում) և քաշվում են։
  */
-function Preview({ model, mode, selected, editing, api, onSelectItem, onMoveItem }: {
-  model: ChurchModel; mode: ViewMode; selected: number | null; editing: boolean; api: { current: ChurchScene | null };
+function Preview({ model, mode, selected, editing, placing, api, onSelectItem, onMoveItem, onWallTap }: {
+  model: ChurchModel; mode: ViewMode; selected: number | null; editing: boolean; placing: boolean; api: { current: ChurchScene | null };
   onSelectItem: (index: number | null) => void; onMoveItem: (index: number, at: Pt) => void;
+  onWallTap: (spot: { at: Pt; y: number; rot: number }) => void;
 }) {
+  const placingRef = useRef(placing);
+  placingRef.current = placing;
   const editingRef = useRef(editing);
   editingRef.current = editing;
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<ChurchScene | null>(null);
   const view = useRef<{ mode: ViewMode; eye: V3; look: V3 } | undefined>(undefined);
-  const hooks = useRef({ onSelectItem, onMoveItem });
+  const hooks = useRef({ onSelectItem, onMoveItem, onWallTap });
   const modeRef = useRef(mode);
   modeRef.current = mode;
-  hooks.current = { onSelectItem, onMoveItem };
+  hooks.current = { onSelectItem, onMoveItem, onWallTap };
   const [shown, setShown] = useState(model);
   useEffect(() => {
     const timer = window.setTimeout(() => setShown(model), 350);
@@ -105,8 +109,9 @@ function Preview({ model, mode, selected, editing, api, onSelectItem, onMoveItem
       if (cancelled || !host.current || !webglAvailable()) return;
       scene.current = createChurchScene(host.current, {
         model: shown, onPick: () => {}, view: view.current,
-        edit: { onSelectItem: (i) => hooks.current.onSelectItem(i), onMoveItem: (i, at) => hooks.current.onMoveItem(i, at) },
+        edit: { onSelectItem: (i) => hooks.current.onSelectItem(i), onMoveItem: (i, at) => hooks.current.onMoveItem(i, at), onWallTap: (spot) => hooks.current.onWallTap(spot) },
       });
+      scene.current.setPlacing(placingRef.current);
       scene.current.setMode(modeRef.current);
       scene.current.setEditing(editingRef.current);
       scene.current.highlight(selected);
@@ -124,11 +129,12 @@ function Preview({ model, mode, selected, editing, api, onSelectItem, onMoveItem
   useEffect(() => { scene.current?.highlight(selected); }, [selected, shown]);
   useEffect(() => { scene.current?.setMode(mode); if (view.current) view.current = { ...view.current, mode }; }, [mode]);
   useEffect(() => { scene.current?.setEditing(editing); }, [editing]);
+  useEffect(() => { scene.current?.setPlacing(placing); }, [placing]);
   return (
     <>
       <div ref={host} className="absolute inset-0" />
       <p className="pointer-events-none absolute right-0 bottom-14 left-0 m-0 text-center text-[11.5px] text-faint">
-        {mode !== "cutaway" ? "Դրսի տեսք" : editing ? "Պարագան սեղմեք՝ ընտրելու, քաշեք՝ տեղափոխելու" : "Դիտել. միայն պտտել և մոտեցնել"}
+        {placing ? "" : mode !== "cutaway" ? "Դրսի տեսք" : editing ? "Պարագան սեղմեք՝ ընտրելու, քաշեք՝ տեղափոխելու" : "Դիտել. միայն պտտել և մոտեցնել"}
       </p>
     </>
   );
@@ -328,8 +334,10 @@ function nearestWall(model: ChurchModel, p: Pt) {
   return best as { room: number; edge: number; s: number; point: Pt; n: Pt; d: number } | null;
 }
 
-export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSave }: {
+export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSave, onUploadIcon }: {
   initial: ChurchModel | null; placeId: string; placeName: string; saving: boolean; errors: string[]; onSave: (model: ChurchModel) => void;
+  /** Սրբապատկերի նկարը վերբեռնել (WebP) և ստանալ կայքի հասցեն։ */
+  onUploadIcon?: (file: Blob) => Promise<string | null>;
 }) {
   const fresh = (): ChurchModel => ({ ...clone(TEMPLATES[0]), id: placeId, name: placeName, cameras: undefined });
   const [model, setModel] = useState<ChurchModel>(() => initial ?? fresh());
@@ -347,6 +355,10 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
   const [future, setFuture] = useState<ChurchModel[]>([]);
   const [editing, setEditing] = useState(false);
   const [toast, setToast] = useState("");
+  // «Սրբապատկեր նկարով»՝ վերբեռնված նկարը սպասում է, որ ադմինը 3D-ում սեղմի պատին։
+  const [placing, setPlacing] = useState<{ url: string; aspect: number } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const iconFile = useRef<HTMLInputElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const sceneApi = useRef<ChurchScene | null>(null);
   const planCard = useRef<HTMLDivElement>(null);
@@ -399,6 +411,40 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(""), 3500);
   };
+  /** Նկարը՝ WebP, վերբեռնել, հետո սպասել պատին սեղմելուն։ */
+  async function pickIcon(file: File) {
+    if (!onUploadIcon) return;
+    setUploading(true);
+    try {
+      const webp = await toWebp(file).catch(() => file);
+      const aspect = await new Promise<number>((resolve) => {
+        const image = new Image();
+        const src = URL.createObjectURL(webp);
+        image.onload = () => { URL.revokeObjectURL(src); resolve(image.naturalWidth / Math.max(1, image.naturalHeight)); };
+        image.onerror = () => { URL.revokeObjectURL(src); resolve(0.7); };
+        image.src = src;
+      });
+      const url = await onUploadIcon(webp);
+      if (!url) { say("Նկարը չվերբեռնվեց, փորձեք նորից"); return; }
+      setLayer("inside");
+      setMode("cutaway");
+      setPlacing({ url, aspect });
+      previewCard.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } finally {
+      setUploading(false);
+    }
+  }
+  /** Պատին սեղմելուց հետո՝ նոր սրբապատկեր այդ տեղում (կենտրոնը՝ սեղմման կետում, չափը՝ նկարի համամասնությամբ)։ */
+  function hangIcon(spot: { at: Pt; y: number; rot: number }) {
+    if (!placing) return;
+    const h = placing.aspect > 1.2 ? 1.2 : 1.7;
+    const w = Math.round(h * placing.aspect * 100) / 100;
+    const y = Math.max(0.3, Math.round((spot.y - h / 2) * 100) / 100);
+    edit((m) => { m.items.push({ type: "icon", at: [spot.at[0], spot.at[1]], y, rot: spot.rot, w, h, shape: "rect", image: placing.url }); });
+    setSelection({ type: "item", index: model.items.length });
+    setPlacing(null);
+    say("Սրբապատկերը կախվեց. չափը և անունը՝ «Պարագաներ» բաժնում");
+  }
   /** Տեսախցիկը՝ ընտրված պարագայի մոտ։ */
   const focusSelected = () => {
     if (selection?.type !== "item") { say("Նախ ընտրեք պարագա"); return; }
@@ -551,9 +597,16 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
               </p>
             </div>
             <div ref={previewCard} className="paper-card relative h-[min(56svh,540px)] min-h-[320px] overflow-hidden">
-              <Preview model={model} mode={mode} selected={selection?.type === "item" ? selection.index : null} editing={editing} api={sceneApi}
+              <Preview model={model} mode={mode} selected={selection?.type === "item" ? selection.index : null} editing={editing} placing={Boolean(placing)} api={sceneApi}
                 onSelectItem={(index) => setSelection(index === null ? null : { type: "item", index })}
-                onMoveItem={(index, at) => { edit((m) => { m.items[index].at = [at[0], at[1]]; }); setSelection({ type: "item", index }); }} />
+                onMoveItem={(index, at) => { edit((m) => { m.items[index].at = [at[0], at[1]]; }); setSelection({ type: "item", index }); }}
+                onWallTap={hangIcon} />
+              {placing ? (
+                <div className="absolute top-14 left-1/2 z-[3] flex w-max max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-full border border-edge bg-[var(--sheet-bg)] py-1 pr-1 pl-3 text-[12.5px] font-semibold text-gold-bright shadow-[0_2px_8px_rgb(0_0_0/30%)]" role="status">
+                  Սեղմեք պատին, որտեղ կախված է պատկերը
+                  <button type="button" className={canvasButton} aria-label="Չեղարկել" title="Չեղարկել" onClick={() => setPlacing(null)}><X aria-hidden="true" size={15} /></button>
+                </div>
+              ) : null}
               <Corner at="top-left">
                 <div className={canvasPill} role="group" aria-label="Ռեժիմ">
                   <button type="button" className={canvasSegment(!editing)} aria-pressed={!editing} title="Միայն պտտել և մոտեցնել, ոչինչ չի շարժվում" onClick={() => setEditing(false)}><Eye aria-hidden="true" size={14} className="inline align-[-2px]" /> Դիտել</button>
@@ -598,6 +651,13 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
                   </label>
                   <button type="button" className={small} onClick={() => { edit((m) => { m.items.push({ type: addType, at: center }); }); setSelection({ type: "item", index: model.items.length }); }}><Plus aria-hidden="true" size={15} /> Ավելացնել</button>
                 </div>
+                {onUploadIcon ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input ref={iconFile} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void pickIcon(file); }} />
+                    <button type="button" className={small} disabled={uploading} onClick={() => iconFile.current?.click()}><ImagePlus aria-hidden="true" size={15} /> {uploading ? "Վերբեռնվում է…" : "Սրբապատկեր նկարով"}</button>
+                    <span className="text-[12px] text-faint">Ընտրեք նկարը, հետո 3D-ում սեղմեք պատին, որտեղ կախված է։</span>
+                  </div>
+                ) : null}
                 {item && selection?.type === "item" ? (
                   <div className="grid gap-3 rounded-button border border-edge p-3">
                     <strong className="text-[14px] text-gold-bright">{ITEM_LABELS[item.type]}</strong>

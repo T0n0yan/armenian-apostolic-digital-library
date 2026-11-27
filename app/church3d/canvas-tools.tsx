@@ -12,20 +12,45 @@ export function Corner({ at, children }: { at: "top-left" | "top-right" | "botto
   return <div className={`absolute ${place} z-[2] flex flex-wrap items-center gap-1.5`}>{children}</div>;
 }
 
-/** Ամբողջ էկրան՝ canvas-ի քարտի համար (Safari-ի iPhone-ում չկա, կոճակը չի երևում)։ */
+/**
+ * Ամբողջ էկրան՝ canvas-ի քարտի համար։ Որտեղ բրաուզերը չունի Fullscreen API (iPhone-ի Safari), քարտը CSS-ով
+ * ծածկում է ամբողջ էջը (`.church3d-full`), էջի ոլորումը կանգնում է, Escape-ը կամ կոճակը վերադարձնում են։
+ */
 export function FullscreenButton({ target }: { target: RefObject<HTMLElement | null> }) {
-  const [supported, setSupported] = useState(false);
   const [on, setOn] = useState(false);
   useEffect(() => {
-    setSupported(Boolean(document.fullscreenEnabled));
-    const update = () => setOn(document.fullscreenElement === target.current);
+    const update = () => setOn(Boolean(target.current?.classList.contains("church3d-full")) || document.fullscreenElement === target.current);
     document.addEventListener("fullscreenchange", update);
     return () => document.removeEventListener("fullscreenchange", update);
   }, [target]);
-  if (!supported) return null;
+  useEffect(() => {
+    const element = target.current;
+    if (!on || !element?.classList.contains("church3d-full")) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") toggle(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+  // Էջից դուրս գալիս (քարտը անհետանում է) էջի ոլորումը վերադարձնել։
+  useEffect(() => () => { document.documentElement.classList.remove("church3d-lock"); }, []);
   const toggle = () => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void target.current?.requestFullscreen().catch(() => {});
+    const element = target.current;
+    if (!element) return;
+    if (element.classList.contains("church3d-full")) {
+      element.classList.remove("church3d-full");
+      document.documentElement.classList.remove("church3d-lock");
+      setOn(false);
+    } else if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else if (document.fullscreenEnabled && element.requestFullscreen) {
+      void element.requestFullscreen().catch(() => fallback(element));
+    } else {
+      fallback(element);
+    }
+  };
+  const fallback = (element: HTMLElement) => {
+    element.classList.add("church3d-full");
+    document.documentElement.classList.add("church3d-lock");
+    setOn(true);
   };
   return (
     <button type="button" className={canvasButton} aria-label={on ? "Դուրս գալ ամբողջ էկրանից" : "Ամբողջ էկրան"} title={on ? "Դուրս գալ ամբողջ էկրանից" : "Ամբողջ էկրան"} onClick={toggle}>

@@ -144,6 +144,8 @@ const LOOKS = {
   carpet: { color: "#7a2a2c" },
   marble: { color: "#f1e9dc" },
   wood: { color: "#6e4b33" },
+  /** Առաստաղի տախտակները (բաց սոճի)։ */
+  planks: { color: "#a9824f" },
   gold: { color: "#d2a850", emissive: "#4a3410" },
   fabric: { color: "#8e1f28", double: true },
   glow: { color: "#fff0cc", basic: true },
@@ -436,6 +438,46 @@ function closure(center: Vector3, across: Vector3, hw: number, rise: number, clo
   }, constant(n));
 }
 
+/** Փայտե առաստաղ՝ երկթեք տախտակամած, լայնակի գերաններ, կենտրոնական սյունիկ և կատարի գերան։ */
+function timber(kit: Kit, vault: Vault, start: Vector3, end: Vector3, dir: Vector3, across: Vector3, hw: number) {
+  const rise = (vault.rise ?? 0) > 0.15 ? vault.rise ?? 0 : 0;
+  const len = start.distanceTo(end);
+  const angle = Math.atan2(dir.x, dir.z);
+  const ridgeA = start.clone().addScaledVector(UP, rise);
+  const ridgeB = end.clone().addScaledVector(UP, rise);
+  if (rise) {
+    for (const side of [-1, 1]) {
+      const a = start.clone().addScaledVector(across, side * hw);
+      const b = end.clone().addScaledVector(across, side * hw);
+      const n = new Vector3().addScaledVector(across, -side * rise).addScaledVector(UP, -hw).normalize();
+      kit.add("planks", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).lerp(new Vector3().lerpVectors(ridgeA, ridgeB, u), v), constant(n)));
+    }
+  } else {
+    kit.add("planks", surface(1, 1, (u, v) => new Vector3().lerpVectors(start, end, u).addScaledVector(across, hw * (2 * v - 1)), constant(new Vector3(0, -1, 0))));
+  }
+  const count = Math.max(2, Math.round(len / 1.7));
+  for (let i = 0; i < count; i++) {
+    const c = new Vector3().lerpVectors(start, end, (i + 0.5) / count);
+    kit.add("wood", orientedBox(vault.width, 0.2, 0.16, [c.x, c.z], vault.spring - 0.22, angle));
+    if (rise > 0.5) kit.add("wood", orientedBox(0.14, rise - 0.1, 0.14, [c.x, c.z], vault.spring - 0.02, angle));
+  }
+  if (rise > 0.5) {
+    const m = new Vector3().lerpVectors(start, end, 0.5);
+    kit.add("wood", orientedBox(0.16, 0.2, len, [m.x, m.z], vault.spring + rise - 0.2, angle));
+  }
+  // Ծայրերի եռանկյուն պատերը (ֆրոնտոնները ներսից)՝ խորանի կամարի բացվածքով, եթե կա։
+  for (const [close, at, n] of [[vault.closeFrom, start, dir], [vault.closeTo, end, dir.clone().negate()]] as const) {
+    if (!close || !rise) continue;
+    const hole = close === true ? { hole: 0, rise: 0 } : close;
+    kit.add("tuff", surface(1, 16, (u, v) => {
+      const t = Math.PI * v;
+      const outer = new Vector3().addScaledVector(across, hw * Math.cos(t)).addScaledVector(UP, rise * (1 - Math.abs(Math.cos(t))));
+      const inner = new Vector3().addScaledVector(across, hole.hole * Math.cos(t)).addScaledVector(UP, hole.rise * Math.sin(t));
+      return at.clone().add(inner.lerp(outer, u));
+    }, constant(n)));
+  }
+}
+
 function vault(kit: Kit, vault: Vault) {
   const start = v3(vault.from, vault.spring);
   const end = v3(vault.to, vault.spring);
@@ -443,6 +485,7 @@ function vault(kit: Kit, vault: Vault) {
   const dir = axis.clone().normalize();
   const across = new Vector3(-dir.z, 0, dir.x);
   const hw = vault.width / 2;
+  if (vault.timber) { timber(kit, vault, start, end, dir, across, hw); return; }
   const rise = vault.rise ?? hw;
   kit.add("tuff", surface(Math.max(1, Math.round(axis.length() / 4)), 16, (u, v) => {
     const t = Math.PI * v;
@@ -775,10 +818,11 @@ function paintIcon(subject: IconSubject, w: number, h: number): CanvasTexture | 
 }
 
 /** Սրբապատկերի մակերեսը (կամարաձև)՝ պայմանական պատկերով, իսկ `image`-ի դեպքում՝ իրական նկարով (բեռնվելուց հետո)։ */
+const iconShape = (item: Item) => item.shape ?? (item.subject === "apostles" ? "rect" : "arch");
 function iconPicture(item: Item, w: number, h: number): Mesh | null {
   const map = paintIcon(item.subject ?? "empty", w, h);
   if (!map) return null;
-  const geometry = new ShapeGeometry(openingShape(item.subject === "apostles" ? "rect" : "arch", w, h), 8);
+  const geometry = new ShapeGeometry(openingShape(iconShape(item), w, h), 8);
   const position = geometry.getAttribute("position");
   const uv = new Float32Array(position.count * 2);
   for (let i = 0; i < position.count; i++) { uv[i * 2] = position.getX(i) / w + 0.5; uv[i * 2 + 1] = position.getY(i) / h; }
@@ -870,7 +914,7 @@ export function itemParts(item: Item, detail: boolean) {
       // Սրբապատկեր՝ միայն շրջանակ, ֆոն և խաչ (առանց պատկերման)։
       const w = item.w ?? 1.2;
       const h = item.h ?? 1.8;
-      local.add("gold", panel("arch", w + 0.2, h + 0.2, new Vector3(0, -0.1, 0.01), new Vector3(0, 0, 1)));
+      local.add("gold", panel(iconShape(item), w + 0.2, h + 0.2, new Vector3(0, -0.1, 0.01), new Vector3(0, 0, 1)));
       const picture = item.subject || item.image ? iconPicture(item, w, h) : null;
       if (picture) { local.pictures.push(picture); break; }
       local.add("icon", panel("arch", w, h, new Vector3(0, 0, 0.03), new Vector3(0, 0, 1)));
