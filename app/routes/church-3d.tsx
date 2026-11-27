@@ -279,7 +279,7 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
             </Corner>
           ) : null}
           {status === "ready" && mode !== "plan" && !step ? (
-            <p className="pointer-events-none absolute right-2 bottom-14 m-0 hidden text-[11.5px] text-faint sm:block">Մատով՝ պտտել · երկու մատով՝ մոտեցնել</p>
+            <p className="pointer-events-none absolute right-2 bottom-14 left-2 m-0 text-center text-[11.5px] text-faint">1 մատ՝ պտտել · 2 մատ՝ մոտեցնել, շարժել</p>
           ) : null}
           {candleOpen ? (
             // Մոմավառությունը՝ հենց մոմակալի մոտ (canvas-ի վրա), ոչ էջի ներքևում։
