@@ -161,7 +161,7 @@ export function createChurchScene(host: HTMLElement, options: {
   scene.add(sun);
 
   const materials = createMaterials(model.tuff, model.look);
-  const { interior, exterior, curtainOpen, curtainClosed, glows, itemGroups } = buildChurch(model, materials, { separateItems: Boolean(options.edit) });
+  const { interior, exterior, curtainOpen, curtainClosed, glows, itemGroups } = buildChurch(model, materials, { separateItems: Boolean(options.edit), onPictureLoaded: () => requestRender() });
   scene.add(interior, exterior);
   const texture = glowTexture();
   const flicker: Flicker = { time: { value: 0 }, scale: { value: 1 } };

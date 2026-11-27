@@ -34,6 +34,8 @@ export type Room = {
   apses?: ReadonlyArray<{ edge: number; part?: PartKind }>;
   /** Պատեր, որոնք չեն կառուցվում (բաց կողմ կամ թաքցված պատ)։ */
   open?: readonly number[];
+  /** Միայն դրսի պատուհանների/դռների համար (ներսը չի կառուցվում, օր.՝ թանգարանի կցակառույց)։ */
+  ghost?: boolean;
   /** Հարթ առաստաղի կտորներ `height`-ի վրա (օր.՝ խաչի անկյունների վրա, սյուներով դահլիճում)։ */
   ceilings?: ReadonlyArray<readonly Pt[]>;
 };
@@ -89,9 +91,18 @@ export type Belfry = {
 
 export type ItemType =
   | "altar" | "lectern" | "font" | "candle-table" | "chandelier" | "choir" | "icon" | "bench" | "column"
-  | "chalice" | "gospel" | "censer" | "fan" | "candlestick" | "procession-icon";
+  | "chalice" | "gospel" | "censer" | "fan" | "candlestick" | "procession-icon"
+  | "throne" | "organ" | "descent-altar";
+/** Սրբապատկերի պատկերումը, երբ իրական նկար չկա. գույներով նշան (կարմիր զգեստ, ոսկե պսակներ), որ դիտողը ճանաչի։ */
+export type IconSubject = "theotokos" | "christ" | "saint" | "apostles" | "cross" | "empty";
 /** Պարագա. `rot`՝ աստիճան (0՝ դեմքով դեպի արևմուտք, 90՝ դեպի հարավ)։ */
-export type Item = { type: ItemType; at: Pt; y?: number; rot?: number; w?: number; h?: number; top?: number; name?: string; niche?: boolean };
+export type Item = {
+  type: ItemType; at: Pt; y?: number; rot?: number; w?: number; h?: number; top?: number; name?: string; niche?: boolean;
+  /** Սրբապատկերի համար՝ ում պատկերն է (առանց նկարի)։ */
+  subject?: IconSubject;
+  /** Իրական նկար (կայքի կամ մեդիայի հասցե, օր.՝ «/images/…»)։ Չբեռնվելու դեպքում երևում է `subject`-ը։ */
+  image?: string;
+};
 
 export type Camera = { eye: V3; look: V3 };
 /** Մարդուկ՝ դերով (զգեստի գույնն ու ձևը)։ `rot`՝ աստիճան, ինչպես պարագաներինը։ */
@@ -362,6 +373,7 @@ export function itemAnchor(item: Item): { at: V3; front: Pt } {
   const lift: Record<ItemType, number> = {
     altar: 1.4, lectern: 1.4, font: 1.3, "candle-table": 1.2, chandelier: 0.1, choir: 1.4, icon: (item.h ?? 3) * 0.55, bench: 1.1, column: (item.h ?? 4) * 0.6,
     chalice: 0.4, gospel: 0.25, censer: 1.2, fan: 2.3, candlestick: 1.7, "procession-icon": 2.4,
+    throne: 2.2, organ: (item.h ?? 6) * 0.5, "descent-altar": 1.6,
   };
   return { at: [item.at[0], y + lift[item.type], item.at[1]], front };
 }
@@ -369,6 +381,7 @@ export function itemAnchor(item: Item): { at: V3; front: Pt } {
 const ITEM_KIND: Partial<Record<ItemType, PartKind>> = {
   altar: "seghan", lectern: "grakal", font: "avazan", "candle-table": "momakal", chandelier: "jah", choir: "das", icon: "patker", bench: "nstaran",
   chalice: "skih", gospel: "avetaran", censer: "burvar", fan: "kshots", candlestick: "ashtanak", "procession-icon": "tapori-patker",
+  throne: "gah", organ: "ergehon", "descent-altar": "ijman-seghan",
 };
 
 /** Բոլոր կետերը՝ ամեն մեկը իր անունով, տեղով և տեսախցիկի տեղով։ Աշխատում է առանց three.js-ի։ */
@@ -379,6 +392,7 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
   const spots: Array<Omit<Hotspot, "id" | "name" | "view" | "eye" | "look" | "near"> & { front?: Pt; dist?: number; name?: string; eyeY?: number; look?: V3 }> = [];
 
   for (const room of model.rooms) {
+    if (room.ghost) continue;
     const edges = edgesOf(room.outline);
     if (room.part) {
       const c = centroid(polygonOf(room.outline));
@@ -429,7 +443,7 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
   }
 
   for (const item of model.items) {
-    const kind = ITEM_KIND[item.type];
+    const kind = item.type === "icon" && item.subject === "apostles" ? "arakyalner" : ITEM_KIND[item.type];
     if (!kind) continue;
     const anchor = itemAnchor(item);
     spots.push({ kind, at: anchor.at, front: anchor.front, name: item.name, item });
@@ -570,7 +584,8 @@ export function candleSlot(slot: number): V3 {
 
 // ---------- Անձնագրի ստուգում (ադմինի խմբագրիչ, GPT-ից ներմուծում, բազայից կարդալ) ----------
 
-const ITEM_TYPES: readonly ItemType[] = ["altar", "lectern", "font", "candle-table", "chandelier", "choir", "icon", "bench", "column", "chalice", "gospel", "censer", "fan", "candlestick", "procession-icon"];
+const ITEM_TYPES: readonly ItemType[] = ["altar", "lectern", "font", "candle-table", "chandelier", "choir", "icon", "bench", "column", "chalice", "gospel", "censer", "fan", "candlestick", "procession-icon", "throne", "organ", "descent-altar"];
+const SUBJECTS: readonly IconSubject[] = ["theotokos", "christ", "saint", "apostles", "cross", "empty"];
 const SHAPES: readonly OpeningShape[] = ["arch", "rect", "round", "slit", "cross"];
 const TUFFS: readonly TuffColor[] = ["pink", "ochre", "gray", "black"];
 const KINDS = Object.keys(PART_INFO) as PartKind[];
@@ -696,6 +711,7 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
       edge(apse.edge, `${at}.edge`); oneOf(apse.part, KINDS, `${at}.part`, true);
     }, true);
     list(room.open, `${path}.open`, 64, (v, at) => edge(v, at), true);
+    if (room.ghost !== undefined && typeof room.ghost !== "boolean") fail(`${path}.ghost`, "պետք է լինի true կամ false");
     list(room.ceilings, `${path}.ceilings`, 16, (c, at) => list(c, at, 64, (p, a) => pt(p, a)), true);
   });
   list(m.vaults, "vaults", 30, (v, path) => {
@@ -749,6 +765,8 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
     optNum(item.y, `${path}.y`, 0, 40); optNum(item.rot, `${path}.rot`, -360, 360); optNum(item.w, `${path}.w`, 0.1, 10);
     optNum(item.h, `${path}.h`, 0.1, 20); optNum(item.top, `${path}.top`, 0, 60); str(item.name, `${path}.name`);
     if (item.niche !== undefined && typeof item.niche !== "boolean") fail(`${path}.niche`, "պետք է լինի true կամ false");
+    oneOf(item.subject, SUBJECTS, `${path}.subject`, true);
+    if (item.image !== undefined && (typeof item.image !== "string" || item.image.length > 400 || !/^(\/[^/]|https:\/\/)/u.test(item.image))) fail(`${path}.image`, "պետք է լինի «/…» կամ «https://…» հասցե");
   });
   if (m.cameras !== undefined) {
     if (!isObj(m.cameras)) fail("cameras", "պետք է օբյեկտ լինի");

@@ -4,7 +4,8 @@
 export type PartKind =
   | "khoran" | "bem" | "seghan" | "patker" | "varaguyr" | "avandatun" | "atyan" | "grakal" | "das" | "das-hark"
   | "nav" | "gmbet" | "jah" | "avazan" | "momakal" | "gavit" | "nstaran" | "gmbet-durs" | "zangakatun" | "mutq"
-  | "skih" | "burvar" | "kshots" | "ashtanak" | "tapori-patker" | "avetaran";
+  | "skih" | "burvar" | "kshots" | "ashtanak" | "tapori-patker" | "avetaran"
+  | "khoran-kogh" | "gah" | "ergehon" | "ijman-seghan" | "arakyalner";
 
 export type PartInfo = {
   name: string;
@@ -20,6 +21,26 @@ export type PartInfo = {
 };
 
 export const PART_INFO: Record<PartKind, PartInfo> = {
+  "khoran-kogh": {
+    name: "Կողային խորան", view: "inside", camera: "front", check: true,
+    text: "Ավագ խորանից հյուսիս կամ հարավ գտնվող խորան՝ իր սեղանով։ Որոշ եկեղեցիներում այստեղ նույնպես Պատարագ է մատուցվում։",
+  },
+  gah: {
+    name: "Կաթողիկոսական գահ", view: "inside", camera: "front", distance: 5, check: true,
+    text: "Ամենայն Հայոց Կաթողիկոսի աթոռը Մայր տաճարում՝ հովանոցով։ Աղբյուրների համաձայն՝ տաճարում երկու գահ կա, որոնցից մեկը պատրաստվել է 1721 թ.՝ ոսկով և սադափով։",
+  },
+  ergehon: {
+    name: "Երգեհոն", view: "inside", camera: "front", distance: 6, check: true,
+    text: "Փողային երաժշտական գործիք, որ նվագակցում է երգչախմբին։ Մեծ տաճարներում դրվում է դասի մոտ։",
+  },
+  "ijman-seghan": {
+    name: "Իջման սեղան", view: "inside", camera: "front", distance: 6, check: true,
+    text: "Մայր տաճարի կենտրոնում՝ գմբեթի տակ, ազատ կանգնած մարմարե սեղան։ Նշում է այն տեղը, որտեղ, ըստ Սուրբ Գրիգոր Լուսավորչի տեսիլքի, Միածինը իջավ և ցույց տվեց տաճարի տեղը։",
+  },
+  arakyalner: {
+    name: "Տասներկու առաքյալներ", view: "inside", camera: "front", distance: 6, check: true,
+    text: "Բեմի առջևի պատին Քրիստոսի տասներկու առաքյալների պատկերները։",
+  },
   khoran: {
     name: "Ավագ խորան", view: "inside", camera: "front", check: true,
     text: "Եկեղեցու արևելյան կիսաշրջանաձև մասը։ Եկեղեցին կառուցվում է արևելքին նայող, որովհետև արևելքից է սպասվում Քրիստոսի երկրորդ գալուստը։",

@@ -3,13 +3,13 @@
 // Ներսի պատերը միակողմանի են և նայում են ներս. դրսից մոտակա պատերն ինքնին անտեսանելի են («կտրվածք»)։
 import {
   BoxGeometry, BufferGeometry, Color, ConeGeometry, CylinderGeometry, DataTexture, DoubleSide, Float32BufferAttribute, Group,
-  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, RepeatWrapping, Shape, ShapeGeometry, SphereGeometry, SRGBColorSpace,
+  CanvasTexture, LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, Quaternion, RepeatWrapping, TextureLoader, Shape, ShapeGeometry, SphereGeometry, SRGBColorSpace,
   TorusGeometry, Vector2, Vector3, type Material,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import {
   belfriesOf, bemaFront, bounds, candleSlot, domesOf, edgesOf, exteriorHit, offsetPolygon, openingCenters, pointOnEdge, polygonOf,
-  type Arcade, type Balcony, type BaySide, type Bema, type Belfry, type ChurchLook, type ChurchModel, type Closure, type Dome, type Item,
+  type Arcade, type Balcony, type BaySide, type Bema, type Belfry, type ChurchLook, type IconSubject, type ChurchModel, type Closure, type Dome, type Item,
   type Mass, type OpeningShape, type Pt, type Room, type TuffColor, type Vault,
 } from "./model";
 
@@ -302,6 +302,8 @@ function worldUV(geometry: BufferGeometry, kind: "wall" | "roof") {
 
 export class Kit {
   readonly buckets = new Map<LookName, BufferGeometry[]>();
+  /** Նկարով սրբապատկերներ՝ առանձին mesh-եր (ամեն մեկն իր նկարով)։ */
+  readonly pictures: Mesh[] = [];
   /** Բոցերի և լամպերի շողի կետերը (մեկ draw call-ով նկարվում են scene.ts-ում)։ */
   readonly glows = { small: [] as Vector3[], large: [] as Vector3[] };
   add(look: LookName, ...geometries: BufferGeometry[]) {
@@ -328,6 +330,7 @@ export class Kit {
       mesh.matrixAutoUpdate = false;
       group.add(mesh);
     }
+    for (const picture of this.pictures) { picture.matrixAutoUpdate = false; group.add(picture); }
     return group;
   }
 }
@@ -690,6 +693,109 @@ function crossShape(size: number) {
 }
 
 /** Պարագայի կտորները և լույսերի կետերը՝ իր տեղում (դեմքը +Z, հատակը y=0)։ `detail`՝ մանրամասն դիտման համար։ */
+// ---------- Սրբապատկերների նկարներ ----------
+
+/** Իրական նկարը բեռնվելուց հետո 3D-ն նորից նկարելու համար (scene.ts-ը դնում է)։ */
+let onPictureLoaded: (() => void) | null = null;
+const painted = new Map<string, CanvasTexture>();
+
+/**
+ * Սրբապատկերի պայմանական պատկերում (երբ իրական նկար չկա). պարզ ձևեր և ավանդական գույներ, որ դիտողը ճանաչի՝
+ * Աստվածամայրը՝ մուգ կարմիր մափորիոնով, Մանուկ Հիսուսը՝ ոսկե պսակով և խաչով, Քրիստոսը՝ կարմիր և կապույտ զգեստով։
+ */
+function paintIcon(subject: IconSubject, w: number, h: number): CanvasTexture | null {
+  if (typeof document === "undefined") return null;
+  const W = subject === "apostles" ? 1024 : 256;
+  const H = Math.max(64, Math.min(1024, Math.round((W * h) / w)));
+  const key = `${subject}:${W}x${H}`;
+  const cached = painted.get(key);
+  if (cached) return cached;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const g = canvas.getContext("2d");
+  if (!g) return null;
+  const gold = (x0: number, y0: number, x1: number, y1: number) => {
+    const grad = g.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, "#e6c873"); grad.addColorStop(0.5, "#c99a3c"); grad.addColorStop(1, "#a87a28");
+    return grad;
+  };
+  const circle = (x: number, y: number, r: number, fill: string | CanvasGradient) => { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = fill; g.fill(); };
+  /** Կանգնած կերպար՝ պսակ, դեմք, զգեստ (u՝ գլխի չափը)։ */
+  const figure = (x: number, top: number, u: number, robe: string, mantle: string, haloCross = false) => {
+    circle(x, top + u * 1.1, u * 1.15, gold(x - u, top, x + u, top + u * 2));
+    if (haloCross) { g.strokeStyle = "#8e1f28"; g.lineWidth = u * 0.22; g.beginPath(); g.moveTo(x, top); g.lineTo(x, top + u * 0.6); g.moveTo(x - u * 1.1, top + u * 1.1); g.lineTo(x - u * 0.6, top + u * 1.1); g.moveTo(x + u * 1.1, top + u * 1.1); g.lineTo(x + u * 0.6, top + u * 1.1); g.stroke(); }
+    g.fillStyle = robe;
+    g.beginPath(); g.moveTo(x - u * 0.9, top + u * 2.1); g.quadraticCurveTo(x - u * 1.7, top + u * 5, x - u * 1.6, top + u * 7.4); g.lineTo(x + u * 1.6, top + u * 7.4); g.quadraticCurveTo(x + u * 1.7, top + u * 5, x + u * 0.9, top + u * 2.1); g.closePath(); g.fill();
+    g.fillStyle = mantle;
+    g.beginPath(); g.moveTo(x - u * 0.9, top + u * 2.1); g.quadraticCurveTo(x - u * 1.8, top + u * 4.5, x - u * 1.6, top + u * 7.4); g.lineTo(x - u * 0.2, top + u * 7.4); g.quadraticCurveTo(x + u * 0.5, top + u * 4, x + u * 0.9, top + u * 2.1); g.closePath(); g.fill();
+    circle(x, top + u * 1.15, u * 0.72, "#d9a982");
+    g.fillStyle = "#3b2618"; g.beginPath(); g.arc(x, top + u * 0.95, u * 0.74, Math.PI, Math.PI * 2); g.fill();
+  };
+  g.fillStyle = subject === "apostles" ? "#23345c" : subject === "cross" ? "#6e1a1f" : subject === "empty" ? "#3a2c26" : gold(0, 0, W, H);
+  g.fillRect(0, 0, W, H);
+  if (subject === "theotokos") {
+    // Աստվածամայրը՝ մուգ կարմիր մափորիոն (գլուխն էլ ծածկած), կապույտ ներքնազգեստ, Մանուկը՝ գրկում։
+    const x = W / 2;
+    const u = Math.min(W / 9, H / 11);
+    const top = H * 0.08;
+    circle(x, top + u * 1.4, u * 1.45, gold(x - u, top, x + u, top + 3 * u));
+    g.fillStyle = "#2f4f8c";
+    g.beginPath(); g.moveTo(x - u * 1.2, top + u * 2.4); g.quadraticCurveTo(x - u * 2.6, top + u * 6, x - u * 2.4, H * 0.98); g.lineTo(x + u * 2.4, H * 0.98); g.quadraticCurveTo(x + u * 2.6, top + u * 6, x + u * 1.2, top + u * 2.4); g.closePath(); g.fill();
+    g.fillStyle = "#7d1d22";
+    g.beginPath(); g.moveTo(x, top + u * 0.2); g.quadraticCurveTo(x - u * 1.5, top + u * 0.3, x - u * 1.4, top + u * 2.4); g.quadraticCurveTo(x - u * 3.2, top + u * 6, x - u * 3, H * 0.98); g.lineTo(x - u * 1.2, H * 0.98); g.quadraticCurveTo(x - u * 1.6, top + u * 5, x - u * 0.6, top + u * 2.6);
+    g.lineTo(x + u * 0.6, top + u * 2.6); g.quadraticCurveTo(x + u * 1.6, top + u * 5, x + u * 1.2, H * 0.98); g.lineTo(x + u * 3, H * 0.98); g.quadraticCurveTo(x + u * 3.2, top + u * 6, x + u * 1.4, top + u * 2.4); g.quadraticCurveTo(x + u * 1.5, top + u * 0.3, x, top + u * 0.2); g.closePath(); g.fill();
+    circle(x, top + u * 1.5, u * 0.78, "#d9a982");
+    // Աստղեր մափորիոնին (ավանդական նշան)։
+    for (const [sx, sy] of [[-1.05, 1.0], [1.05, 1.0], [0, 0.45]]) circle(x + sx * u, top + sy * u, u * 0.12, "#e6c873");
+    const cx = x - u * 0.2;
+    const ct = top + u * 3.4;
+    figure(cx, ct, u * 0.55, "#c99a3c", "#b07d2e", true);
+  } else if (subject === "christ" || subject === "saint") {
+    const u = Math.min(W / 5.2, H / 8.6);
+    figure(W / 2, H * 0.06, u, subject === "christ" ? "#8e1f28" : "#5b6b3a", subject === "christ" ? "#2f4f8c" : "#7d1d22", subject === "christ");
+    if (subject === "christ") { g.fillStyle = "#e6c873"; g.fillRect(W / 2 - u * 0.2, H * 0.06 + u * 3.6, u * 1.1, u * 1.4); }
+  } else if (subject === "apostles") {
+    const n = 12;
+    const step = W / n;
+    const u = Math.min(step / 3.6, H / 8.4);
+    const robes = ["#8e1f28", "#2f4f8c", "#5b6b3a", "#9c6a2f"];
+    for (let i = 0; i < n; i++) figure(step * (i + 0.5), H * 0.06, u, robes[i % 4], robes[(i + 2) % 4]);
+    g.strokeStyle = "#c99a3c"; g.lineWidth = 6; g.strokeRect(3, 3, W - 6, H - 6);
+  } else if (subject === "cross") {
+    const x = W / 2; const y = H / 2; const r = Math.min(W, H) * 0.32; const t = r * 0.22;
+    g.fillStyle = gold(x - r, y - r, x + r, y + r);
+    g.fillRect(x - t / 2, y - r, t, 2 * r); g.fillRect(x - r * 0.75, y - r * 0.35 - t / 2, r * 1.5, t);
+    for (const [px, py] of [[x, y - r], [x, y + r], [x - r * 0.75, y - r * 0.35], [x + r * 0.75, y - r * 0.35]]) circle(px, py, t * 0.7, gold(px - t, py - t, px + t, py + t));
+  }
+  const map = new CanvasTexture(canvas);
+  map.colorSpace = SRGBColorSpace;
+  painted.set(key, map);
+  return map;
+}
+
+/** Սրբապատկերի մակերեսը (կամարաձև)՝ պայմանական պատկերով, իսկ `image`-ի դեպքում՝ իրական նկարով (բեռնվելուց հետո)։ */
+function iconPicture(item: Item, w: number, h: number): Mesh | null {
+  const map = paintIcon(item.subject ?? "empty", w, h);
+  if (!map) return null;
+  const geometry = new ShapeGeometry(openingShape(item.subject === "apostles" ? "rect" : "arch", w, h), 8);
+  const position = geometry.getAttribute("position");
+  const uv = new Float32Array(position.count * 2);
+  for (let i = 0; i < position.count; i++) { uv[i * 2] = position.getX(i) / w + 0.5; uv[i * 2 + 1] = position.getY(i) / h; }
+  geometry.setAttribute("uv", new Float32BufferAttribute(uv, 2));
+  geometry.translate(0, 0, 0.03);
+  const material = new MeshLambertMaterial({ color: "#ffffff", map });
+  if (item.image) {
+    new TextureLoader().load(item.image, (texture) => {
+      texture.colorSpace = SRGBColorSpace;
+      material.map = texture;
+      material.needsUpdate = true;
+      onPictureLoaded?.();
+    });
+  }
+  return new Mesh(geometry, material);
+}
+
 export function itemParts(item: Item, detail: boolean) {
   const local = new Kit();
   const seg = detail ? 40 : 12;
@@ -765,9 +871,51 @@ export function itemParts(item: Item, detail: boolean) {
       const w = item.w ?? 1.2;
       const h = item.h ?? 1.8;
       local.add("gold", panel("arch", w + 0.2, h + 0.2, new Vector3(0, -0.1, 0.01), new Vector3(0, 0, 1)));
+      const picture = item.subject || item.image ? iconPicture(item, w, h) : null;
+      if (picture) { local.pictures.push(picture); break; }
       local.add("icon", panel("arch", w, h, new Vector3(0, 0, 0.03), new Vector3(0, 0, 1)));
       const s = Math.min(w, h) * 0.32;
       local.add("gold", place(clean(new ShapeGeometry(crossShape(s))), new Vector3(0, h * 0.45, 0.04), new Vector3(0, 0, 1)));
+      break;
+    }
+    case "throne": {
+      // Կաթողիկոսական գահ՝ հարթակ, բազկաթոռ բարձր թիկնակով, չորս սյունիկով հովանոց, գագաթին խաչ (⚑ ձևը մոտավոր)։
+      local.add("wood", box(1.8, 0.3, 1.6, 0, 0, 0), box(1.5, 0.15, 1.3, 0, 0.3, 0));
+      local.add("gold", box(0.95, 0.5, 0.7, 0, 0.45, 0.1));
+      local.add("fabric", box(0.8, 0.08, 0.6, 0, 0.95, 0.12));
+      local.add("gold", box(0.95, 1.7, 0.12, 0, 0.45, -0.28), box(0.12, 0.35, 0.65, -0.47, 0.95, 0.1), box(0.12, 0.35, 0.65, 0.47, 0.95, 0.1));
+      local.add("gold", place(clean(new ShapeGeometry(crossShape(0.3))), new Vector3(0, 2.25, -0.21), new Vector3(0, 0, 1)));
+      for (const x of [-0.82, 0.82]) for (const z of [-0.72, 0.72]) local.add("gold", cylinder(0.045, 0.05, 2.7, 8, x, 0.3, z));
+      local.add("gold", box(1.85, 0.18, 1.65, 0, 3.0, 0));
+      local.add("fabric", box(1.75, 0.35, 1.55, 0, 2.66, 0));
+      local.add("gold", lathe([[0.95, 0], [0.9, 0.25], [0.65, 0.55], [0.3, 0.75], [0.08, 0.82], [0, 0.82]], 12, 0, 3.18, 0));
+      local.add("gold", box(0.07, 0.5, 0.07, 0, 3.95, 0), box(0.3, 0.07, 0.07, 0, 4.25, 0));
+      break;
+    }
+    case "organ": {
+      // Երգեհոն՝ փայտե պահարան և ոսկեգույն փողեր (մեջտեղում՝ ամենաբարձրերը)։
+      const w = item.w ?? 3.2;
+      const h = item.h ?? 6;
+      local.add("wood", box(w, 2.4, 1.2, 0, 0, 0), box(w + 0.2, 0.15, 1.35, 0, 2.4, 0));
+      local.add("wood", box(w * 0.5, 0.08, 0.5, 0, 1.05, 0.75));
+      local.add("wood", box(w, h - 2.55, 0.5, 0, 2.55, -0.35), box(w + 0.3, 0.25, 0.7, 0, h - 0.25, -0.3));
+      const count = Math.max(5, Math.round(w / 0.16));
+      for (let i = 0; i < count; i++) {
+        const t = i / (count - 1) - 0.5;
+        const len = (h - 3.2) * (0.55 + 0.45 * Math.cos(t * Math.PI));
+        const x = t * (w - 0.3);
+        local.add("gold", cylinder(0.055, 0.055, len, 8, x, 2.6, -0.02), clean(new ConeGeometry(0.055, 0.14, 8).rotateX(Math.PI).translate(x, 2.53, -0.02)));
+      }
+      break;
+    }
+    case "descent-altar": {
+      // Իջման սեղան՝ ազատ կանգնած մարմարե սեղան երկու աստիճանի վրա (⚑ ձևը մոտավոր)։
+      local.add("marble", box(2.8, 0.2, 2.4, 0, 0, 0), box(2.3, 0.2, 1.9, 0, 0.2, 0));
+      local.add("marble", box(1.5, 0.1, 1.1, 0, 0.4, 0), box(1.3, 0.85, 0.9, 0, 0.5, 0), box(1.6, 0.12, 1.2, 0, 1.35, 0));
+      local.add("gold", box(0.06, 0.5, 0.06, 0, 1.47, 0), box(0.26, 0.06, 0.06, 0, 1.79, 0));
+      for (const x of [-0.5, 0.5]) local.add("gold", cylinder(0.03, 0.05, 0.32, 8, x, 1.47, 0.25));
+      for (const x of [-0.5, 0.5]) local.add("marble", cylinder(0.012, 0.012, 0.2, 6, x, 1.79, 0.25));
+      for (const x of [-0.5, 0.5]) flame(x, 2.02, 0.25);
       break;
     }
     case "bench": {
@@ -898,6 +1046,7 @@ function item(kit: Kit, item: Item) {
   }
   for (const p of local.glows.small) kit.glows.small.push(p.applyMatrix4(matrix));
   for (const p of local.glows.large) kit.glows.large.push(p.applyMatrix4(matrix));
+  for (const picture of local.pictures) { picture.geometry.applyMatrix4(matrix); kit.pictures.push(picture); }
 }
 
 // ---------- Դուրսը ----------
@@ -1212,9 +1361,10 @@ function openingsOutside(kit: Kit, model: ChurchModel) {
 
 // ---------- Ամբողջը ----------
 
-export function buildChurch(model: ChurchModel, materials: Map<LookName, Material>, options: { separateItems?: boolean } = {}) {
+export function buildChurch(model: ChurchModel, materials: Map<LookName, Material>, options: { separateItems?: boolean; onPictureLoaded?: () => void } = {}) {
+  onPictureLoaded = options.onPictureLoaded ?? null;
   const inside = new Kit();
-  for (const room of model.rooms) roomShell(inside, room);
+  for (const room of model.rooms) if (!room.ghost) roomShell(inside, room);
   for (const v of model.vaults) vault(inside, v);
   for (const a of model.arcades) arcade(inside, a);
   for (const d of domesOf(model)) domeInside(inside, d);
