@@ -233,6 +233,48 @@ export function createChurchScene(host: HTMLElement, options: {
     return { spot, button, at: new Vector3(...spot.at), shown: true };
   });
 
+  // Կետերի վրա սկսված քաշելը, երկու մատով մոտեցնելը և մկնիկի անիվը պետք է գնան մոդելին, ոչ թե էջին
+  // (առաջ կետի վրա ընկած մատը մոտեցնում էր ամբողջ էջը)։ Կետին հպումը մնում է սեղմում, եթե մատը չի շարժվել։
+  const canvas = renderer.domElement;
+  const pending = new Map<number, PointerEvent>();
+  const forward = (event: PointerEvent, type = event.type) => canvas.dispatchEvent(new PointerEvent(type, {
+    pointerId: event.pointerId, pointerType: event.pointerType, isPrimary: event.isPrimary, button: event.button, buttons: event.buttons,
+    clientX: event.clientX, clientY: event.clientY, screenX: event.screenX, screenY: event.screenY, ctrlKey: event.ctrlKey, shiftKey: event.shiftKey,
+    bubbles: true, cancelable: true,
+  }));
+  const release = () => { for (const down of pending.values()) forward(down, "pointerdown"); pending.clear(); };
+  const onDotDown = (event: PointerEvent) => {
+    if (event.target === overlay) return;
+    pending.set(event.pointerId, event);
+    // Երկրորդ մատը (կամ մատը կետի վրա, երբ մյուսը արդեն մոդելին է)՝ միանգամից մոդելին։
+    if (pending.size > 1 || activePointers > 0) release();
+  };
+  const onDotMove = (event: PointerEvent) => {
+    const down = pending.get(event.pointerId);
+    if (down && Math.hypot(event.clientX - down.clientX, event.clientY - down.clientY) > 6) release();
+  };
+  const onDotEnd = (event: PointerEvent) => { pending.delete(event.pointerId); };
+  let activePointers = 0;
+  const countDown = () => { activePointers++; };
+  const countUp = () => { activePointers = Math.max(0, activePointers - 1); };
+  canvas.addEventListener("pointerdown", countDown);
+  canvas.addEventListener("pointerup", countUp);
+  canvas.addEventListener("pointercancel", countUp);
+  overlay.addEventListener("pointerdown", onDotDown);
+  window.addEventListener("pointermove", onDotMove);
+  window.addEventListener("pointerup", onDotEnd);
+  window.addEventListener("pointercancel", onDotEnd);
+  // Անիվը/թաչփեդի «pinch»-ը կետի վրա՝ նույնպես մոդելին (Chrome-ում pinch = ctrl+wheel), Safari-ի gesture-ը՝ արգելված։
+  const onWheel = (event: WheelEvent) => {
+    if (event.target === canvas) return;
+    event.preventDefault();
+    canvas.dispatchEvent(new WheelEvent("wheel", { deltaX: event.deltaX, deltaY: event.deltaY, deltaMode: event.deltaMode, ctrlKey: event.ctrlKey, clientX: event.clientX, clientY: event.clientY, bubbles: true, cancelable: true }));
+  };
+  const stopGesture = (event: Event) => event.preventDefault();
+  host.addEventListener("wheel", onWheel, { passive: false });
+  host.addEventListener("gesturestart", stopGesture);
+  host.addEventListener("gesturechange", stopGesture);
+
   let mode: ViewMode = "cutaway";
   let frame = 0;
   let width = 1;
@@ -445,6 +487,12 @@ export function createChurchScene(host: HTMLElement, options: {
       people.dispose();
       texture.dispose();
       renderer.dispose();
+      window.removeEventListener("pointermove", onDotMove);
+      window.removeEventListener("pointerup", onDotEnd);
+      window.removeEventListener("pointercancel", onDotEnd);
+      host.removeEventListener("wheel", onWheel);
+      host.removeEventListener("gesturestart", stopGesture);
+      host.removeEventListener("gesturechange", stopGesture);
       renderer.domElement.remove();
       overlay.remove();
     },
