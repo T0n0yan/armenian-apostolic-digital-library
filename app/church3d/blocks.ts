@@ -623,6 +623,10 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
       return { d, at, base: H, bay: 0, closed: [] as BaySide[], radius: Math.min(d.radius ?? apothem * 0.8, apothem) };
     });
 
+    if (hasHide(block, "inside") && (doors.length || windows.length)) {
+      // Ներսը թաքցված է, բայց դրսի պատուհաններն ու դռները պետք են։
+      rooms.push({ id: block.id, ghost: true, outline, height: H, ceiling: "flat", ...(doors.length ? { doors } : {}), ...(windows.length ? { windows } : {}) });
+    }
     if (!hasHide(block, "inside")) {
       const flat = block.kind === "hall" ? block.ceiling === "flat" : block.kind === "rotunda" ? !shell.domes.length : false;
       rooms.push({

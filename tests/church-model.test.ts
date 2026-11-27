@@ -14,7 +14,9 @@ test("բոլոր ձևանմուշները անցնում են ստուգումը
     assert.deepEqual(errors, [], template.id);
     assert.ok(model);
     const kinds = new Set(computeHotspots(template).map((spot) => spot.kind));
-    for (const kind of ["khoran", "bem", "seghan", "avandatun", "nav"]) assert.ok(kinds.has(kind as never), `${template.id}: ${kind}`);
+    // Մայր Աթոռում ավանդատան փոխարեն՝ կողային խորաններ, գահ, երգեհոն, Իջման սեղան, առաքյալներ։
+    const expected = template.id === "etchmiadzin" ? ["khoran", "bem", "seghan", "nav", "khoran-kogh", "gah", "ergehon", "ijman-seghan", "arakyalner"] : ["khoran", "bem", "seghan", "avandatun", "nav"];
+    for (const kind of expected) assert.ok(kinds.has(kind as never), `${template.id}: ${kind}`);
     // Մայր Աթոռի մոդելում ավանդատուն-սենյակ դեռ չկա (⚑), զգեստավորման քայլերը բաց են թողնվում։
     assert.equal(liturgyTour(template).length, template.id === "etchmiadzin" ? 4 : 6, template.id);
   }

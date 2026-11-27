@@ -17,6 +17,7 @@ export const ITEM_LABELS: Record<ItemType, string> = {
   altar: "Սուրբ Սեղան", lectern: "Գրակալ", font: "Մկրտության ավազան", "candle-table": "Մոմավառության սեղան", chandelier: "Ջահ",
   choir: "Դաս", icon: "Սրբապատկեր", bench: "Նստարան", column: "Սյուն", chalice: "Սկիհ", gospel: "Ավետարան", censer: "Բուրվառ",
   fan: "Քշոց", candlestick: "Աշտանակ", "procession-icon": "Թափորի սրբապատկեր",
+  throne: "Կաթողիկոսական գահ", organ: "Երգեհոն", "descent-altar": "Իջման սեղան",
 };
 const TUFF_LABELS: Record<TuffColor, string> = { pink: "Վարդագույն", ochre: "Դեղնավուն", gray: "Մոխրագույն", black: "Սև" };
 const SHAPE_LABELS: Record<OpeningShape, string> = { arch: "Կամարաձև", rect: "Ուղղանկյուն", round: "Կլոր", slit: "Նեղ", cross: "Խաչաձև" };
