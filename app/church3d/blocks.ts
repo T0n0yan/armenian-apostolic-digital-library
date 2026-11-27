@@ -20,7 +20,7 @@ export const WALL = 0.4;
 
 /** `wall`՝ պատի անունը (օր.՝ «west», «north-east», «s3»), `at`՝ շեղումը պատի մեջտեղից (մ, պատի ուղղությամբ)։ */
 export type BlockDoor = { wall: string; at?: number; w: number; h: number; part?: PartKind };
-export type BlockWindow = { wall: string; at?: number; y: number; w: number; h: number; shape?: OpeningShape; count?: number; gap?: number };
+export type BlockWindow = { wall: string; at?: number; y: number; w: number; h: number; shape?: OpeningShape; count?: number; gap?: number; frame?: "pediment" | "hood" };
 export type BlockNiche = { wall: string; at?: number; w: number; h: number; depth: number; arch?: boolean };
 
 type Base = {
@@ -34,7 +34,8 @@ type Base = {
 };
 type Openings = { doors?: readonly BlockDoor[]; windows?: readonly BlockWindow[]; niches?: readonly BlockNiche[] };
 /** Կցում ծնողի պատին. `offset`՝ շեղումը պատի մեջտեղից։ */
-type Attach = { parent?: string; wall?: string; offset?: number };
+/** `gap`՝ ծնողի պատից հեռավորությունը (օր.՝ խորանի հետևում կանգնած կցակառույց)։ */
+type Attach = { parent?: string; wall?: string; offset?: number; gap?: number };
 type Link = { link?: "door" | "arch" | "none"; linkW?: number; linkH?: number };
 
 /** Դահլիճ (նավ, գավիթ, ավանդատուն). `length`՝ ծնողից դեպի դուրս (արմատինը՝ արևելք-արևմուտք)։ */
@@ -67,6 +68,8 @@ export type CrossBlock = Base & Openings & {
   height: number;
   /** Դրսից՝ խաչաձև կամ քառակուսի (անկյունները լցված)։ */
   outside: "cross" | "square";
+  /** Անկախ սյուներով դահլիճ. ներսը քառակուսի է, խաչի անկյուններում՝ այս չափի սյուներ (Էջմիածնի տիպ)։ */
+  piers?: number;
   rise?: number;
 };
 
@@ -92,6 +95,8 @@ export type ApseBlock = Base & {
   width: number;
   depth: number;
   outside: "hidden" | "round" | "faceted";
+  /** Երևացող խորանի տանիքը՝ կիսակոն կամ հարթ (օր.՝ երբ վրան ռոտոնդա կա)։ */
+  roof?: "cone" | "flat";
   windows?: ReadonlyArray<Omit<BlockWindow, "wall">>;
 };
 
@@ -103,7 +108,13 @@ export type DomeBlock = Base & {
   radius?: number;
   drum: number;
   sides: number;
-  cap?: "cone" | "umbrella";
+  cap?: "cone" | "umbrella" | "none";
+  /** Գլխիկի բարձրությունը շառավղի մասերով։ */
+  capHeight?: number;
+  /** Խաչը (առանց նշելու՝ կա, `false`՝ հանել)։ */
+  cross?: boolean;
+  /** Թմբուկի կույր կամարներ։ */
+  arcade?: boolean;
   windows?: { count: number; w: number; h: number; shape?: OpeningShape };
 };
 
@@ -119,6 +130,14 @@ export type BelfryBlock = Base & {
   columns: number;
   height: number;
   tiers?: number;
+  /** Քառասյուն կամարավոր հիմքի բարձրությունը։ */
+  pavilion?: number;
+  cross?: boolean;
+  /** Ձեռքով տրված հիմքի բարձրություն (առանց դրա՝ տանիքի վրա)։ */
+  y?: number;
+  /** Աշտարակի կողմի երկարությունը և բաց կամարները ներքևում։ */
+  towerSize?: number;
+  porch?: { w: number; h: number };
 };
 
 /** Ազատ ձևեր (v1-ի պես)՝ այն ամենի համար, ինչ պատրաստի բլոկներով չի ստացվում («Բացել բլոկը»)։ */
@@ -191,6 +210,7 @@ type Shell = {
   domes: DomeBlock[];
   masses: Mass[];
   hidden: Set<string>;
+  ceilings: Pt[][];
   /** Միայն դահլիճի համար՝ երկայնքի առանցքը։ */
   axis?: "x" | "z";
   rect?: { minX: number; maxX: number; minZ: number; maxZ: number };
@@ -308,6 +328,7 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
   const domes: Dome[] = [];
   const belfries: Belfry[] = [];
   const pendingBelfries: BelfryBlock[] = [];
+  const extraItems: Item[] = [];
 
   // Թաքցվածները՝ կցվածների հետ միասին։
   const hiddenIds = new Set<string>();
@@ -361,7 +382,7 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
   };
   const newShell = (block: Shell["block"], center: Pt, built: { segs: Seg[]; walls: Map<string, WallInfo> }, height: number): Shell => ({
     block, center, segs: built.segs, walls: built.walls, height,
-    reach: { east: -Infinity, west: -Infinity, north: -Infinity, south: -Infinity }, hiddenApse: new Set(), childReach: [], apseOn: new Map(), apses: [], openings: [], domes: [], masses: [],
+    reach: { east: -Infinity, west: -Infinity, north: -Infinity, south: -Infinity }, hiddenApse: new Set(), childReach: [], apseOn: new Map(), apses: [], openings: [], domes: [], masses: [], ceilings: [],
     hidden: new Set((block.hide ?? []).filter((key) => key.startsWith("wall:")).map((key) => key.slice(5))),
   });
   /** Կցված բլոկի դիրքը. ծնողի պատից WALL հեռավորության վրա, `width` պատի երկայնքով, `depth` դեպի դուրս։ */
@@ -372,7 +393,7 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
     if (!wall) return null;
     const u = unit(sub(wall.b, wall.a));
     const c = wallPoint(wall, block.offset);
-    const p0 = add(c, mul(wall.out, WALL));
+    const p0 = add(c, mul(wall.out, WALL + (block.gap ?? 0)));
     const corners = [add(p0, mul(u, -width / 2)), add(p0, mul(u, width / 2)), add(add(p0, mul(u, width / 2)), mul(wall.out, depth)), add(add(p0, mul(u, -width / 2)), mul(wall.out, depth))];
     const box = bounds(corners);
     return { parent, wall, c, box, out: wall.out, axis: (Math.abs(wall.out[0]) > Math.abs(wall.out[1]) ? "x" : "z") as "x" | "z" };
@@ -422,7 +443,20 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
     if (block.kind === "cross") {
       const c = block.at ?? [0, 0];
       const arms: Record<Side, number> = { east: 0, west: 0, north: 0, south: 0, ...block.arms };
-      const shell = newShell(block, c, crossSegs(c, block.half, arms), block.height);
+      const s0 = block.half;
+      // Սյուներով՝ ներսը քառակուսի (կողմերը՝ ամենաերկար թևերով), պատերը՝ կողմերի անուններով։
+      const built = block.piers
+        ? rectSegs({ minX: c[0] - s0 - arms.north, maxX: c[0] + s0 + arms.south, minZ: c[1] - s0 - arms.east, maxZ: c[1] + s0 + arms.west })
+        : crossSegs(c, s0, arms);
+      const shell = newShell(block, c, built, block.height);
+      if (block.piers && !hidden) {
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+          extraItems.push({ type: "column", at: rp([c[0] + sx * s0, c[1] + sz * s0]), w: block.piers, h: block.height });
+          const lx = sx > 0 ? arms.south : arms.north;
+          const lz = sz > 0 ? arms.west : arms.east;
+          if (lx > 0 && lz > 0) shell.ceilings.push([rp([c[0] + sx * s0, c[1] + sz * s0]), rp([c[0] + sx * (s0 + lx), c[1] + sz * s0]), rp([c[0] + sx * (s0 + lx), c[1] + sz * (s0 + lz)]), rp([c[0] + sx * s0, c[1] + sz * (s0 + lz)])]);
+        }
+      }
       if (hidden) continue;
       shells.set(block.id, shell);
       addOpenings(shell, block);
@@ -510,7 +544,7 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
               const mid = mul(add(a, b), 0.5);
               return rp(add(add(mid, mul(u, -r * Math.cos(t))), mul(wall.out, d * Math.sin(t))));
             }), rp(b), rp(add(b, back)), rp(add(a, back))];
-        parent.masses.push({ outline, height: r2(parent.height + WALL * 0.5), roof: { type: "tent", rise: r2(block.width / 2 + WALL), apex: rp(mul(add(a, b), 0.5)) } });
+        parent.masses.push({ outline, height: r2(parent.height + WALL * 0.5), roof: block.roof === "flat" ? { type: "flat" } : { type: "tent", rise: r2(block.width / 2 + WALL), apex: rp(mul(add(a, b), 0.5)) } });
       }
       continue;
     }
@@ -593,12 +627,12 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
       const flat = block.kind === "hall" ? block.ceiling === "flat" : block.kind === "rotunda" ? !shell.domes.length : false;
       rooms.push({
         id: block.id,
-        ...(block.part ?? (block.kind === "hall" || block.kind === "cross" ? "nav" : undefined) ? { part: block.part ?? "nav" } : {}),
+        ...(block.part ?? ((block.kind === "hall" && !block.parent) || block.kind === "cross" ? "nav" : undefined) ? { part: block.part ?? "nav" } : {}),
         ...("partAt" in block && block.partAt ? { partAt: block.partAt } : {}),
         outline, height: H, ceiling: flat && !shell.domes.length ? "flat" : "open",
         ...(Object.keys(heights).length ? { heights } : {}),
         ...(doors.length ? { doors } : {}), ...(windows.length ? { windows } : {}), ...(niches.length ? { niches } : {}),
-        ...(apses.length ? { apses } : {}), ...(open.length ? { open } : {}),
+        ...(apses.length ? { apses } : {}), ...(open.length ? { open } : {}), ...(shell.ceilings.length ? { ceilings: shell.ceilings } : {}),
       });
       for (const spec of domeSpecs) {
         domes.push({
@@ -607,6 +641,9 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
           ...(spec.closed.length ? { closed: spec.closed } : {}),
           ...(spec.d.windows ? { windows: spec.d.windows } : {}),
           ...(spec.d.cap ? { cap: spec.d.cap } : {}),
+          ...(spec.d.capHeight ? { capHeight: spec.d.capHeight } : {}),
+          ...(spec.d.cross === false ? { cross: false } : {}),
+          ...(spec.d.arcade ? { arcade: true } : {}),
           drumFrom: r2((block.kind === "hall" && block.aisles ? block.height : H) + WALL),
         });
       }
@@ -738,20 +775,19 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
   for (const shell of shells.values()) masses.push(...shell.masses);
 
   for (const block of pendingBelfries) {
-    const tiers = block.tiers ? { tiers: block.tiers } : {};
-    if (block.parent) {
-      const parent = shells.get(block.parent);
-      if (!parent) { errors.push(`${block.id}՝ «${block.parent}»-ը պատեր չունի`); continue; }
-      const at = add(parent.center, block.offset ?? [0, 0]);
-      const top = roofTopAt(masses, at) || parent.height + WALL;
-      belfries.push({ at: rp(at), base: r2(top - 0.5), radius: block.radius, columns: block.columns, height: block.height, ...tiers });
-    } else {
-      const at = block.at ?? [0, 0];
-      const tower = block.tower ?? 6;
-      const half = block.radius * 1.3 + 0.2;
-      masses.push({ outline: [rp([at[0] - half, at[1] - half]), rp([at[0] + half, at[1] - half]), rp([at[0] + half, at[1] + half]), rp([at[0] - half, at[1] + half])], height: tower, roof: { type: "flat" } });
-      belfries.push({ at: rp(at), base: tower, radius: block.radius, columns: block.columns, height: block.height, ...tiers });
+    const extra = { ...(block.tiers ? { tiers: block.tiers } : {}), ...(block.pavilion ? { pavilion: block.pavilion } : {}), ...(block.cross === false ? { cross: false } : {}) };
+    const parent = block.parent ? shells.get(block.parent) : undefined;
+    if (block.parent && !parent) { errors.push(`${block.id}՝ «${block.parent}»-ը պատեր չունի`); continue; }
+    const at = parent ? add(parent.center, block.offset ?? [0, 0]) : block.at ?? [0, 0];
+    if (block.tower) {
+      // Աշտարակ գետնից (կարող է կանգնել ծնողի կողքին, օր.՝ արևմտյան մուտքի առջև)։
+      const half = (block.towerSize ?? block.radius * 2.6 + 0.4) / 2;
+      masses.push({ outline: [rp([at[0] - half, at[1] - half]), rp([at[0] + half, at[1] - half]), rp([at[0] + half, at[1] + half]), rp([at[0] - half, at[1] + half])], height: block.tower, roof: { type: "flat" }, ...(block.porch ? { arches: block.porch } : {}) });
+      belfries.push({ at: rp(at), base: block.y ?? block.tower, radius: block.radius, columns: block.columns, height: block.height, ...extra });
+      continue;
     }
+    const top = block.y ?? ((roofTopAt(masses, at) || (parent ? parent.height + WALL : 0)) - 0.5);
+    belfries.push({ at: rp(at), base: r2(top), radius: block.radius, columns: block.columns, height: block.height, ...extra });
   }
 
   return {
@@ -761,7 +797,7 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
       rooms, vaults, arcades, masses,
       ...(domes.length === 1 ? { dome: domes[0] } : domes.length ? { domes } : {}),
       ...(belfries.length === 1 ? { belfry: belfries[0] } : belfries.length ? { belfries } : {}),
-      ...(model.bema ? { bema: model.bema } : {}), balconies: model.balconies ?? [], items: model.items,
+      ...(model.bema ? { bema: model.bema } : {}), balconies: model.balconies ?? [], items: [...extraItems, ...model.items],
       ...(model.cameras ? { cameras: model.cameras } : {}),
     },
     errors,
@@ -803,6 +839,7 @@ export function validateAnyModel(input: unknown): { model: AnyChurchModel | null
       if (b.kind !== "apse") str(w.wall, `${at}.wall`, 40, false);
       optNum(w.at, `${at}.at`, -60, 60); num(w.y, `${at}.y`, 0, 40); num(w.w, `${at}.w`, 0.1, 6); num(w.h, `${at}.h`, 0.1, 8);
       oneOf(w.shape, SHAPES, `${at}.shape`, true); optNum(w.count, `${at}.count`, 1, 20); optNum(w.gap, `${at}.gap`, 0.2, 20);
+      oneOf(w.frame, ["pediment", "hood"] as const, `${at}.frame`, true);
     }, true);
     list(b.niches, `${path}.niches`, 20, (n, at) => {
       if (!isObj(n)) return fail(at, "պետք է օբյեկտ լինի");
@@ -817,6 +854,9 @@ export function validateAnyModel(input: unknown): { model: AnyChurchModel | null
     str(b.name, `${path}.name`, 80);
     str(b.parent, `${path}.parent`, 40); str(b.wall, `${path}.wall`, 40);
     if (b.kind !== "dome" && b.kind !== "belfry") optNum(b.offset, `${path}.offset`, -60, 60);
+    optNum(b.gap, `${path}.gap`, 0, 40);
+    if (b.cross !== undefined && typeof b.cross !== "boolean") fail(`${path}.cross`, "պետք է լինի true կամ false");
+    if (b.arcade !== undefined && typeof b.arcade !== "boolean") fail(`${path}.arcade`, "պետք է լինի true կամ false");
     list(b.hide, `${path}.hide`, 40, (h, at) => str(h, at, 60, false), true);
     if (b.at !== undefined) pt(b.at, `${path}.at`);
     if (b.kind === "hall") {
@@ -834,6 +874,7 @@ export function validateAnyModel(input: unknown): { model: AnyChurchModel | null
     }
     if (b.kind === "cross") {
       num(b.half, `${path}.half`, 1, 20); num(b.height, `${path}.height`, 1, 40); oneOf(b.outside, ["cross", "square"] as const, `${path}.outside`);
+      optNum(b.piers, `${path}.piers`, 0.3, 6);
       optNum(b.rise, `${path}.rise`, 0, 30);
       if (b.partAt !== undefined) v3(b.partAt, `${path}.partAt`);
       if (!isObj(b.arms)) fail(`${path}.arms`, "պետք է լինի { west, east, north, south }");
@@ -848,12 +889,13 @@ export function validateAnyModel(input: unknown): { model: AnyChurchModel | null
     if (b.kind === "apse") {
       str(b.parent, `${path}.parent`, 40, false); str(b.wall, `${path}.wall`, 40, false);
       num(b.width, `${path}.width`, 1, 30); num(b.depth, `${path}.depth`, 0.3, 20); oneOf(b.outside, ["hidden", "round", "faceted"] as const, `${path}.outside`);
+      oneOf(b.roof, ["cone", "flat"] as const, `${path}.roof`, true);
       openings(b, path);
     }
     if (b.kind === "dome") {
       str(b.parent, `${path}.parent`, 40, false); if (b.offset !== undefined) pt(b.offset, `${path}.offset`);
       optNum(b.radius, `${path}.radius`, 0.5, 20); num(b.drum, `${path}.drum`, 0, 20); num(b.sides, `${path}.sides`, 4, 32);
-      oneOf(b.cap, ["cone", "umbrella"] as const, `${path}.cap`, true);
+      oneOf(b.cap, ["cone", "umbrella", "none"] as const, `${path}.cap`, true); optNum(b.capHeight, `${path}.capHeight`, 0.2, 4);
       if (b.windows !== undefined) {
         if (!isObj(b.windows)) fail(`${path}.windows`, "պետք է օբյեկտ լինի");
         else { num(b.windows.count, `${path}.windows.count`, 0, 32); num(b.windows.w, `${path}.windows.w`, 0.1, 3); num(b.windows.h, `${path}.windows.h`, 0.1, 5); oneOf(b.windows.shape, SHAPES, `${path}.windows.shape`, true); }
@@ -862,7 +904,9 @@ export function validateAnyModel(input: unknown): { model: AnyChurchModel | null
     if (b.kind === "belfry") {
       if (b.offset !== undefined) pt(b.offset, `${path}.offset`);
       optNum(b.tower, `${path}.tower`, 1, 60); num(b.radius, `${path}.radius`, 0.3, 6); num(b.columns, `${path}.columns`, 3, 16);
-      num(b.height, `${path}.height`, 0.5, 10); optNum(b.tiers, `${path}.tiers`, 1, 4);
+      num(b.height, `${path}.height`, 0.5, 10); optNum(b.tiers, `${path}.tiers`, 1, 4); optNum(b.pavilion, `${path}.pavilion`, 0, 10);
+      optNum(b.y, `${path}.y`, 0, 80); optNum(b.towerSize, `${path}.towerSize`, 1, 30);
+      if (b.porch !== undefined) { if (!isObj(b.porch)) fail(`${path}.porch`, "պետք է օբյեկտ լինի"); else { num(b.porch.w, `${path}.porch.w`, 0.3, 20); num(b.porch.h, `${path}.porch.h`, 0.5, 30); } }
     }
   });
   if (Array.isArray(m.blocks) && !m.blocks.length) fail("blocks", "պետք է լինի գոնե մեկ բլոկ");
