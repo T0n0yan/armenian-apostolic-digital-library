@@ -299,7 +299,7 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
             </Corner>
           ) : null}
           {status === "ready" && (mode === "cutaway" || mode === "outside") && !step ? (
-            <p className="pointer-events-none absolute right-2 bottom-14 m-0 hidden text-[11.5px] text-faint sm:block">{mode === "outside" ? "Մատով՝ պտտել · դռան վրա սեղմել՝ մտնել ներս" : "Մատով՝ պտտել · երկու մատով՝ մոտեցնել"}</p>
+            <p className="pointer-events-none absolute right-2 bottom-14 left-2 m-0 text-center text-[11.5px] text-faint">{mode === "outside" ? "1 մատ՝ պտտել · 2 մատ՝ մոտեցնել · դռան վրա սեղմել՝ մտնել ներս" : "1 մատ՝ պտտել · 2 մատ՝ մոտեցնել, շարժել"}</p>
           ) : null}
           {status === "ready" && mode === "walk" && !step && !hintDone ? (
             <p className="pointer-events-none absolute bottom-14 left-1/2 z-[2] m-0 -translate-x-1/2 rounded-full border border-edge bg-[var(--sheet-bg)] px-3 py-1.5 text-center text-[12.5px] whitespace-nowrap text-ink shadow-[0_1px_4px_rgb(0_0_0/25%)]">Սահեցրու՝ նայելու համար, սեղմիր՝ գնալու</p>

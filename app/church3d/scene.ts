@@ -3,12 +3,12 @@
 import {
   AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, CapsuleGeometry, CylinderGeometry, DirectionalLight,
   Float32BufferAttribute, Group, HemisphereLight, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
-  Object3D, PerspectiveCamera, Plane, Points, Raycaster, RingGeometry, Scene, ShaderMaterial, SphereGeometry, TorusGeometry, Vector2, Vector3,
+  MOUSE, Object3D, PerspectiveCamera, Plane, Points, Raycaster, RingGeometry, Scene, ShaderMaterial, SphereGeometry, TorusGeometry, TOUCH, Vector2, Vector3,
   WebGLRenderer, type Material,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildChurch, createMaterials } from "./build";
-import { candleSlot, computeHotspots, defaultView, edgesOf, insidePolygon, pointOnEdge, polygonOf, type ChurchModel, type Item, type Person, type Pt, type Role, type TourStep, type V3 } from "./model";
+import { candleSlot, computeHotspots, defaultView, edgesOf, insidePolygon, modelBounds, pointOnEdge, polygonOf, type ChurchModel, type Item, type Person, type Pt, type Role, type TourStep, type V3 } from "./model";
 
 /** «walk»՝ ներսում քայլել (աչքի բարձրությունից), «cutaway»՝ վերևից (առանց տանիքի), «outside»՝ դրսից։ */
 export type ViewMode = "walk" | "cutaway" | "outside";
@@ -220,11 +220,30 @@ export function createChurchScene(host: HTMLElement, options: {
 
   const camera = new PerspectiveCamera(45, 1, 0.1, 400);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = false;
-  controls.rotateSpeed = 0.7;
+  // Կառավարում (ինչպես քարտեզներում և 3D դիտիչներում)՝ մեկ մատով/ձախ կոճակով՝ պտտել և թեքել, երկու մատով՝ մոտեցնել
+  // (դեպի մատների կենտրոնը) և տեղաշարժել, մկնիկի անիվով՝ մոտեցնել դեպի կուրսորը։ Սահուն կանգառ (damping),
+  // տեսախցիկը չի իջնում հատակից ներքև, իսկ տեղաշարժը չի տանում մոդելից հեռու։
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
+  controls.rotateSpeed = 0.6;
+  controls.zoomSpeed = 0.9;
   controls.screenSpacePanning = true;
+  controls.zoomToCursor = true;
+  controls.minPolarAngle = 0.05;
+  // Ներքևից վեր նայելը (գմբեթ, ջահ) թույլատրված է, բայց տեսախցիկը ինքը հատակից ցածր չի իջնում (clampTarget)։
   controls.maxPolarAngle = Math.PI - 0.05;
   controls.maxDistance = 120;
+  controls.touches = { ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_PAN };
+  controls.mouseButtons = { LEFT: MOUSE.ROTATE, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.PAN };
+  const area = modelBounds(model);
+  const clampTarget = () => {
+    const t = controls.target;
+    const margin = 4;
+    t.x = Math.min(area.maxX + margin, Math.max(area.minX - margin, t.x));
+    t.z = Math.min(area.maxZ + margin, Math.max(area.minZ - margin, t.z));
+    t.y = Math.min(40, Math.max(0, t.y));
+    if (camera.position.y < 0.6) camera.position.y = 0.6;
+  };
 
   // Կետերը՝ սովորական կոճակներ canvas-ի վրա (հստակ տեքստ, մատով հեշտ սեղմվում են)։
   const overlay = document.createElement("div");
@@ -317,6 +336,9 @@ export function createChurchScene(host: HTMLElement, options: {
   function render() {
     frame = 0;
     flicker.time.value = performance.now() / 1000;
+    // Սահուն կանգառի ժամանակ՝ հաջորդ կադրերը, մինչև տեսախցիկը կանգնի։
+    // «Ներսից» (walk) ռեժիմում տեսախցիկը կառավարում է քայլելու կոդը, OrbitControls-ը անջատված է։
+    if (controls.enabled && controls.update()) requestRender();
     renderer.render(scene, camera);
     placeDots();
   }
@@ -362,7 +384,7 @@ export function createChurchScene(host: HTMLElement, options: {
     updateLoop();
     interior.visible = next !== "outside";
     exterior.visible = next === "outside";
-    controls.minDistance = next === "outside" ? 8 : 0.4;
+    controls.minDistance = next === "outside" ? 6 : 1;
     // «Ներսից»՝ տեսախցիկը կառավարում ենք մենք (պտտվում է իր տեղում), OrbitControls-ը անջատված է։
     controls.enabled = next !== "walk";
     stopMove();
@@ -387,7 +409,7 @@ export function createChurchScene(host: HTMLElement, options: {
     focus(view.eye, view.look);
   };
 
-  controls.addEventListener("change", requestRender);
+  controls.addEventListener("change", () => { clampTarget(); requestRender(); });
 
   // ---------- Խմբագրում 3D-ում՝ պարագան սեղմել (ընտրել) և քաշել հատակով ----------
   const ring = new Mesh(new TorusGeometry(0.55, 0.035, 6, 40).rotateX(Math.PI / 2), new MeshBasicMaterial({ color: "#e2c27e" }));
