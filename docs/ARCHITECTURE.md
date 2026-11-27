@@ -616,8 +616,9 @@ flowchart LR
   (`onModeChange`)։ Առաջին անգամ՝ հուշում «Սահեցրու՝ նայելու համար, սեղմիր՝ գնալու» (`localStorage` `church3d-walk-hint`)։
 - **Ամբողջ էկրան** (`canvas-tools.tsx`)՝ Fullscreen API, իսկ որտեղ չկա (iPhone Safari)՝ `.church3d-full` (fixed, 100dvh) +
   էջի ոլորումը կանգնում է (`html.church3d-lock`), Escape-ով դուրս։
-- **Իրական սրբապատկերներ**՝ `items[].image` + `shape: "rect"` (ուղղանկյուն կտավ)։ Խմբագրիչում «Սրբապատկեր նկարով».
-  նկարը բրաուզերում դառնում է WebP → `POST /api/church-icon` (`church-icon-upload.ts`, «places» թույլտվություն) → R2
+- **Իրական սրբապատկերներ**՝ `items[].image` + `shape: "rect"` (ուղղանկյուն կտավ)։ Խմբագրիչում «Սրբապատկեր նկարով» (և ընտրվածի
+  «Փոխել նկարը»)՝ նախ կտրելու պատուհան (`icon-crop.tsx`. ձև՝ ուղղահայաց/բարձր/քառակուսի/լայն, մատով տեղաշարժ, մոտեցում),
+  կտրվածը՝ WebP (Safari-ում JPEG, ≤1200 px) → `POST /api/church-icon` (`church-icon-upload.ts`, «places» թույլտվություն) → R2
   `places/<id>/icon3d-….webp`, հասցեն՝ `/place-media/<id>/…` → ադմինը 3D-ում սեղմում է պատին (`setPlacing`, `onWallTap`),
   և սրբապատկերը կախվում է այդ կետում՝ պատին ուղղված, նկարի համամասնությամբ։
 - **Փայտե առաստաղ**՝ դահլիճի `ceiling: "beams"` → `vaults[].timber` (երկթեք տախտակամած, լայնակի գերաններ, կատարի գերան,

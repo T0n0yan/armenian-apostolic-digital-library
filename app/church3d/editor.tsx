@@ -3,7 +3,7 @@
 // Քաշելիս օգնական գծերը կպցնում են կետը մյուս կետերի ուղղությանը (ուղղահայաց/հորիզոնական պատեր), ցույց են տալիս չափերը։
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Copy, Crosshair, Eye, Hand, ImagePlus, Plus, Redo2, RotateCcw, RotateCw, Trash2, Undo2, X } from "lucide-react";
-import { toWebp } from "../utils/image-webp";
+import { IconCrop } from "./icon-crop";
 import { Corner, FullscreenButton, canvasButton, canvasPill, canvasSegment } from "./canvas-tools";
 import { fieldControl, fieldLabel } from "../components/ui-styles";
 import {
@@ -359,6 +359,8 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
   const [placing, setPlacing] = useState<{ url: string; aspect: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const iconFile = useRef<HTMLInputElement>(null);
+  const [crop, setCrop] = useState<{ file: File; target: number | null } | null>(null);
+  const cropTarget = useRef<number | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const sceneApi = useRef<ChurchScene | null>(null);
   const planCard = useRef<HTMLDivElement>(null);
@@ -411,21 +413,25 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(""), 3500);
   };
-  /** Նկարը՝ WebP, վերբեռնել, հետո սպասել պատին սեղմելուն։ */
-  async function pickIcon(file: File) {
+  /** Նկարը ընտրելուց հետո՝ կտրելու պատուհան (`target`՝ ում նկարն է փոխվում, `null`՝ նոր սրբապատկեր)։ */
+  function pickIcon(file: File, target: number | null) {
+    setCrop({ file, target });
+  }
+  /** Կտրված նկարը վերբեռնել. նորը սպասում է պատին սեղմելուն, եղածինը փոխվում է տեղում։ */
+  async function cropped(image: Blob, aspect: number) {
+    const target = crop?.target ?? null;
+    setCrop(null);
     if (!onUploadIcon) return;
     setUploading(true);
     try {
-      const webp = await toWebp(file).catch(() => file);
-      const aspect = await new Promise<number>((resolve) => {
-        const image = new Image();
-        const src = URL.createObjectURL(webp);
-        image.onload = () => { URL.revokeObjectURL(src); resolve(image.naturalWidth / Math.max(1, image.naturalHeight)); };
-        image.onerror = () => { URL.revokeObjectURL(src); resolve(0.7); };
-        image.src = src;
-      });
-      const url = await onUploadIcon(webp);
+      const url = await onUploadIcon(image);
       if (!url) { say("Նկարը չվերբեռնվեց, փորձեք նորից"); return; }
+      if (target !== null && model.items[target]) {
+        const h = model.items[target].h ?? 1.7;
+        edit((m) => { Object.assign(m.items[target], { image: url, shape: "rect", w: Math.round(h * aspect * 100) / 100 }); });
+        say("Նկարը փոխվեց");
+        return;
+      }
       setLayer("inside");
       setMode("cutaway");
       setPlacing({ url, aspect });
@@ -538,6 +544,7 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
 
   return (
     <div className="grid gap-4">
+      {crop ? <IconCrop file={crop.file} onDone={(image, aspect) => void cropped(image, aspect)} onCancel={() => setCrop(null)} /> : null}
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={`${small} !border-[rgb(217_181_111/60%)] !bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] !text-[#2a1708]`} disabled={saving || !dirty} onClick={() => onSave(model)}>
           {saving ? "Պահվում է…" : dirty ? "Պահել սևագիրը" : "Պահված է"}
@@ -653,8 +660,8 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
                 </div>
                 {onUploadIcon ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    <input ref={iconFile} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void pickIcon(file); }} />
-                    <button type="button" className={small} disabled={uploading} onClick={() => iconFile.current?.click()}><ImagePlus aria-hidden="true" size={15} /> {uploading ? "Վերբեռնվում է…" : "Սրբապատկեր նկարով"}</button>
+                    <input ref={iconFile} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) pickIcon(file, cropTarget.current); }} />
+                    <button type="button" className={small} disabled={uploading} onClick={() => { cropTarget.current = null; iconFile.current?.click(); }}><ImagePlus aria-hidden="true" size={15} /> {uploading ? "Վերբեռնվում է…" : "Սրբապատկեր նկարով"}</button>
                     <span className="text-[12px] text-faint">Ընտրեք նկարը, հետո 3D-ում սեղմեք պատին, որտեղ կախված է։</span>
                   </div>
                 ) : null}
@@ -675,6 +682,7 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
                     <div className="flex flex-wrap gap-2">
                       <button type="button" className={small} onClick={() => edit((m) => { m.items[selection.index].rot = ((item.rot ?? 0) - 15) % 360; })}><RotateCcw aria-hidden="true" size={15} /> 15°</button>
                       <button type="button" className={small} onClick={() => edit((m) => { m.items[selection.index].rot = ((item.rot ?? 0) + 15) % 360; })}><RotateCw aria-hidden="true" size={15} /> 15°</button>
+                      {item.type === "icon" && onUploadIcon ? <button type="button" className={small} disabled={uploading} onClick={() => { cropTarget.current = selection.index; iconFile.current?.click(); }}><ImagePlus aria-hidden="true" size={15} /> Փոխել նկարը</button> : null}
                       <button type="button" className={small} onClick={() => toWall(selection.index)}>Դնել պատի մոտ</button>
                       <button type="button" className={small} onClick={() => intoWall(selection.index, true)}>Պատի մեջ՝ կամարով</button>
                       <button type="button" className={small} onClick={() => intoWall(selection.index, false)}>Պատի մեջ՝ ուղիղ</button>
