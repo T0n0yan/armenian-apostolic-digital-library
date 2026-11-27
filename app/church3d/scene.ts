@@ -323,7 +323,8 @@ export function createChurchScene(host: HTMLElement, options: {
     frame = 0;
     flicker.time.value = performance.now() / 1000;
     // Սահուն կանգառի ժամանակ՝ հաջորդ կադրերը, մինչև տեսախցիկը կանգնի։
-    if (controls.update()) requestRender();
+    // «Ներսից» (walk) ռեժիմում տեսախցիկը կառավարում է քայլելու կոդը, OrbitControls-ը անջատված է։
+    if (controls.enabled && controls.update()) requestRender();
     renderer.render(scene, camera);
     placeDots();
   }
