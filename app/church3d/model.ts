@@ -42,7 +42,8 @@ export type Room = {
 
 /** Կամարի ծայրը՝ փակ (true) կամ փակ՝ բացվածքով (օր.՝ խորանի կամարի համար)։ */
 export type Closure = true | { hole: number; rise: number };
-export type Vault = { from: Pt; to: Pt; width: number; spring: number; rise?: number; closeFrom?: Closure; closeTo?: Closure };
+/** `timber`՝ փայտե գերաններով երկթեք առաստաղ (կամարի փոխարեն). `rise`-ը՝ կատարի բարձրությունը, ≤0.15՝ հարթ տախտակամած։ */
+export type Vault = { from: Pt; to: Pt; width: number; spring: number; rise?: number; closeFrom?: Closure; closeTo?: Closure; timber?: boolean };
 /** Սյունաշար՝ կամարներով (եռանավ բազիլիկում նավերի միջև)։ `count`՝ սյուների թիվը (ծայրերը ներառյալ)։ */
 export type Arcade = { from: Pt; to: Pt; count: number; spring: number; top: number; pillar: number };
 export type BaySide = "x+" | "x-" | "z+" | "z-";
@@ -102,6 +103,8 @@ export type Item = {
   subject?: IconSubject;
   /** Իրական նկար (կայքի կամ մեդիայի հասցե, օր.՝ «/images/…»)։ Չբեռնվելու դեպքում երևում է `subject`-ը։ */
   image?: string;
+  /** Սրբապատկերի ձևը. «arch»՝ կամարաձև (առանց նշելու), «rect»՝ ուղղանկյուն կտավ (շրջանակով նկարներ)։ */
+  shape?: "arch" | "rect";
 };
 
 export type Camera = { eye: V3; look: V3 };
@@ -445,6 +448,8 @@ export function computeHotspots(model: ChurchModel): Hotspot[] {
   for (const item of model.items) {
     const kind = item.type === "icon" && item.subject === "apostles" ? "arakyalner" : ITEM_KIND[item.type];
     if (!kind) continue;
+    // Նստարանները շատ են և բացատրություն չունեն. կետ՝ միայն առաջինի համար։
+    if (item.type === "bench" && spots.some((spot) => spot.item?.type === "bench")) continue;
     const anchor = itemAnchor(item);
     spots.push({ kind, at: anchor.at, front: anchor.front, name: item.name, item });
   }
@@ -718,6 +723,7 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
     if (!isObj(v)) return fail(path, "պետք է օբյեկտ լինի");
     pt(v.from, `${path}.from`); pt(v.to, `${path}.to`); num(v.width, `${path}.width`, 0.5, 40); num(v.spring, `${path}.spring`, 0, 40);
     optNum(v.rise, `${path}.rise`, 0.1, 30); closure(v.closeFrom, `${path}.closeFrom`); closure(v.closeTo, `${path}.closeTo`);
+    if (v.timber !== undefined && typeof v.timber !== "boolean") fail(`${path}.timber`, "պետք է լինի true կամ false");
   });
   list(m.arcades, "arcades", 20, (a, path) => {
     if (!isObj(a)) return fail(path, "պետք է օբյեկտ լինի");
@@ -766,6 +772,7 @@ export function validateModel(input: unknown): { model: ChurchModel | null; erro
     optNum(item.h, `${path}.h`, 0.1, 20); optNum(item.top, `${path}.top`, 0, 60); str(item.name, `${path}.name`);
     if (item.niche !== undefined && typeof item.niche !== "boolean") fail(`${path}.niche`, "պետք է լինի true կամ false");
     oneOf(item.subject, SUBJECTS, `${path}.subject`, true);
+    if (item.shape !== undefined && item.shape !== "arch" && item.shape !== "rect") fail(`${path}.shape`, "պետք է լինի «arch» կամ «rect»");
     if (item.image !== undefined && (typeof item.image !== "string" || item.image.length > 400 || !/^(\/[^/]|https:\/\/)/u.test(item.image))) fail(`${path}.image`, "պետք է լինի «/…» կամ «https://…» հասցե");
   });
   if (m.cameras !== undefined) {

@@ -48,7 +48,8 @@ export type HallBlock = Base & Openings & Attach & Link & {
   width: number;
   length: number;
   height: number;
-  ceiling: "vault" | "flat";
+  /** «beams»՝ փայտե գերաններով առաստաղ (երկթեք, ինչպես շատ նոր բազիլիկներում)։ */
+  ceiling: "vault" | "flat" | "beams";
   roof: "gable" | "shed" | "tent" | "flat";
   rise?: number;
   /** Տանիքի կատարի ուղղությունը. «length»՝ երկայնքով, «width»՝ լայնքով։ */
@@ -660,7 +661,8 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
         if (!apse) return true as const;
         return apse / 2 >= hw - 0.01 ? undefined : { hole: r2(apse / 2), rise: r2(apse / 2) };
       };
-      if (block.kind === "hall" && block.ceiling === "vault" && shell.rect) {
+      if (block.kind === "hall" && (block.ceiling === "vault" || block.ceiling === "beams") && shell.rect) {
+        const timber = block.ceiling === "beams";
         const r = shell.rect;
         const axis = shell.axis ?? "z";
         const nave = block.aisles ? Math.max(1, block.width - 2 * block.aisles.width) : block.width;
@@ -680,7 +682,7 @@ export function compileModel(model: ChurchModelV2): { model: ChurchModel; errors
             const to = cut === null ? hi : cut - lane.width / 2;
             const toClose = cut === null ? (lane.main ? closeAt(hiSide, lane.width / 2) : true) : undefined;
             if (to - from > 0.05) {
-              vaults.push({ from: at(from, lane.offset), to: at(to, lane.offset), width: r2(lane.width), spring: r2(lane.spring), ...(fromClose ? { closeFrom: fromClose } : {}), ...(toClose ? { closeTo: toClose } : {}) });
+              vaults.push({ from: at(from, lane.offset), to: at(to, lane.offset), width: r2(lane.width), spring: r2(lane.spring), ...(fromClose ? { closeFrom: fromClose } : {}), ...(toClose ? { closeTo: toClose } : {}), ...(timber ? { timber: true, rise: lane.main ? r2(Math.min(3, lane.width * 0.48)) : 0.1 } : {}) });
             }
             if (cut !== null) { from = cut + lane.width / 2; fromClose = undefined; }
           }
@@ -865,7 +867,7 @@ export function validateAnyModel(input: unknown): { model: AnyChurchModel | null
     if (b.at !== undefined) pt(b.at, `${path}.at`);
     if (b.kind === "hall") {
       num(b.width, `${path}.width`, 1, 60); num(b.length, `${path}.length`, 1, 80); num(b.height, `${path}.height`, 1, 40);
-      oneOf(b.ceiling, ["vault", "flat"] as const, `${path}.ceiling`); oneOf(b.roof, ["gable", "shed", "tent", "flat"] as const, `${path}.roof`);
+      oneOf(b.ceiling, ["vault", "flat", "beams"] as const, `${path}.ceiling`); oneOf(b.roof, ["gable", "shed", "tent", "flat"] as const, `${path}.roof`);
       optNum(b.rise, `${path}.rise`, 0, 30); oneOf(b.ridge, ["length", "width"] as const, `${path}.ridge`, true);
       oneOf(b.link, ["door", "arch", "none"] as const, `${path}.link`, true); optNum(b.linkW, `${path}.linkW`, 0.4, 30); optNum(b.linkH, `${path}.linkH`, 0.5, 30);
       if (b.partAt !== undefined) v3(b.partAt, `${path}.partAt`);

@@ -66,6 +66,15 @@ export default function AdminChurchModel({ loaderData }: Route.ComponentProps) {
   const saving = fetcher.state !== "idle";
   const busy = navigation.state !== "idle";
   const save = (model: ChurchModel) => fetcher.submit({ intent: "save", model: JSON.stringify(model) }, { method: "post" });
+  const uploadIcon = async (file: Blob) => {
+    const body = new FormData();
+    body.set("place", place.id);
+    body.set("file", new File([file], "icon.webp", { type: file.type }));
+    const response = await fetch("/api/church-icon", { method: "POST", body }).catch(() => null);
+    if (!response?.ok) return null;
+    const result = (await response.json().catch(() => null)) as { url?: string } | null;
+    return result?.url ?? null;
+  };
   return (
     <PageShell width="admin">
       <SiteNav />
@@ -90,7 +99,7 @@ export default function AdminChurchModel({ loaderData }: Route.ComponentProps) {
         </section>
 
         <ChurchEditor key={record.updatedAt ?? "new"} initial={record.draft} placeId={place.id} placeName={place.name}
-          saving={saving} errors={fetcher.data?.errors ?? []} onSave={save} />
+          saving={saving} errors={fetcher.data?.errors ?? []} onSave={save} onUploadIcon={uploadIcon} />
 
         {record.versions.length ? (
           <section className="paper-panel grid gap-2 px-4 py-4">

@@ -3,14 +3,15 @@
 import {
   AdditiveBlending, BoxGeometry, BufferGeometry, CanvasTexture, CapsuleGeometry, CylinderGeometry, DirectionalLight,
   Float32BufferAttribute, Group, HemisphereLight, InstancedMesh, LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial,
-  Object3D, PerspectiveCamera, Plane, Points, Raycaster, Scene, ShaderMaterial, SphereGeometry, TorusGeometry, Vector2, Vector3,
+  Object3D, PerspectiveCamera, Plane, Points, Raycaster, RingGeometry, Scene, ShaderMaterial, SphereGeometry, TorusGeometry, Vector2, Vector3,
   WebGLRenderer, type Material,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { buildChurch, createMaterials } from "./build";
-import { candleSlot, computeHotspots, defaultView, type ChurchModel, type Person, type Pt, type Role, type TourStep, type V3 } from "./model";
+import { candleSlot, computeHotspots, defaultView, edgesOf, insidePolygon, pointOnEdge, polygonOf, type ChurchModel, type Item, type Person, type Pt, type Role, type TourStep, type V3 } from "./model";
 
-export type ViewMode = "cutaway" | "outside";
+/** «walk»՝ ներսում քայլել (աչքի բարձրությունից), «cutaway»՝ վերևից (առանց տանիքի), «outside»՝ դրսից։ */
+export type ViewMode = "walk" | "cutaway" | "outside";
 
 export type ChurchScene = {
   setMode(mode: ViewMode): void;
@@ -22,9 +23,13 @@ export type ChurchScene = {
   focus(eye: V3, look: V3): void;
   /** Խմբագրիչում՝ «Խմբագրել» (պարագաները քաշվում են) կամ «Դիտել» (միայն տեսախցիկ)։ */
   setEditing(on: boolean): void;
+  /** Խմբագրիչում՝ հաջորդ սեղմումը պատին կախում է նոր սրբապատկեր (`onWallTap`)։ */
+  setPlacing(on: boolean): void;
   select(id: string | null): void;
   showTour(step: TourStep | null): void;
   reset(): void;
+  /** «Ներսից» ռեժիմում՝ մոտենալ կետին (մասի կամ պարագայի. պարագային՝ դիմացից)։ */
+  approach(at: V3, item?: Item): void;
   dispose(): void;
 };
 
@@ -139,6 +144,8 @@ function placePerson(group: Group, person: Person) {
 export type EditHooks = {
   onSelectItem: (index: number | null) => void;
   onMoveItem: (index: number, at: Pt) => void;
+  /** «Կախել պատին» ռեժիմում՝ սեղմված պատի կետը (`y`՝ սեղմման բարձրությունը, `rot`՝ ուր է նայում պատը)։ */
+  onWallTap?: (spot: { at: Pt; y: number; rot: number }) => void;
 };
 
 export function createChurchScene(host: HTMLElement, options: {
@@ -147,6 +154,10 @@ export function createChurchScene(host: HTMLElement, options: {
   edit?: EditHooks;
   /** Սկզբնական տեսքը (խմբագրիչում՝ նախորդ տեսարանից, որ վերակառուցելիս տեսախցիկը չթռչի)։ */
   view?: { mode: ViewMode; eye: V3; look: V3 };
+  /** Տեսարանը ինքն է փոխել ռեժիմը (օր.՝ դրսից դռան վրա սեղմելով մտավ ներս)։ */
+  onModeChange?: (mode: ViewMode) => void;
+  /** Առաջին անգամ քայլել/նայել է (հուշումը թաքցնելու համար)։ */
+  onWalkStart?: () => void;
 }): ChurchScene {
   const { model } = options;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -230,7 +241,10 @@ export function createChurchScene(host: HTMLElement, options: {
     const label = document.createElement("span");
     label.textContent = spot.name;
     button.appendChild(label);
-    button.addEventListener("click", () => options.onPick(spot.id));
+    button.addEventListener("click", () => {
+      options.onPick(spot.id);
+      if (mode === "walk") approachSpot(spot.at, spot.item);
+    });
     overlay.appendChild(button);
     return { spot, button, at: new Vector3(...spot.at), shown: true };
   });
@@ -277,7 +291,7 @@ export function createChurchScene(host: HTMLElement, options: {
   host.addEventListener("gesturestart", stopGesture);
   host.addEventListener("gesturechange", stopGesture);
 
-  let mode: ViewMode = "cutaway";
+  let mode: ViewMode = "walk";
   let frame = 0;
   let width = 1;
   let height = 1;
@@ -285,7 +299,7 @@ export function createChurchScene(host: HTMLElement, options: {
 
   function placeDots() {
     for (const dot of dots) {
-      let show = dot.spot.view === (mode === "cutaway" ? "inside" : "outside");
+      let show = dot.spot.view === (mode === "outside" ? "outside" : "inside");
       // Մանր պարագաների կետերը՝ միայն մոտիկից, որ ընդհանուր տեսքը չծանրաբեռնվի։
       if (show && dot.spot.near && camera.position.distanceTo(dot.at) > dot.spot.near) show = false;
       if (show) {
@@ -312,6 +326,12 @@ export function createChurchScene(host: HTMLElement, options: {
   }
 
   function focus(eye: V3, look: V3) {
+    if (mode === "walk") {
+      stopMove();
+      camera.position.set(...eye);
+      aim(new Vector3(...look));
+      return;
+    }
     camera.position.set(...eye);
     controls.target.set(...look);
     controls.update();
@@ -323,7 +343,7 @@ export function createChurchScene(host: HTMLElement, options: {
   const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
   let onScreen = true;
   let tick = 0;
-  const shouldFlicker = () => !calm && onScreen && !document.hidden && mode === "cutaway";
+  const shouldFlicker = () => !calm && onScreen && !document.hidden && mode !== "outside";
   function loop() {
     tick = 0;
     if (!shouldFlicker()) return;
@@ -340,9 +360,13 @@ export function createChurchScene(host: HTMLElement, options: {
   function applyMode(next: ViewMode) {
     mode = next;
     updateLoop();
-    interior.visible = next === "cutaway";
+    interior.visible = next !== "outside";
     exterior.visible = next === "outside";
     controls.minDistance = next === "outside" ? 8 : 0.4;
+    // «Ներսից»՝ տեսախցիկը կառավարում ենք մենք (պտտվում է իր տեղում), OrbitControls-ը անջատված է։
+    controls.enabled = next !== "walk";
+    stopMove();
+    resize();
   }
 
   function resize() {
@@ -352,12 +376,13 @@ export function createChurchScene(host: HTMLElement, options: {
     flicker.scale.value = (height * dpr) / 2;
     camera.aspect = width / height;
     // Նեղ (ուղղահայաց) էկրանին տեսադաշտը լայնացնում ենք, որ շենքը տեղավորվի։
-    camera.fov = camera.aspect < 1 ? Math.min(62, 45 / Math.sqrt(camera.aspect)) : 45;
+    camera.fov = mode === "walk" ? walkFov : camera.aspect < 1 ? Math.min(62, 45 / Math.sqrt(camera.aspect)) : 45;
     camera.updateProjectionMatrix();
     requestRender();
   }
 
   const home = (m: ViewMode) => {
+    if (m === "walk") { walkHome(); return; }
     const view = defaultView(model, m);
     focus(view.eye, view.look);
   };
@@ -380,8 +405,20 @@ export function createChurchScene(host: HTMLElement, options: {
   };
   const snapTo = (v: number) => Math.round(v * 10) / 10;
   let editing = true;
+  let placing = false;
   function onDown(event: PointerEvent) {
-    if (!options.edit || !editing || mode !== "cutaway" || event.target !== renderer.domElement) return;
+    if (options.edit && placing && mode !== "outside" && event.target === renderer.domElement) {
+      toPointer(event);
+      const found = raycaster.intersectObject(interior, true).find((h) => solid(h.object));
+      const n = found?.face ? found.face.normal.clone().transformDirection(found.object.matrixWorld) : null;
+      if (!found || !n || Math.abs(n.y) > 0.5) return; // պատ չէ (հատակ/առաստաղ)՝ սպասում ենք հաջորդ սեղմմանը
+      event.stopPropagation();
+      const at: Pt = [Math.round((found.point.x + n.x * 0.03) * 100) / 100, Math.round((found.point.z + n.z * 0.03) * 100) / 100];
+      const rot = Math.round((Math.atan2(n.x, n.z) * 180) / Math.PI);
+      options.edit.onWallTap?.({ at, y: Math.round(found.point.y * 100) / 100, rot });
+      return;
+    }
+    if (!options.edit || !editing || mode === "outside" || event.target !== renderer.domElement) return;
     toPointer(event);
     const found = raycaster.intersectObjects(itemGroups, true)[0];
     if (!found) return;
@@ -425,14 +462,322 @@ export function createChurchScene(host: HTMLElement, options: {
     if (group) ring.position.set(group.position.x, group.position.y + 0.02, group.position.z);
     requestRender();
   }
+  // ---------- «Ներսից»՝ քայլել եկեղեցում (տիրոջ խնդրանքով, 2026-11-27) ----------
+  // Մատը սահեցնել՝ նայել շուրջը (տեսախցիկը պտտվում է իր տեղում), սեղմել հատակին՝ գնալ այնտեղ,
+  // սեղմել սրբապատկերի/պարագայի/պատի վրա՝ մոտենալ դիմացը։ Պատերի և սյուների միջով չի անցնում։
+  const EYE = 1.6;
+  const look = { yaw: 0, pitch: 0 };
+  const defaultFov = () => (camera.aspect < 1 ? 74 : 62);
+  let walkFov = 68;
+  let fovTouched = false;
+  const rooms = model.rooms.filter((room) => !room.ghost);
+  const polygons = rooms.map((room) => polygonOf(room.outline));
+  const walkable = (x: number, z: number) => polygons.some((poly) => insidePolygon(poly, x, z));
+  // Դրսի դռները (մուտքերը)՝ դրսից սեղմելով ներս մտնելու և «Ներսից»-ի սկզբնական տեղի համար։
+  const entries: Array<{ at: Vector3; inward: Vector3; main: boolean }> = [];
+  for (const room of rooms) {
+    const edges = edgesOf(room.outline);
+    for (const door of room.doors ?? []) {
+      const edge = edges[door.edge];
+      if (!edge || edge.bulge) continue;
+      const { p, n } = pointOnEdge(edge, door.at);
+      if (walkable(p[0] - n[0] * 0.8, p[1] - n[1] * 0.8)) continue; // դուռը տանում է ուրիշ սենյակ, ոչ դուրս
+      entries.push({ at: new Vector3(p[0], 0, p[1]), inward: new Vector3(n[0], 0, n[1]).normalize(), main: door.part === "mutq" });
+    }
+  }
+  const mainEntry = entries.find((entry) => entry.main) ?? [...entries].sort((a, b) => b.at.z - a.at.z)[0];
+
+  function lookDir(yaw: number, pitch: number, out = new Vector3()) {
+    return out.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+  }
+  const ahead = new Vector3();
+  function applyLook() {
+    camera.lookAt(ahead.copy(camera.position).add(lookDir(look.yaw, look.pitch)));
+    requestRender();
+  }
+  function yawPitchTo(target: Vector3, from = camera.position) {
+    const d = target.clone().sub(from);
+    return { yaw: Math.atan2(-d.x, -d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) };
+  }
+  function aim(target: Vector3) {
+    Object.assign(look, yawPitchTo(target));
+    applyLook();
+  }
+  /** Մուտքից մի քանի քայլ ներս, այնտեղ, որտեղ առջևը բաց է (ոչ պատշգամբի սյան հետևում)։ */
+  function entrySpot(entry: { at: Vector3; inward: Vector3 }) {
+    const spotAt = (d: number) => entry.at.clone().addScaledVector(entry.inward, d).setY(EYE);
+    const open = [2.2, 3.4, 4.6, 1.4, 5.8].find((d) => {
+      const p = spotAt(d);
+      return walkable(p.x, p.z) && clearDistance(p, p.clone().addScaledVector(entry.inward, 4)) >= 3.5;
+    }) ?? 2.2;
+    return spotAt(open);
+  }
+  function walkHome() {
+    stopMove();
+    if (!fovTouched) walkFov = defaultFov();
+    if (mainEntry) {
+      camera.position.copy(entrySpot(mainEntry));
+      look.yaw = Math.atan2(-mainEntry.inward.x, -mainEntry.inward.z);
+    } else {
+      const box = polygons.flat();
+      const cx = box.reduce((s, p) => s + p[0], 0) / Math.max(1, box.length);
+      const cz = Math.max(...box.map((p) => p[1]), 0) - 2;
+      camera.position.set(cx, EYE, cz);
+      look.yaw = 0;
+    }
+    look.pitch = 0.02;
+    resize();
+    applyLook();
+  }
+
+  // Սահուն տեղափոխում (կամ միանգամից, եթե հեռախոսում «քիչ շարժում» է միացված)։
+  let anim = 0;
+  let move: { from: Vector3; to: Vector3; yaw0: number; yaw1: number; pitch0: number; pitch1: number; start: number; dur: number } | null = null;
+  const mark = new Mesh(new RingGeometry(0.22, 0.3, 40).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: "#e2c27e", transparent: true, opacity: 0, depthWrite: false }));
+  mark.visible = false;
+  interior.add(mark);
+  let markStart = 0;
+  const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+  function stopMove() { move = null; }
+  function step(now: number) {
+    anim = 0;
+    let more = false;
+    if (move) {
+      const t = Math.min(1, (now - move.start) / move.dur);
+      const e = ease(t);
+      camera.position.lerpVectors(move.from, move.to, e);
+      look.yaw = move.yaw0 + (move.yaw1 - move.yaw0) * e;
+      look.pitch = move.pitch0 + (move.pitch1 - move.pitch0) * e;
+      camera.lookAt(ahead.copy(camera.position).add(lookDir(look.yaw, look.pitch)));
+      if (t < 1) more = true; else move = null;
+    }
+    if (mark.visible) {
+      const t = (now - markStart) / 1000;
+      (mark.material as MeshBasicMaterial).opacity = t < 0.15 ? t / 0.15 * 0.9 : Math.max(0, 0.9 * (1 - (t - 0.15) / 0.85));
+      mark.scale.setScalar(1 + t * 0.35);
+      if (t >= 1) mark.visible = false; else more = true;
+    }
+    render();
+    if (more) anim = requestAnimationFrame(step);
+  }
+  function kick() { if (!anim) anim = requestAnimationFrame(step); }
+  function glide(to: Vector3, yaw: number, pitch: number) {
+    let yaw1 = yaw;
+    while (yaw1 - look.yaw > Math.PI) yaw1 -= Math.PI * 2;
+    while (yaw1 - look.yaw < -Math.PI) yaw1 += Math.PI * 2;
+    if (calm) {
+      camera.position.copy(to);
+      look.yaw = yaw1;
+      look.pitch = pitch;
+      applyLook();
+      return;
+    }
+    const dist = camera.position.distanceTo(to);
+    const dur = Math.min(1800, Math.max(450, (dist / 2.4) * 1000, Math.abs(yaw1 - look.yaw) * 380));
+    move = { from: camera.position.clone(), to: to.clone(), yaw0: look.yaw, yaw1, pitch0: look.pitch, pitch1: pitch, start: performance.now(), dur };
+    kick();
+  }
+
+  const down = new Vector3(0, -1, 0);
+  /** Հատակի բարձրությունը կետում (բեմ, պատշգամբ)՝ վերևից ներքև ճառագայթով։ */
+  function floorAt(x: number, z: number, above: number) {
+    raycaster.set(new Vector3(x, above, z), down);
+    const hit = raycaster.intersectObject(interior, true).find((h) => solid(h.object) && (h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld).y > 0.6 : false));
+    return hit ? hit.point.y : null;
+  }
+  function solid(object: Object3D) {
+    if (object instanceof Points || object === mark || object === ring) return false;
+    for (let o: Object3D | null = object; o; o = o.parent) if (!o.visible) return false;
+    return true;
+  }
+  /** Ճանապարհին պատ կամ սյուն կա՞. վերադարձնում է, թե որքան կարելի է գնալ։ */
+  function clearDistance(from: Vector3, to: Vector3) {
+    const flat = new Vector3(to.x - from.x, 0, to.z - from.z);
+    const total = flat.length();
+    if (total < 0.05) return total;
+    raycaster.set(new Vector3(from.x, from.y - EYE + 1.4, from.z), flat.normalize());
+    raycaster.far = total;
+    const hit = raycaster.intersectObject(interior, true).find((h) => solid(h.object) && (!h.face || Math.abs(h.face.normal.clone().transformDirection(h.object.matrixWorld).y) < 0.5));
+    raycaster.far = Infinity;
+    return hit ? Math.max(0, hit.distance - 0.45) : total;
+  }
+  function walkTo(x: number, floor: number, z: number, faceTo?: Vector3) {
+    const from = camera.position.clone();
+    let to = new Vector3(x, floor + EYE, z);
+    const can = clearDistance(from, to);
+    const want = Math.hypot(to.x - from.x, to.z - from.z);
+    if (can < want - 0.01) {
+      const k = want ? can / want : 0;
+      to = new Vector3(from.x + (to.x - from.x) * k, from.y, from.z + (to.z - from.z) * k);
+    }
+    if (faceTo) {
+      const { yaw, pitch } = yawPitchTo(faceTo, to);
+      glide(to, yaw, Math.max(-0.9, Math.min(0.9, pitch)));
+    } else {
+      const moved = Math.hypot(to.x - from.x, to.z - from.z);
+      const yaw = moved > 0.6 ? Math.atan2(-(to.x - from.x), -(to.z - from.z)) : look.yaw;
+      glide(to, yaw, moved > 0.6 ? 0.02 : look.pitch);
+    }
+  }
+  /** Կանգնել `center`-ի դիմաց `dist` հեռավորության վրա (`facing`՝ որ կողմից, առանց դրա՝ մեր կողմից)։ */
+  function approachPoint(center: Vector3, dist = 2.2, facing?: Vector3) {
+    const dir = (facing ?? new Vector3(camera.position.x - center.x, 0, camera.position.z - center.z)).setY(0);
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1);
+    dir.normalize();
+    let spot: Vector3 | null = null;
+    for (let d = dist; d >= 0.5; d -= 0.25) {
+      const c = center.clone().addScaledVector(dir, d);
+      if (walkable(c.x, c.z)) { spot = c; break; }
+    }
+    if (!spot) return;
+    const floor = floorAt(spot.x, spot.z, Math.max(camera.position.y, center.y) + 0.3) ?? camera.position.y - EYE;
+    walkTo(spot.x, floor, spot.z, center);
+  }
+  const itemCenter = (item: Item) => {
+    const y = item.y ?? 0;
+    return item.type === "icon" || item.type === "procession-icon" ? new Vector3(item.at[0], y + (item.h ?? 1.6) / 2, item.at[1]) : new Vector3(item.at[0], y + 0.8, item.at[1]);
+  };
+  const itemFacing = (item: Item) => {
+    const a = ((item.rot ?? 0) * Math.PI) / 180;
+    return new Vector3(Math.sin(a), 0, Math.cos(a)); // rot 0՝ դեմքով դեպի արևմուտք (+z)
+  };
+  function approachItem(item: Item) {
+    const flat = item.type === "icon" || item.type === "procession-icon";
+    const size = Math.max(item.w ?? 1, item.h ?? 1.6);
+    approachPoint(itemCenter(item), flat ? Math.max(1.6, size * 1.15) : 2.1, flat ? itemFacing(item) : undefined);
+  }
+  function approachSpot(at: V3, item?: Item) {
+    if (item) approachItem(item);
+    else approachPoint(new Vector3(...at));
+  }
+  function tapWalk(clientX: number, clientY: number) {
+    const rect = canvas.getBoundingClientRect();
+    pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObject(interior, true).find((h) => solid(h.object));
+    if (!hit) return;
+    const p = hit.point;
+    const normal = hit.face ? hit.face.normal.clone().transformDirection(hit.object.matrixWorld) : new Vector3(0, 1, 0);
+    // Մոտակա պարագան (սրբապատկեր, սեղան, մոմակալ…)՝ մոտենալ դիմացը։
+    let best: Item | null = null;
+    let bestDist = Infinity;
+    for (const item of model.items) {
+      if (item.type === "chandelier" || item.type === "column" || item.type === "bench") continue;
+      const reach = Math.max(0.8, (item.w ?? 1) / 2 + 0.3, (item.h ?? 0) / 2 + 0.2);
+      const d = itemCenter(item).distanceTo(p);
+      if (d < reach && d < bestDist) { best = item; bestDist = d; }
+    }
+    if (best) {
+      approachItem(best);
+    } else if (normal.y > 0.6) {
+      if (!walkable(p.x, p.z)) return;
+      mark.position.set(p.x, p.y + 0.02, p.z);
+      mark.visible = true;
+      markStart = performance.now();
+      walkTo(p.x, p.y, p.z);
+    } else if (Math.abs(normal.y) < 0.6) {
+      approachPoint(p.clone(), 2.2, new Vector3(normal.x, 0, normal.z));
+    }
+  }
+  function enterAt(entry: { at: Vector3; inward: Vector3 }) {
+    applyMode("walk");
+    options.onModeChange?.("walk");
+    if (!fovTouched) walkFov = defaultFov();
+    resize();
+    camera.position.copy(entry.at).addScaledVector(entry.inward, 0.6).setY(EYE);
+    look.yaw = Math.atan2(-entry.inward.x, -entry.inward.z);
+    look.pitch = 0.02;
+    applyLook();
+    const spot = entrySpot(entry);
+    glide(spot, look.yaw, 0.02);
+  }
+  function tapOutside(clientX: number, clientY: number) {
+    const rect = canvas.getBoundingClientRect();
+    pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+    const hit = raycaster.intersectObject(exterior, true).find((h) => solid(h.object));
+    if (!hit || hit.point.y > 5) return;
+    const entry = entries
+      .map((item) => ({ item, d: Math.hypot(item.at.x - hit.point.x, item.at.z - hit.point.z) }))
+      .filter((item) => item.d < 2.2)
+      .sort((a, b) => a.d - b.d)[0]?.item;
+    if (entry) enterAt(entry);
+  }
+
+  // Մատ/մկնիկ «Ներսից» ռեժիմում. մեկ մատ՝ նայել, երկու մատ կամ անիվ՝ մոտեցնել (տեսադաշտ), հպում՝ գնալ։
+  const touches = new Map<number, { x: number; y: number; x0: number; y0: number; t0: number }>();
+  let pinch = 0;
+  let dragged = false;
+  let started = false;
+  const begin = () => { if (!started) { started = true; options.onWalkStart?.(); } };
+  function walkDown(event: PointerEvent) {
+    if (options.edit && editing && mode !== "outside") return;
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY, x0: event.clientX, y0: event.clientY, t0: performance.now() });
+    if (touches.size === 1) dragged = false;
+    if (touches.size === 2) {
+      const [a, b] = [...touches.values()];
+      pinch = Math.hypot(a.x - b.x, a.y - b.y);
+      dragged = true;
+    }
+    if (mode === "walk") canvas.setPointerCapture?.(event.pointerId);
+  }
+  function walkMove(event: PointerEvent) {
+    const t = touches.get(event.pointerId);
+    if (!t) return;
+    const dx = event.clientX - t.x;
+    const dy = event.clientY - t.y;
+    t.x = event.clientX;
+    t.y = event.clientY;
+    if (!dragged && Math.hypot(t.x - t.x0, t.y - t.y0) > 7) dragged = true;
+    if (mode !== "walk" || !dragged) return;
+    if (touches.size >= 2) {
+      const [a, b] = [...touches.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch > 0) zoomWalk(pinch / dist);
+      pinch = dist;
+      return;
+    }
+    begin();
+    stopMove();
+    const k = ((camera.fov * Math.PI) / 180) / Math.max(1, height);
+    look.yaw += dx * k;
+    look.pitch = Math.max(-1.25, Math.min(1.25, look.pitch + dy * k));
+    applyLook();
+  }
+  function walkUp(event: PointerEvent) {
+    const t = touches.get(event.pointerId);
+    touches.delete(event.pointerId);
+    if (!t || event.type === "pointercancel") return;
+    const tap = !dragged && touches.size === 0 && performance.now() - t.t0 < 700;
+    if (!tap) return;
+    if (mode === "walk") { begin(); tapWalk(event.clientX, event.clientY); }
+    else if (mode === "outside" && !options.edit) tapOutside(event.clientX, event.clientY);
+  }
+  function zoomWalk(factor: number) {
+    fovTouched = true;
+    walkFov = Math.max(30, Math.min(85, walkFov * factor));
+    resize();
+  }
+  canvas.addEventListener("pointerdown", walkDown);
+  canvas.addEventListener("pointermove", walkMove);
+  canvas.addEventListener("pointerup", walkUp);
+  canvas.addEventListener("pointercancel", walkUp);
+  canvas.addEventListener("wheel", (event) => {
+    if (mode !== "walk") return;
+    event.preventDefault();
+    zoomWalk(Math.exp(event.deltaY * 0.0015));
+  }, { passive: false });
+
   const observer = new ResizeObserver(resize);
   observer.observe(host);
   if (options.view) {
     applyMode(options.view.mode);
     focus(options.view.eye, options.view.look);
   } else {
-    applyMode("cutaway");
-    home("cutaway");
+    // Խմբագրիչում՝ վերևից (պարագաները դասավորելու համար), կայքում՝ ներսից, մուտքի մոտից։
+    const start: ViewMode = options.edit ? "cutaway" : "walk";
+    applyMode(start);
+    home(start);
   }
   resize();
 
@@ -446,7 +791,9 @@ export function createChurchScene(host: HTMLElement, options: {
     setCandles,
     highlight,
     setEditing(on: boolean) { editing = on; },
-    getView: () => ({ mode, eye: camera.position.toArray() as unknown as V3, look: controls.target.toArray() as unknown as V3 }),
+    setPlacing(on: boolean) { placing = on; },
+    getView: () => ({ mode, eye: camera.position.toArray() as unknown as V3, look: (mode === "walk" ? camera.position.clone().add(lookDir(look.yaw, look.pitch)) : controls.target).toArray() as unknown as V3 }),
+    approach(at, item) { if (mode === "walk") approachSpot(at, item); },
     select(id) {
       for (const dot of dots) dot.button.setAttribute("aria-pressed", String(dot.spot.id === id));
     },
@@ -462,7 +809,7 @@ export function createChurchScene(host: HTMLElement, options: {
         priest.position.set(...step.priest);
         priest.rotation.y = (((step.priestRot ?? 180) * Math.PI) / 180);
         robe.color.set(step.vested ? VESTED : ROBE);
-        if (mode !== "cutaway") applyMode("cutaway");
+        if (mode !== "cutaway") { applyMode("cutaway"); options.onModeChange?.("cutaway"); }
         focus(step.eye, step.look);
       } else {
         requestRender();
@@ -473,7 +820,12 @@ export function createChurchScene(host: HTMLElement, options: {
     },
     dispose() {
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(anim);
       window.clearTimeout(tick);
+      canvas.removeEventListener("pointerdown", walkDown);
+      canvas.removeEventListener("pointermove", walkMove);
+      canvas.removeEventListener("pointerup", walkUp);
+      canvas.removeEventListener("pointercancel", walkUp);
       host.removeEventListener("pointerdown", onDown, { capture: true });
       visibility.disconnect();
       document.removeEventListener("visibilitychange", updateLoop);

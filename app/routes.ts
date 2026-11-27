@@ -84,6 +84,7 @@ export default [
   route("etiquette/:topic", "routes/etiquette-redirect.ts", { id: "etiquette-topic-old" }),
   // Փորձնական 3D եկեղեցի (թաքնված էջ, միայն staging)
   route("church-3d", "routes/church-3d.tsx"),
+  route("api/church-icon", "routes/church-icon-upload.ts"),
   route("api/church-candles", "routes/church-candles.ts"),
   route("sitemap.xml", "routes/sitemap.ts"),
   // Link-preview cards, drawn ahead of time into R2: /og/card/psalms/25, /og/card/psalms/25/8.

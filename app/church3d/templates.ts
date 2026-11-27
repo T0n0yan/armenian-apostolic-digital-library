@@ -236,7 +236,79 @@ const ETCHMIADZIN: ChurchModelV2 = {
   ],
 };
 
+
+// Սուրբ Գրիգոր Առաջնորդանիստ եկեղեցի՝ տիրոջ լուսանկարներից (2026-11-27)։ ⚑ Ճշտել. բոլոր չափերը մոտավոր են
+// (նկարների համամասնություններից), սրբապատկերների պատերը՝ նկարներից ենթադրված։ Եռանավ դահլիճ փայտե գերաններով
+// առաստաղով, ամեն կողմում երեք ազատ սյուն, արևմտյան մուտքի վրա պատշգամբ (աստիճանը՝ հյուսիս-արևմտյան անկյունում),
+// դրսից՝ նարնջագույն և սև տուֆի «շախմատ», բազալտե ցոկոլ, կղմինդր, հարավային կողմում՝ զանգակատուն-մուտք։
+const SG = "/church3d/surb-grigor";
+const SURB_GRIGOR: ChurchModelV2 = {
+  version: 2,
+  id: "surb-grigor",
+  name: "Սուրբ Գրիգոր Առաջնորդանիստ (⚑ փորձ)",
+  tuff: "ochre",
+  look: { masonry: "checker", accent: "black", plinth: 0.7, roof: "tile", cornice: true },
+  blocks: [
+    {
+      // Ներսը՝ եռանավ (դրսի տեսքը տալիս է «shell»-ը, որովհետև դրսից մեկ ընդհանուր երկթեք տանիք է)։
+      id: "main", kind: "hall", name: "Եռանավ դահլիճ", part: "nav", partAt: [0, 1.6, 4], at: [0, 2], width: 12.8, length: 20, height: 8.6, ceiling: "beams", roof: "gable", rise: 3,
+      aisles: { width: 3.2, height: 6.2, columns: 5 }, hide: ["outside"],
+      doors: [{ wall: "west", w: 2, h: 3.2, part: "mutq" }],
+      windows: [
+        { wall: "south", y: 3.7, w: 0.9, h: 1.7, count: 4, gap: 4.4 },
+        { wall: "north", y: 3.7, w: 0.9, h: 1.7, count: 4, gap: 4.4 },
+        { wall: "west", at: -4.6, y: 4.2, w: 0.6, h: 1.4 }, { wall: "west", at: 4.6, y: 4.2, w: 0.6, h: 1.4 },
+      ],
+    },
+    {
+      id: "shell", kind: "hall", name: "Դրսի պատեր և տանիք", at: [0, 2], width: 12.8, length: 20, height: 7.4, ceiling: "flat", roof: "gable", rise: 3.2, hide: ["inside"],
+      doors: [{ wall: "west", w: 2, h: 3.2 }],
+      windows: [
+        { wall: "south", y: 3.7, w: 0.9, h: 1.7, count: 4, gap: 4.4, frame: "hood" },
+        { wall: "north", y: 3.7, w: 0.9, h: 1.7, count: 4, gap: 4.4, frame: "hood" },
+        { wall: "west", at: -4.6, y: 4.2, w: 0.6, h: 1.4 }, { wall: "west", at: 4.6, y: 4.2, w: 0.6, h: 1.4 },
+      ],
+    },
+    { id: "khoran", kind: "apse", name: "Խորան", parent: "main", wall: "east", width: 5.2, depth: 2.8, outside: "hidden" },
+    // Ավանդատներ՝ կողային նավերի արևելյան դռներով (⚑ ճշտել)։ Դրսից երևում է «Արևելյան բարձր մասը»։
+    { id: "avandatun-n", kind: "hall", name: "Հյուսիսային ավանդատուն", part: "avandatun", parent: "main", wall: "east", offset: 5.4, width: 1.8, length: 3, height: 4.5, ceiling: "flat", roof: "flat", linkW: 1, linkH: 2.2, hide: ["outside"] },
+    { id: "avandatun-s", kind: "hall", name: "Հարավային ավանդատուն", part: "avandatun", parent: "main", wall: "east", offset: -5.4, width: 1.8, length: 3, height: 4.5, ceiling: "flat", roof: "flat", linkW: 1, linkH: 2.2, hide: ["outside"] },
+    {
+      id: "arevelk", kind: "hall", name: "Արևելյան բարձր մաս", parent: "shell", wall: "east", width: 13.6, length: 4.2, height: 8.4, ceiling: "flat", roof: "gable", ridge: "width", rise: 3.4, link: "none", hide: ["inside"],
+      windows: [{ wall: "east", y: 5.6, w: 0.6, h: 1.4 }],
+    },
+    { id: "zangakatun", kind: "belfry", name: "Զանգակատուն (մուտքով)", parent: "shell", offset: [8.2, -1.5], tower: 7.6, towerSize: 3.2, porch: { w: 1.9, h: 3.4 }, radius: 1.2, columns: 8, height: 2.2 },
+  ],
+  bema: { outline: [[-3.2, -5.6], [3.2, -5.6], [3.2, -8], [2.6, -8, 2.6], [-2.6, -8], [-3.2, -8]], height: 1.1, stairs: "center", curtainTop: 7.8 },
+  balconies: [{ outline: [[-3.2, 9.4], [3.2, 9.4], [3.2, 12], [-3.2, 12]], floor: 3.4, part: "das-hark", stairs: { at: [-5.4, 6.6], dir: [0, 1], width: 1 } }],
+  items: [
+    { type: "altar", at: [0, -9.2], y: 1.1 },
+    { type: "gospel", at: [0.35, -9.1], y: 2.15, rot: 10 },
+    { type: "chalice", at: [-0.45, -9.05], y: 2.15 },
+    { type: "candlestick", at: [-2.7, -5.95], y: 1.1 },
+    { type: "candlestick", at: [2.7, -5.95], y: 1.1 },
+    { type: "icon", at: [0, -10.74], y: 2.2, w: 2.1, h: 2.58, shape: "rect", subject: "theotokos", image: `${SG}/astvatsatsin.webp`, name: "Սուրբ Աստվածածին Մանուկ Հիսուսով (Ավագ խորանի պատկերը)" },
+    // Սրբապատկերներ՝ ⚑ ճշտել պատերը։
+    { type: "icon", at: [-6.37, 4.2], y: 1.3, w: 1.45, h: 2.13, rot: 90, shape: "rect", subject: "christ", image: `${SG}/mkrtutyun.webp`, name: "Քրիստոսի Մկրտությունը" },
+    { type: "icon", at: [6.37, 4.2], y: 1.3, w: 1.5, h: 1.95, rot: -90, shape: "rect", subject: "christ", image: `${SG}/khachelutyun.webp`, name: "Խաչելությունը" },
+    { type: "icon", at: [6.37, -0.2], y: 1.3, w: 1.3, h: 1.8, rot: -90, shape: "rect", subject: "saint", image: `${SG}/bartoghimeos.webp`, name: "Սուրբ Բարթողիմեոս առաքյալ" },
+    { type: "icon", at: [-4.0, -7.97], y: 1.3, w: 1.3, h: 1.77, shape: "rect", subject: "saint", image: `${SG}/tadeos.webp`, name: "Սուրբ Թադեոս առաքյալ" },
+    { type: "icon", at: [4.0, -7.97], y: 1.3, w: 1.4, h: 1.76, shape: "rect", subject: "saint", image: `${SG}/grigor.webp`, name: "Սուրբ Գրիգոր (⚑ ճշտել՝ ով է)" },
+    // Նստարաններ նավում (դեմքով դեպի խորան), երկար նստարաններ՝ մուտքի մոտ։
+    ...[-3.6, -2.4, -1.2, 0, 1.2, 2.4, 3.6].flatMap((z) => [
+      { type: "bench" as const, at: [-1.75, z] as const, rot: 180, w: 2.3 },
+      { type: "bench" as const, at: [1.75, z] as const, rot: 180, w: 2.3 },
+    ]),
+    { type: "lectern", at: [1.6, -4.8], rot: -20 },
+    { type: "candle-table", at: [3.6, 8.6] },
+    { type: "candle-table", at: [-5.6, 2], rot: 90 },
+    { type: "candle-table", at: [5.6, 2], rot: -90 },
+    { type: "chandelier", at: [0, 4.4], y: 6.2, top: 11 },
+    { type: "chandelier", at: [0, -3.2], y: 6.2, top: 11 },
+  ],
+};
+
 /** Բլոկներով ձևանմուշները (v2)։ */
-export const BLOCK_TEMPLATES: readonly ChurchModelV2[] = [CROSS_DOMED, SINGLE_NAVE, THREE_NAVE, ETCHMIADZIN];
+export const BLOCK_TEMPLATES: readonly ChurchModelV2[] = [CROSS_DOMED, SINGLE_NAVE, THREE_NAVE, ETCHMIADZIN, SURB_GRIGOR];
 /** Նույնը՝ կառուցված ձևով (3D-ի և հին խմբագրիչի համար)։ */
 export const TEMPLATES: readonly ChurchModel[] = BLOCK_TEMPLATES.map((template) => compileModel(template).model);

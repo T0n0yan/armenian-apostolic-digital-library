@@ -38,7 +38,8 @@ type Mode = ViewMode | "plan";
 type Status = "loading" | "ready" | "fallback";
 
 const MODES: Array<{ id: Mode; label: string }> = [
-  { id: "cutaway", label: "Ներսից" },
+  { id: "walk", label: "Ներսից" },
+  { id: "cutaway", label: "Վերևից" },
   { id: "outside", label: "Դրսից" },
   { id: "plan", label: "Հատակագիծ" },
 ];
@@ -106,7 +107,16 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
   const [mine, setMine] = useState(false);
   const [lighting, setLighting] = useState(false);
   const [status, setStatus] = useState<Status>("loading");
-  const [mode, setMode] = useState<Mode>("cutaway");
+  const [mode, setMode] = useState<Mode>("walk");
+  // «Ներսից»-ի հուշումը՝ մինչև առաջին շարժումը (հիշվում է այս բրաուզերում)։
+  const [hintDone, setHintDone] = useState(true);
+  useEffect(() => {
+    try { setHintDone(localStorage.getItem("church3d-walk-hint") === "1"); } catch { setHintDone(false); }
+  }, []);
+  const walkStarted = () => {
+    setHintDone(true);
+    try { localStorage.setItem("church3d-walk-hint", "1"); } catch { /* բրաուզերի հիշողությունը փակ է */ }
+  };
   const [selected, setSelected] = useState<string | null>(null);
   const [tour, setTour] = useState<number | null>(null);
   // Կետի սեղմումը գալիս է three.js-ից. ref-ը՝ որ միշտ վերջին ֆունկցիան կանչվի։
@@ -122,7 +132,12 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
         setMode("plan");
         return;
       }
-      sceneRef.current = createChurchScene(hostRef.current, { model, onPick: (id) => pickRef.current(id) });
+      sceneRef.current = createChurchScene(hostRef.current, {
+        model,
+        onPick: (id) => pickRef.current(id),
+        onModeChange: (next) => setMode(next),
+        onWalkStart: walkStarted,
+      });
       setStatus("ready");
     }).catch(() => {
       if (cancelled) return;
@@ -184,7 +199,7 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
     if (id === templateId) return;
     setTour(null);
     setSelected(null);
-    setMode((current) => (current === "plan" ? "plan" : "cutaway"));
+    setMode((current) => (current === "plan" ? "plan" : "walk"));
     setTemplateId(id);
   }
 
@@ -201,6 +216,11 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
     if (!scene) return;
     const view: ViewMode = spot.view === "outside" ? "outside" : "cutaway";
     if (tour !== null) endTour();
+    // «Ներսից» ռեժիմում ներսի մասին մոտենում ենք քայլելով, ոչ թե թռչում վերևից։
+    if (view === "cutaway" && mode === "walk") {
+      scene.approach(spot.at, spot.item);
+      return;
+    }
     setMode(view);
     scene.setMode(view);
     scene.focus(spot.eye, spot.look);
@@ -278,8 +298,11 @@ export default function Church3D({ loaderData }: Route.ComponentProps) {
               </div>
             </Corner>
           ) : null}
-          {status === "ready" && mode !== "plan" && !step ? (
-            <p className="pointer-events-none absolute right-2 bottom-14 m-0 hidden text-[11.5px] text-faint sm:block">Մատով՝ պտտել · երկու մատով՝ մոտեցնել</p>
+          {status === "ready" && (mode === "cutaway" || mode === "outside") && !step ? (
+            <p className="pointer-events-none absolute right-2 bottom-14 m-0 hidden text-[11.5px] text-faint sm:block">{mode === "outside" ? "Մատով՝ պտտել · դռան վրա սեղմել՝ մտնել ներս" : "Մատով՝ պտտել · երկու մատով՝ մոտեցնել"}</p>
+          ) : null}
+          {status === "ready" && mode === "walk" && !step && !hintDone ? (
+            <p className="pointer-events-none absolute bottom-14 left-1/2 z-[2] m-0 -translate-x-1/2 rounded-full border border-edge bg-[var(--sheet-bg)] px-3 py-1.5 text-center text-[12.5px] whitespace-nowrap text-ink shadow-[0_1px_4px_rgb(0_0_0/25%)]">Սահեցրու՝ նայելու համար, սեղմիր՝ գնալու</p>
           ) : null}
           {candleOpen ? (
             // Մոմավառությունը՝ հենց մոմակալի մոտ (canvas-ի վրա), ոչ էջի ներքևում։
