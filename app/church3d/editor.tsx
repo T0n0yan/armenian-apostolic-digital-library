@@ -2,10 +2,11 @@
 // կամարների ծայրերը, գմբեթը, կողքին 3D-ն է, որտեղ պարագաները նույնպես սեղմվում և քաշվում են։
 // Քաշելիս օգնական գծերը կպցնում են կետը մյուս կետերի ուղղությանը (ուղղահայաց/հորիզոնական պատեր), ցույց են տալիս չափերը։
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { Copy, Plus, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
+import { Copy, Crosshair, Eye, Hand, Plus, Redo2, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
+import { Corner, FullscreenButton, canvasButton, canvasPill, canvasSegment } from "./canvas-tools";
 import { fieldControl, fieldLabel } from "../components/ui-styles";
 import {
-  bounds, edgesOf, polygonOf, type Arcade, type ChurchModel, type Dome, type Item, type ItemType, type Mass, type Niche,
+  bounds, edgesOf, itemAnchor, polygonOf, type Arcade, type ChurchModel, type Dome, type Item, type ItemType, type Mass, type Niche,
   type OpeningShape, type Pt, type TuffColor, type V3, type Vault, type Vertex,
 } from "./model";
 import { gptPrompt } from "./prompt";
@@ -59,14 +60,33 @@ function Check({ label, value, onChange }: { label: string; value: boolean; onCh
   return <label className="flex min-h-9 items-center gap-2 text-[13px]"><input type="checkbox" checked={value} onChange={(event) => onChange(event.target.checked)} /> {label}</label>;
 }
 
+/** Ի՞նչ փոխվեց երկու տարբերակի միջև (հայերեն, «Հետ/Առաջ»-ի հուշման համար)։ */
+const PART_LABELS: Record<string, string> = {
+  rooms: "սենյակներ", vaults: "կամարներ", arcades: "սյունաշարեր", masses: "դրսի ծավալներ", dome: "գմբեթ", domes: "գմբեթներ",
+  belfry: "զանգակատուն", belfries: "զանգակատներ", bema: "բեմ", balconies: "պատշգամբ", tuff: "քարի գույն", look: "տեսք", name: "անուն",
+};
+function describeChange(a: ChurchModel, b: ChurchModel) {
+  const items = a.items.length !== b.items.length ? Math.max(a.items.length, b.items.length) - 1
+    : a.items.findIndex((item, i) => JSON.stringify(item) !== JSON.stringify(b.items[i]));
+  if (items >= 0 && JSON.stringify(a.items) !== JSON.stringify(b.items)) {
+    const item = b.items[items] ?? a.items[items];
+    const what = a.items.length < b.items.length ? "ավելացված" : a.items.length > b.items.length ? "ջնջված" : "տեղը/չափը";
+    return `${item ? ITEM_LABELS[item.type] : "պարագա"} (${what})`;
+  }
+  const keys = Object.keys(PART_LABELS).filter((key) => JSON.stringify((a as Record<string, unknown>)[key]) !== JSON.stringify((b as Record<string, unknown>)[key]));
+  return keys.length ? keys.map((key) => PART_LABELS[key]).join(", ") : "փոփոխություն";
+}
+
 /**
  * 3D նախադիտում. տեսարանը նորից է կառուցվում փոփոխությունից 0,35 վրկ հետո, տեսախցիկը մնում է տեղում։
  * Ներսի տեսքում պարագաները սեղմվում (ընտրվում) և քաշվում են։
  */
-function Preview({ model, mode, selected, onSelectItem, onMoveItem }: {
-  model: ChurchModel; mode: ViewMode; selected: number | null;
+function Preview({ model, mode, selected, editing, api, onSelectItem, onMoveItem }: {
+  model: ChurchModel; mode: ViewMode; selected: number | null; editing: boolean; api: { current: ChurchScene | null };
   onSelectItem: (index: number | null) => void; onMoveItem: (index: number, at: Pt) => void;
 }) {
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<ChurchScene | null>(null);
   const view = useRef<{ mode: ViewMode; eye: V3; look: V3 } | undefined>(undefined);
@@ -88,23 +108,27 @@ function Preview({ model, mode, selected, onSelectItem, onMoveItem }: {
         edit: { onSelectItem: (i) => hooks.current.onSelectItem(i), onMoveItem: (i, at) => hooks.current.onMoveItem(i, at) },
       });
       scene.current.setMode(modeRef.current);
+      scene.current.setEditing(editingRef.current);
       scene.current.highlight(selected);
+      api.current = scene.current;
     }).catch(() => {});
     return () => {
       cancelled = true;
       if (scene.current) view.current = scene.current.getView();
       scene.current?.dispose();
       scene.current = null;
+      api.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- տեսարանը կառուցվում է միայն մոդելը փոխվելիս
   }, [shown]);
   useEffect(() => { scene.current?.highlight(selected); }, [selected, shown]);
   useEffect(() => { scene.current?.setMode(mode); if (view.current) view.current = { ...view.current, mode }; }, [mode]);
+  useEffect(() => { scene.current?.setEditing(editing); }, [editing]);
   return (
     <>
       <div ref={host} className="absolute inset-0" />
-      <p className="pointer-events-none absolute right-0 bottom-1.5 left-0 m-0 text-center text-[11.5px] text-faint">
-        {mode === "cutaway" ? "Պարագան սեղմեք՝ ընտրելու, քաշեք՝ տեղափոխելու" : "Դրսի տեսք"}
+      <p className="pointer-events-none absolute right-0 bottom-14 left-0 m-0 text-center text-[11.5px] text-faint">
+        {mode !== "cutaway" ? "Դրսի տեսք" : editing ? "Պարագան սեղմեք՝ ընտրելու, քաշեք՝ տեղափոխելու" : "Դիտել. միայն պտտել և մոտեցնել"}
       </p>
     </>
   );
@@ -320,10 +344,31 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
   const [copied, setCopied] = useState("");
   const [addType, setAddType] = useState<ItemType>("bench");
   const dragBase = useRef<ChurchModel | null>(null);
+  const [future, setFuture] = useState<ChurchModel[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef<number | undefined>(undefined);
+  const sceneApi = useRef<ChurchScene | null>(null);
+  const planCard = useRef<HTMLDivElement>(null);
+  const previewCard = useRef<HTMLDivElement>(null);
+  // Ստեղնաշարով՝ Ctrl/⌘+Z՝ հետ, Ctrl/⌘+Shift+Z կամ Ctrl+Y՝ առաջ (ոչ դաշտերում գրելիս)։
+  const keys = useRef({ undo: () => {}, redo: () => {} });
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!(event.ctrlKey || event.metaKey) || target?.closest("input, textarea, select")) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) { event.preventDefault(); keys.current.undo(); }
+      else if ((key === "z" && event.shiftKey) || key === "y") { event.preventDefault(); keys.current.redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const dirty = useMemo(() => JSON.stringify(model) !== JSON.stringify(initial), [model, initial]);
 
   const commit = (next: ChurchModel) => {
     setPast((list) => [...list.slice(-39), model]);
+    setFuture([]);
     setModel(next);
   };
   const edit = (change: (draft: Draft) => void) => {
@@ -335,9 +380,35 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
     const previous = past.at(-1);
     if (!previous) return;
     setPast((list) => list.slice(0, -1));
+    setFuture((list) => [...list, model]);
     setModel(previous);
     setSelection(null);
+    say(`Հետ՝ ${describeChange(model, previous)}`);
   };
+  const redo = () => {
+    const next = future.at(-1);
+    if (!next) return;
+    setFuture((list) => list.slice(0, -1));
+    setPast((list) => [...list, model]);
+    setModel(next);
+    setSelection(null);
+    say(`Առաջ՝ ${describeChange(model, next)}`);
+  };
+  const say = (text: string) => {
+    setToast(text);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(""), 3500);
+  };
+  /** Տեսախցիկը՝ ընտրված պարագայի մոտ։ */
+  const focusSelected = () => {
+    if (selection?.type !== "item") { say("Նախ ընտրեք պարագա"); return; }
+    const item = model.items[selection.index];
+    if (!item) return;
+    const { at, front } = itemAnchor(item);
+    sceneApi.current?.focus([at[0] + front[0] * 4, at[1] + 1.6, at[2] + front[1] * 4], at);
+  };
+
+  keys.current = { undo, redo };
 
   function drag(target: Target, point: Pt) {
     if (!dragBase.current) dragBase.current = model;
@@ -411,12 +482,17 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
       {children}
     </section>
   );
-  const switchLayer = (next: Layer) => { setLayer(next); setMode(next === "outside" ? "outside" : "cutaway"); setSelection(null); };
+  const historyButtons = (
+    <>
+      <button type="button" className={canvasButton} disabled={!past.length} aria-label="Հետ" title="Հետ (Ctrl+Z)" onClick={undo}><Undo2 aria-hidden="true" size={16} /></button>
+      <button type="button" className={canvasButton} disabled={!future.length} aria-label="Առաջ" title="Առաջ (Ctrl+Shift+Z)" onClick={redo}><Redo2 aria-hidden="true" size={16} /></button>
+    </>
+  );
+    const switchLayer = (next: Layer) => { setLayer(next); setMode(next === "outside" ? "outside" : "cutaway"); setSelection(null); };
 
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className={small} disabled={!past.length} onClick={undo}><Undo2 aria-hidden="true" size={15} /> Հետ</button>
         <button type="button" className={`${small} !border-[rgb(217_181_111/60%)] !bg-[linear-gradient(135deg,#e2c27e,#b07d2e)] !text-[#2a1708]`} disabled={saving || !dirty} onClick={() => onSave(model)}>
           {saving ? "Պահվում է…" : dirty ? "Պահել սևագիրը" : "Պահված է"}
         </button>
@@ -461,24 +537,42 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
       ) : (
         <>
           <div className="grid gap-4 min-[960px]:grid-cols-2">
-            <div className="paper-card relative h-[min(56svh,540px)] min-h-[320px] overflow-hidden">
+            <div ref={planCard} className="paper-card relative h-[min(56svh,540px)] min-h-[320px] overflow-hidden">
               <div className="absolute inset-0 p-2"><PlanEditor model={model} layer={layer} selection={selection} guidesOn={guidesOn} onSelect={setSelection} onDrag={drag} onDragEnd={dragEnd} /></div>
-              <div className="absolute top-2 left-2 flex gap-1 rounded-button border border-edge bg-[var(--sheet-bg)] p-1">
-                <button type="button" className={segment(layer === "inside")} onClick={() => switchLayer("inside")}>Ներս</button>
-                <button type="button" className={segment(layer === "outside")} onClick={() => switchLayer("outside")}>Դուրս</button>
-              </div>
+              <Corner at="top-left">
+                <div className={canvasPill}>
+                  <button type="button" className={canvasSegment(layer === "inside")} onClick={() => switchLayer("inside")}>Ներս</button>
+                  <button type="button" className={canvasSegment(layer === "outside")} onClick={() => switchLayer("outside")}>Դուրս</button>
+                </div>
+              </Corner>
+              <Corner at="top-right">{historyButtons}<FullscreenButton target={planCard} /></Corner>
               <p className="pointer-events-none absolute right-0 bottom-1.5 left-0 m-0 text-center text-[11.5px] text-faint">
                 {layer === "inside" ? "Քաշեք կետերը, պարագաները, կամարների ծայրերը" : "Քաշեք դրսի պատերի կետերը, գմբեթը, զանգակատունը"}
               </p>
             </div>
-            <div className="paper-card relative h-[min(56svh,540px)] min-h-[320px] overflow-hidden">
-              <Preview model={model} mode={mode} selected={selection?.type === "item" ? selection.index : null}
+            <div ref={previewCard} className="paper-card relative h-[min(56svh,540px)] min-h-[320px] overflow-hidden">
+              <Preview model={model} mode={mode} selected={selection?.type === "item" ? selection.index : null} editing={editing} api={sceneApi}
                 onSelectItem={(index) => setSelection(index === null ? null : { type: "item", index })}
                 onMoveItem={(index, at) => { edit((m) => { m.items[index].at = [at[0], at[1]]; }); setSelection({ type: "item", index }); }} />
-              <div className="absolute top-2 left-2 flex gap-1 rounded-button border border-edge bg-[var(--sheet-bg)] p-1">
-                <button type="button" className={segment(mode === "cutaway")} onClick={() => setMode("cutaway")}>Ներսից</button>
-                <button type="button" className={segment(mode === "outside")} onClick={() => setMode("outside")}>Դրսից</button>
-              </div>
+              <Corner at="top-left">
+                <div className={canvasPill} role="group" aria-label="Ռեժիմ">
+                  <button type="button" className={canvasSegment(!editing)} aria-pressed={!editing} title="Միայն պտտել և մոտեցնել, ոչինչ չի շարժվում" onClick={() => setEditing(false)}><Eye aria-hidden="true" size={14} className="inline align-[-2px]" /> Դիտել</button>
+                  <button type="button" className={canvasSegment(editing)} aria-pressed={editing} title="Սեղմել և քաշել պարագաները" onClick={() => setEditing(true)}><Hand aria-hidden="true" size={14} className="inline align-[-2px]" /> Խմբագրել</button>
+                </div>
+              </Corner>
+              <Corner at="top-right">{historyButtons}</Corner>
+              <Corner at="bottom-left">
+                <div className={canvasPill}>
+                  <button type="button" className={canvasSegment(mode === "cutaway")} onClick={() => setMode("cutaway")}>Ներսից</button>
+                  <button type="button" className={canvasSegment(mode === "outside")} onClick={() => setMode("outside")}>Դրսից</button>
+                </div>
+              </Corner>
+              <Corner at="bottom-right">
+                <button type="button" className={canvasButton} aria-label="Մոտեցնել ընտրվածին" title="Մոտեցնել ընտրված պարագային" onClick={focusSelected}><Crosshair aria-hidden="true" size={16} /></button>
+                <button type="button" className={canvasButton} aria-label="Սկզբնական տեսք" title="Սկզբնական տեսք" onClick={() => sceneApi.current?.reset()}><RotateCcw aria-hidden="true" size={16} /></button>
+                <FullscreenButton target={previewCard} />
+              </Corner>
+              {toast ? <p className="pointer-events-none absolute top-14 left-1/2 z-[3] m-0 -translate-x-1/2 rounded-full border border-edge bg-[var(--sheet-bg)] px-3 py-1 text-[12.5px] font-semibold text-gold-bright shadow-[0_2px_8px_rgb(0_0_0/30%)]" role="status">{toast}</p> : null}
             </div>
           </div>
 
