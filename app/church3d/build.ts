@@ -377,6 +377,7 @@ function roomShell(kit: Kit, room: Room) {
   const polygon = polygonOf(room.outline);
   kit.add("floor", flatShape(polygon, 0, "up"));
   if (room.ceiling === "flat") kit.add("tuff", flatShape(polygon, room.height, "down"));
+  for (const patch of room.ceilings ?? []) kit.add("tuff", flatShape(patch, room.height, "down"));
   for (const apse of room.apses ?? []) {
     const edge = edges[apse.edge];
     if (!edge?.bulge) continue;
@@ -777,7 +778,9 @@ export function itemParts(item: Item, detail: boolean) {
     }
     case "column": {
       const h = item.h ?? 4;
-      local.add("stone", box(0.7, 0.25, 0.7, 0, 0, 0), cylinder(0.25, 0.28, h - 0.5, 16, 0, 0.25, 0), box(0.7, 0.25, 0.7, 0, h - 0.25, 0));
+      // `w`-ով՝ զանգվածեղ քառանիստ մույթ (գմբեթը կրող սյուն), առանց՝ բարակ կլոր սյուն։
+      if (item.w && item.w > 0.8) local.add("stone", box(item.w + 0.2, 0.4, item.w + 0.2, 0, 0, 0), box(item.w, h - 0.7, item.w, 0, 0.4, 0), box(item.w + 0.3, 0.3, item.w + 0.3, 0, h - 0.3, 0));
+      else local.add("stone", box(0.7, 0.25, 0.7, 0, 0, 0), cylinder(0.25, 0.28, h - 0.5, 16, 0, 0.25, 0), box(0.7, 0.25, 0.7, 0, h - 0.25, 0));
       break;
     }
     case "chalice": {
@@ -979,6 +982,15 @@ function massShell(kit: Kit, mass: Mass) {
       }
     }
   }
+  if (mass.arches) {
+    // Բաց կամարներ (զանգակատան սրահ)՝ ամեն ուղիղ պատի մեջտեղում։
+    for (const edge of edgesOf(mass.outline)) {
+      if (edge.bulge) continue;
+      const mid = v3([(edge.a[0] + edge.b[0]) / 2, (edge.a[1] + edge.b[1]) / 2], base);
+      const out = h3(edge.inward[0]).negate();
+      kit.add("extDark", panel("arch", mass.arches.w, mass.arches.h, mid.addScaledVector(out, 0.02), out));
+    }
+  }
   const roof = mass.roof;
   if (roof.type === "flat") kit.add("roof", flatShape(polygon, mass.height, "up"));
   if (roof.type === "gable" || roof.type === "shed") gableRoof(kit, mass);
@@ -999,6 +1011,93 @@ function massShell(kit: Kit, mass: Mass) {
   }
 }
 
+/** Թմբուկի կույր կամարներ. ամեն նիստին երկու կիսասյունիկ և կամար (ռելիեֆ, որ լույսից երևա)։ */
+function drumArcade(kit: Kit, dome: Dome, c: Vector3, apothem: number, R: number, top: number) {
+  const facet = 2 * R * Math.sin(Math.PI / dome.sides);
+  const hw = facet * 0.4;
+  const y0 = dome.base - 0.2;
+  const spring = top - hw - 0.35;
+  if (spring <= y0 + 0.5) return;
+  for (let i = 0; i < dome.sides; i++) {
+    const t = (Math.PI * 2 * (i + 0.5)) / dome.sides;
+    const d = new Vector3(Math.sin(t), 0, Math.cos(t));
+    const across = new Vector3(d.z, 0, -d.x);
+    const face = c.clone().addScaledVector(d, apothem + 0.06);
+    for (const sign of [-1, 1]) {
+      const p = face.clone().addScaledVector(across, sign * hw);
+      kit.add("extTuff", cylinder(0.09, 0.09, spring - y0, 6, p.x, y0, p.z));
+    }
+    const arch = new TorusGeometry(hw, 0.09, 4, 10, Math.PI);
+    kit.add("extTuff", place(clean(arch), face.clone().setY(spring), d));
+  }
+}
+
+/** Զարդ պատուհանի վրա. ճակտոն (եռանկյուն փոքր տանիքով) կամ կամարաձև շրջանակ։ */
+function windowFrame(kit: Kit, frame: "pediment" | "hood", w: number, top: Vector3, out: Vector3) {
+  const across = new Vector3(out.z, 0, -out.x);
+  if (frame === "hood") {
+    kit.add("extTuff", place(clean(new TorusGeometry(w / 2 + 0.12, 0.07, 4, 10, Math.PI)), top.clone().addScaledVector(out, 0.05).setY(top.y - w / 2), out));
+    return;
+  }
+  const half = w / 2 + 0.4;
+  const rise = Math.min(0.7, half * 0.6);
+  const y = top.y + 0.15;
+  const front = top.clone().addScaledVector(out, 0.14).setY(y);
+  const back = top.clone().addScaledVector(out, 0.01).setY(y);
+  const tri = new Shape([new Vector2(-half, 0), new Vector2(half, 0), new Vector2(0, rise)]);
+  kit.add("extTuff", place(clean(new ShapeGeometry(tri)), front, out));
+  for (const sign of [-1, 1]) {
+    const a = front.clone().addScaledVector(across, sign * half);
+    const b = front.clone().setY(y + rise);
+    const n = new Vector3(0, half, 0).addScaledVector(across, sign * rise).normalize();
+    kit.add("extTuff", surface(1, 1, (u, v) => new Vector3().lerpVectors(a, b, u).addScaledVector(out, -0.13 * v), constant(n)));
+  }
+  kit.add("extTuff", surface(1, 1, (u, v) => front.clone().addScaledVector(across, half * (2 * u - 1)).lerp(back.clone().addScaledVector(across, half * (2 * u - 1)), v), constant(UP.clone().negate())));
+}
+
+/** Քիվ՝ ծավալի պատերի վերևում դուրս ցցված գոտի։ */
+function cornice(kit: Kit, mass: Mass) {
+  const inner = polygonOf(mass.outline);
+  const outer = offsetPolygon(inner, 0.16);
+  const h = 0.32;
+  const top = mass.height;
+  outer.forEach((p, i) => {
+    const q = outer[(i + 1) % outer.length];
+    const a = v3(p, 0);
+    const b = v3(q, 0);
+    const dir = new Vector3().subVectors(b, a);
+    if (dir.lengthSq() < 1e-8) return;
+    dir.normalize();
+    const n = new Vector3(dir.z, 0, -dir.x);
+    if (n.dot(new Vector3(inner[i][0], 0, inner[i][1]).sub(a)) > 0) n.negate();
+    kit.add("extTuff", quad(a, b, top - h, top, n));
+    const ia = v3(inner[i], top - h);
+    const ib = v3(inner[(i + 1) % inner.length], top - h);
+    kit.add("extTuff", surface(1, 1, (u, v) => new Vector3().lerpVectors(a.clone().setY(top - h), b.clone().setY(top - h), u).lerp(new Vector3().lerpVectors(ia, ib, u), v), constant(UP.clone().negate())));
+  });
+}
+
+/** Քառասյուն հիմք՝ ամեն կողմից կամարով բաց (Էջմիածնի ռոտոնդաների տակ)։ */
+function pavilion(kit: Kit, x: number, z: number, side: number, y: number, height: number) {
+  const pier = Math.max(0.35, side * 0.16);
+  const half = side / 2;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) kit.add("extTuff", box(pier, height, pier, x + sx * (half - pier / 2), y, z + sz * (half - pier / 2)));
+  const span = side - 2 * pier;
+  const spring = y + Math.max(0.4, height - span / 2 - 0.35);
+  const sides: Array<[Vector3, Vector3]> = [[new Vector3(0, 0, 1), new Vector3(1, 0, 0)], [new Vector3(0, 0, -1), new Vector3(1, 0, 0)], [new Vector3(1, 0, 0), new Vector3(0, 0, 1)], [new Vector3(-1, 0, 0), new Vector3(0, 0, 1)]];
+  for (const [n, across] of sides) {
+    const center = new Vector3(x, spring, z).addScaledVector(n, half);
+    kit.add("extTuff", ...spandrels(center, across, span / 2, span / 2, y + height - spring, n));
+    // Կամարի ներքևի կորը (հաստությամբ)։
+    const c = new Vector3(x, spring, z).addScaledVector(n, half - pier / 2);
+    kit.add("extTuff", surface(1, 10, (u, v) => {
+      const t = Math.PI * v;
+      return c.clone().addScaledVector(n, (u - 0.5) * pier).addScaledVector(across, (span / 2) * Math.cos(t)).addScaledVector(UP, (span / 2) * Math.sin(t));
+    }, (p) => c.clone().addScaledVector(n, new Vector3().subVectors(p, c).dot(n)).sub(p).normalize()));
+  }
+  kit.add("extTuff", flatShape([[x - half, z - half], [x + half, z - half], [x + half, z + half], [x - half, z + half]], y + height - 0.01, "down"));
+}
+
 function domeOutside(kit: Kit, dome: Dome) {
   const c = v3(dome.at, 0);
   const apothem = dome.radius + 0.4;
@@ -1006,10 +1105,11 @@ function domeOutside(kit: Kit, dome: Dome) {
   // Թմբուկը սկսվում է տանիքի մեջից, որ գմբեթը երբեք օդում չկախվի։
   const y0 = Math.min(dome.drumFrom ?? dome.base - 0.4, dome.base - 0.4);
   const y1 = dome.base + dome.drum + dome.radius * 0.33;
-  // Նիստերը՝ անկյունով դեպի հյուսիս-արևելք, որ պատուհանները ընկնեն նիստերի մեջտեղը։
-  const turn = Math.PI / dome.sides;
+  // Նիստերի անկյունները՝ 0-ից, որ պատուհանները (drumDirections) ընկնեն նիստերի մեջտեղը։
+  const turn = 0;
   kit.add("extTuff", clean(new CylinderGeometry(R, R, y1 - y0, dome.sides, 1, false, turn).translate(c.x, (y0 + y1) / 2, c.z), true));
-  const coneH = dome.radius * 0.95;
+  const coneH = dome.radius * (dome.capHeight ?? 0.95);
+  if (dome.arcade) drumArcade(kit, dome, c, apothem, R, y1);
   const rim = R + 0.5;
   if (dome.cap === "umbrella") {
     // Հովանոցաձև. ամեն նիստի վրա փոքր ճակտոն, տանիքը՝ ծալքերով։
@@ -1032,12 +1132,12 @@ function domeOutside(kit: Kit, dome: Dome) {
         kit.add("capRoof", surface(1, 1, (u, v) => new Vector3().lerpVectors(p, q, u).lerp(apex, v), constant(face)));
       }
     }
-  } else {
+  } else if (dome.cap !== "none") {
     kit.add("capRoof", clean(new ConeGeometry(rim, coneH, dome.sides, 1, true, turn).translate(c.x, y1 + coneH / 2, c.z), true));
   }
   kit.add("capRoof", clean(new ShapeGeometry(circleShape(rim), 6).rotateX(Math.PI / 2).translate(c.x, y1, c.z)));
-  const cy = y1 + coneH + (dome.cap === "umbrella" ? 0.3 : 0);
-  kit.add("gold", box(0.14, 1.5, 0.14, c.x, cy - 0.1, c.z), box(0.8, 0.14, 0.14, c.x, cy + 0.8, c.z));
+  const cy = dome.cap === "none" ? y1 : y1 + coneH + (dome.cap === "umbrella" ? 0.3 : 0);
+  if (dome.cross !== false) kit.add("gold", box(0.14, 1.5, 0.14, c.x, cy - 0.1, c.z), box(0.8, 0.14, 0.14, c.x, cy + 0.8, c.z));
   const w = dome.windows;
   if (w) {
     for (const d of drumDirections(dome)) {
@@ -1049,8 +1149,15 @@ function domeOutside(kit: Kit, dome: Dome) {
 function belfry(kit: Kit, belfry: Belfry) {
   const [x, z] = belfry.at;
   const { base, columns } = belfry;
-  kit.add("extTuff", box(belfry.radius * 2.6, 0.8, belfry.radius * 2.6, x, base, z));
-  let y = base + 0.8;
+  const side = belfry.radius * 2.6;
+  let y = base;
+  if (belfry.pavilion) {
+    // Քառասյուն հիմք՝ չորս կողմից բաց կամարներով։
+    pavilion(kit, x, z, side, y, belfry.pavilion);
+    y += belfry.pavilion;
+  }
+  kit.add("extTuff", box(side, 0.8, side, x, y, z));
+  y += 0.8;
   let r = belfry.radius;
   const tiers = Math.max(1, Math.round(belfry.tiers ?? 1));
   for (let t = 0; t < tiers; t++) {
@@ -1071,7 +1178,7 @@ function belfry(kit: Kit, belfry: Belfry) {
     if (t < tiers - 1) r *= 0.82;
   }
   kit.add("capRoof", clean(new ConeGeometry(r + 0.45, 1.5, 12).translate(x, y + 0.75, z), true));
-  kit.add("gold", box(0.08, 0.8, 0.08, x, y + 1.5, z), box(0.4, 0.08, 0.08, x, y + 1.95, z));
+  if (belfry.cross !== false) kit.add("gold", box(0.08, 0.8, 0.08, x, y + 1.5, z), box(0.4, 0.08, 0.08, x, y + 1.95, z));
 }
 
 /** Պատուհաններն ու դռները՝ դրսի պատին (ներսի դիրքից դեպի դուրս ամենամոտ պատը)։ */
@@ -1084,7 +1191,9 @@ function openingsOutside(kit: Kit, model: ChurchModel) {
         const { p, n } = pointOnEdge(edges[window.edge], s);
         const out: Pt = [-n[0], -n[1]];
         const hit = exteriorHit(model, p, out, window.y, window.h);
-        if (hit) kit.add("extDark", panel(window.shape ?? "arch", window.w, window.h, v3(hit.p, window.y).addScaledVector(h3(out), 0.02), h3(out)));
+        if (!hit) continue;
+        kit.add("extDark", panel(window.shape ?? "arch", window.w, window.h, v3(hit.p, window.y).addScaledVector(h3(out), 0.02), h3(out)));
+        if (window.frame) windowFrame(kit, window.frame, window.w, v3(hit.p, window.y + window.h), h3(out));
       }
     }
     for (const door of room.doors ?? []) {
@@ -1136,6 +1245,7 @@ export function buildChurch(model: ChurchModel, materials: Map<LookName, Materia
   const doorsOut = openingsOutside(outside, model);
   const plinthHeight = model.look?.plinth ?? 0;
   if (plinthHeight > 0) for (const m of model.masses) if (!(m.base ?? 0)) plinth(outside, m, plinthHeight, doorsOut);
+  if (model.look?.cornice) for (const m of model.masses) if (m.height > (m.base ?? 0) + 0.5) cornice(outside, m);
 
   const domes = domesOf(model);
   const top = domes.length ? Math.max(...domes.map((d) => d.base + d.drum + d.radius)) : Math.max(...model.vaults.map((v) => v.spring + (v.rise ?? v.width / 2)), ...model.rooms.map((r) => r.height));

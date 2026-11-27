@@ -9,7 +9,7 @@ import {
   type OpeningShape, type Pt, type TuffColor, type V3, type Vault, type Vertex,
 } from "./model";
 import { gptPrompt } from "./prompt";
-import { TEMPLATES } from "./templates";
+import { BLOCK_TEMPLATES, TEMPLATES } from "./templates";
 import { validateAnyModel } from "./blocks";
 import type { ChurchScene, ViewMode } from "./scene";
 
@@ -450,7 +450,7 @@ export function ChurchEditor({ initial, placeId, placeName, saving, errors, onSa
             GPT-ով. սեղմեք «Պատճենել GPT-ի հրահանգը», տվեք GPT-ին եկեղեցու նկարների (դրսից, ներսից, հատակագիծ) հետ, պատասխանը տեղադրեք այստեղ և սեղմեք «Կիրառել»։ Արդյունքը մոտավոր կլինի. ճշգրտեք «Խմբագրել» ներդիրում։
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={small} onClick={() => copy(gptPrompt(TEMPLATES[0], placeName), "prompt")}><Copy aria-hidden="true" size={15} /> {copied === "prompt" ? "Պատճենված է" : "Պատճենել GPT-ի հրահանգը"}</button>
+            <button type="button" className={small} onClick={() => copy(gptPrompt(BLOCK_TEMPLATES[0], placeName), "prompt")}><Copy aria-hidden="true" size={15} /> {copied === "prompt" ? "Պատճենված է" : "Պատճենել GPT-ի հրահանգը"}</button>
             <button type="button" className={small} onClick={() => copy(JSON.stringify(model, null, 2), "json")}><Copy aria-hidden="true" size={15} /> {copied === "json" ? "Պատճենված է" : "Պատճենել JSON"}</button>
           </div>
           <textarea className={`${fieldControl} min-h-[320px] font-mono text-[12px] leading-[1.45]`} spellCheck={false} value={json} onChange={(event) => setJson(event.target.value)} />

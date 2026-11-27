@@ -165,7 +165,59 @@ const THREE_NAVE: ChurchModelV2 = {
   cameras: { "das-hark": { eye: [2, 2.4, 0], look: [0, 3.8, 11] }, nav: { eye: [0, 5.3, 11], look: [0, 2.6, -3] } },
 };
 
+// Մայր Աթոռ Սուրբ Էջմիածին՝ առաջին իրական օրինակ։ ⚑ Ճշտել. բոլոր չափերը մոտավոր են (լուսանկարների համամասնություններից),
+// կառուցվածքը՝ աղբյուրներից. խաչաձև հատակագիծ չորս անկախ սյուներով, կենտրոնական գմբեթ ութանիստ թմբուկով, դուրս ցցված
+// խորաններ (ներսից կիսաշրջան, դրսից նիստավոր), հյուսիսային, արևելյան և հարավային խորանների վրա վեցսյուն ռոտոնդաներ
+// քառասյուն կամարավոր հիմքերի վրա, արևմտյան մուտքի առջև եռահարկ զանգակատուն, արևելքում՝ կցակառույց (թանգարան)։
+const H = 11;
+const ETCHMIADZIN: ChurchModelV2 = {
+  version: 2,
+  id: "etchmiadzin",
+  name: "Մայր Աթոռ Սուրբ Էջմիածին (⚑ փորձ)",
+  tuff: "pink",
+  look: { masonry: "plain", plinth: 1.1, roof: "stone", cornice: true },
+  blocks: [
+    {
+      id: "main", kind: "cross", name: "Տաճար (չորս սյուներով)", part: "nav", partAt: [0, 1.8, 5], half: 4.2, arms: { west: 4, east: 4, north: 4, south: 4 }, height: H, outside: "square", rise: 3, piers: 1.6,
+      doors: [{ wall: "west", w: 2.4, h: 4, part: "mutq" }, { wall: "north", at: 5.6, w: 1.6, h: 3 }, { wall: "south", at: -5.6, w: 1.6, h: 3 }],
+      windows: [
+        { wall: "west", at: -5.4, y: 6, w: 0.8, h: 2.2, count: 2, gap: 1.4, frame: "pediment" }, { wall: "west", at: 5.4, y: 6, w: 0.8, h: 2.2, count: 2, gap: 1.4, frame: "pediment" },
+        { wall: "south", at: 5.6, y: 6, w: 0.8, h: 2.2, count: 2, gap: 1.4, frame: "pediment" }, { wall: "south", at: -5.6, y: 6.6, w: 0.7, h: 2 },
+        { wall: "north", at: -5.6, y: 6, w: 0.8, h: 2.2, count: 2, gap: 1.4, frame: "pediment" }, { wall: "north", at: 5.6, y: 6.6, w: 0.7, h: 2 },
+        { wall: "east", at: 6, y: 6.6, w: 0.7, h: 2 }, { wall: "east", at: -6, y: 6.6, w: 0.7, h: 2 },
+      ],
+    },
+    { id: "khoran", kind: "apse", name: "Արևելյան խորան", parent: "main", wall: "east", width: 8.4, depth: 4, outside: "faceted", roof: "flat", windows: [{ y: 5, w: 0.6, h: 2 }, { at: -4.5, y: 5, w: 0.6, h: 2 }, { at: 4.5, y: 5, w: 0.6, h: 2 }] },
+    { id: "khoran-n", kind: "apse", name: "Հյուսիսային խորան", part: "avandatun", parent: "main", wall: "north", width: 8.4, depth: 4, outside: "faceted", roof: "flat", windows: [{ y: 5, w: 0.6, h: 2 }] },
+    { id: "khoran-s", kind: "apse", name: "Հարավային խորան", part: "avandatun", parent: "main", wall: "south", width: 8.4, depth: 4, outside: "faceted", roof: "flat", windows: [{ y: 5, w: 0.6, h: 2 }] },
+    { id: "gmbet", kind: "dome", name: "Գլխավոր գմբեթ", parent: "main", radius: 3.8, drum: 5, sides: 8, cap: "cone", capHeight: 1.75, arcade: true, windows: { count: 8, w: 0.7, h: 2 } },
+    { id: "rotonda-e", kind: "belfry", name: "Արևելյան ռոտոնդա", parent: "main", offset: [0, -10.2], y: H + 0.2, pavilion: 3, radius: 1.1, columns: 6, height: 2.2 },
+    { id: "rotonda-n", kind: "belfry", name: "Հյուսիսային ռոտոնդա", parent: "main", offset: [-10.2, 0], y: H + 0.2, pavilion: 3, radius: 1.1, columns: 6, height: 2.2 },
+    { id: "rotonda-s", kind: "belfry", name: "Հարավային ռոտոնդա", parent: "main", offset: [10.2, 0], y: H + 0.2, pavilion: 3, radius: 1.1, columns: 6, height: 2.2 },
+    { id: "zangakatun", kind: "belfry", name: "Եռահարկ զանգակատուն", parent: "main", offset: [0, 12.2], tower: H, towerSize: 7.2, porch: { w: 3.4, h: 5.4 }, pavilion: 3.6, radius: 1.4, columns: 8, height: 2.6 },
+    {
+      id: "tangaran", kind: "hall", name: "Արևելյան կցակառույց (թանգարան)", parent: "main", wall: "east", gap: 4.6, width: 15, length: 8, height: 8, ceiling: "flat", roof: "flat", link: "none",
+      windows: [{ wall: "south", y: 3, w: 0.9, h: 2.4, frame: "hood" }, { wall: "north", y: 3, w: 0.9, h: 2.4, frame: "hood" }, { wall: "east", y: 4, w: 1.2, h: 1.2, shape: "round" }, { wall: "east", at: -4.5, y: 3, w: 0.9, h: 2.4, frame: "pediment" }, { wall: "east", at: 4.5, y: 3, w: 0.9, h: 2.4, frame: "pediment" }],
+    },
+  ],
+  bema: { outline: [[-4.2, -6.6], [4.2, -6.6], [4.2, -8.2, 4], [-4.2, -8.2]], height: 1.5, stairs: "sides", atyan: { width: 5.6, depth: 2, height: 0.35 }, curtainTop: H - 0.4 },
+  items: [
+    { type: "altar", at: [0, -10.3], y: 1.5 },
+    { type: "gospel", at: [0.35, -10.2], y: 2.55, rot: 10 },
+    { type: "chalice", at: [-0.45, -10.15], y: 2.55 },
+    { type: "fan", at: [-1.6, -10.4], y: 1.5 },
+    { type: "fan", at: [1.6, -10.4], y: 1.5 },
+    { type: "candlestick", at: [-3.6, -7], y: 1.5 },
+    { type: "candlestick", at: [3.6, -7], y: 1.5 },
+    { type: "icon", at: [0, -12.02], y: 5, w: 2.4, h: 3.4, name: "Սուրբ Աստվածածնի սրբապատկեր" },
+    { type: "lectern", at: [0, -4.6], y: 0.35 },
+    { type: "choir", at: [-6, -4], rot: 90 },
+    { type: "candle-table", at: [3.4, 6] },
+    { type: "chandelier", at: [0, 0], y: 11.6, top: 15 },
+  ],
+};
+
 /** Բլոկներով ձևանմուշները (v2)։ */
-export const BLOCK_TEMPLATES: readonly ChurchModelV2[] = [CROSS_DOMED, SINGLE_NAVE, THREE_NAVE];
+export const BLOCK_TEMPLATES: readonly ChurchModelV2[] = [CROSS_DOMED, SINGLE_NAVE, THREE_NAVE, ETCHMIADZIN];
 /** Նույնը՝ կառուցված ձևով (3D-ի և հին խմբագրիչի համար)։ */
 export const TEMPLATES: readonly ChurchModel[] = BLOCK_TEMPLATES.map((template) => compileModel(template).model);
