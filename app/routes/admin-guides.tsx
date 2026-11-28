@@ -78,7 +78,7 @@ export default function AdminGuides({ loaderData, actionData }: Route.ComponentP
         <Form method="post" className={`${panelSection} grid gap-3`}>
           <h2 className="m-0 text-[16px] font-bold">Նոր ուղեցույց</h2>
           <input className={fieldControl} name="title" placeholder="Վերնագիր" required maxLength={160} />
-          <input className={fieldControl} name="slug" placeholder="Հասցե՝ լատինատառ (օր.՝ baptism)" required pattern="[a-z0-9-]{2,40}" />
+          <input className={fieldControl} name="slug" placeholder="Հասցե՝ լատինատառ (օր.՝ baptism)" required pattern="[a-z0-9\-]{2,40}" />
           {actionData?.error ? <p className="m-0 text-[13px] text-danger">{actionData.error}</p> : null}
           <button className={`${primaryButton} w-fit`} type="submit"><Plus aria-hidden="true" size={16} />Ստեղծել սևագիր</button>
         </Form>
