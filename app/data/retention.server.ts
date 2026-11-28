@@ -16,6 +16,8 @@ export async function removeOldData(db: D1Database, testDataDays?: string) {
     // 3D եկեղեցու մոմերը վառվում են մինչև օրվա վերջ. 3 օրից հին տողերը պետք չեն։
     db.prepare("DELETE FROM church_candles WHERE day < date('now', '-3 days')"),
     db.prepare("DELETE FROM church_candle_totals WHERE day < date('now', '-3 days')"),
+    // Ոչինչ չգտած որոնումներ (questions.server.ts)՝ 90 օր։
+    db.prepare("DELETE FROM search_misses WHERE day < date('now', '-90 days')"),
   ];
   const days = Number(testDataDays);
   if (Number.isInteger(days) && days > 0) {

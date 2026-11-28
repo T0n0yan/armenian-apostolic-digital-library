@@ -162,4 +162,6 @@ export function guideInput(form: { get(name: string): unknown }) {
 export type GuideInput = NonNullable<ReturnType<typeof guideInput>>;
 
 /** Կարգեր և վարքեր բաժնի մյուս խմբագիրները՝ /admin/guides էջում։ */
-export const GUIDE_TOOLS: Array<{ to: string; title: string; note: string }> = [];
+export const GUIDE_TOOLS: Array<{ to: string; title: string; note: string }> = [
+  { to: "/admin/questions", title: "Հարց ու պատասխան", note: "Հարցեր և «ինչ էին փնտրում ու չգտան»" },
+];

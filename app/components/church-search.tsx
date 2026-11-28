@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { EtiquetteHit } from "../utils/etiquette-search";
 import { card, groupTitle } from "./etiquette-ui";
+import { ASK_URL } from "../utils/questions";
 
 /** «Կարգեր և վարքեր»-ի որոնման դաշտը (հարցումը՝ ?q=)։ */
 export const ChurchSearchField = forwardRef<HTMLInputElement>(function ChurchSearchField(_, ref) {
@@ -22,24 +23,24 @@ export const ChurchSearchField = forwardRef<HTMLInputElement>(function ChurchSea
 
 /** Արդյունքները՝ բոլոր ենթաբաժիններից։ */
 /** Որոնումը սերվերում է (ուղեցույցները բազայում են)։ null՝ դեռ բեռնվում է։ */
-export function useChurchSearch(query: string, limit = 20) {
+export function useChurchSearch(query: string, limit = 20, record = false) {
   const [hits, setHits] = useState<EtiquetteHit[] | null>(null);
   useEffect(() => {
     if (!query.trim()) { setHits([]); return; }
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/church-search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal: controller.signal })
+      fetch(`/api/church-search?q=${encodeURIComponent(query)}&limit=${limit}${record ? "&record=1" : ""}`, { signal: controller.signal })
         .then((response) => response.json() as Promise<{ hits: EtiquetteHit[] }>)
         .then((data) => setHits(data.hits))
         .catch(() => { if (!controller.signal.aborted) setHits([]); });
-    }, 200);
+    }, record ? 700 : 200);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [query, limit]);
+  }, [query, limit, record]);
   return hits;
 }
 
 export function ChurchSearchResults({ query }: { query: string }) {
-  const hits = useChurchSearch(query);
+  const hits = useChurchSearch(query, 20, true);
   if (!hits) return <p className="mt-5 mb-0 px-1 text-[13px] text-muted" aria-live="polite">Փնտրում ենք…</p>;
   return (
     <section className="mt-5 grid gap-2" aria-live="polite" aria-labelledby="church-found">
@@ -61,7 +62,7 @@ export function ChurchSearchResults({ query }: { query: string }) {
         </ul>
       ) : (
         <p className={`${card} m-0 px-4 py-4 text-[14px] leading-relaxed text-ink`}>
-          Այս հարցի պատասխանը դեռ չունենք։ <Link className="font-semibold text-gold-bright" to="/kap">Գրեք մեզ</Link>, և այն կավելացնենք։
+          Չգտա՞ք։ <a className="font-semibold text-gold-bright" href={ASK_URL} target="_blank" rel="noreferrer">Հարցրեք մեզ Telegram-ով</a>, և պատասխանը կավելացնենք։
         </p>
       )}
     </section>
