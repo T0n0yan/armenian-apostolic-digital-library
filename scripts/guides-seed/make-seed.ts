@@ -1,5 +1,6 @@
 // Ստեղծում է seed migration-ները (մեկ անգամ). npx tsx scripts/guides-seed/make-seed.ts
 // 0058՝ եղած բաժինները (Վարք եկեղեցում, Յոթ խորհուրդներ, Հիշատակության օրեր), 0059՝ նոր սևագրերը։
+// Հղում-քարտերը (ՀՏՀ, Տոնացույց, Պատարագամատույց, Շարականներ) սկզբում սևագիր են. իրենց քայլի migration-ը բացում է։
 // INSERT OR IGNORE՝ ադմինում արված փոփոխությունները չեն ջնջվում։
 import { readFileSync, writeFileSync } from "node:fs";
 import { normalizeGuideBody, normalizeSources } from "../../app/utils/guides";
@@ -15,7 +16,7 @@ const q = (value: string | number) => typeof value === "number" ? String(value) 
 const rows = (all: SeedGuide[]) => all.map((guide) => {
   const body = normalizeGuideBody({ blocks: guide.blocks ?? [], faq: guide.faq ?? [] });
   const values = [guide.slug, guide.title, guide.description, guide.summary ?? "", guide.kind ?? "guide", guide.link ?? "", guide.icon,
-    JSON.stringify(body), JSON.stringify(normalizeSources(guide.sources ?? [])), "review", guide.sort];
+    JSON.stringify(body), JSON.stringify(normalizeSources(guide.sources ?? [])), guide.kind === "link" && guide.slug !== "etiquette" ? "draft" : "review", guide.sort];
   return `INSERT OR IGNORE INTO guides (slug, title, description, summary, kind, link, icon, body_json, sources_json, status, sort) VALUES (${values.map(q).join(", ")});`;
 });
 const write = (file: string, note: string, all: SeedGuide[]) => writeFileSync(new URL(`../../migrations/${file}`, import.meta.url),

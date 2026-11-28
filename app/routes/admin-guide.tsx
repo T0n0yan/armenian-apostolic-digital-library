@@ -91,7 +91,7 @@ export default function AdminGuide({ loaderData, actionData }: Route.ComponentPr
                 {Object.keys(CHURCH_ICONS).map((icon) => <option key={icon} value={icon}>{icon}</option>)}
               </select>
             </label>
-            <label className={fieldLabel}>Հասցե<input className={fieldControl} name="slug" defaultValue={guide.slug} required pattern="[a-z0-9-]{2,40}" /></label>
+            <label className={fieldLabel}>Հասցե<input className={fieldControl} name="slug" defaultValue={guide.slug} required pattern="[a-z0-9\-]{2,40}" /></label>
             <label className={fieldLabel}>Կարգը ցուցակում<input className={fieldControl} name="sort" type="number" min={0} max={9999} defaultValue={guide.sort} /></label>
           </div>
           {kind === "link" ? (
@@ -128,7 +128,7 @@ export default function AdminGuide({ loaderData, actionData }: Route.ComponentPr
                   <textarea className={area} value={block[key] ?? ""} onChange={(event) => setBlock(index, { [key]: event.target.value })} placeholder={PART_HINTS[key]} />
                 </label>
               ))}
-              <label className={fieldLabel}>Խարիսխ (#)<input className={fieldControl} value={block.id} onChange={(event) => setBlock(index, { id: event.target.value.toLowerCase() })} pattern="[a-z0-9-]{1,40}" /><span className={fieldHint}>Լատինատառ. հղումը՝ {guidePath(guide)}#{block.id}</span></label>
+              <label className={fieldLabel}>Խարիսխ (#)<input className={fieldControl} value={block.id} onChange={(event) => setBlock(index, { id: event.target.value.toLowerCase() })} pattern="[a-z0-9\-]{1,40}" /><span className={fieldHint}>Լատինատառ. հղումը՝ {guidePath(guide)}#{block.id}</span></label>
             </section>
           ))}
           <button className={`${small} w-fit`} type="button" onClick={() => setBlocks((old) => [...old, { id: `b${old.length + 1}`, title: "", text: "" }])}><Plus aria-hidden="true" size={14} />Ավելացնել բլոկ</button>
