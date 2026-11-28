@@ -9,6 +9,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { CHURCH_TITLE } from "../data/church";
 import { getGuide } from "../data/guides.server";
+import { hymnCountsByHour } from "../data/hymns.server";
 import { BLOCK_PARTS, GUIDE_STATUSES, GUIDE_TAGS, isGuideSlug, type GuideBlock } from "../utils/guides";
 import { breadcrumbJsonLd, NOINDEX, seoMeta } from "../utils/seo";
 
@@ -19,7 +20,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const editor = can(admin, "guides");
   // Սևագիրը տեսնում է միայն խմբագիրը։
   if (guide.status === "draft" && !editor) throw new Response("Not Found", { status: 404 });
-  return { guide, editor };
+  // Ժամերգություններ. ամեն ժամի տակ՝ նրա շարականների հղումը։
+  const hymns = guide.slug === "hours" ? await hymnCountsByHour(env.DB).catch(() => ({})) : {};
+  return { guide, editor, hymns: hymns as Record<string, number> };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -39,7 +42,7 @@ const divider = "border-t border-[rgb(150_110_50/14%)]";
 const flag = "w-fit rounded-chip bg-[rgb(178_72_63/12%)] px-2 py-0.5 text-[11.5px] font-bold text-danger";
 
 /** Մեկ բլոկ՝ բացվող տող. վերնագիր և «երբ», սեղմելով՝ ձևանմուշի մասերը։ */
-function BlockItem({ block, first, open, draft }: { block: GuideBlock; first: boolean; open: boolean; draft: boolean }) {
+function BlockItem({ block, first, open, draft, hymns = 0 }: { block: GuideBlock; first: boolean; open: boolean; draft: boolean; hymns?: number }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (!open || !ref.current) return;
@@ -69,6 +72,7 @@ function BlockItem({ block, first, open, draft }: { block: GuideBlock; first: bo
                 <p className={`reading-body m-0 whitespace-pre-line text-[15px] leading-[1.7] text-ink ${key === "prayer" ? "prayer-text" : ""}`}>{block[key]}</p>
               </div>
         ) : null)}
+        {hymns ? <Link className="w-fit text-[14px] font-semibold text-gold-bright" to={`/church/sharakanner?hour=${block.id}`}>Շարականներ՝ {hymns} →</Link> : null}
       </div>
     </details>
   );
@@ -76,7 +80,7 @@ function BlockItem({ block, first, open, draft }: { block: GuideBlock; first: bo
 
 /** «Կարգեր և վարքեր»-ի ուղեցույցի էջ (Յոթ խորհուրդներ, Հիշատակության օրեր և այլն)։ */
 export default function ChurchGuide({ loaderData }: Route.ComponentProps) {
-  const { guide, editor } = loaderData;
+  const { guide, editor, hymns } = loaderData;
   const hash = decodeURIComponent(useLocation().hash.slice(1));
   const checked = guide.status === "published";
   return (
@@ -98,7 +102,7 @@ export default function ChurchGuide({ loaderData }: Route.ComponentProps) {
         <section className="mt-6 grid gap-2" aria-labelledby="guide-blocks">
           <h2 className={groupTitle} id="guide-blocks">Սեղմեք՝ կարդալու համար</h2>
           <div className={`${card} overflow-hidden`}>
-            {guide.body.blocks.map((block, index) => <BlockItem key={block.id} block={block} first={index === 0} open={hash === block.id} draft={!checked} />)}
+            {guide.body.blocks.map((block, index) => <BlockItem key={block.id} block={block} first={index === 0} open={hash === block.id} draft={!checked} hymns={hymns[block.id]} />)}
           </div>
         </section>
       ) : null}

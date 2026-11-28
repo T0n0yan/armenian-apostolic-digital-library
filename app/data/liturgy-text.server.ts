@@ -29,12 +29,12 @@ export async function saveLiturgyTimings(db: D1Database, starts: Record<string, 
 
 export async function getChurchAudio(db: D1Database, id: string): Promise<ChurchAudio | null> {
   const row = await db.prepare("SELECT id, object_key, size FROM church_audio WHERE id = ?").bind(id).first<{ id: string; object_key: string; size: number }>();
-  return row ? { id: row.id, url: churchAudioUrl(row.object_key), size: row.size } : null;
+  return row ? { id: row.id, url: churchAudioUrl(row.object_key, row.size), size: row.size } : null;
 }
 
 export async function listChurchAudio(db: D1Database, prefix: string) {
   const { results } = await db.prepare("SELECT id, object_key, size FROM church_audio WHERE id LIKE ?").bind(`${prefix}%`).all<{ id: string; object_key: string; size: number }>();
-  return new Map(results.map((row) => [row.id, { id: row.id, url: churchAudioUrl(row.object_key), size: row.size }]));
+  return new Map(results.map((row) => [row.id, { id: row.id, url: churchAudioUrl(row.object_key, row.size), size: row.size }]));
 }
 
 /** Նոր ֆայլը փոխարինում է նախորդին (հինը ջնջվում է R2-ից)։ */

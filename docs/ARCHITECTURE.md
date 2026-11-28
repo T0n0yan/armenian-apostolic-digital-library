@@ -336,7 +336,11 @@ flowchart LR
   HOME --> CH["/church Կարգեր և վարքեր"]
   CH --> ETQ["/church/etiquette Վարք եկեղեցում"]
   ETQ --> ETQT["/church/etiquette/:topic"]
-  CH --> CHG["/church/:section ուղեցույց (Հիշատակության օրեր…)"]
+  CH --> CHG["/church/:section ուղեցույց (բազայից, guides)"]
+  CH --> CHQ["/church/questions Հարց ու պատասխան"]
+  CH --> CHC["/church/calendar Տոնացույց և պահքի օրեր"]
+  CH --> CHP["/church/patarag Պատարագամատույց"]
+  CH --> CHH["/church/sharakanner Շարականներ"] --> CHH1["/church/sharakanner/:id"]
   PLACES --> PLACE["/places/:id"]
   PLACES --> PNEW["/places/new նոր սրբավայր"]
   HOME --> MY["/my-year Իմ տարին"]
@@ -349,17 +353,41 @@ flowchart LR
   ADM --> A3["/admin/usage Կայքի վիճակը"]
   ADM --> A4["/admin/glossary"]
   ADM --> A6["/admin/help Օգնության տեսանյութեր"]
+  ADM --> A7["/admin/guides Կարգեր և վարքեր<br/>(+ /admin/questions, /admin/calendar, /admin/patarag, /admin/hymns)"]
   A3 --> A5["/admin/media-inventory"]
 ```
 
-**Կարգեր և վարքեր** (`/church`). ենթաբաժինները՝ `app/data/church.ts` (`CHURCH_SECTIONS`). `kind: "etiquette"`՝ «Վարք եկեղեցում» (`/church/etiquette`, `/church/etiquette/:topic`, կանոններ՝ `app/data/etiquette.ts`, էջի ներածությունը՝ `ETIQUETTE_INTRO`, թեմաները՝ Ա «Մուտք և ելք», Բ «Հագուստ և տեսք», Գ «Մոմավառություն», Դ «Պատարագ և Հաղորդություն»…, տեքստում `\n`-ը նոր տող է; պիտակներ՝ Եկեղեցու կարգ / Ավանդույթ / Վարքի խորհուրդ / Սնահավատություն; `style: "prayer"`՝ աղոթքի ձևով; ադմինը կանոնին կարող է հղում կցել՝ `etiquette_links`)։ «Յոթ խորհուրդներ»՝ `/church/sacraments` (guide, աղբյուրը՝ Վրաստանի հայոց թեմի գրքույկները), `kind: "guide"`՝ մեկ էջ բացվող բլոկներով («երբ», «ինչ», «ինչու»), օր.՝ `/church/remembrance`։ `status: "soon"`՝ «Շուտով կավելանան» և 404։ **Սկզբունք**. ամեն պնդում՝ հոգևորականի գրքից (`docs/content/sources.md`), ամեն էջի ներքևում՝ աղբյուրը և «դիմեք ձեր ծխի քահանային» (`SourceNote`), պիտակը՝ աղբյուրի բառերից։ Որոնումը՝ `searchEtiquette()` (կանոններ + ուղեցույցի բլոկներ), դաշտը՝ `/church`-ում (`ChurchSearchField`) և `/church/etiquette`-ում, `/search`-ում՝ «Վարք եկեղեցում» բլոկ։ Հին `/etiquette...` հասցեները՝ 301 (`etiquette-redirect.ts`)։ Նոր ուղեցույցի էջ ավելացնելիս՝ միայն `church.ts` (և պատկերակ `ChurchIcon`-ում)։
+**Կարգեր և վարքեր** (`/church`, հոգևոր ուղեցույց). ենթաբաժինները **բազայում են**՝ `guides` աղյուսակ (migration 0057, `app/utils/guides.ts`, `app/data/guides.server.ts`), խմբագրում է `guides` իրավունքով ադմինը `/admin/guides`-ում։ Ամեն ուղեցույց՝ `kind: "guide"` (էջ `/church/:slug` բացվող բլոկներով) կամ `kind: "link"` (քարտ, որ տանում է այլ էջ՝ Վարք եկեղեցում, ՀՏՀ, Տոնացույց, Պատարագամատույց, Շարականներ)։ Բլոկի ձևանմուշը՝ ինչ է → երբ → ինչպես պատրաստվել → ընթացքը → տեքստ → ինչու, պիտակը՝ Կանոն / Ավանդույթ / Ժողովրդական սովորույթ, ներքևում՝ ՀՏՀ և աղբյուրներ։ Կարգավիճակ՝ `draft` (միայն խմբագիրը տեսնի, ընթերցողին՝ «Շուտով») / `review` («Ստուգման մեջ», ամեն բլոկում ⚑ Ճշտել) / `published` («Ստուգված է» + ով է ստուգել)։ Սկզբնական տեքստերը՝ `scripts/guides-seed/` (0058՝ եղածները, 0059՝ նոր սևագրերը)։ «Վարք եկեղեցում»-ը մնում է կոդում (`app/data/etiquette.ts`, `/church/etiquette`, `/church/etiquette/:topic`, պիտակներ՝ Եկեղեցու կարգ / Ավանդույթ / Վարքի խորհուրդ / Սնահավատություն, `etiquette_links`)։ **Սկզբունք**. ամեն պնդում՝ հոգևորականի գրքից (`docs/content/sources.md`), առանց աղբյուրի՝ ⚑, ամեն էջի ներքևում՝ «դիմեք ձեր ծխի քահանային» (`SourceNote`)։ Որոնումը սերվերում է՝ `/api/church-search` (`searchEtiquette()`. կանոններ + ուղեցույցներ + ՀՏՀ), դաշտը՝ `/church`-ում, `/search`-ում՝ «Կարգեր և վարքեր» բլոկ։ Հին `/etiquette...` հասցեները՝ 301։
+
+```mermaid
+flowchart TD
+  ADM["/admin/guides (իրավունք guides)"] --> G[("guides")]
+  ADM --> Q["/admin/questions"] --> GQ[("guide_questions")]
+  Q --> SM[("search_misses<br/>ինչ էին փնտրում ու չգտան, անանուն, 90 օր")]
+  ADM --> C["/admin/calendar"] --> CD[("calendar_days<br/>ձեռքով ուղղումներ")]
+  ADM --> P["/admin/patarag"] --> LL[("liturgy_lines<br/>մաս · ով · գրաբար · աշխարհաբար · ցուցում · բացատրություն · start")]
+  ADM --> H["/admin/hymns"] --> HY[("hymns")]
+  P & H -->|"/admin/church-audio/:id"| CA[("church_audio")] --> R2[("R2 church/")]
+  G --> HUB["/church · /church/:slug"]
+  GQ --> FAQ["/church/questions<br/>«Չգտա՞ք․ հարցրեք» → բոտ → Support խումբ"]
+  CD --> CAL["/church/calendar<br/>Զատկից հաշվարկ + ուղղումներ"] --> TODAY["գլխավոր էջ՝ «Այսօր» տող"]
+  LL --> PAT["/church/patarag<br/>հետևել / ձայնով տող առ տող"]
+  HY --> HYP["/church/sharakanner · /:id"] --> HRS["/church/hours (Ժամերգություններ)<br/>ամեն ժամի տակ՝ շարականները"]
+  R2 -->|"/church-media/:file?v=չափը"| PAT & HYP
+```
+
+- **ՀՏՀ** (`/church/questions`)՝ թեմաներով (`QUESTION_TOPICS`), տարբեր է `/questions`-ից (Աստվածաշնչի հարցեր)։ Ոչինչ չգտնելիս՝ «Չգտա՞ք․ հարցրեք» (`t.me/<bot>?start=contact` → Support խումբ)։ `search_misses`-ում պահվում է միայն բառը, օրը և աղբյուրը (`church`՝ /church-ի որոնում, `library`՝ կայքի որոնման զրո արդյունք)։
+- **Տոնացույց** (`app/utils/church-calendar.ts`)՝ տաղավար և շարժական տոները Զատկից (`easterDay`), Վերափոխում/Խաչվերաց՝ օգոստոսի 15-ին/սեպտեմբերի 14-ին ամենամոտ կիրակին, պահքերը՝ շրջաններով (Մեծ պահք, Առաջավորաց, շաբաթապահքեր) + չորեքշաբթի/ուրբաթ (բացի Զատիկ→Հոգեգալուստ և հունվարի 6–13)։ Ադմինը համեմատում է Մայր Աթոռի տոնացույցի հետ. «Թաքցնել» կամ «Ավելացնել» (`calendar_days`)։ ⚑ ամբողջ հաշվարկը պետք է ստուգի քահանան։ Գլխավոր էջի «Այսօր» տողը՝ `todayLine()` (ուղղումները քեշվում են 10 րոպե)։
+- **Պատարագամատույց** (`/church/patarag`)՝ «Գրաբար / Աշխարհաբար / Երկուսը», տառի չափ, «Էկրանը չմարի» (Screen Wake Lock), ժողովրդի (`people`, `all`) տողերը ընդգծված։ Ձայնագրությամբ՝ ընթացիկ տողը լուսավորվում է ըստ `start`-ի (`lineAt`), սեղմելով տողը՝ այնտեղից։ Ժամանակները նշում է ադմինը՝ նվագելիս «Տողը սկսվեց» (ինչպես `psalm-timings`-ը)։ Տեքստը մուտքագրում է տերը. սկզբում՝ 4 «ՕՐԻՆԱԿ» տող։
+- **Շարականներ**՝ տոն, ժամ (`HOURS`, նույն id-ները, ինչ Ժամերգությունների բլոկները), ձայնեղանակ (`MODES`), կատարող, ձայնագրություն (`church_audio` «hymn-<id>»)։
+- **Ձայնագրություններ**՝ մինչև 95 ՄԲ, MP3/M4A/OGG, նոր ֆայլը նոր բանալիով, հինը ջնջվում է։ Գիշերային `optimize-videos.ts`-ը սեղմում է նաև դրանք (աղբյուր `church`, նույն բանալիով, `church_audio.size`-ը փոխվում է, ուստի հղման `?v=`-ն էլ)։
 
 **API-ներ** (բրաուզերը կանչում է ֆոնում).
 `/api/search-page`, `/api/search-suggestions`, `/api/search-index`, `/api/content-version`, `/api/reading-log`,
 `/api/reminders`, `/api/calendar`, `/api/push`, `/api/saved-verses`, `/api/poll-vote`, `/api/psalm-timings`, `/api/material-layout`,
 `/api/presence`, `/api/highlights`, `/api/church-points`, `/api/place-visits`, `/api/places-search`, `/api/glossary`, `/api/sunday`, `/api/my-summary`,
-`/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`։
-**Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/og/card/...`, `/sitemap.xml`։
+`/api/telegram-link`, `/api/og-cards`, `/api/categories/:slug/posts`, `/api/help-videos`, `/api/church-search`։
+**Ֆայլեր**. `/media/...` (R2-ի պահուստային ճանապարհ), `/place-media/...`, `/help-media/...`, `/church-media/...`, `/og/card/...`, `/sitemap.xml`։
 
 **Որոնիչների համար (SEO)**. Ամեն էջի վերնագիրը, նկարագրությունը և structured data-ն տալիս է `seoMeta()`-ն (`app/utils/seo.ts`). վերնագիրը մինչև 65 նիշ է (`pageTitle()`), սեփական structured data չունեցող էջը ստանում է «Գլխավոր → էջ» ճանապարհը։ Սրբավայրի էջը մտնում է որոնման և sitemap-ի մեջ միայն երբ բովանդակություն ունի (`placeHasContent()`՝ պատմություն ≥ 80 նիշ, նկար, արարողություններ կամ ծառայողներ). դատարկները `noindex, follow` են, լրացվելուն պես ինքնուրույն բացվում են։ `/places`-ում և «ավելին»-ով բեռնվող բաժիններում (`/daily`, `/gospel`) բոլոր էջերի հղումները HTML-ում են՝ օգտատիրոջը հասանելի `<details>` ցանկերով։ Մոմի ներածությունը ցուցադրվում է միայն երբ այցը սկսվում է գլխավոր էջից (`root.tsx`)։ Սրբավայրի նկարը էջում՝ `?w=1200` (WebP, R2-ում պահվող), նախադիտման մեջ՝ `?w=1200&f=jpg` (JPEG)։ `/places`-ում ամեն մարզ մեկ բացվող քարտ է (`<details>`). փակ վիճակում ներսում պարզ հղումներ են, բացելիս՝ նկարներով ցանկը։ Սրբավայրի նկարների չափերը պահվում են `place_photo_sizes`-ում (migration 0053, լրացվում է ինքնուրույն՝ `placePhotoSizes()`), որ նկարի տեղը նախապես պահվի և էջը չցատկի։ Բոլոր պատկերակները (lucide) build-ում մեկ `icons` ֆայլում են (`vite.config.ts`)՝ էջը տասնյակ JS հարցում պակաս է անում։
 
@@ -765,7 +793,7 @@ erDiagram
 | **Հիշեցումներ** | `reading_reminders`, `reminder_inbox`, `reminder_sound_sent`, `push_subscriptions` |
 | **Սրբավայրեր** | `places`, `place_submissions`, `bot_place_drafts`, `place_blocklist`, `place_rejected` (հին՝ `sacred_places`, `sacred_place_submissions`, `sacred_place_photos`) |
 | **Բառարան** | `glossary_terms` |
-| **Կարգեր և վարքեր** | `etiquette_links` (կանոններին կցված հղումներ, migration 0056, `/api/etiquette-links`, «layout» իրավունք) |
+| **Կարգեր և վարքեր** | `etiquette_links` (կանոններին կցված հղումներ, migration 0056, «layout» իրավունք), `guides` (0057–0059), `guide_questions` և `search_misses` (0060), `calendar_days` (0061), `liturgy_lines` և `church_audio` (0062), `hymns` (0063). խմբագրում՝ «guides» իրավունքով |
 | **Կայք** | `site_settings` (քեշի epoch…), `site_presence` (անանուն այցեր), `search_query_aggregates`, `video_optimizations` (սեղմված տեսանյութեր), `client_errors` (բրաուզերի սխալներ, անանուն, 30 օր) |
 | **Telegram** | `telegram_bot_updates`, `telegram_group_integrations`, `telegram_review_items`, `telegram_hashtag_mappings`, `telegram_post_category_mappings` |
 | **Հին (առաջին տարբերակից)** | `categories`, `materials`, `telegram_sources`, `telegram_topics`, `telegram_imports` |
@@ -784,6 +812,7 @@ erDiagram
 | `thumbs/places/` | Սրբավայրերի փոքր պատկերներ (`?w=160|320`, `place-media.ts`). պատրաստում է Cloudflare Images-ը (`IMAGES` binding) առաջին անգամ, հետո՝ R2-ից. սխալի դեպքում տրվում է բնօրինակը |
 | `thumbs/v1/`, `thumbs/og/` | Telegram-ի նկարների և հղման քարտերի փոքրացված WebP-ները (800 px)՝ ցանկերի քարտերի և նյութի էջի համար. `/media/…?w=800`, `/og/card/…?w=800` (`app/data/image-thumb.server.ts`, `storedThumb`). հաջող փոքրացված տարբերակը պահվում է R2-ում (Cloudflare Images, `IMAGES` binding)։ Չշահավետ փոխարկումը նշվում է `.skip`-ով. սխալի կամ ծառայության սահմանի դեպքում տրվում է բնօրինակը։ Տարբեր worker-ների միաժամանակյա առաջին հարցումները կարող են կրկնել փոխարկումը։ Հղման քարտի փոքր պատկերի անվան մեջ բնօրինակի etag-ն է (քարտը վերանկարվում է նույն բանալիով) |
 | `help/` | Օգնության (ուսուցողական) տեսանյութեր |
+| `church/` | Պատարագի և շարականների ձայնագրություններ (`church_audio`, `/church-media/…`) |
 | `submissions/` | Առաջարկների նկարներ (մաքրվում են 30 օր հետո) |
 | `og/` | Հղումների քարտեր |
 | `search/` (կամ նման) | Որոնման պատրաստ ինդեքսը հեռախոսների համար |
@@ -998,6 +1027,7 @@ export function normalizeWord(word: string) {
 | Հին տարիների Պատարագի նշումներ | ամփոփվում են `yearly_summaries`-ում |
 | Mini App-ի story-ի նկարներ (R2 `stories/`) | 2 օր (`app/data/stories.server.ts`) |
 | Բրաուզերի սխալներ (`client_errors`) | 30 օր (վերջին տեսնելուց) |
+| Ոչինչ չգտած որոնումներ (`search_misses`) | 90 օր |
 
 ## 25. Ինչպես փոխել. բաղադրատոմսեր
 
@@ -1006,6 +1036,9 @@ export function normalizeWord(word: string) {
 2. Գրանցել `app/routes.ts`-ում՝ `route("my-page", "routes/my-page.tsx")` (**կոնկրետ հասցեները՝ `:section`-ից առաջ**)։
 3. Եթե պետք է մենյուում՝ `app/components/site-nav.tsx`։
 4. Թարմացնել այս ֆայլի «Էջերի քարտեզը»։
+
+### Նոր բաժին (Telegram թեմա)
+Բաժնի տվյալները՝ մեկ տեղում՝ `app/utils/sections.ts` (`SECTIONS`. հասցե, հին հասցե, անուն, նկարագրություն, որոնման տեքստ, դասավորություն, քարտ, նախադիտման նկար, բեռնման կարգ, տառատեսակ, ներածություն)։ Նկարը՝ `utils/category-image.ts`, պատկերակը՝ `components/category-icon.tsx` (երկուսն էլ `Record<ContentCategoryId, …>`, բաց թողնելիս TypeScript-ը սխալ է տալիս)։ Նոր id-ն ինքը՝ `shared/telegram-bridge-contract.ts`-ի `CONTENT_CATEGORIES`-ում։
 
 ### Նոր աղյուսակ կամ սյունակ բազայում
 1. Նոր ֆայլ `migrations/00NN_name.sql` (հաջորդ համարը), երբեք չփոխել հինը։

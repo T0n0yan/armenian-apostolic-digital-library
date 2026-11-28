@@ -48,7 +48,7 @@ const MISSING = /does not exist|NoSuchKey|not found|404/iu;
 const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
 const startedAt = Date.now();
 
-type Source = "telegram" | "attachment" | "place" | "help";
+type Source = "telegram" | "attachment" | "place" | "help" | "church";
 type Candidate = { source: Source; key: string; bytes: number | null; mime: string | null; ref: string };
 type Row = { result_key: string; source_key: string; status: string; optimized_bytes: number; version: string; backup_key: string | null; profile: string; backup_deleted_at: string | null };
 
@@ -166,6 +166,9 @@ WHERE key = 'help_videos' AND json_extract(value, '${path}.key') = ${sql(item.ke
 
 /** Telegram-ի/կայքի ֆայլի D1 տողը՝ նոր չափով, տեսակով և տարբերակով։ */
 function finalizeInPlaceSql(item: Candidate, row: { bytes: number; version: string }, mime: string | null = "video/mp4") {
+  // Պատարագի և շարականների ձայնագրությունները (church_audio). չափը փոխվում է, հղման ?v=-ն էլ հետը։
+  if (item.source === "church") return `UPDATE video_optimizations SET status = 'optimized', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(item.key)};
+UPDATE church_audio SET size = ${row.bytes}${mime ? `, content_type = ${sql(mime)}` : ""} WHERE object_key = ${sql(item.key)};`;
   const table = item.source === "telegram" ? "library_media" : "material_attachments";
   return `UPDATE video_optimizations SET status = 'optimized', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE result_key = ${sql(item.key)};
 UPDATE ${table} SET size_bytes = ${row.bytes},${mime ? ` mime_type = ${sql(mime)},` : ""} r2_etag = ${sql(row.version)} WHERE r2_key = ${sql(item.key)};`;
@@ -280,6 +283,10 @@ async function findAudioCandidates(done: Set<string>) {
     "SELECT r2_key, size_bytes, mime_type FROM material_attachments WHERE kind = 'audio'")) {
     list.push({ source: "attachment", key: row.r2_key, bytes: row.size_bytes, mime: row.mime_type, ref: "" });
   }
+  // Պատարագի և շարականների ձայնագրությունները (ադմինից վերբեռնված, R2 church/)։
+  for (const row of await query<{ object_key: string; size: number; content_type: string }>("SELECT object_key, size, content_type FROM church_audio").catch(() => [])) {
+    list.push({ source: "church", key: row.object_key, bytes: row.size, mime: row.content_type, ref: "" });
+  }
   return list.filter((item) => !done.has(item.key)).sort((a, b) => (a.bytes ?? 0) - (b.bytes ?? 0));
 }
 
@@ -326,7 +333,7 @@ async function optimizeAudio(item: Candidate, work: string): Promise<boolean> {
     await execute(recordSql({ result: item.key, source: item.key, status: "pending", originalBytes, optimizedBytes: resultBytes, version, backup, note: verdict.note, profile: AUDIO_PROFILE }), work);
     await r2Put(item.key, output, contentType);
     await verifyStored(item.key, version, dir);
-    await execute(finalizeInPlaceSql(item, { bytes: resultBytes, version }, null), work);
+    await execute(finalizeInPlaceSql(item, { bytes: resultBytes, version }, item.source === "church" ? contentType : null), work);
     return true;
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -426,7 +433,7 @@ async function finishPending(rows: Row[], work: string) {
       try { await r2Get(row.result_key, file); current = `o-${(await sha256(file)).slice(0, 16)}`; } catch { /* ֆայլ չկա */ }
       await rm(file, { force: true });
       if (current === row.version) {
-        const source: Source = row.result_key.startsWith("attachments/") ? "attachment" : "telegram";
+        const source: Source = row.result_key.startsWith("attachments/") ? "attachment" : row.result_key.startsWith("church/") ? "church" : "telegram";
         // Ձայնագրության տեսակը չի փոխվում (MP3-ը մնում է MP3)
         await execute(finalizeInPlaceSql({ source, key: row.result_key, bytes: null, mime: null, ref: "" }, { bytes: row.optimized_bytes, version: row.version }, isAudioProfile(row.profile) ? null : "video/mp4"), work);
         changed = true;
