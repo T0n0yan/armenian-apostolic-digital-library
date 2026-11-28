@@ -3,21 +3,14 @@
  * and Twitter cards, and structured data (JSON-LD) Google uses for rich results. Staging and old
  * addresses are kept out of search by an X-Robots-Tag header (workers/app.ts).
  */
-import { resolveContentCategoryId, type ContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { SECTIONS } from "./sections";
 
 export const SITE_URL = "https://apostolic.am";
 export const SITE_NAME = "Apostolic.am";
 export const SITE_IMAGE = `${SITE_URL}/og-image.png?v=3`;
 const ALTERNATE_NAMES = ["Apostolic", "apostolic.am", "Հոգևոր ժառանգություն", "Armenian Apostolic Church Library"];
 
-const SECTION_IMAGES: Record<ContentCategoryId, string> = {
-  category_psalms: "psalms",
-  category_prayers: "prayers",
-  category_bible_questions: "bible-questions",
-  category_gospel_teachings: "gospel-teachings",
-  category_saints_lives: "saints-lives",
-  category_daily_readings: "daily-readings",
-};
 
 /**
  * A section's link-preview picture (public/og, made by scripts/make-og-images.py): used for its
@@ -25,7 +18,7 @@ const SECTION_IMAGES: Record<ContentCategoryId, string> = {
  */
 export function sectionImage(categoryId: string | null | undefined, categoryName?: string | null) {
   const id = resolveContentCategoryId(categoryId, categoryName);
-  return id ? `/og/${SECTION_IMAGES[id]}.jpg` : null;
+  return id ? `/og/${SECTIONS[id].og}.jpg` : null;
 }
 
 /**

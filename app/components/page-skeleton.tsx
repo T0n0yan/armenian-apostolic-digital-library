@@ -4,6 +4,7 @@ import { useRouteLoaderData } from "react-router";
 
 import divider2 from "../assets/divider2.webp";
 import { CONTENT_CATEGORIES, resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { SECTION_IDS, SECTIONS } from "../utils/sections";
 import { SECTION_SLUGS, currentSection } from "../utils/material-path";
 import { ArmeniaOutline } from "./armenia-outline";
 import { ArtImage } from "./art-image";
@@ -31,14 +32,7 @@ type Kind =
 
 const SECTION_CATEGORY = new Map(Object.entries(SECTION_SLUGS).map(([id, slug]) => [slug, id]));
 /** Բաժինների անունները, ինչպես գրված են կայքում (գլխավոր էջի տվյալները, եթե կան, գերակա են)։ */
-const SECTION_NAMES: Record<string, string> = {
-  category_psalms: "Սաղմոսներ",
-  category_prayers: "Աղոթքներ",
-  category_saints_lives: "Սրբերի վարքը",
-  category_gospel_teachings: "Ավետարանի ուսուցում",
-  category_daily_readings: "Օրվա ընթերցումներ",
-  category_bible_questions: "Հարցեր Աստվածաշնչից",
-};
+const SECTION_NAMES: Record<string, string> = Object.fromEntries(SECTION_IDS.map((id) => [id, SECTIONS[id].title]));
 /** Գլխավոր էջի բաժինների կարգը (Սրբավայրերը՝ Սաղմոսներից հետո)։ */
 const HOME_ORDER = ["category_gospel_teachings", "category_prayers", "category_psalms", "places", "category_saints_lives", "category_daily_readings", "category_bible_questions", "etiquette"];
 

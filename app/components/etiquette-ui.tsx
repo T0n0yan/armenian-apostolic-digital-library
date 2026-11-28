@@ -1,4 +1,4 @@
-import { BookOpen, Church, Clock, DoorOpen, Shirt, Flame, Flower2, Gift, HandHeart, Home, Music, ShieldQuestion, Sparkles, Wine, type LucideIcon } from "lucide-react";
+import { BookOpen, BookText, CalendarDays, Church, CircleHelp, Clock, Compass, Cross, DoorOpen, Shirt, Flame, Flower2, Gift, HandHeart, Home, Leaf, Library, Music, ScrollText, ShieldQuestion, Sparkles, Wine, type LucideIcon } from "lucide-react";
 import { Link } from "react-router";
 import { RULE_KINDS, type RuleKind } from "../data/etiquette";
 
@@ -30,11 +30,14 @@ export function TopicIcon({ slug, size = 22 }: { slug: string; size?: number }) 
 export const card = "paper-panel rounded-card";
 export const groupTitle = "m-0 px-1 text-[12px] font-bold tracking-[1.2px] text-gold uppercase";
 
-/** «Կարգեր և վարքեր»-ի ենթաբաժինների պատկերակները։ */
-const CHURCH_ICONS: Record<string, LucideIcon> = { etiquette: Church, sacraments: Sparkles, remembrance: Flower2, liturgy: Wine, hours: Clock };
+/** «Կարգեր և վարքեր»-ի ենթաբաժինների պատկերակները (ուղեցույցի `icon` դաշտը)։ */
+export const CHURCH_ICONS: Record<string, LucideIcon> = {
+  church: Church, sparkles: Sparkles, flower: Flower2, wine: Wine, clock: Clock, question: CircleHelp, book: BookText, music: Music,
+  cross: Cross, leaf: Leaf, calendar: CalendarDays, compass: Compass, scroll: ScrollText, hand: HandHeart, "book-open": BookOpen, library: Library,
+};
 
-export function ChurchIcon({ slug, size = 20 }: { slug: string; size?: number }) {
-  const Icon = CHURCH_ICONS[slug] ?? BookOpen;
+export function ChurchIcon({ icon, size = 20 }: { icon: string; size?: number }) {
+  const Icon = CHURCH_ICONS[icon] ?? BookOpen;
   return <Icon aria-hidden="true" size={size} strokeWidth={1.7} />;
 }
 

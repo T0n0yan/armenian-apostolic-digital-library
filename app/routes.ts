@@ -27,6 +27,7 @@ export default [
   route("api/psalm-timings", "routes/psalm-timings.ts"),
   route("api/material-layout", "routes/material-layout-api.ts"),
   route("api/etiquette-links", "routes/etiquette-links-api.ts"),
+  route("api/church-search", "routes/church-search-api.ts"),
   route("api/saved-verses", "routes/saved-verses.ts"),
   route("api/highlights", "routes/highlights-api.ts"),
   route("api/church-points", "routes/church-points.ts"),
@@ -73,6 +74,9 @@ export default [
   route("api/help-videos", "routes/help-videos-api.ts"),
   route("admin/help", "routes/admin-help.tsx"),
   route("admin/help/:id/video", "routes/admin-help-video.ts"),
+  // Ուղեցույցներ («Կարգեր և վարքեր»)՝ խմբագրում
+  route("admin/guides", "routes/admin-guides.tsx"),
+  route("admin/guides/:slug", "routes/admin-guide.tsx"),
   // «Կարգեր և վարքեր» (app/data/church.ts, app/data/etiquette.ts)
   route("church", "routes/church.tsx"),
   route("church/etiquette", "routes/etiquette.tsx"),

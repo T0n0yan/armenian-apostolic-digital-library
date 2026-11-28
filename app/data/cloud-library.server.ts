@@ -11,6 +11,7 @@ import {
   type StoredSearchField,
 } from "../../shared/telegram-search";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { SECTION_IDS, SECTIONS } from "../utils/sections";
 import { remember } from "./memory-cache.server";
 import type {
   BridgeCategory,
@@ -289,7 +290,7 @@ function ftsCandidateExpression(values: string[]) {
 }
 
 // Topics whose oldest post is an introduction shown above their materials (category.tsx).
-export const INTRO_TOPICS = new Set(["category_psalms", "category_saints_lives", "category_prayers", "category_bible_questions"]);
+export const INTRO_TOPICS = new Set<string>(SECTION_IDS.filter((id) => SECTIONS[id].intro));
 
 const MINUTE = 60_000;
 

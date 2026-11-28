@@ -1,4 +1,5 @@
 import { createMaterialId, parseMaterialId, resolveContentCategoryId, type ContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { SECTION_IDS, SECTIONS } from "./sections";
 
 /** The library's Telegram group; its posts get the site's own readable addresses. */
 export const LIBRARY_CHAT_ID = "-1002993860753";
@@ -7,24 +8,12 @@ export const LIBRARY_CHAT_ID = "-1002993860753";
  * Section addresses: short English words. They follow the content section, not the Telegram
  * topic's name, so renaming a topic in Telegram never changes them.
  */
-export const SECTION_SLUGS: Record<ContentCategoryId, string> = {
-  category_psalms: "psalms",
-  category_prayers: "pray",
-  category_saints_lives: "saints",
-  category_gospel_teachings: "gospel",
-  category_daily_readings: "daily",
-  category_bible_questions: "questions",
-};
+export const SECTION_SLUGS = Object.fromEntries(SECTION_IDS.map((id) => [id, SECTIONS[id].slug])) as Record<ContentCategoryId, string>;
 /** Materials of other topics live under this section. */
 export const OTHER_SECTION = "post";
 /** Earlier Armenian section addresses (/saghmosner/22, /aghotkner/71-…); they move to the new ones. */
 export const OLD_SECTION_SLUGS: Record<string, string> = {
-  saghmosner: "psalms",
-  aghotkner: "pray",
-  "srberi-varq": "saints",
-  "avetarani-usutsum": "gospel",
-  "orva-entertsumner": "daily",
-  hartser: "questions",
+  ...Object.fromEntries(SECTION_IDS.map((id) => [SECTIONS[id].oldSlug, SECTIONS[id].slug])),
   nyut: "post",
 };
 const SECTION_TO_CATEGORY = new Map(Object.entries(SECTION_SLUGS).map(([id, slug]) => [slug, id as ContentCategoryId]));
