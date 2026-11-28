@@ -1183,6 +1183,11 @@ li[data-audio-playing] > a.paper-card.flex::after { top: 50%; right: 46px; trans
 
 /* Եկեղեցու 3D (/church-3d). կետերը՝ canvas-ի վրա դրված կոճակներ, տեղը դնում է scene.ts-ը (transform)։ */
 .church3d-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+/* Եկեղեցական սպասք՝ 3D. մութ ցուցափեղկ (թանգարանի պես) երկու թեմայում էլ, ուղղահայաց սահեցնելը՝ էջի ոլորման համար։ */
+.vessel-stage { background: radial-gradient(120% 90% at 50% 38%, #3a2a1d 0%, #1d140d 55%, #0f0a06 100%); }
+.vessel-canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.church3d-full .vessel-canvas, :fullscreen .vessel-canvas { touch-action: none; }
+.vessel-loading { background: rgb(15 10 6 / 35%); pointer-events: none; }
 /* Ամբողջ էկրան. բնիկ (Fullscreen API) կամ, որտեղ չկա (iPhone Safari), քարտը ծածկում է էջը։ */
 .church3d-full { position: fixed !important; inset: 0 !important; z-index: 80; height: 100dvh !important; min-height: 0 !important; border-radius: 0 !important; margin: 0 !important; }
 .church3d-full, :fullscreen.paper-card { background-color: var(--sheet-bg); border-radius: 0; }

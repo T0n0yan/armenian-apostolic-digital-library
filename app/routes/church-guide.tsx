@@ -12,6 +12,7 @@ import { getGuide } from "../data/guides.server";
 import { hymnCountsByHour } from "../data/hymns.server";
 import { BLOCK_PARTS, GUIDE_STATUSES, GUIDE_TAGS, isGuideSlug, type GuideBlock } from "../utils/guides";
 import { breadcrumbJsonLd, NOINDEX, seoMeta } from "../utils/seo";
+import { VesselsGallery } from "../vessels3d/gallery";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const guide = isGuideSlug(params.section) ? await getGuide(env.DB, params.section) : null;
@@ -97,6 +98,9 @@ export default function ChurchGuide({ loaderData }: Route.ComponentProps) {
         </div>
         {guide.summary ? <p className="reading-body m-0 text-[15px] leading-[1.7] text-muted">{guide.summary}</p> : null}
       </header>
+
+      {/* Եկեղեցական սպասք՝ 3D (առայժմ միայն staging-ում) */}
+      {guide.slug === "symbols" ? <VesselsGallery /> : null}
 
       {guide.body.blocks.length ? (
         <section className="mt-6 grid gap-2" aria-labelledby="guide-blocks">
