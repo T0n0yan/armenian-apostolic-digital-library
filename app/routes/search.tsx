@@ -62,6 +62,7 @@ import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
 import { useChurchSearch } from "../components/church-search";
+import { recordMiss } from "../data/questions.server";
 import { buildSearchVocabulary, correctSearchQuery, type SearchCorrection, type SearchVocabulary } from "../../shared/search-correction";
 import { searchVocabulary } from "../data/search-correction.server";
 import { PLACE_KINDS, placeThumbUrl, type PlaceKind } from "../utils/places";
@@ -288,6 +289,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   // A secret (not in wrangler.jsonc), so not in the generated Env type; without it nothing is counted.
   const analyticsSecret = (env as Env & { TELEGRAM_BRIDGE_SHARED_SECRET?: string }).TELEGRAM_BRIDGE_SHARED_SECRET;
+  // «Ինչ էին փնտրում ու չգտան» (անանուն, միայն բառը)՝ ադմինում /admin/questions։
+  if (hasSearchQuery && scope === "library" && !categoryId && total === 0) await recordMiss(env.DB, resolvedQuery.normalized, "library").catch(() => null);
   if (hasSearchQuery && scope === "library" && analyticsSecret) {
     await recordSearchAggregate(
       env.DB,

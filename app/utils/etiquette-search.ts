@@ -11,7 +11,7 @@ export type EtiquetteHit = { href: string; title: string; text: string; topic: s
  * «Վարք եկեղեցում»-ի որոնում՝ նույն կանոններով, ինչ կայքի որոնումը (վերջավորություններ,
  * դասական ուղղագրություն, լատինատառ)։ Վերնագրում գտնվածը առաջ է։
  */
-export function searchEtiquette(query: string, limit = 20, guides: SearchableGuide[] = []): EtiquetteHit[] {
+export function searchEtiquette(query: string, limit = 20, guides: SearchableGuide[] = [], questions: Array<{ id: number; question: string; answer: string }> = []): EtiquetteHit[] {
   const parsed = parseTelegramSearchQuery(query);
   if (!parsed.normalized) return [];
   const hits: EtiquetteHit[] = [];
@@ -41,6 +41,10 @@ export function searchEtiquette(query: string, limit = 20, guides: SearchableGui
       const rank = score(item.q, item.a);
       if (rank) hits.push({ href: `${base}#faq-${index}`, title: item.q, text: item.a, topic: guide.title, rank });
     }
+  }
+  for (const item of questions) {
+    const rank = score(item.question, item.answer);
+    if (rank) hits.push({ href: `/church/questions#q-${item.id}`, title: item.question, text: item.answer, topic: "Հարց ու պատասխան", rank });
   }
   return hits.sort((left, right) => right.rank - left.rank).slice(0, limit);
 }
