@@ -4,10 +4,10 @@ import gospelTeachingImage from "../assets/gospel-teaching.webp";
 import prayersImage from "../assets/prayers.webp";
 import psalmsImage from "../assets/psalms.webp";
 import saintsLivesImage from "../assets/saints-lives.webp";
-import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { resolveContentCategoryId, type ContentCategoryId } from "../../shared/telegram-bridge-contract";
 
 /** Բաժնի գլխի նկարը. առանձին ֆայլում է, որ մենյուն (ամեն էջում) չբերի բաժնի գլխի ամբողջ կոդը։ */
-const CATEGORY_IMAGES: Record<string, string> = {
+const CATEGORY_IMAGES: Record<ContentCategoryId, string> = {
   category_saints_lives: saintsLivesImage,
   category_gospel_teachings: gospelTeachingImage,
   category_psalms: psalmsImage,

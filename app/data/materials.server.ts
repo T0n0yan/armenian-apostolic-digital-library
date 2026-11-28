@@ -1,5 +1,6 @@
 import type { BridgeContentType, BridgePost } from "../../shared/telegram-bridge-contract";
 import { resolveContentCategoryId } from "../../shared/telegram-bridge-contract";
+import { sectionInfo } from "../utils/sections";
 import { summarizeDailyReading, type DailyReadingSummary } from "../utils/daily-reading";
 import { listCloudLibraryCategories, listCloudLibraryCategoryPosts } from "./cloud-library.server";
 import { gospelVideoCover, mediaCardUrl, mediaUrl } from "./media-url.server";
@@ -17,9 +18,9 @@ export function categoryFeedOptions(category: { id: string; name: string }) {
   return {
     // Psalms, prayers, questions and gospel teachings load whole: the grid, the prayer groups, the
     // quiz filter and the clergy tabs need every post at once.
-    limit: kind === "category_psalms" || kind === "category_prayers" || kind === "category_bible_questions" || kind === "category_gospel_teachings" ? 200 : 12,
+    limit: sectionInfo(kind)?.feed.whole ? 200 : 12,
     // Saints and prayers read in book order (oldest post first).
-    order: kind === "category_saints_lives" || kind === "category_prayers" ? "asc" as const : "desc" as const,
+    order: sectionInfo(kind)?.feed.order ?? "desc" as const,
   };
 }
 

@@ -1,25 +1,41 @@
+import { env } from "cloudflare:workers";
 import { ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ChurchSearchField, ChurchSearchResults } from "../components/church-search";
 import type { Route } from "./+types/church";
+import { can, getOptionalTelegramAdmin } from "../auth/admin.server";
 import { card, ChurchIcon, groupTitle } from "../components/etiquette-ui";
 import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
-import { CHURCH_SECTIONS, CHURCH_SUBTITLE, CHURCH_TITLE, churchSectionPath } from "../data/church";
+import { CHURCH_SUBTITLE, CHURCH_TITLE } from "../data/church";
+import { listGuides } from "../data/guides.server";
+import { guidePath } from "../utils/guides";
 import { seoMeta } from "../utils/seo";
 
 export function meta({}: Route.MetaArgs) {
   return seoMeta({ title: `${CHURCH_TITLE} — Apostolic.am`, description: `${CHURCH_SUBTITLE}՝ պարզ և կարճ։`, path: "/church" });
 }
 
+export async function loader({ request }: Route.LoaderArgs) {
+  const admin = await getOptionalTelegramAdmin(request, env.DB).catch(() => null);
+  const guides = await listGuides(env.DB, true);
+  const editor = can(admin, "guides");
+  return {
+    editor,
+    sections: guides.map(({ slug, title, description, icon, kind, link, status }) => ({ slug, title, description, icon, path: guidePath({ slug, kind, link }), status })),
+  };
+}
+
 const row = "flex min-h-[64px] items-center gap-3.5 px-4 py-3 text-inherit no-underline";
 const divider = "border-t border-[rgb(150_110_50/14%)]";
 
-/** «Կարգեր և վարքեր»՝ ենթաբաժինների ցուցակ։ */
-export default function Church() {
-  const ready = CHURCH_SECTIONS.filter((section) => section.status !== "soon");
-  const soon = CHURCH_SECTIONS.filter((section) => section.status === "soon");
+/** «Կարգեր և վարքեր»՝ ենթաբաժինների ցուցակ (ուղեցույցները՝ բազայից)։ */
+export default function Church({ loaderData }: Route.ComponentProps) {
+  const { editor, sections } = loaderData;
+  // Սևագիրը ընթերցողին երևում է «Շուտով»-ում, իսկ խմբագրին՝ բացվող։
+  const ready = sections.filter((section) => section.status !== "draft" || editor);
+  const soon = editor ? [] : sections.filter((section) => section.status === "draft");
   const input = useRef<HTMLInputElement>(null);
   const query = (useSearchParams()[0].get("q") ?? "").trim();
   return (
@@ -38,11 +54,12 @@ export default function Church() {
         <ul className={`${card} m-0 list-none p-0`}>
           {ready.map((section, index) => (
             <li key={section.slug} className={index ? divider : ""}>
-              <Link className={row} to={churchSectionPath(section)}>
-                <span className="grid size-10 shrink-0 place-items-center rounded-control bg-[rgb(176_125_46/14%)] text-gold-bright"><ChurchIcon slug={section.slug} /></span>
+              <Link className={row} to={section.path}>
+                <span className="grid size-10 shrink-0 place-items-center rounded-control bg-[rgb(176_125_46/14%)] text-gold-bright"><ChurchIcon icon={section.icon} /></span>
                 <span className="grid min-w-0 flex-1 gap-0.5">
                   <strong className="text-[16px] leading-snug font-semibold text-ink">{section.title}</strong>
                   <span className="text-[13px] leading-snug text-muted">{section.description}</span>
+                  {editor && section.status === "draft" ? <span className="w-fit rounded-chip bg-subtle px-2 py-0.5 text-[11.5px] font-bold text-muted">Սևագիր</span> : null}
                 </span>
                 <ChevronRight className="shrink-0 text-faint" aria-hidden="true" size={18} />
               </Link>
@@ -57,7 +74,7 @@ export default function Church() {
           <ul className={`${card} m-0 list-none p-0 opacity-75`}>
             {soon.map((section, index) => (
               <li key={section.slug} className={`flex min-h-[60px] items-center gap-3.5 px-4 py-3 ${index ? divider : ""}`}>
-                <span className="grid size-10 shrink-0 place-items-center rounded-control bg-subtle text-faint"><ChurchIcon slug={section.slug} /></span>
+                <span className="grid size-10 shrink-0 place-items-center rounded-control bg-subtle text-faint"><ChurchIcon icon={section.icon} /></span>
                 <span className="grid min-w-0 flex-1 gap-0.5">
                   <span className="text-[15.5px] font-semibold text-muted">{section.title}</span>
                   <span className="text-[12.5px] leading-snug text-faint">{section.description}</span>
@@ -69,6 +86,7 @@ export default function Church() {
       ) : null}
       </>)}
 
+      {editor ? <p className="mt-5 mb-0 text-center text-[13px]"><Link className="font-semibold text-gold-bright" to="/admin/guides">Խմբագրել ուղեցույցները</Link></p> : null}
       <p className="mx-auto mt-7 mb-0 max-w-[560px] text-center text-[12.5px] leading-relaxed text-muted">
         Այս բաժինը հիմնված է Հայ Առաքելական Եկեղեցու հոգևորականների գրքերի վրա։ Ձեր կոնկրետ դեպքի համար դիմեք ձեր ծխի քահանային։
       </p>

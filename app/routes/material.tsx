@@ -22,6 +22,7 @@ import { PageHeader, PageShell } from "../components/page-layout";
 import { SiteNav } from "../components/site-nav";
 import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { isBridgeSearchHit, parseMaterialId, resolveContentCategoryId, type BridgeSearchHit } from "../../shared/telegram-bridge-contract";
+import { sectionInfo } from "../utils/sections";
 import { isPsalmPagePath, sectionPath } from "../utils/material-path";
 import { loadMaterialPage, resolveMaterialId, type MaterialPersonal } from "../data/material-page.server";
 import { fetchPersonal } from "../utils/personal-data";
@@ -128,8 +129,7 @@ export default function MaterialPage({ loaderData }: Route.ComponentProps) {
   const isPsalm = contentCategory === "category_psalms";
   // Prayers and psalms read in a prayer-book face, saints' lives and readings in a book serif;
   // teaching notes and questions keep the interface face.
-  const readingClass = isPrayer ? "prayer-text" : isPsalm ? "prayer-text psalm-text"
-    : contentCategory === "category_saints_lives" || contentCategory === "category_daily_readings" ? "sacred-text" : "";
+  const readingClass = sectionInfo(contentCategory)?.reading ?? "";
   // The header already shows the title, so don't repeat it as the first line of the text.
   const textTitleLength = skipPsalmLabel(material.formattedText.text, leadingTitleLength(material.formattedText.text, material.title));
   // A psalm's superscription ("Սաղմոս Դաւթի, երբ…") is its first line; it stands apart from the verses.

@@ -18,7 +18,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -62,7 +61,7 @@ import { psalmNumber } from "../utils/psalm-number";
 import { RouteErrorPage } from "../components/error-page";
 import { loadSearchIndex, rootSearchState, searchTitles, translateQuery } from "../utils/local-search";
 import { normalizeTelegramSearchText } from "../../shared/telegram-search";
-import { searchEtiquette } from "../utils/etiquette-search";
+import { useChurchSearch } from "../components/church-search";
 import { buildSearchVocabulary, correctSearchQuery, type SearchCorrection, type SearchVocabulary } from "../../shared/search-correction";
 import { searchVocabulary } from "../data/search-correction.server";
 import { PLACE_KINDS, placeThumbUrl, type PlaceKind } from "../utils/places";
@@ -881,12 +880,12 @@ type FoundPlace = { id: string; name: string; kind: PlaceKind; region: string; i
 /** Sacred places whose name matches the search, above the library's results (nothing when none). */
 /** «Վարք եկեղեցում»-ի կանոններ (կայքի սեփական տվյալներ, առանց հարցման)։ */
 function EtiquetteMatches({ query }: { query: string }) {
-  const hits = useMemo(() => searchEtiquette(query, 6), [query]);
-  if (!hits.length) return null;
+  const hits = useChurchSearch(query, 6);
+  if (!hits?.length) return null;
   return (
     <section className="mt-4 grid gap-2" aria-labelledby="etiquette-search-results">
       <div className={sectionHeader}>
-        <h2 className={sectionTitle} id="etiquette-search-results">Վարք եկեղեցում</h2>
+        <h2 className={sectionTitle} id="etiquette-search-results">Կարգեր և վարքեր</h2>
         <span className={countBadge}>{hits.length}</span>
       </div>
       <ul className="m-0 grid list-none gap-2 p-0 min-[560px]:grid-cols-2">
@@ -900,7 +899,7 @@ function EtiquetteMatches({ query }: { query: string }) {
           </li>
         ))}
       </ul>
-      <Link className="w-fit text-[13px] font-semibold text-gold-bright" to={`/church/etiquette?q=${encodeURIComponent(query)}`}>Բոլորը «Վարք եկեղեցում» բաժնում →</Link>
+      <Link className="w-fit text-[13px] font-semibold text-gold-bright" to={`/church?q=${encodeURIComponent(query)}`}>Բոլորը «Կարգեր և վարքեր» բաժնում →</Link>
     </section>
   );
 }

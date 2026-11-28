@@ -1,7 +1,7 @@
 import { ChevronRight, Search, X } from "lucide-react";
-import { forwardRef, useMemo } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { searchEtiquette } from "../utils/etiquette-search";
+import type { EtiquetteHit } from "../utils/etiquette-search";
 import { card, groupTitle } from "./etiquette-ui";
 
 /** «Կարգեր և վարքեր»-ի որոնման դաշտը (հարցումը՝ ?q=)։ */
@@ -21,8 +21,26 @@ export const ChurchSearchField = forwardRef<HTMLInputElement>(function ChurchSea
 });
 
 /** Արդյունքները՝ բոլոր ենթաբաժիններից։ */
+/** Որոնումը սերվերում է (ուղեցույցները բազայում են)։ null՝ դեռ բեռնվում է։ */
+export function useChurchSearch(query: string, limit = 20) {
+  const [hits, setHits] = useState<EtiquetteHit[] | null>(null);
+  useEffect(() => {
+    if (!query.trim()) { setHits([]); return; }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/church-search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal: controller.signal })
+        .then((response) => response.json() as Promise<{ hits: EtiquetteHit[] }>)
+        .then((data) => setHits(data.hits))
+        .catch(() => { if (!controller.signal.aborted) setHits([]); });
+    }, 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [query, limit]);
+  return hits;
+}
+
 export function ChurchSearchResults({ query }: { query: string }) {
-  const hits = useMemo(() => searchEtiquette(query), [query]);
+  const hits = useChurchSearch(query);
+  if (!hits) return <p className="mt-5 mb-0 px-1 text-[13px] text-muted" aria-live="polite">Փնտրում ենք…</p>;
   return (
     <section className="mt-5 grid gap-2" aria-live="polite" aria-labelledby="church-found">
       <h2 className={groupTitle} id="church-found">{hits.length ? `Գտնվեց՝ ${hits.length}` : "Ոչինչ չգտնվեց"}</h2>

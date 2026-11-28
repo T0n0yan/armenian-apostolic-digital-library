@@ -217,6 +217,11 @@ export default function Admin({ loaderData, actionData }: Route.ComponentProps) 
           <span className="text-[13px] text-gold-bright">Բառեր և բացատրություններ →</span>
         </Link>
 
+        <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/guides">
+          <span className="flex items-center gap-2 text-[17px] font-bold"><Church aria-hidden="true" size={19} className="text-gold" /> Կարգեր և վարքեր</span>
+          <span className="text-[13px] text-gold-bright">Ուղեցույցներ, ՀՏՀ, տոնացույց →</span>
+        </Link>
+
         <Link className={`${panelSection} flex items-center justify-between gap-3 text-inherit no-underline`} to="/admin/help">
           <span className="flex items-center gap-2 text-[17px] font-bold"><CirclePlay aria-hidden="true" size={19} className="text-gold" /> Օգնության տեսանյութեր</span>
           <span className="text-[13px] text-gold-bright">Վերբեռնել →</span>

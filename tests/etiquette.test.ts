@@ -28,8 +28,12 @@ test("որոնումը գտնում է բառը վերջավորությամբ",
   assert.deepEqual(searchEtiquette(""), []);
 });
 
-test("որոնումը գտնում է նաև ուղեցույցի էջերում", () => {
-  assert.ok(searchEtiquette("քառասունք").some((hit) => hit.href === "/church/remembrance#karasunk"));
+test("որոնումը գտնում է նաև ուղեցույցի էջերում", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { normalizeGuideBody } = await import("../app/utils/guides");
+  const seeds = JSON.parse(readFileSync(new URL("../scripts/guides-seed/existing.json", import.meta.url), "utf8")) as Array<{ slug: string; title: string; blocks: unknown[]; faq: unknown[] }>;
+  const guides = seeds.map((seed) => ({ slug: seed.slug, title: seed.title, kind: "guide" as const, link: "", body: normalizeGuideBody(seed) }));
+  assert.ok(searchEtiquette("քառասունք", 20, guides).some((hit) => hit.href === "/church/remembrance#karasunk"));
 });
 
 test("ամեն բաժին ունի աղբյուր", () => {
@@ -44,6 +48,7 @@ test("հղման հասցեն ընդունվում է միայն http(s)", async
 });
 
 test("յոթ խորհուրդները գրված են", async () => {
-  const { churchSection } = await import("../app/data/church");
-  assert.equal(churchSection("sacraments")?.guide?.blocks.length, 7);
+  const { readFileSync } = await import("node:fs");
+  const seeds = JSON.parse(readFileSync(new URL("../scripts/guides-seed/existing.json", import.meta.url), "utf8")) as Array<{ slug: string; blocks: unknown[] }>;
+  assert.equal(seeds.find((seed) => seed.slug === "sacraments")?.blocks.length, 7);
 });

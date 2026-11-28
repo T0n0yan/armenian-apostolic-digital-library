@@ -1,6 +1,9 @@
 import { matchSearchableText, parseTelegramSearchQuery } from "../../shared/telegram-search";
-import { CHURCH_SECTIONS } from "../data/church";
 import { ETIQUETTE_TOPICS } from "../data/etiquette";
+import { guidePath, type Guide } from "./guides";
+
+/** Ուղեցույցի այն մասը, որ պետք է որոնմանը (սերվերից)։ */
+export type SearchableGuide = Pick<Guide, "slug" | "title" | "kind" | "link" | "body">;
 
 export type EtiquetteHit = { href: string; title: string; text: string; topic: string; rank: number };
 
@@ -8,7 +11,7 @@ export type EtiquetteHit = { href: string; title: string; text: string; topic: s
  * «Վարք եկեղեցում»-ի որոնում՝ նույն կանոններով, ինչ կայքի որոնումը (վերջավորություններ,
  * դասական ուղղագրություն, լատինատառ)։ Վերնագրում գտնվածը առաջ է։
  */
-export function searchEtiquette(query: string, limit = 20): EtiquetteHit[] {
+export function searchEtiquette(query: string, limit = 20, guides: SearchableGuide[] = []): EtiquetteHit[] {
   const parsed = parseTelegramSearchQuery(query);
   if (!parsed.normalized) return [];
   const hits: EtiquetteHit[] = [];
@@ -27,11 +30,16 @@ export function searchEtiquette(query: string, limit = 20): EtiquetteHit[] {
     }
   }
   // Ուղեցույցի էջերը (Հիշատակության օրեր և այլն)։
-  for (const section of CHURCH_SECTIONS) {
-    if (section.status === "soon" || !section.guide) continue;
-    for (const block of section.guide.blocks) {
-      const rank = score(block.title, block.text, block.when, block.why, section.title);
-      if (rank) hits.push({ href: `/church/${section.slug}#${block.id}`, title: block.title, text: block.text, topic: section.title, rank });
+  for (const guide of guides) {
+    if (guide.kind !== "guide") continue;
+    const base = guidePath(guide);
+    for (const block of guide.body.blocks) {
+      const rank = score(block.title, block.text, block.when, block.why, block.prepare, block.steps, guide.title);
+      if (rank) hits.push({ href: `${base}#${block.id}`, title: block.title, text: block.text, topic: guide.title, rank });
+    }
+    for (const [index, item] of guide.body.faq.entries()) {
+      const rank = score(item.q, item.a);
+      if (rank) hits.push({ href: `${base}#faq-${index}`, title: item.q, text: item.a, topic: guide.title, rank });
     }
   }
   return hits.sort((left, right) => right.rank - left.rank).slice(0, limit);

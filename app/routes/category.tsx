@@ -42,6 +42,7 @@ import { useSavedMaterials } from "../hooks/use-saved-materials";
 import { loadNavigationData, navigationScope, writeNavigationCache } from "../utils/navigation-cache";
 import { fetchPersonal, isAppHydrated } from "../utils/personal-data";
 import type { CategoryPersonal } from "../data/category-personal.server";
+import { SECTION_IDS, SECTIONS, sectionInfo } from "../utils/sections";
 import { NOINDEX, SITE_NAME, breadcrumbJsonLd, sectionImage, seoMeta } from "../utils/seo";
 import { RouteErrorPage } from "../components/error-page";
 
@@ -50,34 +51,11 @@ type CategoryLayout = "default" | "psalm-grid" | "portrait" | "text" | "video" |
 
 /** Each content category browses in its own layout; search results always use the standard cards. */
 function categoryLayout(category: { id: string; name: string }): CategoryLayout {
-  switch (resolveContentCategoryId(category.id, category.name)) {
-    case "category_psalms": return "psalm-grid";
-    case "category_saints_lives": return "portrait";
-    case "category_prayers":
-    case "category_bible_questions": return "text";
-    case "category_gospel_teachings": return "video";
-    case "category_daily_readings": return "calendar";
-    default: return "default";
-  }
+  return sectionInfo(resolveContentCategoryId(category.id, category.name))?.layout ?? "default";
 }
 
-const CATEGORY_SEARCH_PLACEHOLDERS: Record<string, string> = {
-  category_saints_lives: "Փնտրել սրբի անունով…",
-  category_gospel_teachings: "Փնտրել թեմա կամ հատված…",
-  category_psalms: "Փնտրել սաղմոսի համարով կամ բառով…",
-  category_bible_questions: "Փնտրել հարց կամ թեմա…",
-  category_prayers: "Փնտրել աղոթք…",
-  category_daily_readings: "Փնտրել ընթերցանություն…",
-};
-
-const CATEGORY_DESCRIPTIONS: Record<string, string> = {
-  category_saints_lives: "Սրբերի վարքը՝ հավատքի և ծառայության օրինակներ։",
-  category_gospel_teachings: "Ավետարանի բացատրություններ Եկեղեցու հոգևորականներից։",
-  category_psalms: "Սաղմոսները՝ ըստ համարի և բովանդակության։",
-  category_bible_questions: "Հարցեր և բացատրություններ Աստվածաշնչի շուրջ։",
-  category_prayers: "Աղոթքներ՝ առօրյա, տոնական և անձնական ընթերցման համար։",
-  category_daily_readings: "Օրվա ընթերցումները, տոներն ու հիշատակությունները։",
-};
+const CATEGORY_SEARCH_PLACEHOLDERS: Record<string, string> = Object.fromEntries(SECTION_IDS.map((id) => [id, SECTIONS[id].searchPlaceholder]));
+const CATEGORY_DESCRIPTIONS: Record<string, string> = Object.fromEntries(SECTION_IDS.map((id) => [id, SECTIONS[id].description]));
 
 /** Sections whose introduction the site writes itself, in place of the Telegram topic's intro post. */
 
