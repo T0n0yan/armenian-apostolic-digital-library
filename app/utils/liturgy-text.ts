@@ -19,8 +19,8 @@ export type LiturgyLine = {
 
 export type ChurchAudio = { id: string; url: string; size: number };
 
-/** Ձայնագրության հասցեն (R2 church/…)։ */
-export const churchAudioUrl = (objectKey: string) => `/church-media/${objectKey.replace(/^church\//u, "")}`;
+/** Ձայնագրության հասցեն (R2 church/…). ?v=՝ չափը. սեղմելուց հետո (optimize-videos.ts) հղումը փոխվում է, ու քեշը հինը չի տալիս։ */
+export const churchAudioUrl = (objectKey: string, size?: number) => `/church-media/${objectKey.replace(/^church\//u, "")}${size ? `?v=${size}` : ""}`;
 
 /** Ո՞ր տողն է հնչում. վերջին տողը, որի սկիզբը ≤ ժամանակ (առանց նշված ժամանակի տողերը բաց են թողնվում)։ */
 export function lineAt(lines: Array<{ start: number | null }>, time: number) {

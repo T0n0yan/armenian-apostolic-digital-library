@@ -20,3 +20,12 @@ test("ժողովրդի պատասխանները և ձայնագրության հ
   assert.ok(isPeople("people") && isPeople("all") && !isPeople("priest"));
   assert.equal(churchAudioUrl("church/patarag-abc.mp3"), "/church-media/patarag-abc.mp3");
 });
+
+test("շարականների ֆիլտրը", async () => {
+  const { filterHymns, isHour } = await import("../app/utils/hymns");
+  const hymns = [{ feast: "Զատիկ", hour: "aravotyan" as const, mode: "Ա ձայն" }, { feast: "Ծնունդ", hour: "" as const, mode: "Բ կողմ" }];
+  assert.equal(filterHymns(hymns, {}).length, 2);
+  assert.equal(filterHymns(hymns, { feast: "Զատիկ", hour: "aravotyan" }).length, 1);
+  assert.equal(filterHymns(hymns, { mode: "Գ ձայն" }).length, 0);
+  assert.ok(isHour("gisherayin") && !isHour("noon"));
+});

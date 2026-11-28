@@ -81,6 +81,7 @@ export default [
   route("admin/questions", "routes/admin-questions.tsx"),
   route("admin/calendar", "routes/admin-calendar.tsx"),
   route("admin/patarag", "routes/admin-patarag.tsx"),
+  route("admin/hymns", "routes/admin-hymns.tsx"),
   route("admin/church-audio/:id", "routes/admin-church-audio.ts"),
   // «Կարգեր և վարքեր» (app/data/church.ts, app/data/etiquette.ts)
   route("church", "routes/church.tsx"),
@@ -88,6 +89,8 @@ export default [
   route("church/questions", "routes/church-questions.tsx"),
   route("church/calendar", "routes/church-calendar.tsx"),
   route("church/patarag", "routes/church-patarag.tsx"),
+  route("church/sharakanner", "routes/church-hymns.tsx"),
+  route("church/sharakanner/:id", "routes/church-hymn.tsx"),
   route("church-media/:file", "routes/church-media.ts"),
   route("church/etiquette/:topic", "routes/etiquette-topic.tsx"),
   route("church/:section", "routes/church-guide.tsx"),
