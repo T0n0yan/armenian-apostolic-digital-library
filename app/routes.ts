@@ -79,10 +79,12 @@ export default [
   route("admin/guides", "routes/admin-guides.tsx"),
   route("admin/guides/:slug", "routes/admin-guide.tsx"),
   route("admin/questions", "routes/admin-questions.tsx"),
+  route("admin/calendar", "routes/admin-calendar.tsx"),
   // «Կարգեր և վարքեր» (app/data/church.ts, app/data/etiquette.ts)
   route("church", "routes/church.tsx"),
   route("church/etiquette", "routes/etiquette.tsx"),
   route("church/questions", "routes/church-questions.tsx"),
+  route("church/calendar", "routes/church-calendar.tsx"),
   route("church/etiquette/:topic", "routes/etiquette-topic.tsx"),
   route("church/:section", "routes/church-guide.tsx"),
   // Հին հասցեները՝ 301

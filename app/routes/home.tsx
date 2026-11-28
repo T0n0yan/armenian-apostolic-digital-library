@@ -27,6 +27,10 @@ import {resolveContentCategoryId} from "../../shared/telegram-bridge-contract";
 import { organizationJsonLd, seoMeta, websiteJsonLd } from "../utils/seo";
 import { sectionPath } from "../utils/material-path";
 import { RouteErrorPage } from "../components/error-page";
+import { remember } from "../data/memory-cache.server";
+import { listOverrides } from "../data/calendar.server";
+import { todayLine } from "../utils/church-calendar";
+import { yerevanDay } from "../utils/liturgy";
 
 export function meta({}: Route.MetaArgs) {
     return seoMeta({
@@ -38,12 +42,24 @@ export function meta({}: Route.MetaArgs) {
 }
 export async function loader({request}: Route.LoaderArgs) {
     const refresh = new URL(request.url).searchParams.get("refresh") === "1";
-    const [categories, places] = await Promise.all([
+    const day = yerevanDay();
+    const [categories, places, overrides] = await Promise.all([
         listActiveCategories(env.DB, refresh, request.signal),
         // The sacred places map is a section of its own, next to prayers and psalms.
         env.DB.prepare("SELECT COUNT(*) AS count FROM places WHERE published = 1").first<{ count: number }>().then((row) => row?.count ?? 0).catch(() => null),
+        // «Այսօր» տողի ձեռքով ուղղումները (տոնացույց)
+        remember(env.DB, `calendar-${day.slice(0, 4)}`, 600_000, () => listOverrides(env.DB, Number(day.slice(0, 4)))).catch(() => []),
     ]);
-    return {categories, places};
+    return {categories, places, today: todayLine(day, overrides)};
+}
+/** «Այսօր»՝ տոնը և պահքը (տոնացույցից), եթե կան։ */
+function TodayLine({today}: { today: ReturnType<typeof todayLine> }) {
+    const parts = [...today.feasts, today.fast ? "Պահք" : ""].filter(Boolean);
+    if (!parts.length) return null;
+    return (<Link className="mx-auto mt-1 flex w-fit max-w-full items-center gap-2 px-3 py-1 text-center text-[13.5px] leading-snug text-ink no-underline" to={`/church/calendar#${today.day}`}>
+        <span className="text-[11px] font-bold tracking-[1.2px] text-gold uppercase">Այսօր</span>
+        <span className="min-w-0">{parts.join(" · ")}</span>
+    </Link>);
 }
 const CategoryCard = memo(function CategoryCard({category, index}: { category: CategorySummary; index: number }) {
     const navigation = useNavigation();
@@ -165,6 +181,7 @@ export default function Home({loaderData}: Route.ComponentProps) {
             </div>
         </div>
         <HomeTitle/>
+        <TodayLine today={loaderData.today}/>
         <div className="hero-rise hero-rise-delay-2 mt-2"><DailyVerseCard/></div>
         <HomeSearch/>
         <section className="mt-7 grid gap-3.5" aria-labelledby="categories-title">
