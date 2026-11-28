@@ -165,4 +165,5 @@ export type GuideInput = NonNullable<ReturnType<typeof guideInput>>;
 export const GUIDE_TOOLS: Array<{ to: string; title: string; note: string }> = [
   { to: "/admin/questions", title: "Հարց ու պատասխան", note: "Հարցեր և «ինչ էին փնտրում ու չգտան»" },
   { to: "/admin/calendar", title: "Տոնացույց", note: "Ուղղումներ՝ ըստ Մայր Աթոռի տոնացույցի" },
+  { to: "/admin/patarag", title: "Պատարագամատույց", note: "Տեքստ, ձայնագրություն, տողերի ժամանակներ" },
 ];
